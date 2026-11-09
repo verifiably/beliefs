@@ -1,7 +1,9 @@
-"""Domain contracts — operators, dimensions and sorts.
+"""Domain contracts under base v2 — sorts, dimensions, relation templates,
+instantiations, bridges, estimand declarations and duration conventions.
 
 **Operators are domain-issued without exception**, and the base contract
-may not issue one. A domain-neutral relation like ``subtype-of`` belongs to a
+may not issue one. An operator is a template or a bridge, identified as
+``<namespace>/<name>``. A domain-neutral relation like ``subtype-of`` belongs to a
 general-purpose domain contract, since nothing requires a "domain" to be a
 natural science.
 
@@ -12,41 +14,59 @@ Two identities, deliberately different in kind:
 
 Succession is the *never redefine* rule made checkable. It compares the
 **canonical schema projection** — the meaning-bearing fields — so an editorial
-edit is free while an `arity` change is refused at load. Two fields are
+edit is free while a role's arity change is refused at load. Three fields are
 deliberately outside that projection:
 
-* ``description``, which is editorial by definition; and
+* ``description``, which is editorial by definition;
+* a template's ``definition``, which is meaning-bearing prose but not schema:
+  an editorial clarification is not a redefinition, and the assumptions
+  register carries what the template does not establish; and
 * ``retired``, because retirement is a status change and putting it in the
   projection would make **retiring** an identifier a redefinition of it, which
   is precisely the operation that must be permitted.
+
+All three are inside the contract's content identity, like every other byte of
+the document.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from pathlib import Path
 from types import MappingProxyType
-from typing import final
+from typing import ClassVar, Self, final
 
 from beliefs.contract.base import BaseContract
 from beliefs.contract.facets import FacetDecl, parse_facet_declarations
-from beliefs.errors import MalformedContract, SuccessionViolation, UnparsedContract
+from beliefs.errors import MalformedContract, SubclassRefused, SuccessionViolation, UnparsedContract
 from beliefs.identifiers import not_a_canonical_identifier
 from beliefs.identity import v1
+from beliefs.patterns import IdentifierClass
 from beliefs.sealed import sealed
 
 __all__ = [
+    "BridgeDecl",
+    "DatasetBinding",
     "DimensionDecl",
     "DomainContract",
-    "EdgeDecl",
+    "DurationConventionDecl",
     "EstimandDecl",
-    "OperatorDecl",
+    "ExternalRef",
+    "InstantiationDecl",
+    "ReleaseBinding",
+    "RoleDecl",
+    "RunOutputBinding",
+    "SchemeBinding",
+    "SelectionBinding",
+    "SortBinding",
     "SortDecl",
-    "VocabularyBinding",
+    "TemplateDecl",
+    "WorldKindBinding",
     "check_succession",
     "load_domain_contract",
+    "parse_binding",
     "parse_domain_contract",
 ]
 
@@ -57,151 +77,416 @@ _MINT = object()
 achieves in this language and what it cannot."""
 
 _NAME = re.compile(r"^[a-z][a-z0-9-]*$")
+_HEX64 = "[0-9a-f]{64}"
 
-_CONTRACT_FIELDS = frozenset({"contract", "version", "lineage", "sorts", "dimensions", "operators"})
-_CONTRACT_OPTIONAL = frozenset({"description", "facets", "estimands", "edges"})
-_OPERATOR_FIELDS = frozenset({"arity", "arg_sorts", "sign_apt", "layers", "dimensions"})
-_OPERATOR_OPTIONAL = frozenset({"description", "retired"})
-_DIMENSION_FIELDS = frozenset({"restriction_sort"})
-_SORT_FIELDS = frozenset({"vocabulary"})
+_CONTRACT_FIELDS = frozenset({"contract", "version", "lineage", "sorts", "dimensions"})
+_CONTRACT_OPTIONAL = frozenset(
+    {"description", "templates", "instantiations", "bridges", "duration_conventions", "estimands", "facets"}
+)
+_V1_FIELDS = ("operators", "edges")
+_SORT_FIELDS = frozenset({"binding"})
+_SORT_OPTIONAL = frozenset({"identifier_class", "categories", "description", "retired"})
+_DIMENSION_FIELDS = frozenset({"restriction_sort", "placement", "applies_to"})
+_TEMPLATE_FIELDS = frozenset({"roles", "sign_apt", "layers", "forms"})
+_TEMPLATE_OPTIONAL = frozenset({"edge", "definition", "external", "description", "retired"})
+_ROLE_OPTIONAL = frozenset({"min", "max", "coefficients", "constraint"})
+_INSTANTIATION_FIELDS = frozenset({"template", "roles"})
+_BRIDGE_FIELDS = frozenset({"template", "mapping", "roles"})
 _ESTIMAND_FIELDS = frozenset({"level_sorts", "measure_sort", "identification_sort", "conditioning_sort"})
-_EDGE_FIELDS = frozenset({"cause", "effect"})
-_EDGE_OPTIONAL = frozenset({"description", "retired"})
-_SLOT_INDEX = re.compile(r"^(0|[1-9][0-9]*)$")
+_EDITORIAL = frozenset({"description", "retired"})
+
+_ARITIES = ("one", "many")
+_NULL_FORM = "null"
+"""The form a sign-inapt template may not declare: a `null` claim carries the
+inapt tag and asserts an effect absent, which only a signed relation has."""
+_BRIDGE_REFUSED_MAPPINGS = ("exact", "broader")
+_ESTIMAND_TARGET_KINDS = ("instantiation", "bridge")
+
+
+# --- bindings -------------------------------------------------------------------
+
+_ARMS_CLOSED = False
+
+
+class SortBinding:
+    """What a sort's terms are checked against: **exactly one of six arms**.
+
+    A sealed tagged sum. Each arm is its own frozen dataclass, and the base
+    admits exactly the six declared in this module: a seventh, declared anywhere
+    later, is refused at class creation, and each arm is sealed in turn. That is
+    what makes ``projection`` **injective** across arms: every projection carries
+    the ``kind`` tag, so two arms whose remaining fields coincide never encode
+    alike, and no subclass can override ``projection`` to collide with a genuine
+    arm.
+
+    Injectivity matters to two readers: a contract's identity, taken through
+    ``SortDecl.schema_projection``, and a `ResolutionSnapshot`'s, taken over an
+    order the encoded binding determines. The fields must also be **canonical**
+    (NFC), because the encoding normalizes and two fields differing only in
+    normalization are two Python keys and one encoded binding.
+
+    Constructed by callers at `build_snapshot`, not only by the parser, so each
+    arm checks its own fields' grammar at construction. The checks that need the
+    base contract (that ``world_kind`` names a world kind, that the record-id
+    prefixes name declared kinds) are ``parse_binding``'s.
+    """
+
+    __slots__ = ()
+    kind: ClassVar[str]
+
+    def __new__(cls, *args: object, **kwargs: object) -> Self:
+        if cls is SortBinding:
+            raise TypeError("SortBinding is a sealed sum; construct one of its six arms")
+        return super().__new__(cls)
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        if _ARMS_CLOSED:
+            raise SubclassRefused(
+                f"SortBinding admits exactly the six arms the base contract's binding_kinds names; {cls.__name__} "
+                "would be a seventh, whose projection nothing keeps distinct from the others."
+            )
+        super().__init_subclass__(**kwargs)
+
+    def projection(self) -> dict[str, str]:
+        """The binding as canonical data, ``kind`` included."""
+        values = {field.name: getattr(self, field.name) for field in fields(self)}  # type: ignore[arg-type]
+        return {"kind": self.kind, **values}
+
+
+def _require_text(value: object, where: str) -> str:
+    problem = not_a_canonical_identifier(value)
+    if problem is not None:
+        raise MalformedContract(f"{where}: {problem}.")
+    assert isinstance(value, str)
+    return value
+
+
+def _require_record_id(value: object, kind: str, where: str) -> str:
+    text = _require_text(value, where)
+    if not re.fullmatch(f"{re.escape(kind)}:{_HEX64}", text):
+        raise MalformedContract(
+            f"{where}: {text!r} is not a {kind} record id, `{kind}:` followed by 64 lowercase hex characters"
+        )
+    return text
 
 
 @sealed
 @final
 @dataclass(frozen=True)
-class VocabularyBinding:
-    """A held ontology dataset by content identity, **or** a namespace with
-    an explicit release. **A bare namespace is refused** — the binding is exact or
-    it is absent, and a binding without a release would let the same identifier
-    mean different things in two checkouts.
+class ReleaseBinding(SortBinding):
+    """A vocabulary namespace at an explicit release. A bare namespace is not a
+    binding: without a release the same identifier can mean different things in
+    two checkouts, with no way to tell."""
 
-    That *or* is a sum, and three optional fields are a product: the record shape
-    admits inhabitants the binding does not have, and one of them is dangerous.
-    ``projection`` drops ``namespace`` and ``release`` on the dataset arm — which
-    is correct, since on that arm they carry no information — so a value holding
-    *both* a dataset identity and a namespace projects as though the namespace
-    were not there. Two such bindings that differ, and are therefore distinct keys
-    resolved against different vocabularies, encode identically; any identity
-    taken over a collection of them stops being determined by its contents. So
-    the sum is enforced here, at construction, which is the only place that can
-    make ``projection`` **injective** — and enforcing the sum is only half of it.
-    The fields must also be **canonical**, because the encoding normalizes to NFC
-    and two fields that differ only in normalization are two Python keys and one
-    encoded binding. Same collision, arriving through the text rather than through
-    the shape. Two readers depend on that: a contract's
-    content identity, taken through ``SortDecl.schema_projection``, and a
-    `ResolutionSnapshot`'s, taken over an order the encoded binding determines.
-    Colliding bindings would let two different contracts share one content
-    identity — which is what ``ContractMismatch`` compares — and let one snapshot
-    take two identities depending on the order its bindings were supplied.
-
-    Sealed, and alone among the declaration types in this module in being so. The
-    others are reachable only through the parser, inside a branded contract; this
-    one is **constructed by callers**, at `build_snapshot`, where a subclass
-    overriding ``projection`` would reopen the collision with the constructor
-    check still in place.
-    """
-
-    namespace: str | None
-    release: str | None
-    dataset_identity: str | None
+    kind: ClassVar[str] = "release"
+    namespace: str
+    release: str
 
     def __post_init__(self) -> None:
-        if self.dataset_identity is not None:
-            _require_binding_text(self.dataset_identity, "a binding's dataset identity")
-            if self.namespace is not None or self.release is not None:
-                raise MalformedContract(
-                    f"a binding names dataset {self.dataset_identity!r} and also namespace "
-                    f"{self.namespace!r}/{self.release!r}. A binding is one arm or the other; a value "
-                    "carrying both projects as the dataset alone, so two bindings resolved against different "
-                    "vocabularies would encode identically."
-                )
-            return
-        _require_binding_text(self.namespace, "a binding's namespace")
-        _require_binding_text(self.release, "a binding's release")
-
-    def projection(self) -> dict[str, object]:
-        if self.dataset_identity is not None:
-            return {"dataset": self.dataset_identity}
-        return {"namespace": self.namespace, "release": self.release}
+        _require_text(self.namespace, "a release binding's namespace")
+        _require_text(self.release, "a release binding's release")
 
 
-def _require_binding_text(value: object, where: str) -> None:
-    problem = not_a_canonical_identifier(value)
-    if problem is not None:
-        raise MalformedContract(f"{where}: {problem}.")
+@sealed
+@final
+@dataclass(frozen=True)
+class DatasetBinding(SortBinding):
+    """The members of one held dataset, by its record id."""
+
+    kind: ClassVar[str] = "dataset"
+    dataset: str
+
+    def __post_init__(self) -> None:
+        _require_record_id(self.dataset, "dataset", "a dataset binding's dataset")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class SchemeBinding(SortBinding):
+    """A computable identifier scheme: membership is the identifier-class check."""
+
+    kind: ClassVar[str] = "scheme"
+    scheme: str
+    version: str
+
+    def __post_init__(self) -> None:
+        _require_text(self.scheme, "a scheme binding's scheme")
+        _require_text(self.version, "a scheme binding's version")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class SelectionBinding(SortBinding):
+    """The dataset arm plus provenance: the members a classification rule
+    selected from a catalogue, held as their own dataset."""
+
+    kind: ClassVar[str] = "selection"
+    dataset: str
+    rule: str
+    selected: str
+    annotator: str
+
+    def __post_init__(self) -> None:
+        _require_record_id(self.dataset, "dataset", "a selection binding's dataset")
+        _require_record_id(self.rule, "classification-rule", "a selection binding's rule")
+        _require_record_id(self.selected, "dataset", "a selection binding's selected")
+        _require_text(self.annotator, "a selection binding's annotator")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class RunOutputBinding(SortBinding):
+    """The dataset arm plus provenance: the dataset a run produced."""
+
+    kind: ClassVar[str] = "run-output"
+    run: str
+    dataset: str
+
+    def __post_init__(self) -> None:
+        _require_record_id(self.run, "run", "a run-output binding's run")
+        _require_record_id(self.dataset, "dataset", "a run-output binding's dataset")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class WorldKindBinding(SortBinding):
+    """Records of one kernel world kind; the kernel's record-id grammar is the
+    sort's identifier class."""
+
+    kind: ClassVar[str] = "world-kind"
+    world_kind: str
+
+    def __post_init__(self) -> None:
+        _require_text(self.world_kind, "a world-kind binding's world_kind")
+        if not _NAME.fullmatch(self.world_kind):
+            raise MalformedContract(f"a world-kind binding's world_kind: {self.world_kind!r} is not a kind name")
+
+
+_ARMS: Mapping[str, type[SortBinding]] = MappingProxyType(
+    {
+        arm.kind: arm
+        for arm in (ReleaseBinding, DatasetBinding, SchemeBinding, SelectionBinding, RunOutputBinding, WorldKindBinding)
+    }
+)
+_ARMS_CLOSED = True
+
+
+def parse_binding(value: object, *, where: str, base: BaseContract) -> SortBinding:
+    """Parse one sort's ``binding``: a mapping naming its arm by ``kind`` and
+    carrying exactly that arm's fields."""
+    body = _mapping(value, where)
+    if "kind" not in body:
+        raise MalformedContract(f"{where}: missing field(s) kind; a binding names its arm")
+    kind = body["kind"]
+    if not isinstance(kind, str) or kind not in base.claim_grammar.binding_kinds or kind not in _ARMS:
+        raise MalformedContract(
+            f"{where}: binding kind {kind!r} is not one of the base contract's binding_kinds "
+            f"{list(base.claim_grammar.binding_kinds)}"
+        )
+    arm = _ARMS[kind]
+    names = tuple(field.name for field in fields(arm))  # type: ignore[arg-type]
+    # A field of another arm is an unknown field here: a binding carrying two
+    # arms' fields is refused, never read as one of them.
+    _fields(body, frozenset({"kind", *names}), frozenset(), where)
+    values = {name: _require_text(body[name], f"{where}: {name}") for name in names}
+    if kind == "selection":
+        _require_base_kind("classification-rule", base, f"{where}: rule")
+    if kind == "run-output":
+        _require_base_kind("run", base, f"{where}: run")
+    binding = _construct(arm, values, where)
+    if isinstance(binding, WorldKindBinding):
+        declared = base.kinds.get(binding.world_kind)
+        if declared is None or declared.role != "world":
+            raise MalformedContract(
+                f"{where}: world_kind {binding.world_kind!r} is not a world kind the base contract declares"
+            )
+    return binding
+
+
+def _construct(arm: type[SortBinding], values: Mapping[str, str], where: str) -> SortBinding:
+    try:
+        return arm(**values)
+    except MalformedContract as error:
+        raise MalformedContract(f"{where}: {error}") from None
+
+
+def _require_base_kind(kind: str, base: BaseContract, where: str) -> None:
+    if kind not in base.kinds:
+        raise MalformedContract(f"{where}: names {kind!r} records, a kind the base contract does not declare")
+
+
+# --- declarations ---------------------------------------------------------------
 
 
 @dataclass(frozen=True)
 class SortDecl:
     name: str
-    vocabulary: VocabularyBinding
+    binding: SortBinding
+    identifier_class: IdentifierClass | None
+    """``None`` exactly when the binding is ``world-kind``, whose class is the
+    kernel's record-id grammar."""
+    categories: tuple[str, ...]
     retired: bool = False
 
     def schema_projection(self) -> dict[str, object]:
-        return {"vocabulary": self.vocabulary.projection()}
+        projection: dict[str, object] = {"binding": self.binding.projection(), "categories": sorted(self.categories)}
+        if self.identifier_class is not None:
+            projection["identifier_class"] = {
+                "prefix": self.identifier_class.prefix,
+                "pattern": self.identifier_class.pattern,
+            }
+        return projection
 
 
 @dataclass(frozen=True)
 class DimensionDecl:
+    """A dimension, on exactly one side: ``placement`` is ``claim`` or
+    ``applicability``. ``applies_to`` lists the operators (local, or
+    ``<namespace>/<name>``) a claim over which may carry it, resolved at compile."""
+
     name: str
     restriction_sort: str
+    placement: str
+    applies_to: tuple[str, ...]
     retired: bool = False
 
     def schema_projection(self) -> dict[str, object]:
-        return {"restriction_sort": self.restriction_sort}
-
-
-@dataclass(frozen=True)
-class OperatorDecl:
-    """The declared schemas, and nothing else: ``arity``, ``arg_sorts``,
-    ``sign_apt``, ``layers``, ``dimensions`` are exactly ``arity(op)``,
-    ``ArgSort(op)``, ``signApt(op)``, ``Layers(op)``, ``Dims(op)``.
-
-    ``RestrictionSort(op)`` is resolved through the dimension declarations rather
-    than restated per operator, so two operators sharing ``population`` cannot
-    disagree about what a population restriction binds to.
-    """
-
-    name: str
-    arity: int
-    arg_sorts: tuple[str, ...]
-    sign_apt: bool
-    layers: tuple[str, ...]
-    dimensions: tuple[str, ...]
-    retired: bool = False
-
-    def schema_projection(self) -> dict[str, object]:
-        # `arg_sorts` is positional and `layers`/`dimensions` are not, and the
-        # difference is the schemas': `ArgSort(op) : Fin(arity(op)) → Sort` is a
-        # function on slots, while `Dims(op)` and `Layers(op)` are *finite sets*.
-        # Holding a set in the order its author happened to type it would make
-        # reordering one line of YAML a **redefinition**, refused at load — a
-        # false positive at the one place the corpus can least afford one.
         return {
-            "arity": self.arity,
-            "arg_sorts": list(self.arg_sorts),
-            "sign_apt": self.sign_apt,
-            "layers": sorted(self.layers),
-            "dimensions": sorted(self.dimensions),
+            "restriction_sort": self.restriction_sort,
+            "placement": self.placement,
+            "applies_to": sorted(self.applies_to),
         }
 
 
 @dataclass(frozen=True)
-class EstimandDecl:
-    """Which sorts fill the kernel's estimand structure at one operator. A
-    claim-vocabulary declaration under the four succession rules; keyed by the
-    operator it belongs to, and carrying no
-    `retired` of its own — retiring the operator retires it."""
+class RoleDecl:
+    """One role of a template. A ``one`` role holds one referent and its
+    ``min`` and ``max`` are both 1; a ``many`` role holds a multiset whose size
+    lies in ``[min, max]`` (``max`` ``None`` is unbounded). ``constraint`` names
+    the role categories a filling sort must declare."""
 
-    operator: str
+    name: str
+    arity: str
+    min: int
+    max: int | None
+    coefficients: bool
+    constraint: tuple[str, ...]
+
+    def projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "arity": self.arity,
+            "coefficients": self.coefficients,
+            "constraint": sorted(self.constraint),
+        }
+        if self.arity == "many":
+            projection["min"] = self.min
+            if self.max is not None:
+                projection["max"] = self.max
+        return projection
+
+
+@dataclass(frozen=True)
+class ExternalRef:
+    """A reference to an external definition and how the template maps to it.
+    Referencing a definition activates nothing."""
+
+    reference: str
+    mapping: str
+
+    def projection(self) -> dict[str, object]:
+        return {"reference": self.reference, "mapping": self.mapping}
+
+
+@dataclass(frozen=True)
+class TemplateDecl:
+    """A relation template: its roles, sign aptness, layers, forms and, for a
+    causal template, the edge its composites read."""
+
+    name: str
+    roles: Mapping[str, RoleDecl]
+    sign_apt: bool
+    layers: tuple[str, ...]
+    forms: tuple[str, ...]
+    edge: tuple[str, str] | None
+    """``(cause role, effect role)``, or ``None`` for a template forming no edge."""
+    definition: str | None
+    external: ExternalRef | None
+    retired: bool = False
+
+    def schema_projection(self) -> dict[str, object]:
+        # `layers` and `forms` are sets, so they are sorted: holding a set in
+        # the order its author typed it would make reordering a line of YAML a
+        # redefinition. `definition` is prose and stays out.
+        projection: dict[str, object] = {
+            "roles": {name: role.projection() for name, role in self.roles.items()},
+            "sign_apt": self.sign_apt,
+            "layers": sorted(self.layers),
+            "forms": sorted(self.forms),
+        }
+        if self.edge is not None:
+            projection["edge"] = {"cause": self.edge[0], "effect": self.edge[1]}
+        if self.external is not None:
+            projection["external"] = self.external.projection()
+        return projection
+
+
+@dataclass(frozen=True)
+class InstantiationDecl:
+    """Which sorts may fill each role of a template, in this contract. Its name
+    is bookkeeping and never enters claim identity."""
+
+    name: str
+    template: str
+    roles: Mapping[str, tuple[str, ...]]
+    retired: bool = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"template": self.template, "roles": {role: sorted(sorts) for role, sorts in self.roles.items()}}
+
+
+@dataclass(frozen=True)
+class BridgeDecl:
+    """A bridging relation: an operator of its own that maps to a template
+    (``narrower`` or ``contextual``), inherits its roles, sign aptness, forms
+    and edge, declares the sorts filling each role, and may narrow its layers
+    (``None`` inherits them)."""
+
+    name: str
+    template: str
+    mapping: str
+    roles: Mapping[str, tuple[str, ...]]
+    layers: tuple[str, ...] | None
+    retired: bool = False
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "template": self.template,
+            "mapping": self.mapping,
+            "roles": {role: sorted(sorts) for role, sorts in self.roles.items()},
+        }
+        if self.layers is not None:
+            projection["layers"] = sorted(self.layers)
+        return projection
+
+
+@dataclass(frozen=True)
+class EstimandDecl:
+    """Which sorts fill the kernel's estimand structure for one instantiation or
+    bridge. Keyed by the typed local address of its target, ``instantiation:<name>``
+    or ``bridge:<name>``, since the two tables are separate namespaces and may
+    share a name. Carries no `retired` of its own — retiring the target retires it.
+
+    Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the
+    estimand structure around these names.
+    """
+
+    target: str
     level_sorts: Mapping[str, str]
-    """Slot index, spelled as decimal text, → sort. A slot absent here admits
-    only a `continuous` contrast."""
+    """Role name → sort. A role absent here admits only a `continuous` contrast."""
     measure_sort: str
     identification_sort: str
     conditioning_sort: str
@@ -212,7 +497,7 @@ class EstimandDecl:
 
     def schema_projection(self) -> dict[str, object]:
         return {
-            "level_sorts": {slot: self.level_sorts[slot] for slot in sorted(self.level_sorts, key=int)},
+            "level_sorts": {role: self.level_sorts[role] for role in sorted(self.level_sorts)},
             "measure_sort": self.measure_sort,
             "identification_sort": self.identification_sort,
             "conditioning_sort": self.conditioning_sort,
@@ -220,46 +505,24 @@ class EstimandDecl:
 
 
 @dataclass(frozen=True)
-class EdgeDecl:
-    """Which slot of an operator is the cause and which the effect. The kernel
-    does not assume slot 0 is the cause — `binds(A, B)` is symmetric — so the direction is the owner's
-    declaration, and an operator with no row forms no edge."""
+class DurationConventionDecl:
+    """A duration convention: a mapping of scalar fields. beliefs-c23d2c fixes the
+    fields; until then none is validated beyond being a string or an integer."""
 
-    operator: str
-    cause: int
-    effect: int
-    retired: bool = False
+    name: str
+    fields: Mapping[str, str | int]
+
+    @property
+    def retired(self) -> bool:
+        return False
 
     def schema_projection(self) -> dict[str, object]:
-        return {"cause": self.cause, "effect": self.effect}
+        return {key: self.fields[key] for key in sorted(self.fields)}
 
 
-def _slot(value: object, arity: int, where: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value < arity:
-        raise MalformedContract(f"{where}: a slot is an integer in Fin({arity}), found {value!r}")
-    return value
-
-
-def _parse_edge(name: str, value: object, where: str, operators: Mapping[str, OperatorDecl]) -> EdgeDecl:
-    body = _mapping(value, where)
-    _fields(body, _EDGE_FIELDS, _EDGE_OPTIONAL, where)
-    if "/" in name:
-        raise MalformedContract(
-            f"{where}: {name!r} names another namespace; a direction is part of what an operator means and only "
-            "its own contract may declare it"
-        )
-    operator = operators.get(name)
-    if operator is None:
-        raise MalformedContract(f"{where}: {name!r} is not an operator this contract declares")
-    if "causal" not in operator.layers:
-        raise MalformedContract(f"{where}: {name!r} admits no causal layer, so it forms no edge")
-    cause = _slot(body["cause"], operator.arity, f"{where}: cause")
-    effect = _slot(body["effect"], operator.arity, f"{where}: effect")
-    if cause == effect:
-        raise MalformedContract(f"{where}: cause and effect must be distinct slots, both are {cause}")
-    return EdgeDecl(
-        operator=name, cause=cause, effect=effect, retired=_bool(body.get("retired", False), f"{where}: retired")
-    )
+_Declaration = (
+    SortDecl | DimensionDecl | TemplateDecl | InstantiationDecl | BridgeDecl | EstimandDecl | DurationConventionDecl
+)
 
 
 @sealed
@@ -291,24 +554,27 @@ class DomainContract:
 
     sorts: Mapping[str, SortDecl]
     dimensions: Mapping[str, DimensionDecl]
-    operators: Mapping[str, OperatorDecl]
-    edges: Mapping[str, EdgeDecl]
-    facets: Mapping[str, FacetDecl]
+    templates: Mapping[str, TemplateDecl]
+    instantiations: Mapping[str, InstantiationDecl]
+    bridges: Mapping[str, BridgeDecl]
     estimands: Mapping[str, EstimandDecl]
+    """Keyed by typed local target, ``instantiation:<name>`` or ``bridge:<name>``."""
+    duration_conventions: Mapping[str, DurationConventionDecl]
+    facets: Mapping[str, FacetDecl]
     content_identity: str
 
     base_identity: str
     """The content identity of the base contract this domain was **typed
     against**, recorded so that compilation can check it is the same one.
 
-    A domain's layer selections are validated at parse time against a base
-    contract, and nothing else ever revalidates them — the compiled operator
-    carries the layers as facts. So parsing under one base and compiling under
-    another is not a forgery and needs no forged object: both contracts are
-    genuine, both parsers did their jobs, and the result is a claim standing on a
-    layer the compiled base does not declare. What was missing is not a check on
-    either contract but a check **between** them, and this field is what makes
-    that check possible.
+    A domain's layer, form, placement, category and mapping selections are
+    validated at parse time against a base contract, and nothing else ever
+    revalidates them — the compiled declarations carry them as facts. So parsing
+    under one base and compiling under another is not a forgery and needs no
+    forged object: both contracts are genuine, both parsers did their jobs, and
+    the result is a claim standing on a tag the compiled base does not declare.
+    What was missing is not a check on either contract but a check **between**
+    them, and this field is what makes that check possible.
     """
 
     # As in `BaseContract` and `ProfileSpec`: the lock is this method, and
@@ -332,10 +598,12 @@ class DomainContract:
         predecessor: str | None,
         sorts: dict[str, SortDecl],
         dimensions: dict[str, DimensionDecl],
-        operators: dict[str, OperatorDecl],
-        edges: dict[str, EdgeDecl],
-        facets: dict[str, FacetDecl],
+        templates: dict[str, TemplateDecl],
+        instantiations: dict[str, InstantiationDecl],
+        bridges: dict[str, BridgeDecl],
         estimands: dict[str, EstimandDecl],
+        duration_conventions: dict[str, DurationConventionDecl],
+        facets: dict[str, FacetDecl],
         content_identity: str,
         base_identity: str,
     ) -> DomainContract:
@@ -352,10 +620,12 @@ class DomainContract:
             ("predecessor", predecessor),
             ("sorts", MappingProxyType(dict(sorts))),
             ("dimensions", MappingProxyType(dict(dimensions))),
-            ("operators", MappingProxyType(dict(operators))),
-            ("edges", MappingProxyType(dict(edges))),
-            ("facets", MappingProxyType(dict(facets))),
+            ("templates", MappingProxyType(dict(templates))),
+            ("instantiations", MappingProxyType(dict(instantiations))),
+            ("bridges", MappingProxyType(dict(bridges))),
             ("estimands", MappingProxyType(dict(estimands))),
+            ("duration_conventions", MappingProxyType(dict(duration_conventions))),
+            ("facets", MappingProxyType(dict(facets))),
             ("content_identity", content_identity),
             ("base_identity", base_identity),
         ):
@@ -367,7 +637,8 @@ class DomainContract:
         return f"{self.namespace}/{local}"
 
     def claim_vocabulary(self) -> dict[str, dict[str, object]]:
-        """Every claim-vocabulary identifier and its canonical schema projection.
+        """Every claim-vocabulary declaration, keyed by its typed address, and its
+        canonical schema projection.
 
         The scope restriction is deliberate: these rules govern claim
         vocabulary and nothing else. An unscoped "every identifier" would
@@ -376,7 +647,7 @@ class DomainContract:
         return {key: decl.schema_projection() for key, decl in self._declarations()}
 
     def retired_identifiers(self) -> frozenset[str]:
-        """The tombstoned claim-vocabulary identifiers.
+        """The tombstoned claim-vocabulary declarations, by typed address.
 
         Tracked beside the schema projection rather than inside it. Inside, the
         act of retiring would read as a redefinition and be refused; outside and
@@ -385,16 +656,23 @@ class DomainContract:
         """
         return frozenset(key for key, decl in self._declarations() if decl.retired)
 
-    def _declarations(
-        self,
-    ) -> tuple[tuple[str, SortDecl | DimensionDecl | OperatorDecl | EstimandDecl | EdgeDecl], ...]:
+    def _declarations(self) -> tuple[tuple[str, _Declaration], ...]:
+        # Each table is its own namespace, so each key carries its table's tag:
+        # the sort and the dimension `population` are two declarations, and so
+        # are an instantiation and a bridge sharing a name. An estimand's key is
+        # already a typed address, so its tag is followed by one.
         return (
             *((f"sort:{name}", decl) for name, decl in self.sorts.items()),
             *((f"dimension:{name}", decl) for name, decl in self.dimensions.items()),
-            *((f"operator:{name}", decl) for name, decl in self.operators.items()),
-            *((f"estimand:{name}", decl) for name, decl in self.estimands.items()),
-            *((f"edge:{name}", decl) for name, decl in self.edges.items()),
+            *((f"template:{name}", decl) for name, decl in self.templates.items()),
+            *((f"instantiation:{name}", decl) for name, decl in self.instantiations.items()),
+            *((f"bridge:{name}", decl) for name, decl in self.bridges.items()),
+            *((f"estimand:{target}", decl) for target, decl in self.estimands.items()),
+            *((f"duration-convention:{name}", decl) for name, decl in self.duration_conventions.items()),
         )
+
+
+# --- parse helpers ----------------------------------------------------------------
 
 
 def _mapping(value: object, where: str) -> dict[str, object]:
@@ -427,21 +705,64 @@ def _bool(value: object, where: str) -> bool:
     return value
 
 
-def _parse_vocabulary(value: object, where: str) -> VocabularyBinding:
-    if isinstance(value, str):
-        if not value.startswith("dataset:") or not value[len("dataset:") :]:
-            raise MalformedContract(f"{where}: {value!r} is not a binding; expected `dataset:<content-identity>`")
-        return VocabularyBinding(namespace=None, release=None, dataset_identity=value[len("dataset:") :])
-    binding = _mapping(value, where)
-    _fields(binding, frozenset({"namespace", "release"}), frozenset(), where)
-    namespace, release = binding["namespace"], binding["release"]
-    if not isinstance(namespace, str) or not namespace or not isinstance(release, str) or not release:
+def _no_duplicates(values: tuple[str, ...], where: str) -> None:
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            raise MalformedContract(f"{where}: {value!r} appears twice")
+        seen.add(value)
+
+
+def _closed_list(value: object, allowed: tuple[str, ...], where: str, *, what: str, empty: bool) -> tuple[str, ...]:
+    """A list drawn from one of the base contract's closed sets, without repeats."""
+    if not isinstance(value, list) or (not empty and not value):
+        raise MalformedContract(f"{where}: expected a {'' if empty else 'non-empty '}list of {what}s, found {value!r}")
+    for i, item in enumerate(value):
+        if not isinstance(item, str) or item not in allowed:
+            raise MalformedContract(
+                f"{where}[{i}]: {item!r} is not a {what} the base contract declares {list(allowed)}. A domain "
+                "selects from the base vocabulary and may not extend it."
+            )
+    items = tuple(value)
+    _no_duplicates(items, where)
+    return items
+
+
+def _reference(value: object, where: str, *, namespace: str, base_name: str, what: str) -> str:
+    """A local name, or ``<namespace>/<name>`` naming another contract's
+    declaration, deferred to compile."""
+    if not isinstance(value, str) or not value:
+        raise MalformedContract(f"{where}: {value!r} is not a {what} reference")
+    if "/" not in value:
+        return _name(value, where)
+    foreign, _, local = value.partition("/")
+    _name(foreign, f"{where}: namespace")
+    _name(local, f"{where}: {what}")
+    if foreign == namespace:
         raise MalformedContract(
-            f"{where}: a namespace binding needs a non-empty namespace and an explicit release. "
-            "A bare namespace is refused — without a release the same identifier can mean "
-            "different things in two checkouts, with no way to tell."
+            f"{where}: {value!r} names this contract's own namespace; a local {what} is spelled by its local "
+            f"name {local!r} and nothing else"
         )
-    return VocabularyBinding(namespace=namespace, release=release, dataset_identity=None)
+    if foreign == base_name:
+        raise MalformedContract(
+            f"{where}: {value!r} names the base contract, which declares no claim vocabulary; a {what} is a domain's"
+        )
+    return value
+
+
+def _sort_reference(value: object, where: str, *, namespace: str, base_name: str, sorts: Mapping[str, SortDecl]) -> str:
+    """Validate a local or deferred cross-contract sort reference."""
+    reference = _reference(value, where, namespace=namespace, base_name=base_name, what="sort")
+    if "/" not in reference and reference not in sorts:
+        raise MalformedContract(f"{where}: {reference!r} is not a sort this contract declares")
+    return reference
+
+
+def _declarations(value: object, where: str) -> dict[str, object]:
+    declarations = _mapping(value, where)
+    for name in declarations:
+        _name(name, f"{where}: {name}")
+    return declarations
 
 
 def _parse_lineage(value: object, where: str) -> str | None:
@@ -455,119 +776,206 @@ def _parse_lineage(value: object, where: str) -> str | None:
     return predecessor
 
 
-def _parse_operator(name: str, value: object, where: str) -> OperatorDecl:
+def _parse_identifier_class(value: object, where: str) -> IdentifierClass:
     body = _mapping(value, where)
-    _fields(body, _OPERATOR_FIELDS, _OPERATOR_OPTIONAL, where)
+    _fields(body, frozenset({"prefix", "pattern"}), frozenset(), where)
+    prefix, pattern = body["prefix"], body["pattern"]
+    if not isinstance(prefix, str) or not isinstance(pattern, str):
+        raise MalformedContract(f"{where}: prefix and pattern are strings, found {prefix!r} and {pattern!r}")
+    try:
+        return IdentifierClass(prefix=prefix, pattern=pattern)
+    except MalformedContract as error:
+        raise MalformedContract(f"{where}: {error}") from None
 
-    arity = body["arity"]
-    if isinstance(arity, bool) or not isinstance(arity, int) or arity < 0:
-        raise MalformedContract(f"{where}: arity must be a non-negative integer, found {arity!r}")
 
-    raw_sorts = body["arg_sorts"]
-    if not isinstance(raw_sorts, list):
-        raise MalformedContract(f"{where}: arg_sorts must be a list, found {raw_sorts!r}")
-    arg_sorts = tuple(
-        item if isinstance(item, str) else _name(item, f"{where}: arg_sorts[{i}]") for i, item in enumerate(raw_sorts)
+def _parse_sort(name: str, value: object, where: str, base: BaseContract) -> SortDecl:
+    body = _mapping(value, where)
+    _fields(body, _SORT_FIELDS, _SORT_OPTIONAL, where)
+    binding = parse_binding(body["binding"], where=f"{where}: binding", base=base)
+    identifier_class: IdentifierClass | None = None
+    if isinstance(binding, WorldKindBinding):
+        if "identifier_class" in body:
+            raise MalformedContract(
+                f"{where}: identifier_class is refused on a world-kind sort; its class is the kernel's record-id "
+                "grammar, `<kind>:` followed by 64 lowercase hex"
+            )
+    else:
+        if "identifier_class" not in body:
+            raise MalformedContract(
+                f"{where}: identifier_class is required on a {binding.kind!r} binding; it is what a term is checked "
+                "against at claim construction"
+            )
+        identifier_class = _parse_identifier_class(body["identifier_class"], f"{where}: identifier_class")
+    categories = _closed_list(
+        body.get("categories", []),
+        base.claim_grammar.role_categories,
+        f"{where}: categories",
+        what="role category",
+        empty=True,
     )
-    if len(arg_sorts) != arity:
-        raise MalformedContract(
-            f"{where}: arity is {arity} but arg_sorts has {len(arg_sorts)} entries. "
-            "ArgSort(op) is a function on Fin(arity(op)); a mismatch leaves a slot with no sort or a sort with no slot."
-        )
-
-    raw_layers = body["layers"]
-    if not isinstance(raw_layers, list) or not raw_layers:
-        raise MalformedContract(
-            f"{where}: layers must be a non-empty list: an operator admitting no layer would make "
-            "Claim uninhabited at that operator."
-        )
-    layers = tuple(_name(item, f"{where}: layers[{i}]") for i, item in enumerate(raw_layers))
-    _no_duplicates(layers, f"{where}: layers")
-
-    raw_dimensions = body["dimensions"]
-    if not isinstance(raw_dimensions, list):
-        raise MalformedContract(f"{where}: dimensions must be a list, found {raw_dimensions!r}")
-    dimensions = tuple(_name(item, f"{where}: dimensions[{i}]") for i, item in enumerate(raw_dimensions))
-    _no_duplicates(dimensions, f"{where}: dimensions")
-
-    return OperatorDecl(
+    return SortDecl(
         name=name,
-        arity=arity,
-        arg_sorts=arg_sorts,
-        sign_apt=_bool(body["sign_apt"], f"{where}: sign_apt"),
-        layers=layers,
-        dimensions=dimensions,
+        binding=binding,
+        identifier_class=identifier_class,
+        categories=categories,
         retired=_bool(body.get("retired", False), f"{where}: retired"),
     )
 
 
-def _no_duplicates(values: tuple[str, ...], where: str) -> None:
-    seen: set[str] = set()
-    for value in values:
-        if value in seen:
-            raise MalformedContract(f"{where}: {value!r} appears twice")
-        seen.add(value)
+def _parse_role(name: str, value: object, where: str, base: BaseContract) -> RoleDecl:
+    body = _mapping(value, where)
+    _fields(body, frozenset({"arity"}), _ROLE_OPTIONAL, where)
+    arity = body["arity"]
+    if arity not in _ARITIES:
+        raise MalformedContract(f"{where}: arity is `one` or `many`, found {arity!r}")
+    if arity == "one":
+        for bound in ("min", "max"):
+            if bound in body:
+                raise MalformedContract(
+                    f"{where}: `{bound}` is declared on a `one` role; min and max bound a `many` role only"
+                )
+        minimum, maximum = 1, 1
+    else:
+        minimum = _count(body.get("min", 1), f"{where}: min", floor=0)
+        maximum = None
+        if "max" in body:
+            maximum = _count(body["max"], f"{where}: max", floor=max(minimum, 1))
+    return RoleDecl(
+        name=name,
+        arity=str(arity),
+        min=minimum,
+        max=maximum,
+        coefficients=_bool(body.get("coefficients", False), f"{where}: coefficients"),
+        constraint=_closed_list(
+            body.get("constraint", []),
+            base.claim_grammar.role_categories,
+            f"{where}: constraint",
+            what="role category",
+            empty=True,
+        ),
+    )
 
 
-def _sort_reference(value: object, where: str, *, namespace: str, base_name: str, sorts: Mapping[str, SortDecl]) -> str:
-    """Validate a local or deferred cross-contract sort reference."""
-    if not isinstance(value, str) or not value:
-        raise MalformedContract(f"{where}: {value!r} is not a sort reference")
-    if "/" not in value:
-        _name(value, where)
-        if value not in sorts:
-            raise MalformedContract(f"{where}: {value!r} is not a sort this contract declares")
-        return value
-    foreign, _, local = value.partition("/")
-    _name(foreign, f"{where}: namespace")
-    _name(local, f"{where}: sort")
-    if foreign == namespace:
-        raise MalformedContract(
-            f"{where}: {value!r} names this contract's own namespace; a local sort is spelled by its local "
-            f"name {local!r} and nothing else"
-        )
-    if foreign == base_name:
-        raise MalformedContract(
-            f"{where}: {value!r} names the base contract, which declares no claim vocabulary; a slot sort is a domain's"
-        )
+def _count(value: object, where: str, *, floor: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < floor:
+        raise MalformedContract(f"{where}: expected an integer of at least {floor}, found {value!r}")
     return value
 
 
-def _parse_estimand_decl(
-    name: str,
-    value: object,
+def _parse_template(name: str, value: object, where: str, base: BaseContract) -> TemplateDecl:
+    body = _mapping(value, where)
+    _fields(body, _TEMPLATE_FIELDS, _TEMPLATE_OPTIONAL, where)
+    grammar = base.claim_grammar
+
+    roles: dict[str, RoleDecl] = {}
+    for role_name, role_body in _mapping(body["roles"], f"{where}: roles").items():
+        role_where = f"{where}: roles.{role_name}"
+        _name(role_name, role_where)
+        if role_name in grammar.reserved_roles:
+            raise MalformedContract(
+                f"{role_where}: {role_name!r} is a role the base contract reserves on every operator; no "
+                "template may declare it"
+            )
+        roles[role_name] = _parse_role(role_name, role_body, role_where, base)
+
+    sign_apt = _bool(body["sign_apt"], f"{where}: sign_apt")
+    layers = _closed_list(body["layers"], grammar.layers, f"{where}: layers", what="layer", empty=False)
+    forms = _closed_list(body["forms"], grammar.forms, f"{where}: forms", what="form", empty=False)
+    if _NULL_FORM in forms and not sign_apt:
+        raise MalformedContract(
+            f'{where}: forms includes "{_NULL_FORM}" on a sign-inapt template. A null claim asserts an effect '
+            "absent, which only a signed relation has."
+        )
+
+    edge: tuple[str, str] | None = None
+    if "edge" in body:
+        edge = _parse_edge(body["edge"], f"{where}: edge", roles=roles, layers=layers)
+
+    definition: str | None = None
+    if "definition" in body:
+        text = body["definition"]
+        if not isinstance(text, str) or not text.strip():
+            raise MalformedContract(f"{where}: definition is prose, found {text!r}")
+        definition = text
+
+    external: ExternalRef | None = None
+    if "external" in body:
+        external_where = f"{where}: external"
+        reference = _mapping(body["external"], external_where)
+        _fields(reference, frozenset({"reference", "mapping"}), frozenset(), external_where)
+        mapping = reference["mapping"]
+        if not isinstance(mapping, str) or mapping not in grammar.mapping_types:
+            raise MalformedContract(
+                f"{external_where}: mapping {mapping!r} is not one of the base contract's mapping_types "
+                f"{list(grammar.mapping_types)}"
+            )
+        external = ExternalRef(
+            reference=_require_text(reference["reference"], f"{external_where}: reference"), mapping=mapping
+        )
+
+    return TemplateDecl(
+        name=name,
+        roles=MappingProxyType(roles),
+        sign_apt=sign_apt,
+        layers=layers,
+        forms=forms,
+        edge=edge,
+        definition=definition,
+        external=external,
+        retired=_bool(body.get("retired", False), f"{where}: retired"),
+    )
+
+
+def _parse_edge(
+    value: object, where: str, *, roles: Mapping[str, RoleDecl], layers: tuple[str, ...]
+) -> tuple[str, str]:
+    body = _mapping(value, where)
+    _fields(body, frozenset({"cause", "effect"}), frozenset(), where)
+    if "causal" not in layers:
+        raise MalformedContract(f"{where}: the template admits no causal layer, so it forms no edge")
+    cause, effect = body["cause"], body["effect"]
+    for position, role in (("cause", cause), ("effect", effect)):
+        if not isinstance(role, str) or role not in roles:
+            raise MalformedContract(f"{where}: {position} {role!r} is not a role this template declares")
+    assert isinstance(cause, str) and isinstance(effect, str)
+    if cause == effect:
+        raise MalformedContract(f"{where}: cause and effect must be distinct roles, both are {cause!r}")
+    return cause, effect
+
+
+def _parse_role_sorts(
+    value: object, where: str, *, resolve: Callable[[object, str], str]
+) -> Mapping[str, tuple[str, ...]]:
+    roles: dict[str, tuple[str, ...]] = {}
+    for role, sorts in _mapping(value, where).items():
+        role_where = f"{where}.{role}"
+        _name(role, role_where)
+        if not isinstance(sorts, list) or not sorts:
+            raise MalformedContract(f"{role_where}: expected a non-empty list of sorts, found {sorts!r}")
+        listed = tuple(resolve(sort, f"{role_where}[{i}]") for i, sort in enumerate(sorts))
+        _no_duplicates(listed, role_where)
+        roles[role] = listed
+    return MappingProxyType(roles)
+
+
+def _parse_estimand_target(
+    key: str,
     where: str,
     *,
-    operators: Mapping[str, OperatorDecl],
-    resolve: Callable[[object, str], str],
-) -> EstimandDecl:
-    body = _mapping(value, where)
-    _fields(body, _ESTIMAND_FIELDS, frozenset({"description"}), where)
-    if name not in operators:
+    instantiations: Mapping[str, InstantiationDecl],
+    bridges: Mapping[str, BridgeDecl],
+) -> str:
+    kind, separator, name = key.partition(":")
+    if not separator or kind not in _ESTIMAND_TARGET_KINDS:
         raise MalformedContract(
-            f"{where}: {name!r} is not an operator this contract declares. An estimand declaration lives with its "
-            "operator."
+            f"{where}: {key!r} is not a typed target. An estimand declaration is keyed `instantiation:<name>` or "
+            "`bridge:<name>`: the two tables are separate namespaces, and an untyped key cannot say which it names."
         )
-    arity = operators[name].arity
-    if arity == 0:
-        raise MalformedContract(
-            f"{where}: {name!r} has arity 0 and admits no estimand — a contrast needs a slot to name"
-        )
-    raw_levels = _mapping(body["level_sorts"], f"{where}: level_sorts")
-    level_sorts: dict[str, str] = {}
-    for key, sort in raw_levels.items():
-        if not _SLOT_INDEX.fullmatch(key):
-            raise MalformedContract(f"{where}: level_sorts key {key!r} is not a slot index spelled as decimal text")
-        if int(key) >= arity:
-            raise MalformedContract(f"{where}: level_sorts names slot {key}, outside Fin({arity})")
-        level_sorts[key] = resolve(sort, f"{where}: level_sorts[{key}]")
-    return EstimandDecl(
-        operator=name,
-        level_sorts=MappingProxyType(level_sorts),
-        measure_sort=resolve(body["measure_sort"], f"{where}: measure_sort"),
-        identification_sort=resolve(body["identification_sort"], f"{where}: identification_sort"),
-        conditioning_sort=resolve(body["conditioning_sort"], f"{where}: conditioning_sort"),
-    )
+    _name(name, f"{where}: {kind} name")
+    declared = instantiations if kind == "instantiation" else bridges
+    if name not in declared:
+        raise MalformedContract(f"{where}: {name!r} is not a {kind} this contract declares")
+    return key
 
 
 def parse_domain_contract(
@@ -575,10 +983,10 @@ def parse_domain_contract(
 ) -> DomainContract:
     """Validate a parsed domain-contract document, or refuse it.
 
-    The base contract is required because a domain's layer selections are checked
-    against it: the layer set is **base-owned but per-operator
-    restricted**, and a domain that could mint a layer would be redefining what
-    kind of thing a claim is.
+    The base contract is required because a domain's selections are checked
+    against it: layers, forms, placements, role categories, binding kinds and
+    mapping types are **base-owned closed sets**, and a domain that could extend
+    one would be redefining what kind of thing a claim is.
 
     ``predecessor`` is required for the reason given on ``load_domain_contract``,
     and the check runs **here** rather than only at the file boundary. Validating
@@ -588,16 +996,20 @@ def parse_domain_contract(
 
     **Both dependencies are authenticated.** A parser that takes another parsed
     artifact and trusts it by shape has the hole its own callers were closed
-    against, one level in: the layer check below is only as good as the base
-    contract handed to it, and the succession check only as good as the
+    against, one level in: the closed-set checks below are only as good as the
+    base contract handed to them, and the succession check only as good as the
     predecessor. Which base was used is then recorded on the result, so that
     compilation can tell whether the contract in front of it was typed against
     the base it is being compiled with.
+
+    References to another contract's declarations (``<namespace>/<name>``) are
+    checked for form here and resolved at compile, which is where the other
+    contract is.
     """
     if not isinstance(base, BaseContract):
         raise UnparsedContract(
             f"base is a {type(base).__name__}, not a parsed BaseContract — use parse_base_contract("
-            "document, source=...) or load_base_contract(path). A domain's layers are checked against "
+            "document, source=...) or load_base_contract(path). A domain's selections are checked against "
             "the base contract and against nothing else afterwards."
         )
     if predecessor is not None and not isinstance(predecessor, DomainContract):
@@ -613,6 +1025,13 @@ def parse_domain_contract(
                 f"{source}: a domain contract declares no {section}; a kernel kind or relation signature is the "
                 "base contract's, and a domain contributes facets to kinds that already exist — refused"
             )
+    v1_fields = [section for section in _V1_FIELDS if section in root]
+    if v1_fields:
+        raise MalformedContract(
+            f"{source}: unknown field(s) {', '.join(v1_fields)}; the v1 grammar's operators and edges are replaced "
+            "by templates, instantiations and bridges under base v2, so a v1 document cannot parse by accident — "
+            "refused, never ignored"
+        )
     _fields(root, _CONTRACT_FIELDS, _CONTRACT_OPTIONAL, source)
 
     namespace = _name(root["contract"], f"{source}: contract")
@@ -629,78 +1048,127 @@ def parse_domain_contract(
     if isinstance(version, bool) or not isinstance(version, int) or version < 1:
         raise MalformedContract(f"{source}: version must be a positive integer, found {version!r}")
 
+    grammar = base.claim_grammar
+
     sorts = {
-        name: SortDecl(
-            name=name,
-            vocabulary=_parse_vocabulary(
-                _require_sort_body(body, f"{source}: sorts.{name}")["vocabulary"], f"{source}: sorts.{name}: vocabulary"
-            ),
-            retired=_bool(
-                _require_sort_body(body, f"{source}: sorts.{name}").get("retired", False),
-                f"{source}: sorts.{name}: retired",
-            ),
-        )
+        name: _parse_sort(name, body, f"{source}: sorts.{name}", base)
         for name, body in _declarations(root["sorts"], f"{source}: sorts").items()
     }
+
+    def resolve(value: object, where: str) -> str:
+        return _sort_reference(value, where, namespace=namespace, base_name=base.name, sorts=sorts)
+
+    def operator(value: object, where: str) -> str:
+        return _reference(value, where, namespace=namespace, base_name=base.name, what="operator")
 
     dimensions: dict[str, DimensionDecl] = {}
     for name, body in _declarations(root["dimensions"], f"{source}: dimensions").items():
         where = f"{source}: dimensions.{name}"
         decl = _mapping(body, where)
-        _fields(decl, _DIMENSION_FIELDS, frozenset({"description", "retired"}), where)
-        restriction_sort = _sort_reference(
-            decl["restriction_sort"],
-            f"{where}: restriction_sort",
-            namespace=namespace,
-            base_name=base.name,
-            sorts=sorts,
-        )
-        dimensions[name] = DimensionDecl(
-            name=name, restriction_sort=restriction_sort, retired=_bool(decl.get("retired", False), f"{where}: retired")
-        )
-
-    operators: dict[str, OperatorDecl] = {}
-    for name, body in _declarations(root["operators"], f"{source}: operators").items():
-        where = f"{source}: operators.{name}"
-        operator = _parse_operator(name, body, where)
-        for slot, sort in enumerate(operator.arg_sorts):
-            _sort_reference(
-                sort,
-                f"{where}: arg_sorts[{slot}]",
-                namespace=namespace,
-                base_name=base.name,
-                sorts=sorts,
+        _fields(decl, _DIMENSION_FIELDS, _EDITORIAL, where)
+        placement = decl["placement"]
+        if not isinstance(placement, str) or placement not in grammar.placements:
+            raise MalformedContract(
+                f"{where}: placement {placement!r} is not one of the base contract's placements "
+                f"{list(grammar.placements)}"
             )
-        for dimension in operator.dimensions:
-            if dimension not in dimensions:
-                raise MalformedContract(f"{where}: {dimension!r} is not a dimension this contract declares")
-        for layer in operator.layers:
-            if layer not in base.claim_grammar.layers:
-                raise MalformedContract(
-                    f"{where}: layer {layer!r} is not in the base contract's layer vocabulary. A domain selects "
-                    "from the base vocabulary and may not extend it."
-                )
-        operators[name] = operator
+        raw_applies = decl["applies_to"]
+        if not isinstance(raw_applies, list):
+            raise MalformedContract(f"{where}: applies_to must be a list of operators, found {raw_applies!r}")
+        applies_to = tuple(operator(item, f"{where}: applies_to[{i}]") for i, item in enumerate(raw_applies))
+        _no_duplicates(applies_to, f"{where}: applies_to")
+        dimensions[name] = DimensionDecl(
+            name=name,
+            restriction_sort=resolve(decl["restriction_sort"], f"{where}: restriction_sort"),
+            placement=placement,
+            applies_to=applies_to,
+            retired=_bool(decl.get("retired", False), f"{where}: retired"),
+        )
 
-    # `_mapping`, not `_declarations`: an edge key naming another namespace is
-    # not a malformed identifier, it is a name this contract may not use, and
-    # `_parse_edge` is the one place that says so. Routing
-    # through `_declarations`'s `_name` check first would refuse it with a
-    # generic "not an identifier" before that message is ever reached.
-    edges: dict[str, EdgeDecl] = {}
-    for name, body in _mapping(root.get("edges", {}), f"{source}: edges").items():
-        edges[name] = _parse_edge(name, body, f"{source}: edges.{name}", operators)
+    templates = {
+        name: _parse_template(name, body, f"{source}: templates.{name}", base)
+        for name, body in _declarations(root.get("templates", {}), f"{source}: templates").items()
+    }
+
+    instantiations: dict[str, InstantiationDecl] = {}
+    for name, body in _declarations(root.get("instantiations", {}), f"{source}: instantiations").items():
+        where = f"{source}: instantiations.{name}"
+        decl = _mapping(body, where)
+        _fields(decl, _INSTANTIATION_FIELDS, _EDITORIAL, where)
+        instantiations[name] = InstantiationDecl(
+            name=name,
+            template=_reference(
+                decl["template"], f"{where}: template", namespace=namespace, base_name=base.name, what="template"
+            ),
+            roles=_parse_role_sorts(decl["roles"], f"{where}: roles", resolve=resolve),
+            retired=_bool(decl.get("retired", False), f"{where}: retired"),
+        )
+
+    bridges: dict[str, BridgeDecl] = {}
+    for name, body in _declarations(root.get("bridges", {}), f"{source}: bridges").items():
+        where = f"{source}: bridges.{name}"
+        decl = _mapping(body, where)
+        _fields(decl, _BRIDGE_FIELDS, frozenset({"layers", *_EDITORIAL}), where)
+        if name in templates:
+            raise MalformedContract(
+                f"{where}: {name!r} is also a template of this contract. Templates and bridges are both operators, "
+                f"identified only as `{namespace}/{name}`, so the two would collide on one operator identifier."
+            )
+        mapping = decl["mapping"]
+        if not isinstance(mapping, str) or mapping not in grammar.mapping_types:
+            raise MalformedContract(
+                f"{where}: mapping {mapping!r} is not one of the base contract's mapping_types "
+                f"{list(grammar.mapping_types)}"
+            )
+        if mapping in _BRIDGE_REFUSED_MAPPINGS:
+            raise MalformedContract(
+                f"{where}: mapping {mapping!r} is refused on a bridge: an exact bridge is its template, and a "
+                "broader one commits to less than the evidence form it bridges to. A bridge is narrower or "
+                "contextual."
+            )
+        layers = None
+        if "layers" in decl:
+            layers = _closed_list(decl["layers"], grammar.layers, f"{where}: layers", what="layer", empty=False)
+        bridges[name] = BridgeDecl(
+            name=name,
+            template=_reference(
+                decl["template"], f"{where}: template", namespace=namespace, base_name=base.name, what="template"
+            ),
+            mapping=mapping,
+            roles=_parse_role_sorts(decl["roles"], f"{where}: roles", resolve=resolve),
+            layers=layers,
+            retired=_bool(decl.get("retired", False), f"{where}: retired"),
+        )
 
     facets = parse_facet_declarations(root.get("facets", {}), where=f"{source}: facets", namespace=namespace)
 
-    def resolve(value: object, where: str) -> str:
-        return _sort_reference(value, where, namespace=namespace, base_name=base.name, sorts=sorts)
-
     estimands: dict[str, EstimandDecl] = {}
-    for name, body in _declarations(root.get("estimands", {}), f"{source}: estimands").items():
-        estimands[name] = _parse_estimand_decl(
-            name, body, f"{source}: estimands.{name}", operators=operators, resolve=resolve
+    for key, body in _mapping(root.get("estimands", {}), f"{source}: estimands").items():
+        where = f"{source}: estimands.{key}"
+        target = _parse_estimand_target(key, where, instantiations=instantiations, bridges=bridges)
+        decl = _mapping(body, where)
+        _fields(decl, _ESTIMAND_FIELDS, frozenset({"description"}), where)
+        level_sorts: dict[str, str] = {}
+        for role, sort in _mapping(decl["level_sorts"], f"{where}: level_sorts").items():
+            _name(role, f"{where}: level_sorts key")
+            level_sorts[role] = resolve(sort, f"{where}: level_sorts.{role}")
+        estimands[target] = EstimandDecl(
+            target=target,
+            level_sorts=MappingProxyType(level_sorts),
+            measure_sort=resolve(decl["measure_sort"], f"{where}: measure_sort"),
+            identification_sort=resolve(decl["identification_sort"], f"{where}: identification_sort"),
+            conditioning_sort=resolve(decl["conditioning_sort"], f"{where}: conditioning_sort"),
         )
+
+    duration_conventions: dict[str, DurationConventionDecl] = {}
+    for name, body in _declarations(root.get("duration_conventions", {}), f"{source}: duration_conventions").items():
+        where = f"{source}: duration_conventions.{name}"
+        scalars: dict[str, str | int] = {}
+        for field, scalar in _mapping(body, where).items():
+            if isinstance(scalar, bool) or not isinstance(scalar, str | int):
+                raise MalformedContract(f"{where}: {field} is a string or an integer, found {scalar!r}")
+            scalars[field] = scalar
+        duration_conventions[name] = DurationConventionDecl(name=name, fields=MappingProxyType(scalars))
 
     contract = DomainContract._parsed(
         _MINT,
@@ -709,28 +1177,17 @@ def parse_domain_contract(
         predecessor=_parse_lineage(root["lineage"], f"{source}: lineage"),
         sorts=sorts,
         dimensions=dimensions,
-        operators=operators,
-        edges=edges,
-        facets=facets,
+        templates=templates,
+        instantiations=instantiations,
+        bridges=bridges,
         estimands=estimands,
+        duration_conventions=duration_conventions,
+        facets=facets,
         content_identity=v1.digest(DOMAIN_CONTRACT_DOMAIN, root),
         base_identity=base.content_identity,
     )
     check_succession(contract, predecessor)
     return contract
-
-
-def _require_sort_body(body: object, where: str) -> dict[str, object]:
-    decl = _mapping(body, where)
-    _fields(decl, _SORT_FIELDS, frozenset({"description", "retired"}), where)
-    return decl
-
-
-def _declarations(value: object, where: str) -> dict[str, object]:
-    declarations = _mapping(value, where)
-    for name in declarations:
-        _name(name, f"{where}: {name}")
-    return declarations
 
 
 def check_succession(contract: DomainContract, predecessor: DomainContract | None) -> None:

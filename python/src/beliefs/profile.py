@@ -10,7 +10,9 @@ artifact compiled from it:
     domain contracts┘   (compiled)     └─▶  claim schemas
 
 Kind and facet declarations compile into one private registry alongside the claim
-schemas. Operators belong to no kind.
+schemas: sorts, dimensions, templates, instantiations, bridges, estimand
+declarations and duration conventions, with the admission index derived from the
+instantiations. Operators (templates and bridges) belong to no kind.
 
 **`ProfileSpec` resolves; contracts authorize**. The two roles must not
 blur, and the sharp consequence is that **`ProfileSpec`'s own identity never
@@ -40,7 +42,16 @@ from nodes.core.registry import KindSpec, Registry, Violation
 
 from beliefs.contract.base import BaseContract, ClaimGrammar, CompositeGrammar, EstimandGrammar, FacetUse, RelationDecl
 from beliefs.contract.coordination import CoordinationContract
-from beliefs.contract.domain import DomainContract, EstimandDecl, OperatorDecl, VocabularyBinding, _name
+from beliefs.contract.domain import (
+    BridgeDecl,
+    DimensionDecl,
+    DomainContract,
+    EstimandDecl,
+    InstantiationDecl,
+    SortBinding,
+    TemplateDecl,
+    _name,
+)
 from beliefs.contract.facets import FieldDecl
 from beliefs.errors import (
     ContractMismatch,
@@ -51,17 +62,22 @@ from beliefs.errors import (
     WithdrawnFromAuthoring,
 )
 from beliefs.identity import v1
+from beliefs.patterns import IdentifierClass
 from beliefs.sealed import sealed
 
 __all__ = [
+    "CompiledBridge",
     "CompiledCoordinationKind",
     "CompiledDimension",
-    "CompiledEdge",
+    "CompiledDurationConvention",
     "CompiledEstimandDecl",
     "CompiledFacet",
+    "CompiledInstantiation",
     "CompiledKind",
     "CompiledOperator",
+    "CompiledRole",
     "CompiledSort",
+    "CompiledTemplate",
     "ProfileSpec",
     "compile_profile",
     "shipped_base",
@@ -71,6 +87,10 @@ __all__ = [
 ]
 
 PROFILE_DOMAIN = "science.profile.v1"
+
+_CLAIM_PLACEMENT = "claim"
+"""The placement of a dimension a claim's qualifiers may carry; the other base
+placement, `applicability`, is the estimand grammar's."""
 
 _MINT = object()
 """`compile_profile`'s own token — see `beliefs.contract.base._MINT` for what a
@@ -117,7 +137,11 @@ def _shipped_coordination(version: int) -> CoordinationContract:
 
 @cache
 def shipped_domain_contract(namespace: str) -> DomainContract:
-    """Parse a domain contract carried by this package, against the shipped base."""
+    """Parse a domain contract carried by this package, against the shipped base.
+
+    No pack ships under base v2: every contract is a genesis there, and a field's
+    first v2 pack is its own design act. So the resource directory is empty and
+    this refuses every namespace with ``ProfileError`` until one ships."""
     from beliefs.contract.document import parse_document
     from beliefs.contract.domain import parse_domain_contract
 
@@ -153,73 +177,155 @@ class CompiledCoordinationKind:
 @dataclass(frozen=True)
 class CompiledSort:
     term: str
-    vocabulary: VocabularyBinding
+    binding: SortBinding
+    identifier_class: IdentifierClass | None
+    categories: frozenset[str]
     retired: bool
     contract: str
 
     def schema_projection(self) -> dict[str, object]:
-        return {"vocabulary": self.vocabulary.projection(), "retired": self.retired}
+        projection: dict[str, object] = {
+            "binding": self.binding.projection(),
+            "categories": sorted(self.categories),
+            "retired": self.retired,
+        }
+        if self.identifier_class is not None:
+            projection["identifier_class"] = {
+                "prefix": self.identifier_class.prefix,
+                "pattern": self.identifier_class.pattern,
+            }
+        return projection
 
 
 @dataclass(frozen=True)
 class CompiledDimension:
     term: str
     restriction_sort: str
+    placement: str
+    applies_to: frozenset[str]
+    """The operator terms (templates and bridges) a claim over which may carry
+    this dimension, each resolved at compile."""
     retired: bool
     contract: str
 
     def schema_projection(self) -> dict[str, object]:
-        return {"restriction_sort": self.restriction_sort, "retired": self.retired}
-
-
-@dataclass(frozen=True)
-class CompiledEdge:
-    operator: str
-    cause: int
-    effect: int
-    retired: bool
-    contract: str
-
-    def schema_projection(self) -> dict[str, object]:
-        return {"cause": self.cause, "effect": self.effect, "retired": self.retired}
-
-
-@dataclass(frozen=True)
-class CompiledOperator:
-    """A declaration with every local name resolved to a term identifier.
-
-    Resolution is the compiled artifact's whole job. `arg_sorts` and `dimensions`
-    are written locally in a contract and are namespaced here, because a claim's
-    projection carries **term identifiers** and a local name is not one.
-    """
-
-    term: str
-    arity: int
-    arg_sorts: tuple[str, ...]
-    sign_apt: bool
-    layers: tuple[str, ...]
-    dimensions: tuple[str, ...]
-    retired: bool
-    contract: str
-
-    def schema_projection(self) -> dict[str, object]:
-        # Sets are sorted, slots are not — see `OperatorDecl.schema_projection`.
         return {
-            "arity": self.arity,
-            "arg_sorts": list(self.arg_sorts),
-            "sign_apt": self.sign_apt,
-            "layers": sorted(self.layers),
-            "dimensions": sorted(self.dimensions),
+            "restriction_sort": self.restriction_sort,
+            "placement": self.placement,
+            "applies_to": sorted(self.applies_to),
             "retired": self.retired,
         }
 
 
 @dataclass(frozen=True)
-class CompiledEstimandDecl:
-    """An `estimands:` entry with every sort resolved to a term identifier."""
+class CompiledRole:
+    name: str
+    arity: str
+    min: int
+    max: int | None
+    coefficients: bool
+    constraint: frozenset[str]
 
-    operator: str
+    def projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "arity": self.arity,
+            "coefficients": self.coefficients,
+            "constraint": sorted(self.constraint),
+        }
+        if self.arity == "many":
+            projection["min"] = self.min
+            if self.max is not None:
+                projection["max"] = self.max
+        return projection
+
+
+@dataclass(frozen=True)
+class CompiledTemplate:
+    """A template, under its operator term ``<namespace>/<name>``: what enters ``π_claim``."""
+
+    term: str
+    roles: Mapping[str, CompiledRole]
+    sign_apt: bool
+    layers: tuple[str, ...]
+    forms: tuple[str, ...]
+    edge: tuple[str, str] | None
+    """``(cause role, effect role)``, read by composites; ``None`` forms no edge."""
+    retired: bool
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "roles": {name: role.projection() for name, role in self.roles.items()},
+            "sign_apt": self.sign_apt,
+            "layers": sorted(self.layers),
+            "forms": sorted(self.forms),
+            "retired": self.retired,
+        }
+        if self.edge is not None:
+            projection["edge"] = {"cause": self.edge[0], "effect": self.edge[1]}
+        return projection
+
+
+@dataclass(frozen=True)
+class CompiledInstantiation:
+    """An instantiation with its template and every listed sort resolved to term
+    identifiers. Its term is bookkeeping and never enters claim identity."""
+
+    term: str
+    template: str
+    roles: Mapping[str, frozenset[str]]
+    retired: bool
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {
+            "template": self.template,
+            "roles": {role: sorted(sorts) for role, sorts in self.roles.items()},
+            "retired": self.retired,
+        }
+
+
+@dataclass(frozen=True)
+class CompiledBridge:
+    """A bridging relation, an operator of its own. Its roles are its template's
+    and ``layers`` is the effective set: the declared narrowing, or the
+    template's layers when it declares none."""
+
+    term: str
+    template: str
+    mapping: str
+    roles: Mapping[str, frozenset[str]]
+    layers: tuple[str, ...]
+    retired: bool
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {
+            "template": self.template,
+            "mapping": self.mapping,
+            "roles": {role: sorted(sorts) for role, sorts in self.roles.items()},
+            "layers": sorted(self.layers),
+            "retired": self.retired,
+        }
+
+
+CompiledOperator = CompiledTemplate | CompiledBridge
+"""An operator a claim names: a template or a bridge, both ``<namespace>/<name>``."""
+
+
+@dataclass(frozen=True)
+class CompiledEstimandDecl:
+    """An `estimands:` entry with every sort resolved to a term identifier, under
+    the compiled typed address of its target (``instantiation:<namespace>/<name>``
+    or ``bridge:<namespace>/<name>``).
+
+    Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the
+    estimand structure around these names.
+    """
+
+    target: str
     level_sorts: Mapping[str, str]
+    """Role name → sort term."""
     measure_sort: str
     identification_sort: str
     conditioning_sort: str
@@ -227,11 +333,21 @@ class CompiledEstimandDecl:
 
     def schema_projection(self) -> dict[str, object]:
         return {
-            "level_sorts": {slot: self.level_sorts[slot] for slot in sorted(self.level_sorts, key=int)},
+            "level_sorts": {role: self.level_sorts[role] for role in sorted(self.level_sorts)},
             "measure_sort": self.measure_sort,
             "identification_sort": self.identification_sort,
             "conditioning_sort": self.conditioning_sort,
         }
+
+
+@dataclass(frozen=True)
+class CompiledDurationConvention:
+    term: str
+    fields: Mapping[str, str | int]
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {key: self.fields[key] for key in sorted(self.fields)}
 
 
 @dataclass(frozen=True)
@@ -293,11 +409,20 @@ class ProfileSpec:
     claim_grammar: ClaimGrammar
     composite_grammar: CompositeGrammar
     estimand_grammar: EstimandGrammar
-    operators: Mapping[str, CompiledOperator]
-    edges: Mapping[str, CompiledEdge]
-    estimands: Mapping[str, CompiledEstimandDecl]
-    dimensions: Mapping[str, CompiledDimension]
     sorts: Mapping[str, CompiledSort]
+    dimensions: Mapping[str, CompiledDimension]
+    templates: Mapping[str, CompiledTemplate]
+    instantiations: Mapping[str, CompiledInstantiation]
+    bridges: Mapping[str, CompiledBridge]
+    estimands: Mapping[str, CompiledEstimandDecl]
+    """Keyed by the compiled typed address of each declaration's target,
+    ``instantiation:<namespace>/<name>`` or ``bridge:<namespace>/<name>``."""
+    duration_conventions: Mapping[str, CompiledDurationConvention]
+    admission: Mapping[str, tuple[str, ...]]
+    """The admission index: template term → the typed addresses
+    ``instantiation:<namespace>/<name>`` of every instantiation of it across the
+    activated contracts, retired ones included, sorted. Built from the contract
+    set alone, so no answer read from it depends on activation order."""
     coordination_kinds: Mapping[str, CompiledCoordinationKind]
     coordination_address_root: str | None
     coordination_query_kinds: frozenset[str]
@@ -320,7 +445,7 @@ class ProfileSpec:
     unconsulted contract exist to catch. This is a **resolution table** — what a claim's identifiers can be
     resolved against — and the consulted subset is whatever a derivation actually
     reaches. Nothing here computes it: the walk that would reaches through operator,
-    dimension, sort and vocabulary-binding triggers, not only facet namespaces.
+    instantiation, dimension, sort and binding triggers, not only facet namespaces.
     """
 
     compiled_identity: str
@@ -354,7 +479,7 @@ class ProfileSpec:
         Exposed because the property that merge order is inert is **not**
         enforced here: `science.identity.v1` sorts object keys at encode time, so
         any insertion order already yields the same bytes. What would break it is
-        a shape change — carrying the operators as a **sequence** rather than a
+        a shape change — carrying the templates as a **sequence** rather than a
         map keyed by term — and that is what a test can check.
         """
         coordination = None
@@ -371,14 +496,18 @@ class ProfileSpec:
             self.claim_grammar,
             self.estimand_grammar,
             self.composite_grammar,
-            self.operators,
-            self.dimensions,
-            self.sorts,
+            _ClaimTables(
+                sorts=self.sorts,
+                dimensions=self.dimensions,
+                templates=self.templates,
+                instantiations=self.instantiations,
+                bridges=self.bridges,
+                estimands=self.estimands,
+                duration_conventions=self.duration_conventions,
+            ),
             kinds=self.kinds,
             facets=self.facets,
             relations=self.relations,
-            estimands=self.estimands,
-            edges=self.edges,
             coordination=coordination,
         )
 
@@ -401,33 +530,122 @@ class ProfileSpec:
         return tuple(self._registry.check(node))
 
     def operator(self, term: str) -> CompiledOperator:
-        """Resolve an operator term identifier, or refuse.
+        """Resolve an operator term identifier — a template or a bridge — or refuse.
 
         A claim naming an operator whose declaring contract is not
         in the profile is a **local, static** failure, so it refuses here and
         nothing is minted. That is a different failure from a cross-corpus
         conflict, which is only visible when a derivation assembles a closure.
+        Templates and bridges share one identity position, and a contract may not
+        declare both under one name, so at most one table holds ``term``.
         """
-        try:
-            return self.operators[term]
-        except KeyError:
-            raise ProfileError(
-                f"no operator {term!r} in this profile. Operators are domain-issued; "
-                f"activated namespaces are {sorted(self.activated_contracts)}."
-            ) from None
+        template = self.templates.get(term)
+        if template is not None:
+            return template
+        bridge = self.bridges.get(term)
+        if bridge is not None:
+            return bridge
+        raise ProfileError(
+            f"no operator {term!r} in this profile. Operators (templates and bridges) are domain-issued; "
+            f"activated namespaces are {sorted(self.activated_contracts)}."
+        )
 
-    def estimand(self, term: str) -> CompiledEstimandDecl:
-        """The estimand declaration for an operator, or refuse. An operator with
-        no declaration admits no typed estimand, so a spec targeting a claim at
-        it refuses at construction."""
-        self.operator(term)
+    def template_of(self, operator: CompiledOperator) -> CompiledTemplate:
+        """The template whose roles, sign aptness, forms and edge ``operator``
+        has: itself, or a bridge's template."""
+        if isinstance(operator, CompiledTemplate):
+            return operator
         try:
-            return self.estimands[term]
+            return self.templates[operator.template]
         except KeyError:
+            raise ProfileError(f"bridge {operator.term!r} maps to {operator.template!r}, not in this profile") from None
+
+    def admitting(self, operator: str, assignment: Mapping[str, frozenset[str]], *, authoring: bool) -> tuple[str, ...]:
+        """The typed addresses of the declarations admitting a claim over
+        ``operator`` whose roles carry the sorts in ``assignment``.
+
+        For a template, the instantiations (from the admission index, in its
+        order) whose sort set for every role contains every sort the claim puts
+        in that role; for a bridge, the bridge itself when its own sort sets do.
+        ``authoring`` excludes retired declarations, as every authoring choice
+        does; decode passes ``False``, since a historical claim stays typeable
+        through a retired declaration. A reserved role (``within-model``) is
+        admitted on every operator by the kernel, so it reaches no declaration;
+        a role the template does not declare refuses.
+        """
+        declared = self.operator(operator)
+        template = self.template_of(declared)
+        roles: dict[str, frozenset[str]] = {}
+        for role, sorts in assignment.items():
+            if role in self.claim_grammar.reserved_roles:
+                continue
+            if role not in template.roles:
+                raise ProfileError(f"{operator!r} declares no role {role!r}; its roles are {sorted(template.roles)}")
+            if not isinstance(sorts, frozenset):
+                raise ProfileError(f"{operator!r}: role {role!r} carries {sorts!r}, not a frozenset of sort terms")
+            roles[role] = sorts
+        routes: tuple[tuple[str, CompiledInstantiation | CompiledBridge], ...]
+        if isinstance(declared, CompiledBridge):
+            routes = ((f"bridge:{declared.term}", declared),)
+        else:
+            routes = tuple((address, self.declaration_at(address)) for address in self.admission[declared.term])
+        return tuple(
+            address
+            for address, route in routes
+            if not (authoring and route.retired) and all(sorts <= route.roles[role] for role, sorts in roles.items())
+        )
+
+    def estimand_declarations(self, operator: str, admitting: tuple[str, ...]) -> tuple[CompiledEstimandDecl, ...]:
+        """The estimand declarations at the typed addresses ``admitting``, in the
+        order given. An admitting declaration with no estimand declaration
+        contributes none. Every address must be a declaration of ``operator``:
+        an instantiation of it, or the bridge itself."""
+        declared = self.operator(operator)
+        found: list[CompiledEstimandDecl] = []
+        for address in admitting:
+            target = self.declaration_at(address)
+            owner = target.term if isinstance(target, CompiledBridge) else target.template
+            if owner != declared.term:
+                raise ProfileError(f"{address!r} is a declaration of {owner!r}, not of operator {operator!r}")
+            declaration = self.estimands.get(address)
+            if declaration is not None:
+                found.append(declaration)
+        return tuple(found)
+
+    def declaration_at(self, address: str) -> CompiledInstantiation | CompiledBridge:
+        """Dereference a typed address, ``instantiation:<namespace>/<name>`` or
+        ``bridge:<namespace>/<name>``. The tables stay keyed by term: the kind
+        before the first ``:`` says which one to read."""
+        kind, separator, term = address.partition(":")
+        if not separator:
             raise ProfileError(
-                f"operator {term!r} declares no estimand; its contract's `estimands:` table has no entry for it"
-                ", so no spec can target a claim at it."
-            ) from None
+                f"{address!r} is not a typed address; expected `instantiation:<namespace>/<name>` or "
+                "`bridge:<namespace>/<name>`"
+            )
+        if kind == "instantiation":
+            instantiation = self.instantiations.get(term)
+            if instantiation is None:
+                raise ProfileError(f"no instantiation {term!r} in this profile")
+            return instantiation
+        if kind == "bridge":
+            bridge = self.bridges.get(term)
+            if bridge is None:
+                raise ProfileError(f"no bridge {term!r} in this profile")
+            return bridge
+        raise ProfileError(f"{address!r}: {kind!r} is not an addressable declaration; expected instantiation or bridge")
+
+    def claim_dimensions(self, operator: str) -> tuple[str, ...]:
+        """The claim-side dimensions whose ``applies_to`` names ``operator``,
+        sorted: the dimensions a claim over it may carry as qualifiers, wherever
+        they are declared."""
+        term = self.operator(operator).term
+        return tuple(
+            sorted(
+                name
+                for name, dimension in self.dimensions.items()
+                if dimension.placement == _CLAIM_PLACEMENT and term in dimension.applies_to
+            )
+        )
 
     def authorable_operators(self) -> tuple[str, ...]:
         """The operators the typed **authoring** constructor may offer.
@@ -438,45 +656,55 @@ class ProfileSpec:
         at decode would corrupt exactly the history retirement exists to
         preserve. So this filter governs authoring only.
 
-        **Retirement reaches an operator through its argument sorts.** Every slot
-        of `Fin(arity(op))` must be filled, so an operator one of whose
-        `arg_sorts` is retired cannot be authored at all: `Referent(s)` for a
-        retired `s` has nothing an author may select. Offering the operator and
-        then refusing every attempt to fill the slot would put the refusal one
-        step too late, at a boundary that belongs squarely to authoring.
+        **Retirement reaches an operator through its routes.** A claim's roles
+        are filled with sorts some live declaration admits: an instantiation of
+        the template, or the bridge itself. An operator none of whose routes is
+        live — retired, or listing only retired sorts for a role that must be
+        filled — cannot be authored at all, and offering it would put the refusal
+        one step too late.
 
-        **Permitted dimensions do not reach it.** `Dims(op)` is the set
-        of dimensions *permitted*, not required, so a retired dimension withdraws
-        only itself — see `authorable_dimensions`.
+        **Permitted dimensions do not reach it.** A dimension's ``applies_to``
+        permits, it does not require, so a retired dimension withdraws only
+        itself — see `authorable_dimensions`.
         """
-        return tuple(sorted(term for term, operator in self.operators.items() if self._is_authorable(operator)))
+        operators: tuple[CompiledOperator, ...] = (*self.templates.values(), *self.bridges.values())
+        return tuple(sorted(operator.term for operator in operators if self._is_authorable(operator)))
 
     def _is_authorable(self, operator: CompiledOperator) -> bool:
-        if operator.retired:
-            return False
-        return all(not self.sorts[sort].retired for sort in operator.arg_sorts)
+        return not operator.retired and self._has_live_route(operator)
+
+    def _has_live_route(self, operator: CompiledOperator) -> bool:
+        template = self.template_of(operator)
+        routes: tuple[CompiledInstantiation | CompiledBridge, ...]
+        if isinstance(operator, CompiledBridge):
+            routes = (operator,)
+        else:
+            routes = tuple(self.declaration_at(address) for address in self.admission[operator.term])
+        return any(
+            not route.retired
+            and all(
+                template.roles[role].min == 0 or any(not self.sorts[sort].retired for sort in sorts)
+                for role, sorts in route.roles.items()
+            )
+            for route in routes
+        )
 
     def authorable_dimensions(self, term: str) -> tuple[str, ...]:
         """The qualifier dimensions an author may select on ``term``.
 
         **The operator's own authorability is checked first, and a withdrawn
         operator refuses.** A qualifier is a qualifier *of* a claim, and there is
-        no claim to qualify at an operator that cannot be authored — offering a
-        dimension for one would let an author assemble most of a claim before the
-        boundary refused it, which is the same one-step-too-late failure that
-        made `authorable_operators` reach through argument sorts.
+        no claim to qualify at an operator that cannot be authored.
 
         Refusing is also what keeps two different facts apart. An empty tuple is
-        already the honest answer for a live operator that permits no dimensions
-        — `subtype-of` is one — so returning it here would make *"withdrawn"* and
-        *"has none"* the same answer, which is the `inapt`/`unsigned` collapse
-        committed one level down.
+        already the honest answer for a live operator that permits no dimensions,
+        so returning it here would make *"withdrawn"* and *"has none"* the same
+        answer, which is the `inapt`/`unsigned` collapse committed one level down.
 
         A dimension is itself withdrawn either by its own retirement or by the
-        retirement of the sort its restrictions bind to: a restriction is sorted
-        exactly as an argument is, so a retired restriction sort leaves
-        nothing selectable, and a dimension whose restriction cannot be bound is
-        not a dimension an author can use.
+        retirement of the sort its restrictions bind to. Only claim-side
+        dimensions are offered: an applicability-side one never appears in a
+        claim's qualifiers.
         """
         operator = self.operator(term)
         if not self._is_authorable(operator):
@@ -486,19 +714,19 @@ class ProfileSpec:
                 "against the frozen declaration."
             )
         return tuple(
-            sorted(
-                dimension
-                for dimension in operator.dimensions
-                if not self.dimensions[dimension].retired
-                and not self.sorts[self.dimensions[dimension].restriction_sort].retired
-            )
+            dimension
+            for dimension in self.claim_dimensions(term)
+            if not self.dimensions[dimension].retired
+            and not self.sorts[self.dimensions[dimension].restriction_sort].retired
         )
 
     def _withdrawal_reason(self, operator: CompiledOperator) -> str:
         if operator.retired:
             return "the operator is retired"
-        retired = sorted({sort for sort in operator.arg_sorts if self.sorts[sort].retired})
-        return f"its argument sorts {retired} are retired, so its slots cannot be filled"
+        return (
+            "no live route admits it: every instantiation of it (or, for a bridge, the bridge itself) is retired "
+            "or lists only retired sorts for a role that must be filled"
+        )
 
 
 def compile_profile(
@@ -631,45 +859,79 @@ def compile_profile(
             )
         )
 
-    sorts: dict[str, CompiledSort] = {}
-    dimensions: dict[str, CompiledDimension] = {}
-    operators: dict[str, CompiledOperator] = {}
-    edges: dict[str, CompiledEdge] = {}
-    estimands: dict[str, CompiledEstimandDecl] = {}
-
     # Sorted for a reproducible construction order, which helps a reader diffing
     # two profiles. It is **not** what makes merge order inert: identity.v1 sorts
     # object keys at encode time, so this loop's order cannot reach the identity
-    # either way.
-    for namespace in sorted(seen):
-        contract = seen[namespace]
-        for name, decl in contract.sorts.items():
-            sorts[contract.term(name)] = CompiledSort(
-                term=contract.term(name), vocabulary=decl.vocabulary, retired=decl.retired, contract=namespace
+    # either way. The tables are built in dependency order — sorts and templates
+    # first, from every contract, since a declaration may name another
+    # contract's — and nothing resolved later can depend on activation order.
+    contracts = [seen[namespace] for namespace in sorted(seen)]
+    sorts = {
+        contract.term(name): CompiledSort(
+            term=contract.term(name),
+            binding=decl.binding,
+            identifier_class=decl.identifier_class,
+            categories=frozenset(decl.categories),
+            retired=decl.retired,
+            contract=contract.namespace,
+        )
+        for contract in contracts
+        for name, decl in contract.sorts.items()
+    }
+    templates = {
+        contract.term(name): _compile_template(contract, decl)
+        for contract in contracts
+        for name, decl in contract.templates.items()
+    }
+    bridges = {
+        contract.term(name): _compile_bridge(contract, decl, sorts, templates)
+        for contract in contracts
+        for name, decl in contract.bridges.items()
+    }
+    dimensions = {
+        contract.term(name): _compile_dimension(contract, decl, sorts, templates, bridges)
+        for contract in contracts
+        for name, decl in contract.dimensions.items()
+    }
+    instantiations = {
+        contract.term(name): _compile_instantiation(contract, decl, sorts, templates)
+        for contract in contracts
+        for name, decl in contract.instantiations.items()
+    }
+    estimands: dict[str, CompiledEstimandDecl] = {}
+    for contract in contracts:
+        for decl in contract.estimands.values():
+            compiled = _compile_estimand(contract, decl, sorts, templates, instantiations, bridges)
+            estimands[compiled.target] = compiled
+    duration_conventions = {
+        contract.term(name): CompiledDurationConvention(
+            term=contract.term(name), fields=decl.fields, contract=contract.namespace
+        )
+        for contract in contracts
+        for name, decl in contract.duration_conventions.items()
+    }
+    admission = {
+        term: tuple(
+            sorted(
+                f"instantiation:{instantiation.term}"
+                for instantiation in instantiations.values()
+                if instantiation.template == term
             )
-    for namespace in sorted(seen):
-        contract = seen[namespace]
-        for name, dimension in contract.dimensions.items():
-            dimensions[contract.term(name)] = CompiledDimension(
-                term=contract.term(name),
-                restriction_sort=_resolve_sort(
-                    contract, dimension.restriction_sort, sorts, where=f"dimensions.{name}: restriction_sort"
-                ),
-                retired=dimension.retired,
-                contract=namespace,
-            )
-        for name, operator in contract.operators.items():
-            operators[contract.term(name)] = _compile_operator(contract, operator, sorts)
-        for name, edge in contract.edges.items():
-            edges[contract.term(name)] = CompiledEdge(
-                operator=contract.term(name),
-                cause=edge.cause,
-                effect=edge.effect,
-                retired=edge.retired,
-                contract=namespace,
-            )
-        for name, decl in contract.estimands.items():
-            estimands[contract.term(name)] = _compile_estimand(contract, decl, sorts)
+        )
+        for term in templates
+    }
+    tables = _ClaimTables(
+        # Wrapped so `compiled_identity` cannot come to describe a profile that
+        # no longer exists. The `dict()` copy is insurance against a later
+        # restructure that wraps something a caller still holds.
+        sorts=MappingProxyType(dict(sorts)),
+        dimensions=MappingProxyType(dict(dimensions)),
+        templates=MappingProxyType(dict(templates)),
+        instantiations=MappingProxyType(dict(instantiations)),
+        bridges=MappingProxyType(dict(bridges)),
+        estimands=MappingProxyType(dict(estimands)),
+        duration_conventions=MappingProxyType(dict(duration_conventions)),
+    )
 
     coordination_kinds = (
         {
@@ -696,16 +958,14 @@ def compile_profile(
         claim_grammar=base.claim_grammar,
         estimand_grammar=base.estimand_grammar,
         composite_grammar=base.composite_grammar,
-        # Wrapped so `compiled_identity` cannot come to describe a profile that
-        # no longer exists. The `dict()` copy is insurance against a later
-        # restructure that wraps something a caller still holds — today these are
-        # compiler locals nobody else can reach, so sabotaging the copy alone
-        # breaks nothing, and no test claims otherwise.
-        operators=MappingProxyType(dict(operators)),
-        edges=MappingProxyType(dict(edges)),
-        estimands=MappingProxyType(dict(estimands)),
-        dimensions=MappingProxyType(dict(dimensions)),
-        sorts=MappingProxyType(dict(sorts)),
+        sorts=tables.sorts,
+        dimensions=tables.dimensions,
+        templates=tables.templates,
+        instantiations=tables.instantiations,
+        bridges=tables.bridges,
+        estimands=tables.estimands,
+        duration_conventions=tables.duration_conventions,
+        admission=MappingProxyType(admission),
         coordination_kinds=MappingProxyType(dict(coordination_kinds)),
         coordination_address_root=(coordination.address_root if coordination is not None else None),
         coordination_query_kinds=(frozenset(coordination.query_kinds) if coordination is not None else frozenset()),
@@ -720,14 +980,10 @@ def compile_profile(
                 base.claim_grammar,
                 base.estimand_grammar,
                 base.composite_grammar,
-                operators,
-                dimensions,
-                sorts,
+                tables,
                 kinds=kinds,
                 facets=facets,
                 relations=base.relations,
-                estimands=estimands,
-                edges=edges,
                 coordination=coordination_projection,
             ),
         ),
@@ -738,27 +994,39 @@ def _coordination_projection(contract: CoordinationContract) -> dict[str, object
     return contract.schema_projection()
 
 
+@dataclass(frozen=True)
+class _ClaimTables:
+    """The compiled claim-vocabulary tables, each keyed by term (estimands by
+    compiled typed address)."""
+
+    sorts: Mapping[str, CompiledSort]
+    dimensions: Mapping[str, CompiledDimension]
+    templates: Mapping[str, CompiledTemplate]
+    instantiations: Mapping[str, CompiledInstantiation]
+    bridges: Mapping[str, CompiledBridge]
+    estimands: Mapping[str, CompiledEstimandDecl]
+    duration_conventions: Mapping[str, CompiledDurationConvention]
+
+
 def _projection(
     claim_grammar: ClaimGrammar,
     estimand_grammar: EstimandGrammar,
     composite_grammar: CompositeGrammar,
-    operators: Mapping[str, CompiledOperator],
-    dimensions: Mapping[str, CompiledDimension],
-    sorts: Mapping[str, CompiledSort],
+    tables: _ClaimTables,
     *,
     kinds: Mapping[str, CompiledKind],
     facets: Mapping[str, CompiledFacet],
     relations: Mapping[str, RelationDecl],
-    estimands: Mapping[str, CompiledEstimandDecl],
-    edges: Mapping[str, CompiledEdge],
     coordination: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
-    """Every declaration is keyed **by term identifier**, never held positionally.
+    """Every declaration is keyed **by term identifier** (an estimand declaration
+    by the compiled typed address of its target), never held positionally.
 
     That is the load-bearing choice. A sequence would make the merge order an
     identity input, so recompiling after activating the same domains in a
     different order would move the compiled identity — and the second per-kind source of truth was
     retired precisely so that a compiled artifact could not drift from what it was compiled from.
+    The admission index is derived from the instantiations and is not projected.
     """
     projection: dict[str, object] = {
         # Closed *sets*, so sorted here too. The base contract keeps its authored
@@ -776,57 +1044,213 @@ def _projection(
         "kinds": {name: kind.projection() for name, kind in kinds.items()},
         "facets": {key: facet.projection() for key, facet in facets.items()},
         "relations": {name: relation.projection() for name, relation in relations.items()},
-        "operators": {term: decl.schema_projection() for term, decl in operators.items()},
-        "estimands": {term: decl.schema_projection() for term, decl in estimands.items()},
-        "edges": {term: edge.schema_projection() for term, edge in sorted(edges.items())},
-        "dimensions": {term: decl.schema_projection() for term, decl in dimensions.items()},
-        "sorts": {term: decl.schema_projection() for term, decl in sorts.items()},
+        "sorts": {term: decl.schema_projection() for term, decl in tables.sorts.items()},
+        "dimensions": {term: decl.schema_projection() for term, decl in tables.dimensions.items()},
+        "templates": {term: decl.schema_projection() for term, decl in tables.templates.items()},
+        "instantiations": {term: decl.schema_projection() for term, decl in tables.instantiations.items()},
+        "bridges": {term: decl.schema_projection() for term, decl in tables.bridges.items()},
+        "estimands": {address: decl.schema_projection() for address, decl in tables.estimands.items()},
+        "duration_conventions": {term: decl.schema_projection() for term, decl in tables.duration_conventions.items()},
     }
     if coordination is not None:
         projection["coordination"] = dict(coordination)
     return projection
 
 
+def _local_term(contract: DomainContract, reference: str) -> str:
+    """A local name namespaced into ``contract``; a ``<namespace>/<name>`` reference as written."""
+    return reference if "/" in reference else contract.term(reference)
+
+
 def _resolve_sort(contract: DomainContract, name: str, sorts: Mapping[str, CompiledSort], *, where: str) -> str:
-    term = name if "/" in name else contract.term(name)
+    term = _local_term(contract, name)
     if term not in sorts:
         namespace = term.partition("/")[0]
         raise MalformedContract(
             f"{contract.namespace}: {where} names sort {term!r}, but no compiled contract declares sort {term!r} "
-            f"(namespace {namespace!r}). A cross-contract slot resolves at compile or refuses; nothing here can "
+            f"(namespace {namespace!r}). A cross-contract sort resolves at compile or refuses; nothing here can "
             "stand behind an undeclared sort."
         )
     return term
 
 
-def _compile_operator(
-    contract: DomainContract, operator: OperatorDecl, sorts: Mapping[str, CompiledSort]
-) -> CompiledOperator:
-    return CompiledOperator(
-        term=contract.term(operator.name),
-        arity=operator.arity,
-        arg_sorts=tuple(
-            _resolve_sort(contract, sort, sorts, where=f"operators.{operator.name}: arg_sorts[{slot}]")
-            for slot, sort in enumerate(operator.arg_sorts)
+def _resolve_template(
+    contract: DomainContract, reference: str, templates: Mapping[str, CompiledTemplate], *, where: str
+) -> CompiledTemplate:
+    term = _local_term(contract, reference)
+    template = templates.get(term)
+    if template is None:
+        raise ProfileError(
+            f"{contract.namespace}: {where} names template {term!r}, which no activated contract declares. An "
+            "instantiation or bridge of an undeclared template has no roles to fill, so it refuses at compile."
+        )
+    return template
+
+
+def _compile_template(contract: DomainContract, decl: TemplateDecl) -> CompiledTemplate:
+    return CompiledTemplate(
+        term=contract.term(decl.name),
+        roles=MappingProxyType(
+            {
+                name: CompiledRole(
+                    name=role.name,
+                    arity=role.arity,
+                    min=role.min,
+                    max=role.max,
+                    coefficients=role.coefficients,
+                    constraint=frozenset(role.constraint),
+                )
+                for name, role in decl.roles.items()
+            }
         ),
-        sign_apt=operator.sign_apt,
-        layers=operator.layers,
-        dimensions=tuple(contract.term(dimension) for dimension in operator.dimensions),
-        retired=operator.retired,
+        sign_apt=decl.sign_apt,
+        layers=decl.layers,
+        forms=decl.forms,
+        edge=decl.edge,
+        retired=decl.retired,
+        contract=contract.namespace,
+    )
+
+
+def _compile_role_sorts(
+    contract: DomainContract,
+    roles: Mapping[str, tuple[str, ...]],
+    template: CompiledTemplate,
+    sorts: Mapping[str, CompiledSort],
+    *,
+    where: str,
+) -> Mapping[str, frozenset[str]]:
+    """Resolve the sorts listed per role, after checking the role names match the
+    template's exactly and every listed sort declares the categories the role's
+    constraint requires."""
+    lacking = sorted(set(roles) - set(template.roles))
+    if lacking:
+        raise ProfileError(
+            f"{contract.namespace}: {where} names role(s) {', '.join(lacking)}, which {template.term!r} does not "
+            f"declare; its roles are {sorted(template.roles)}"
+        )
+    omitted = sorted(set(template.roles) - set(roles))
+    if omitted:
+        raise ProfileError(
+            f"{contract.namespace}: {where} omits role(s) {', '.join(omitted)} of {template.term!r}; every role "
+            "lists the sorts that may fill it"
+        )
+    resolved: dict[str, frozenset[str]] = {}
+    for role, listed in roles.items():
+        terms = frozenset(_resolve_sort(contract, sort, sorts, where=f"{where}.{role}") for sort in listed)
+        required = template.roles[role].constraint
+        for term in sorted(terms):
+            missing = required - sorts[term].categories
+            if missing:
+                raise ProfileError(
+                    f"{contract.namespace}: {where}.{role} lists {term!r}, which does not declare the role "
+                    f"categor(ies) {sorted(missing)} that {template.term!r}'s role {role!r} requires"
+                )
+        resolved[role] = terms
+    return MappingProxyType(resolved)
+
+
+def _compile_instantiation(
+    contract: DomainContract,
+    decl: InstantiationDecl,
+    sorts: Mapping[str, CompiledSort],
+    templates: Mapping[str, CompiledTemplate],
+) -> CompiledInstantiation:
+    where = f"instantiations.{decl.name}"
+    template = _resolve_template(contract, decl.template, templates, where=f"{where}: template")
+    return CompiledInstantiation(
+        term=contract.term(decl.name),
+        template=template.term,
+        roles=_compile_role_sorts(contract, decl.roles, template, sorts, where=f"{where}: roles"),
+        retired=decl.retired,
+        contract=contract.namespace,
+    )
+
+
+def _compile_bridge(
+    contract: DomainContract,
+    decl: BridgeDecl,
+    sorts: Mapping[str, CompiledSort],
+    templates: Mapping[str, CompiledTemplate],
+) -> CompiledBridge:
+    where = f"bridges.{decl.name}"
+    template = _resolve_template(contract, decl.template, templates, where=f"{where}: template")
+    layers = template.layers
+    if decl.layers is not None:
+        wider = [layer for layer in decl.layers if layer not in template.layers]
+        if wider:
+            raise ProfileError(
+                f"{contract.namespace}: {where}: layers {wider} are outside {template.term!r}'s layers "
+                f"{list(template.layers)}. A bridge may narrow its template's layers, never widen them."
+            )
+        layers = decl.layers
+    return CompiledBridge(
+        term=contract.term(decl.name),
+        template=template.term,
+        mapping=decl.mapping,
+        roles=_compile_role_sorts(contract, decl.roles, template, sorts, where=f"{where}: roles"),
+        layers=layers,
+        retired=decl.retired,
+        contract=contract.namespace,
+    )
+
+
+def _compile_dimension(
+    contract: DomainContract,
+    decl: DimensionDecl,
+    sorts: Mapping[str, CompiledSort],
+    templates: Mapping[str, CompiledTemplate],
+    bridges: Mapping[str, CompiledBridge],
+) -> CompiledDimension:
+    where = f"dimensions.{decl.name}"
+    restriction_sort = _resolve_sort(contract, decl.restriction_sort, sorts, where=f"{where}: restriction_sort")
+    applies_to: set[str] = set()
+    for reference in decl.applies_to:
+        # A local name resolves against this contract only, even when another
+        # activated contract declares the same local name.
+        term = _local_term(contract, reference)
+        if term not in templates and term not in bridges:
+            raise ProfileError(
+                f"{contract.namespace}: {where}: applies_to names {term!r}, which is no operator (template or "
+                "bridge) an activated contract declares"
+            )
+        applies_to.add(term)
+    return CompiledDimension(
+        term=contract.term(decl.name),
+        restriction_sort=restriction_sort,
+        placement=decl.placement,
+        applies_to=frozenset(applies_to),
+        retired=decl.retired,
         contract=contract.namespace,
     )
 
 
 def _compile_estimand(
-    contract: DomainContract, decl: EstimandDecl, sorts: Mapping[str, CompiledSort]
+    contract: DomainContract,
+    decl: EstimandDecl,
+    sorts: Mapping[str, CompiledSort],
+    templates: Mapping[str, CompiledTemplate],
+    instantiations: Mapping[str, CompiledInstantiation],
+    bridges: Mapping[str, CompiledBridge],
 ) -> CompiledEstimandDecl:
-    where = f"estimands.{decl.operator}"
+    where = f"estimands.{decl.target}"
+    kind, _, name = decl.target.partition(":")
+    term = contract.term(name)
+    # The parser admits only a target this contract declares, so both lookups hold.
+    target = instantiations[term] if kind == "instantiation" else bridges[term]
+    template = templates[target.template]
+    for role in decl.level_sorts:
+        if role not in template.roles:
+            raise ProfileError(
+                f"{contract.namespace}: {where}: level_sorts names role {role!r}, which {template.term!r} does not "
+                f"declare; its roles are {sorted(template.roles)}"
+            )
     return CompiledEstimandDecl(
-        operator=contract.term(decl.operator),
+        target=f"{kind}:{term}",
         level_sorts=MappingProxyType(
             {
-                slot: _resolve_sort(contract, sort, sorts, where=f"{where}: level_sorts[{slot}]")
-                for slot, sort in decl.level_sorts.items()
+                role: _resolve_sort(contract, sort, sorts, where=f"{where}: level_sorts.{role}")
+                for role, sort in decl.level_sorts.items()
             }
         ),
         measure_sort=_resolve_sort(contract, decl.measure_sort, sorts, where=f"{where}: measure_sort"),

@@ -1,7 +1,7 @@
 """What counts as an identifier, and where canonical form is required.
 
 Several boundaries admit free-form identifier text — a `Referent`'s sort and
-term, a `VocabularyBinding`'s fields, a `ResolutionSnapshot`'s members, a wire
+term, a `SortBinding`'s fields, a `ResolutionSnapshot`'s members, a wire
 value's tags — and values admitted at one are compared against values admitted at
 another. The predicates live here, once, so that agreement is structural rather
 than remembered.
@@ -21,7 +21,7 @@ implementation would then be the one it catches. So `not_an_identifier` is
 non-emptiness and stringness, and nothing about form.
 
 **The contract layer requires canonical form, because there is nothing to
-preserve and a collision to prevent.** A `VocabularyBinding`'s fields are not a
+preserve and a collision to prevent.** A `SortBinding`'s fields are not a
 π_claim position; they are the input to a projection two identities are taken
 over. Two bindings differing only in normalization are two dictionary keys and
 one encoded binding, which is the same collision a binding's sum already had to be

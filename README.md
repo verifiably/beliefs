@@ -77,7 +77,7 @@ python/     the implementation, package `beliefs`
 ts/         the TypeScript mirror of the shared identity encoding and claim projection
 fixtures/   the cross-language parity corpus both test suites read
 contracts/  the Science base contract
-domains/    the packaged domain contracts (biology)
+domains/    the packaged domain contracts (none ship under base v2)
 docs/       the guide, reference documents and glossary listed below
 tools/      vendored ops tools (timing wrapper, hygiene and docs checks)
 ```

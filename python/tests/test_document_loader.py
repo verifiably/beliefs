@@ -40,3 +40,20 @@ def test_malformed_yaml_is_refused_as_a_contract_error(tmp_path):
     path.write_text("a: [\n")
     with pytest.raises(MalformedContract, match="not well-formed YAML"):
         load_document(path, source="<test>")
+
+
+def test_a_single_quoted_pattern_keeps_its_escape_verbatim(tmp_path):
+    # Identifier-class patterns are written as single-quoted scalars, which keep
+    # the backslash: `\-` reaches the pattern grammar as two characters.
+    path = tmp_path / "c.yaml"
+    path.write_text("identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\\-]+' }\n")
+    assert load_document(path, source="<test>") == {"identifier_class": {"prefix": "EX", "pattern": "EX:[a-z0-9\\-]+"}}
+
+
+def test_a_double_quoted_pattern_with_a_class_escape_is_refused(tmp_path):
+    # A double-quoted scalar reads `\-` as a YAML escape, which YAML does not
+    # define, so the document is refused rather than read with the escape lost.
+    path = tmp_path / "c.yaml"
+    path.write_text('identifier_class: { prefix: EX, pattern: "EX:[a-z0-9\\-]+" }\n')
+    with pytest.raises(MalformedContract, match="not well-formed YAML"):
+        load_document(path, source="<test>")

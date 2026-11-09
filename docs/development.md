@@ -30,7 +30,7 @@ python/tests/         the test suite; tests/acceptance/ is run by `just test-acc
 python/tools/         fixture generators, the acceptance runner, the mm30 reproduction driver
 ts/                   @verifiably/beliefs: the TypeScript mirror of the shared encoding
 fixtures/             the parity corpus both test suites read and neither writes
-contracts/, domains/  the normative base contract and biology pack
+contracts/, domains/  the normative base contract; domain packs (none ship under base v2)
 tools/                vendored ops tools (tt, ops-check, ops-docs); never edited here
 ```
 
@@ -49,10 +49,10 @@ The kernel's main areas, under `python/src/beliefs/`:
 | Views and coordination | `coordination.py`, `view_query.py`, `contract/coordination.py`, `contracts/coordination/` | [contracts.md](contracts.md#coordination-contract) |
 | Publication | `publish.py`, `publication.py`, `publication_doors.py`, `transport.py` | [writes.md](writes.md#publication) |
 
-`python/src/beliefs/contracts/science/` and `python/src/beliefs/domains/biology/`
-hold packaged copies of `contracts/science/CONTRACT.yaml` and
-`domains/biology/DOMAIN.yaml`. `test_shipped_base.py` and `test_shipped_biology.py`
-fail unless each pair is byte-identical: edit the root file, then copy it. The
+`python/src/beliefs/contracts/science/` holds the packaged copy of
+`contracts/science/CONTRACT.yaml`. `test_shipped_base.py` fails unless the pair is
+byte-identical: edit the root file, then copy it. `python/src/beliefs/domains/` is
+the packaged domain-pack directory and is empty: no pack ships under base v2. The
 coordination contracts live only in the package. The names `science.identity.v1`,
 `science.belief.v1` and `contract: science` are rule and contract identities, not
 the package name, and stay as they are.
@@ -206,9 +206,13 @@ change), and add the kind to `KIND_ACTS` as above.
 
 ## Adding a domain contract
 
-1. Write the document with `lineage: genesis`. Name each operator's sorts, layers
-   and dimensions, and add `estimands` and `edges` where specs and composites need
+1. Write the document with `lineage: genesis`. Declare sorts with their bindings and
+   identifier classes, templates with their roles, layers and forms (and an `edge`
+   where composites need one), instantiations listing the sorts that fill each
+   role, any bridges, and dimensions with their placement and `applies_to`; add
+   `estimands` keyed `instantiation:<name>` or `bridge:<name>` where specs need
    them ([contracts.md](contracts.md#domain-contracts)).
+   `fixtures/contracts/testing.yaml` uses every part of the grammar.
 2. Load it with `load_domain_contract(path, base=shipped_base_contract(),
    predecessor=None)` and compile it with the base into a profile:
    `compile_profile(shipped_base_contract(), [contract])`.
@@ -219,11 +223,9 @@ change), and add the kind to `KIND_ACTS` as above.
    identity, and retire identifiers instead of removing them
    ([contracts.md](contracts.md#succession-and-retirement)).
 
-To ship a pack with beliefs, put it at
-`python/src/beliefs/domains/<namespace>/DOMAIN.yaml`, where
-`shipped_domain_contract(namespace)` reads it as a genesis contract. The biology
-pack also keeps a normative copy at `domains/biology/DOMAIN.yaml`, which must stay
-byte-identical.
+No pack ships with beliefs under base v2: `shipped_domain_contract(namespace)`
+reads `python/src/beliefs/domains/<namespace>/DOMAIN.yaml` as a genesis contract,
+and that directory is empty, so it refuses every namespace.
 
 ## When a check fails
 

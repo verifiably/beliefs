@@ -1,36 +1,48 @@
 # python/tests/fixtures/natural-systems-pilot-fixture.yaml
 #
 # The corpus-local contract of the natural-systems v2 time-series pilot's
-# surrogate-contrast assessment, transcribed exactly as the pilot spells it. This is a TEST FIXTURE,
-# not a domain:
-# the eventual `natural-systems` pack question ("which of this it owns") is
-# that project's, and this fixture decides nothing about it.
+# surrogate-contrast assessment, transcribed from the pilot's v1 spelling into
+# the base-v2 grammar. This is a TEST FIXTURE, not a domain: the eventual
+# `natural-systems` pack question ("which of this it owns") is that project's,
+# and this fixture decides nothing about it.
 #
-# One operator, one estimand declaration, four one-line-per-term sorts. The
+# One template, one instantiation, one estimand declaration, four sorts. The
+# pilot's v1 operator name is kept as the template's, and its two slots become
+# the roles `source` and `procedure`. Each sort's identifier class takes its
+# binding's namespace as the prefix, so a term is `<namespace>:<local>`. The
 # release date below is a stand-in for the pilot's `<sample date>` placeholder.
 contract: natural-systems-pilot
 version: 1
 lineage: genesis
 sorts:
   series-source:
-    vocabulary: { namespace: ns-pilot-series, release: "2026-09-15" }
+    binding: { kind: release, namespace: ns-pilot-series, release: "2026-09-15" }
+    identifier_class: { prefix: ns-pilot-series, pattern: 'ns-pilot-series:[a-z0-9\-]+' }
   observation-procedure:
-    vocabulary: { namespace: ns-pilot-procedures, release: "2026-09-15" }
+    binding: { kind: release, namespace: ns-pilot-procedures, release: "2026-09-15" }
+    identifier_class: { prefix: ns-pilot-procedures, pattern: 'ns-pilot-procedures:[a-z0-9\-]+' }
   statistic:
-    vocabulary: { namespace: ns-pilot-statistics, release: "2026-09-15" }
+    binding: { kind: release, namespace: ns-pilot-statistics, release: "2026-09-15" }
+    identifier_class: { prefix: ns-pilot-statistics, pattern: 'ns-pilot-statistics:[a-z0-9\-]+' }
   identification:
-    vocabulary: { namespace: ns-pilot-identification, release: "2026-09-15" }
+    binding: { kind: release, namespace: ns-pilot-identification, release: "2026-09-15" }
+    identifier_class: { prefix: ns-pilot-identification, pattern: 'ns-pilot-identification:[a-z0-9\-]+' }
 dimensions: {}
-operators:
+templates:
   departs-from-series-source-observation-procedure:
-    arity: 2
-    arg_sorts: [series-source, observation-procedure]
+    roles:
+      source: { arity: one }
+      procedure: { arity: one }
     sign_apt: true
     layers: [statistical]
-    dimensions: []
+    forms: [polar, "null"]
+instantiations:
+  series-source-observation-procedure:
+    template: departs-from-series-source-observation-procedure
+    roles: { source: [series-source], procedure: [observation-procedure] }
 estimands:
-  departs-from-series-source-observation-procedure:
-    level_sorts: { "1": observation-procedure }
+  instantiation:series-source-observation-procedure:
+    level_sorts: { procedure: observation-procedure }
     measure_sort: statistic
     identification_sort: identification
     conditioning_sort: statistic

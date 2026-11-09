@@ -5,18 +5,28 @@
 # same declarations. A contract under `python/tests/` would make the TypeScript
 # side reach into the Python tree for its own oracle.
 #
-# Deliberately not a real domain. Shipping `domains/biology/DOMAIN.yaml` is a
-# design act, not a test-support one: a biology example would be refused
-# at load, because it binds `population-group` to a placeholder and no population
-# vocabulary has been selected (still open). Inventing one here to make a test
-# pass would decide an open question by accident.
+# Deliberately not a real domain: no pack ships under base v2, and inventing a
+# field's declarations here to make a test pass would decide them by accident.
 #
-# The operator set is shaped by a coverage requirement: **every closed kernel
-# tag must be reachable**. So each of the base contract's four layers has an
-# operator admitting it, and both inhabitants of the polarity position are
-# reachable — `affects` and `correlates-with` are sign-apt, `subtype-of` and
-# `measured-by` are not. Adding a layer to the base contract with no operator
-# admitting it will fail the fixture's coverage assertion, which is the point.
+# The declarations are shaped by coverage requirements:
+# - **every closed kernel tag is reachable**: each of the base contract's four
+#   layers has a template admitting it, both polarity regimes are reachable
+#   (`affects` and `correlates-with` are sign-apt, `transforms` and `measured-by`
+#   are not), both forms and both placements are used, and each of the six
+#   binding kinds binds a sort;
+# - **both role arities are reachable**, a `many` role with bounds, one with
+#   coefficients and one with `min: 0`;
+# - **overlap is reachable**: `affects-entity-outcome` and `affects-entity-entity`
+#   both admit a claim over `cause: entity, effect: outcome`;
+# - **same-name declarations in separate tables coexist**: the sort and the
+#   dimension `population`, and the instantiation and the bridge `promotes`,
+#   whose estimand declarations differ so a lookup that dropped the kind would
+#   hand one operator the other's.
+#
+# Every sort but `procedure-spec` carries the prefix `EX`. Two identifier
+# classes are used: the narrow `EX:[a-z0-9\-]+` and the wide `EX:.+`, which
+# admits non-ASCII, combining and astral referents. Patterns are YAML
+# single-quoted scalars: a double-quoted scalar refuses the `\-` escape.
 
 contract: testing
 version: 1
@@ -24,76 +34,156 @@ lineage: genesis
 
 sorts:
   entity:
-    vocabulary: { namespace: EX, release: "2026-01-01" }
+    binding: { kind: release, namespace: EX, release: "2026-01-01" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
+    categories: [set]
   outcome:
-    vocabulary: { namespace: EX, release: "2026-01-01" }
+    binding: { kind: release, namespace: EX, release: "2026-01-01" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
   method:
-    vocabulary: { namespace: EX, release: "2026-01-01" }
-  cohort:
-    vocabulary: dataset:0000000000000000000000000000000000000000000000000000000000000000
-  measure:
-    vocabulary: { namespace: EX, release: "2026-01-01" }
-  identification:
-    vocabulary: { namespace: EX, release: "2026-01-01" }
+    binding: { kind: scheme, scheme: EX, version: "1" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
   level:
-    vocabulary: { namespace: EX, release: "2026-01-01" }
+    binding: { kind: release, namespace: EX, release: "2026-01-01" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
+  measure:
+    binding: { kind: release, namespace: EX, release: "2026-01-01" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
+  identification:
+    binding: { kind: release, namespace: EX, release: "2026-01-01" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
+  cohort:
+    binding: { kind: dataset, dataset: "dataset:0000000000000000000000000000000000000000000000000000000000000000" }
+    identifier_class: { prefix: EX, pattern: 'EX:.+' }
+  event:
+    binding:
+      kind: selection
+      dataset: "dataset:1111111111111111111111111111111111111111111111111111111111111111"
+      rule: "classification-rule:2222222222222222222222222222222222222222222222222222222222222222"
+      selected: "dataset:3333333333333333333333333333333333333333333333333333333333333333"
+      annotator: EX-annotator
+    identifier_class: { prefix: EX, pattern: 'EX:.+' }
+  product:
+    binding:
+      kind: run-output
+      run: "run:4444444444444444444444444444444444444444444444444444444444444444"
+      dataset: "dataset:5555555555555555555555555555555555555555555555555555555555555555"
+    identifier_class: { prefix: EX, pattern: 'EX:.+' }
+  procedure-spec:
+    binding: { kind: world-kind, world_kind: procedure }
+  population:
+    binding: { kind: release, namespace: EX, release: "2026-01-01" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
 
 dimensions:
   population:
     restriction_sort: cohort
+    placement: claim
+    applies_to: [affects, correlates-with, promotes]
   setting:
     restriction_sort: entity
+    placement: claim
+    applies_to: [affects]
+  follow-up:
+    restriction_sort: level
+    placement: applicability
+    applies_to: [affects]
 
-operators:
+templates:
   affects:
-    arity: 2
-    arg_sorts: [entity, outcome]
+    roles:
+      cause: { arity: one }
+      effect: { arity: one }
     sign_apt: true
-    layers: [causal]
-    dimensions: [population, setting]
+    layers: [causal, statistical]
+    forms: [polar, "null"]
+    edge: { cause: cause, effect: effect }
     description: An editorial field. Changing it must move contract identity and nothing else.
-
-  subtype-of:
-    arity: 2
-    arg_sorts: [entity, entity]
-    sign_apt: false
-    layers: [structural]
-    dimensions: []
-
   correlates-with:
-    arity: 2
-    arg_sorts: [entity, outcome]
+    roles:
+      parties: { arity: many, min: 2, max: 2 }
     sign_apt: true
     layers: [statistical]
-    dimensions: [population]
-
+    forms: [polar, "null"]
+  transforms:
+    roles:
+      inputs: { arity: many, min: 1, coefficients: true }
+      outputs: { arity: many, min: 1, coefficients: true }
+      facilitators: { arity: many, min: 0 }
+    sign_apt: false
+    layers: [structural, causal]
+    forms: [polar]
+    edge: { cause: inputs, effect: outputs }
   measured-by:
-    arity: 2
-    arg_sorts: [outcome, method]
+    roles:
+      subject: { arity: one }
+      instrument: { arity: one }
     sign_apt: false
     layers: [methodological]
-    dimensions: [setting]
+    forms: [polar]
 
-# Estimand declarations: which sorts fill the
-# kernel's estimand structure at each operator. `subtype-of` and `measured-by`
-# deliberately declare none, so a spec targeting a claim at them refuses.
+instantiations:
+  affects-entity-outcome:
+    template: affects
+    roles: { cause: [entity], effect: [outcome] }
+  affects-entity-entity:
+    template: affects
+    roles: { cause: [entity], effect: [entity, outcome] }
+  correlates-entity-outcome:
+    template: correlates-with
+    roles: { parties: [entity, outcome] }
+  correlates-event-product:
+    template: correlates-with
+    roles: { parties: [event, product] }
+  transforms-entities:
+    template: transforms
+    roles: { inputs: [entity], outputs: [entity], facilitators: [entity] }
+  measured-by-entity-method:
+    template: measured-by
+    roles: { subject: [entity], instrument: [method] }
+  promotes:
+    template: measured-by
+    roles: { subject: [product], instrument: [method] }
+
+bridges:
+  promotes:
+    template: affects
+    mapping: narrower
+    roles: { cause: [entity], effect: [outcome] }
+    layers: [causal]
+
+# Keyed by the typed local address of the declaration each belongs to. The two
+# `affects` declarations differ in two fields, so an estimand with level sort
+# `level` and measure `outcome` is admitted by neither in full.
 estimands:
-  affects:
-    level_sorts: { "0": level }
+  instantiation:affects-entity-outcome:
+    level_sorts: { cause: level }
     measure_sort: measure
     identification_sort: identification
     conditioning_sort: entity
-  correlates-with:
-    level_sorts: {}
+  instantiation:affects-entity-entity:
+    level_sorts: { cause: outcome }
+    measure_sort: outcome
+    identification_sort: identification
+    conditioning_sort: entity
+  instantiation:correlates-event-product:
+    level_sorts: { parties: level }
     measure_sort: measure
+    identification_sort: identification
+    conditioning_sort: entity
+  bridge:promotes:
+    level_sorts: { cause: level }
+    measure_sort: measure
+    identification_sort: identification
+    conditioning_sort: entity
+  instantiation:promotes:
+    level_sorts: { subject: level }
+    measure_sort: outcome
     identification_sort: identification
     conditioning_sort: entity
 
-# One edge-forming operator: `affects` at the
-# causal layer, cause in slot 0, effect in slot 1. `correlates-with` has no row
-# on purpose — a statistical operator forms no edge in a `dag`.
-edges:
-  affects: { cause: 0, effect: 1 }
+duration_conventions:
+  day: { unit: hours, length: 24 }
 
 # Two fixture facets. They exist to exercise the namespaced grammar, the
 # asymmetry between kinds, composition across contracts and the registry check.

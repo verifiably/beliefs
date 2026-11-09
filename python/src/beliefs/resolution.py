@@ -36,7 +36,7 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Literal, final
 
-from beliefs.contract.domain import VocabularyBinding
+from beliefs.contract.domain import SortBinding
 from beliefs.errors import ResolutionError
 from beliefs.identifiers import canonical, not_a_canonical_identifier
 from beliefs.identity import v1
@@ -158,7 +158,7 @@ class ResolutionSnapshot:
     exactly the defect the parameter exists to remove, and would do it invisibly.
     """
 
-    bindings: Mapping[VocabularyBinding, _BoundVocabulary]
+    bindings: Mapping[SortBinding, _BoundVocabulary]
     identity: str
 
     def __init__(self, *args: object, **kwargs: object) -> None:
@@ -188,14 +188,14 @@ class ResolutionSnapshot:
         worth exactly the **injectivity** of the key. `sort` is stable, so two
         distinct bindings encoding alike would be left in insertion order and one
         snapshot would take two identities. That injectivity is
-        `VocabularyBinding`'s: it enforces the dataset-or-namespace sum at construction and is
-        sealed, so no ordinary route produces a collision.
+        `SortBinding`'s: a sealed six-arm sum whose projection carries the arm's tag, so no ordinary
+        route produces a collision.
         """
         entries = [{"binding": binding.projection(), **state.projection()} for binding, state in self.bindings.items()]
         entries.sort(key=lambda entry: v1.encode(entry["binding"]))
         return {"bindings": entries}
 
-    def resolve(self, binding: VocabularyBinding, term: str) -> TermOutcome:
+    def resolve(self, binding: SortBinding, term: str) -> TermOutcome:
         """Resolve one term through one binding.
 
         The three refusing-to-look outcomes are distinguished **here**, where the
@@ -218,23 +218,23 @@ class ResolutionSnapshot:
 
 
 def _require_binding(binding: object) -> None:
-    """A snapshot's keys are `VocabularyBinding`s, and structural is not enough.
+    """A snapshot's keys are `SortBinding`s, and structural is not enough.
 
-    The keys are matched against `profile.sorts[...].vocabulary` by **value**, so
+    The keys are matched against `profile.sorts[...].binding` by **value**, so
     a lookalike that compares unequal resolves to `not-consulted` — a snapshot
     that was told about a vocabulary reporting that nobody looked at it. The
     binding's own construction is what rules out the ill-formed inhabitants
-    (the dataset-or-namespace sum); this rules out values that never went through it.
+    (the one-arm sum); this rules out values that never went through it.
     """
-    if not isinstance(binding, VocabularyBinding):
+    if not isinstance(binding, SortBinding):
         raise ResolutionError(
-            f"a snapshot is keyed by VocabularyBinding, found {type(binding).__name__}. Bindings are compared "
+            f"a snapshot is keyed by SortBinding, found {type(binding).__name__}. Bindings are compared "
             "by value against the sort declarations in force, and a lookalike matches none of them — so the "
             "snapshot would report `not-consulted` for a vocabulary it was handed."
         )
 
 
-def _require_terms(terms: object, binding: VocabularyBinding) -> Iterable[object]:
+def _require_terms(terms: object, binding: SortBinding) -> Iterable[object]:
     """A vocabulary is a **collection** of terms, and a string is not one of those.
 
     `str` satisfies `Iterable[str]`, so `{binding: "EX:gene"}` type-checks and
@@ -255,7 +255,7 @@ def _require_terms(terms: object, binding: VocabularyBinding) -> Iterable[object
     return terms
 
 
-def _require_term(term: object, binding: VocabularyBinding) -> str:
+def _require_term(term: object, binding: SortBinding) -> str:
     """A vocabulary's members are term identifiers — the same predicate `Referent` applies.
 
     The two have to agree, and this is the sharper direction: a `Referent` cannot
@@ -283,9 +283,9 @@ def _require_term(term: object, binding: VocabularyBinding) -> str:
 
 def build_snapshot(
     *,
-    readable: Mapping[VocabularyBinding, Iterable[str]] | None = None,
-    unreadable: Iterable[VocabularyBinding] = (),
-    not_present: Mapping[VocabularyBinding, str] | None = None,
+    readable: Mapping[SortBinding, Iterable[str]] | None = None,
+    unreadable: Iterable[SortBinding] = (),
+    not_present: Mapping[SortBinding, str] | None = None,
 ) -> ResolutionSnapshot:
     """Build a snapshot from what is readable and what is identified but not held.
 
@@ -295,9 +295,9 @@ def build_snapshot(
     `readable` entry is a different fact — the vocabulary was read and contains
     nothing — and the two produce different outcomes.
     """
-    table: dict[VocabularyBinding, _BoundVocabulary] = {}
+    table: dict[SortBinding, _BoundVocabulary] = {}
 
-    def _place(binding: VocabularyBinding, entry: _BoundVocabulary) -> None:
+    def _place(binding: SortBinding, entry: _BoundVocabulary) -> None:
         _require_binding(binding)
         if binding in table:
             raise ResolutionError(

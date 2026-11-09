@@ -231,11 +231,25 @@ def base_contract(base_contract_path):
     return load_base_contract(base_contract_path)
 
 
+@pytest.fixture(scope="session")
+def crossing_contract_path() -> Path:
+    return REPO_ROOT / "fixtures" / "contracts" / "crossing.yaml"
+
+
 @pytest.fixture()
 def testing_document(testing_contract_path) -> dict:
+    """The base-v2 `testing` contract, a fresh copy per test: callers mutate it."""
     import yaml
 
     return yaml.safe_load(testing_contract_path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture()
+def crossing_document(crossing_contract_path) -> dict:
+    """The base-v2 `crossing` contract, which names `testing`'s sorts and template."""
+    import yaml
+
+    return yaml.safe_load(crossing_contract_path.read_text(encoding="utf-8"))
 
 
 @pytest.fixture()

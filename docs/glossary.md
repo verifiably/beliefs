@@ -30,6 +30,14 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([contracts](contracts.md#base-contract))
 - <a id="belief"></a>**Belief** — The answer `evaluate` computes for a proposition
   under an exact policy binding, never stored. ([records](records.md#beliefs))
+- <a id="binding"></a>**Binding** — What a sort's terms are checked against: exactly one
+  of six arms, `release`, `dataset`, `scheme`, `selection`, `run-output` or
+  `world-kind`. It is in the contract's identity and never in a claim's.
+  ([contracts](contracts.md#domain-contracts))
+- <a id="bridge"></a>**Bridge** — An operator of its own that maps a literature verb to
+  a template (`narrower` or `contextual`), with the template's roles and its own
+  sorts per role. The kernel never follows the mapping.
+  ([contracts](contracts.md#domain-contracts))
 - <a id="capture-hold"></a>**Capture hold** — A corpus root's operation lock taken for
   one coherent read. It never waits: a capture while a writer holds the lock is
   refused (`BuildContended`), and so is a writer that arrives during a capture
@@ -71,7 +79,8 @@ the beliefs documents use, each linking the document that specifies or explains 
   an observation that holds them. It is a real record but never counts as
   evidence. ([records](records.md#datasets-sources-and-holdings))
 - <a id="domain-contract"></a>**Domain contract** — A namespaced contract that adds
-  sorts, dimensions, operators, estimands, edges and facets.
+  sorts, dimensions, templates, instantiations, bridges, estimand declarations,
+  duration conventions and facets.
   ([contracts](contracts.md#domain-contracts))
 - <a id="epoch"></a>**Epoch** — An immutable, published index of a world over an
   explicit set of corpus states. A read bound to an epoch names it.
@@ -95,6 +104,12 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="holdings-observation"></a>**Holdings observation** — A record of what one
   look at one location found: a digest, or absence.
   ([records](records.md#datasets-sources-and-holdings))
+- <a id="identifier-class"></a>**Identifier class** — A sort's literal prefix and
+  portable pattern; a term must match the whole pattern after NFC normalization.
+  ([contracts](contracts.md#domain-contracts))
+- <a id="instantiation"></a>**Instantiation** — A declaration of which sorts may fill
+  each role of a template in one contract. Several may admit one claim; its name
+  never enters claim identity. ([contracts](contracts.md#domain-contracts))
 - <a id="interpretation-rule"></a>**Interpretation rule** — The rule, frozen in the
   spec, that turns a run's outputs into an outcome and estimate.
   ([guide](guide.md#runs-and-reproducibility))
@@ -165,8 +180,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   [acquisition set](#acquisition-set)'s log and files, writes the log and the
   [tree](#tree) into the store, and closes with the dataset and one act report.
   ([writes](writes.md#sealing-an-acquisition))
-- <a id="sort"></a>**Sort** — The type of referent an argument slot or qualifier
-  dimension admits, bound to a vocabulary. ([contracts](contracts.md#domain-contracts))
+- <a id="sort"></a>**Sort** — The type of referent a role or qualifier dimension
+  admits. It has a binding, an identifier class (unless bound to a world kind) and
+  role categories. ([contracts](contracts.md#domain-contracts))
 - <a id="source"></a>**Source** — A record of a published work, addressed by its first
   accepted external identifier. ([records](records.md#datasets-sources-and-holdings))
 - <a id="source-assertion"></a>**Source assertion** — A record of what a source (a
@@ -180,6 +196,10 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#datasets-sources-and-holdings))
 - <a id="supersession"></a>**Supersession** — A `supersedes` link from a new record to
   the same-kind record it replaces. ([records](records.md#relations))
+- <a id="template"></a>**Template** — A relation template: named roles (`one` or `many`),
+  sign aptness, layers, forms and an optional cause/effect edge. Its
+  `<namespace>/<name>` is the operator a claim names.
+  ([contracts](contracts.md#domain-contracts))
 - <a id="unit"></a>**Unit** — One element a group or an exposure covers: a term
   (`{sort, term}`) or an interval (`{start, end}`); a list holds one shape.
   ([records](records.md#units))
