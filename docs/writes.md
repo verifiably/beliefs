@@ -63,6 +63,9 @@ ordinary writes. Each runs these steps in order, except `delete` (below):
 4. Build one `nodes` write plan and submit it as one engine transaction. The
    transaction applies completely or not at all.
 
+An `analysis-spec` is also refused unless every register it cites is a held
+`assumptions-register` describing an activated domain contract at its pinned
+identity (`RegisterNotCurrent`, [records.md](records.md#specs-runs-and-assessments)).
 A kind with its own door is refused through `add`. Holdings observations, act
 reports and publication records have no ordinary door at all. `delete` removes one
 record's file. It takes the lock, checks the pins and resolves its target first,

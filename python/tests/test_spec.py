@@ -652,6 +652,31 @@ def test_malformed_register_id_refuses_at_freeze(entry):
         freeze(draft(registers=(REGISTER, entry)), held_rules=held_rules())
 
 
+def test_registers_are_canonical_in_the_projection():
+    """T7-m1: the cited registers are a set; two authoring orders are one spec."""
+    other = "assumptions-register:" + "cd" * 32
+    one = freeze(draft(registers=(other, REGISTER)), held_rules=held_rules())
+    two = freeze(draft(registers=(REGISTER, other)), held_rules=held_rules())
+    assert one.identity == two.identity and one == two
+    assert one.registers == (REGISTER, other)
+    assert frozen_projection(one)["registers"] == [REGISTER, other]
+
+
+def test_a_duplicate_register_refuses():
+    with pytest.raises(MalformedSpec, match="more than once"):
+        freeze(draft(registers=(REGISTER, REGISTER)), held_rules=held_rules())
+
+
+def test_restore_refuses_registers_out_of_canonical_form():
+    other = "assumptions-register:" + "cd" * 32
+    spec = freeze(draft(registers=(REGISTER, other)), held_rules=held_rules())
+    for bad, reason in (([other, REGISTER], "own projection"), ([REGISTER, REGISTER], "more than once")):
+        mapping = frozen_projection(spec)
+        mapping["registers"] = bad
+        with pytest.raises(MalformedRecord, match=reason):
+            restore(*_identified(mapping), profile=TESTING_PROFILE)
+
+
 def test_restore_reads_registers():
     spec = freeze(draft(registers=(REGISTER,)), held_rules=held_rules())
     text = v1.encode(frozen_projection(spec))

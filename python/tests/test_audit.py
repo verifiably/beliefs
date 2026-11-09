@@ -50,12 +50,34 @@ proposition storing this claim contradicts an unmodified `spec_draft()` spec
 on claim identity alone."""
 
 
+def carry_registers(writer):
+    """A fixture corpus carries a one-entry register for each activated domain
+    contract (design §9.2, R9), so `register-missing` is not every audit's
+    finding; the register hygiene tests below use a corpus without one."""
+    from beliefs.register import AssumptionsRegister, RegisterEntry
+
+    for namespace, identity in writer.profile.activated_contracts.items():
+        if namespace == "coordination":
+            continue
+        sort = min(term for term, declared in writer.profile.sorts.items() if declared.contract == namespace)
+        entry = RegisterEntry("fixture collapses", "fixture licenses", "fixture leaves unestablished")
+        register = AssumptionsRegister(f"{namespace}:{identity}", None, {f"sort:{sort}": entry})
+        writer.add(stored.assumptions_register_node(register))
+    return writer
+
+
 @pytest.fixture()
 def writer(tmp_path):
     # `TESTING_PROFILE`, not BASE: every fixture assessment here carries a
     # typed estimand against `testing/affects`, which the recomputation
     # (`check_assessment`) decodes under the writer's own profile before it
     # ever reaches the run's closure.
+    return carry_registers(_testing_writer(tmp_path / "corpus"))
+
+
+@pytest.fixture()
+def bare_writer(tmp_path):
+    """`writer` without its register: the hygiene report's own subject."""
     return _testing_writer(tmp_path / "corpus")
 
 
@@ -1467,7 +1489,7 @@ from beliefs.audit import check_composite, check_supersedes_kinds
 
 
 def _composite_corpus(tmp_path):
-    w = _composite_writer(tmp_path / "corpus")
+    w = carry_registers(_composite_writer(tmp_path / "corpus"))
     _proposition(w, "ab", _claim("EX:a", "EX:b"))
     _proposition(w, "bc", _claim("EX:b", "EX:c", polarity="negative"))
     minted = w.add(stored.composite_node(_build(w, ["proposition:ab", "proposition:bc"]), title="g"))
@@ -1567,3 +1589,196 @@ def test_check_composite_reads_form_only_and_never_a_snapshot(tmp_path):
     writer, minted = _composite_corpus(tmp_path)
     outcome = check_composite(reopen(writer.root), reopen(writer.root).get(minted.id), profile=writer.profile)
     assert outcome.checked and outcome.contradiction is None
+
+
+# --- the assumptions-register hygiene report (design §9.2, §6.5) ------------
+
+_PROSE = {"collapses": "c", "licenses": "l", "not_established": "n"}
+
+
+def _testing_pin() -> str:
+    return "testing:" + TESTING_PROFILE.activated_contracts["testing"]
+
+
+def _register_value(keys, *, describes=None, previous=None):
+    from beliefs.register import AssumptionsRegister, RegisterEntry
+
+    return AssumptionsRegister(
+        describes=describes or _testing_pin(),
+        previous=previous,
+        entries={key: RegisterEntry(**_PROSE) for key in keys},
+    )
+
+
+def _mint_register(writer, keys, **fields) -> str:
+    return writer.add(stored.assumptions_register_node(_register_value(keys, **fields))).id
+
+
+def _register_codes(writer, profile=None):
+    return sorted(
+        (f.code, f.ref, f.detail)
+        for f in corpus.corpus_check(reopen(writer.root), profile or writer.profile)
+        if f.code.startswith("register-") or f.code == "bridging-register-uncited"
+    )
+
+
+def _promotes_spec(writer, registers=()):
+    """A spec whose target is a claim over the bridge `testing/promotes`, with
+    the estimand built for that claim, so the write door admits it."""
+    from decimal import Decimal
+
+    from fixtures_cut3 import UNCONSULTED
+
+    from beliefs.estimand import Control, LevelsContrast, Measure, build_applicability, build_estimand
+
+    claim = build_claim(
+        TESTING_PROFILE,
+        operator="testing/promotes",
+        roles={"cause": Referent("testing/entity", "EX:gene-x"), "effect": Referent("testing/outcome", "EX:pheno-y")},
+        layer="causal",
+        polarity="positive",
+    )
+    target_id = "proposition:promotes"
+    if not writer.read_view.holds(target_id):
+        writer.add(stored.proposition_node("promotes", title="promotes", claim=project_claim(claim)))
+    estimand, _ = build_estimand(
+        TESTING_PROFILE,
+        claim,
+        snapshot=UNCONSULTED,
+        contrast=LevelsContrast(
+            role="cause",
+            member=None,
+            baseline=Referent("testing/level", "EX:ndmm"),
+            comparison=Referent("testing/level", "EX:pd"),
+        ),
+        measure=Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
+        reference=Decimal(0),
+        control=Control(identification=Referent("testing/identification", "EX:observational"), conditioning=()),
+    )
+    applicability, _ = build_applicability(TESTING_PROFILE, claim, {}, snapshot=UNCONSULTED)
+    spec = freeze(
+        spec_draft(target=target_id, estimand=estimand, applicability=applicability, registers=tuple(registers)),
+        held_rules=spec_rules(),
+    )
+    return writer.add(stored.analysis_spec_node(spec)).id
+
+
+class TestRegisterHygiene:
+    def test_bridging_register_uncited_then_silent(self, bare_writer):
+        """Case 10 and 10a: a spec targeting a bridged claim and citing no
+        register carrying `bridge:testing/promotes` is reported; citing one
+        silences it; an `instantiation:` entry of the same local name does not."""
+        uncited = _promotes_spec(bare_writer)
+        bridge = _mint_register(bare_writer, ["bridge:testing/promotes"])
+        cited = _promotes_spec(bare_writer, [bridge])
+        instantiation = _mint_register(bare_writer, ["instantiation:testing/promotes"])
+        wrong_entry = _promotes_spec(bare_writer, [instantiation])
+        reported = [
+            (ref, detail) for code, ref, detail in _register_codes(bare_writer) if code == "bridging-register-uncited"
+        ]
+        assert sorted(reported) == sorted([("proposition:promotes", uncited), ("proposition:promotes", wrong_entry)])
+        assert all(detail != cited for _ref, detail in reported)
+        assert ("register-entry-unknown", bridge, "bridge:testing/promotes") not in _register_codes(bare_writer)
+
+    def test_a_template_claim_is_never_bridging(self, bare_writer):
+        frozen = freeze(
+            spec_draft(
+                target=bare_writer.add(
+                    stored.proposition_node(
+                        "p",
+                        title="p",
+                        claim=project_claim(
+                            build_claim(
+                                TESTING_PROFILE,
+                                operator="testing/affects",
+                                roles={
+                                    "cause": Referent("testing/entity", "EX:gene-x"),
+                                    "effect": Referent("testing/outcome", "EX:pheno-y"),
+                                },
+                                layer="causal",
+                                polarity="positive",
+                            )
+                        ),
+                    )
+                ).id
+            ),
+            held_rules=spec_rules(),
+        )
+        bare_writer.add(stored.analysis_spec_node(frozen))
+        assert not [c for c in _register_codes(bare_writer) if c[0] == "bridging-register-uncited"]
+
+    def test_register_stale_after_repin(self, bare_writer):
+        """A register describing an earlier identity of the testing contract is
+        a stale chain head; a successor at the pinned identity heads the chain
+        and the report clears."""
+        earlier = _mint_register(bare_writer, ["sort:testing/gene"], describes="testing:" + "0" * 64)
+        assert _register_codes(bare_writer) == [
+            ("register-stale", earlier, "testing")
+        ]  # stale alone: not missing, keys unread
+        successor = _mint_register(bare_writer, ["sort:testing/entity"], previous=earlier)
+        assert _register_codes(bare_writer) == []
+        assert successor != earlier
+
+    def test_register_missing_for_activated_contract(self, bare_writer, tmp_path):
+        assert _register_codes(bare_writer) == [("register-missing", "corpus.yaml", "testing")]
+        _mint_register(bare_writer, ["sort:testing/entity"])
+        assert _register_codes(bare_writer) == []
+        base = _writer(tmp_path / "base")  # BASE activates no domain contract, so owes no register
+        assert _register_codes(base, BASE) == []
+
+    def test_register_entry_unknown(self, bare_writer):
+        """A stray key (no declaration of that kind and name in the described
+        contract) and an unknown kind tag (raw-written: `add` refuses it)."""
+        from beliefs.register import register_projection
+
+        stray = _mint_register(
+            bare_writer,
+            ["sort:testing/entity", "sort:testing/promotes", "bridge:testing/population", "sort:other/entity"],
+        )
+        facet = register_projection(_register_value(["sort:testing/entity"]))
+        facet["entries"]["operator:testing/x"] = dict(_PROSE)  # type: ignore[index]
+        tagged = stored._node("assumptions-register", "ab" * 32, "tagged", {"assumptions-register": facet}, ())
+        raw_write(bare_writer.root, tagged)
+        unknown = [
+            (ref, detail) for code, ref, detail in _register_codes(bare_writer) if code == "register-entry-unknown"
+        ]
+        assert sorted(unknown) == sorted(
+            [
+                (stray, "sort:testing/promotes"),
+                (stray, "bridge:testing/population"),
+                (stray, "sort:other/entity"),
+                (tagged.id, "operator:testing/x"),
+            ]
+        )
+        findings = corpus.corpus_check(reopen(bare_writer.root), bare_writer.profile)
+        assert all(f.severity == "error" for f in findings if f.code == "register-entry-unknown")
+        assert ("facet-payload-malformed", tagged.id) in {(f.code, f.ref) for f in findings}
+
+    def test_register_chain_cycle_terminates(self):
+        """Review Focus 3. A cycle has no head, so each member is compared to the
+        pin; a `previous` naming an unheld register ends its chain, which makes
+        that register a head; a head walking into a cycle stops at the cycle."""
+        from beliefs.corpus import _register_chain_ends, _registers_report
+
+        a, b, c, d, e = ("assumptions-register:" + digit * 64 for digit in "abcde")
+        stale = "testing:" + "0" * 64
+        cycle = {
+            a: _register_value(["sort:testing/entity"], describes=stale, previous=b),
+            b: _register_value(["sort:testing/entity"], describes=stale, previous=a),
+        }
+        assert _register_chain_ends(cycle) == (a, b)
+        pins = {"testing": TESTING_PROFILE.activated_contracts["testing"]}
+        report = _registers_report(cycle, pins, TESTING_PROFILE)
+        assert sorted((f.code, f.ref) for f in report) == [("register-stale", a), ("register-stale", b)]
+
+        dangling = {c: _register_value(["sort:testing/entity"], previous="assumptions-register:" + "f" * 64)}
+        assert _register_chain_ends(dangling) == (c,)
+        assert _registers_report(dangling, pins, TESTING_PROFILE) == []
+
+        into_cycle = {
+            c: _register_value(["sort:testing/entity"], previous=d),
+            d: _register_value(["sort:testing/entity"], describes=stale, previous=e),
+            e: _register_value(["sort:testing/entity"], describes=stale, previous=d),
+        }
+        assert _register_chain_ends(into_cycle) == (c,)
+        assert _registers_report(into_cycle, pins, TESTING_PROFILE) == []

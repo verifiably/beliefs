@@ -13,7 +13,8 @@ store's, and is not handled here.
 
 A spec cites the assumptions registers its analysis relies on (`registers`,
 possibly empty); `freeze` checks only that each is a well-formed
-`assumptions-register:` id. Whether a cited register is current is the write
+`assumptions-register:` id cited once, and holds them sorted, since a set of
+cited registers has no order an identity should depend on. Whether a cited register is current is the write
 door's question, not this value's.
 """
 
@@ -426,7 +427,7 @@ def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) 
         "equivalence_rule": draft.equivalence_rule,
         "parameters": _project_parameter_value(draft.parameters),
         "nondeterminism": draft.nondeterminism.projection(),
-        "registers": list(draft.registers),
+        "registers": sorted(draft.registers),
         "rule_bindings": [list(pair) for pair in rule_bindings],
     }
     if supersedes is not None:
@@ -448,16 +449,22 @@ def freeze(
     rule_bindings = bind_rules((draft.interpretation_rule, draft.equivalence_rule), held_rules)
     identity = v1.digest(SPEC_DOMAIN, _facet_projection(draft, rule_bindings, supersedes))
     members = {f.name: getattr(draft, f.name) for f in fields(SpecDraft)}
+    members["registers"] = tuple(sorted(draft.registers))
     return _mint_frozen_spec(**members, rule_bindings=rule_bindings, supersedes=supersedes, identity=identity)
 
 
 def _require_register_ids(registers: tuple[str, ...], error: type[MalformedSpec | MalformedRecord], where: str) -> None:
+    """Each cited id is well formed and cited once: the cited registers are a
+    set, projected in sorted order, so two authoring orders are one spec."""
     for entry in registers:
         if type(entry) is not str or _REGISTER_ID.fullmatch(entry) is None:
             raise error(
                 f"{where}: {entry!r} is not an assumptions-register id — `assumptions-register:` followed by "
                 "64 lowercase hex characters"
             )
+    if len(set(registers)) != len(registers):
+        duplicated = sorted({entry for entry in registers if registers.count(entry) > 1})
+        raise error(f"{where}: registers cites {', '.join(duplicated)} more than once")
 
 
 def frozen_projection(spec: FrozenSpec) -> dict[str, object]:

@@ -62,8 +62,8 @@ resolved or called: the code checks each facet where it is used. At the write
 boundary, `add` checks that a record's kind and facets are in the compiled profile,
 checks every schema-shaped facet (`empirical-observation` and domain facets)
 against its fields, and decodes the `display`, `analysis-spec`, `verification`,
-`dataset`, `source`, `composite`, `run-closure`, `exposure-event` and
-`reservation-assignment` facets. `retract` and
+`dataset`, `source`, `composite`, `run-closure`, `exposure-event`,
+`reservation-assignment` and `assumptions-register` facets. `retract` and
 `attest_coreference` decode their own records, and import decodes act reports. A
 proposition's claim, an assessment's facet, a `lineage-basis` and a run without a
 closure are checked only when read. A `source-assertion` record must carry its
@@ -278,11 +278,13 @@ superseding the proposition: the successor is a new record linked to it by
 An `analysis-spec` facet has exactly two fields: `identity` and `projection`. The
 `projection` is the canonical text of the frozen spec: its target, estimand,
 method, input roles, applicability, rules, parameters and `registers`, the list of
-`assumptions-register:` ids the analysis relies on (required, possibly empty). The
-text, the identity and the record id must all agree. Freezing a spec refuses a
-`registers` entry that is not `assumptions-register:` followed by 64 lowercase hex
-characters (`MalformedSpec`); reading a stored one refuses it as
-`MalformedRecord`.
+`assumptions-register:` ids the analysis relies on (required, possibly empty), held
+and projected in sorted order, so two authoring orders give one spec. The text, the
+identity and the record id must all agree. Freezing a spec refuses a `registers`
+entry that is not `assumptions-register:` followed by 64 lowercase hex characters,
+or an id cited twice (`MalformedSpec`); reading a stored one refuses either, or a
+list out of sorted order, as `MalformedRecord`. Whether a cited register is current
+is the write door's check (below), not the freeze's.
 
 An estimand names the claim it answers by identity and operator, and its contrast
 names one role of the operator's template (`role`); a contrast on a `many` role
@@ -309,7 +311,12 @@ and operator and be admitted for its claim; otherwise the write is refused
 (`estimand-target-unresolvable`, `estimand-target-mismatch`,
 `estimand-not-admitted`). The audit reports a mismatch or a refused admission as
 `spec-target-contradicted`, naming `claim`, `operator` or `admission`; admission is
-checked only when the claim identity and operator agree.
+checked only when the claim identity and operator agree. Every register the spec
+cites must be current: a held `assumptions-register` record whose `describes` names
+a domain contract the writer's profile activates, at the content identity the
+profile pins for it; otherwise the write is refused (`RegisterNotCurrent`). A spec
+that `freeze` accepts can therefore still be refused at the door, and an old
+analysis never appears to have relied on today's register.
 
 A spec's applicability restricts where its estimate applies: each restriction
 names a dimension placed `applicability` whose `applies_to` names the claim's
@@ -528,6 +535,47 @@ the bridge), both of whose edge roles are `one` (a `many` edge role is refused a
 `composite-edge-role-many`), and every referent of its roles, except the
 `within-model` referent, must be a declared node. A cycle is refused, whatever the
 signs of its edges. An assessment cannot assess a composite.
+
+### Assumptions registers
+
+An `assumptions-register` records what a domain contract's declarations collapse,
+what they license and what they leave unestablished. Its facet has `describes`, the
+contract it describes as `<namespace>:<content identity>` (64 lowercase hex), an
+optional `previous`, the `assumptions-register:` id of the revision it supersedes,
+and `entries`. Each entry is keyed by the typed address of a declaration,
+`<kind>:<namespace>/<name>` with the kind one of `sort`, `template`, `instantiation`,
+`bridge` and `dimension`, and has exactly three non-empty strings: `collapses`,
+`licenses` and `not_established`. The kind is part of the key, so a sort and a
+dimension that share a local name have separate entries. A register's id is
+`assumptions-register:` followed by the digest of its facet under
+`science.assumptions-register.v1`, so a revision is a new record. The facet must be
+exactly the canonical form of the register it decodes to and the id must recompute
+from it; `add` refuses any other as `MalformedRecord`, and `corpus_check` reports it
+as `facet-payload-malformed`. Prose about a register goes in the record's `body`,
+outside its identity. A register has no relations. The TypeScript side never reads
+one.
+
+`corpus_check` (and so both audits) reports a corpus's registers against the
+profile's activated domain contracts; none of these refuses a write:
+
+- `register-missing` (warning, on `corpus.yaml`): an activated domain contract that
+  no register in the corpus describes.
+- `register-stale` (warning, on the register): a register that heads its chain (no
+  held register names it as `previous`) describes a pinned namespace at another
+  identity. A `previous` naming a register not held ends the chain there; registers
+  on a cycle have no head, and each is compared to the pin.
+- `register-entry-unknown` (error, on the register): an entry key whose kind is not
+  one of the five (its reader refuses such a register too), or, for a register
+  describing the pinned identity, a key naming no declaration of that kind and name
+  in that contract. A register describing another identity reports `register-stale`
+  alone.
+- `bridging-register-uncited` (warning, on the proposition): a spec targets a
+  proposition whose operator is a bridge, and no register it cites carries the entry
+  `bridge:<operator>`. An entry for an instantiation or template of the same name does
+  not count.
+
+A namespace whose manifest pin disagrees with the profile is judged for none of
+these; `profile-mismatch` reports it.
 
 An `act-report` carries only its `act-report` facet and its identity stamp, and has
 no relations. The facet's fields are `operation` (one of the operation kinds in

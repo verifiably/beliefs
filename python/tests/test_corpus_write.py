@@ -39,11 +39,13 @@ from beliefs.errors import (
     IdentifierMalformed,
     ImportRefused,
     KindNotMintedHere,
+    MalformedRecord,
     ManifestAlreadyPresent,
     ManifestMalformed,
     PermitExceeded,
     PermitFact,
     RecordAlreadyMinted,
+    RegisterNotCurrent,
     RevisionTargetMissing,
     ScienceError,
     ValidationRefused,
@@ -1351,6 +1353,93 @@ class TestEstimandTargetMatch:
         admitted = freeze(spec_draft(target=admitted_target.id), held_rules=spec_rules())
         assert admitted.estimand.claim == claim_identity(TESTING_CLAIM)
         assert typed_writer.add(stored.analysis_spec_node(admitted)).id == f"analysis-spec:{admitted.identity}"
+
+
+class TestTheAssumptionsRegister:
+    """The register mints through `add` (design §9.1) and the analysis-spec
+    door refuses a cited register that is not current (§9.3, case 11)."""
+
+    PROSE: ClassVar[dict[str, str]] = {"collapses": "c", "licenses": "l", "not_established": "n"}
+
+    def _register(self, describes=None, *, entries=None):
+        from fixtures_cut3 import TESTING_PROFILE
+
+        from beliefs.register import AssumptionsRegister, RegisterEntry
+
+        return AssumptionsRegister(
+            describes=describes or "testing:" + TESTING_PROFILE.activated_contracts["testing"],
+            previous=None,
+            entries=entries or {"sort:testing/entity": RegisterEntry(**self.PROSE)},
+        )
+
+    def _spec(self, writer, registers):
+        from fixtures_cut3 import TESTING_CLAIM, spec_draft, spec_rules
+
+        from beliefs.projection import project_claim
+
+        target = writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+        return freeze(spec_draft(target=target.id, registers=tuple(registers)), held_rules=spec_rules())
+
+    def test_register_mints_through_add(self, typed_writer):
+        from beliefs.register import register_from_stored, register_identity
+
+        value = self._register()
+        minted = typed_writer.add(stored.assumptions_register_node(value, body="why these collapses"))
+        assert minted.id == register_identity(value)
+        assert register_from_stored(typed_writer.read_view.get(minted.id)) == value
+
+    def test_a_malformed_register_refuses_at_add(self, typed_writer):
+        """Task 3 review M2: `add` reads the register facet through its reader."""
+        node = stored.assumptions_register_node(self._register())
+        bad = stored._node(  # a stamped record whose facet its reader refuses
+            "assumptions-register",
+            node.id.partition(":")[2],
+            "bad",
+            {
+                "assumptions-register": node.facets["assumptions-register"]
+                | {"entries": {"operator:testing/x": self.PROSE}}
+            },
+            (),
+        )
+        with pytest.raises(MalformedRecord, match="typed declaration address"):
+            typed_writer.add(bad)
+        assert typed_writer.read_view.resolve(node.id) is None
+
+    def test_spec_citing_stale_register_refuses(self, typed_writer):
+        """Case 11: a register describing the testing contract at another
+        identity is held, `freeze` accepts the spec citing it, the door refuses."""
+        from beliefs.register import register_identity
+
+        stale = self._register("testing:" + "0" * 64)
+        typed_writer.add(stored.assumptions_register_node(stale))
+        spec = self._spec(typed_writer, [register_identity(stale)])  # freeze accepts
+        with pytest.raises(RegisterNotCurrent, match="not the pinned"):
+            typed_writer.add(stored.analysis_spec_node(spec))
+        assert typed_writer.read_view.resolve(f"analysis-spec:{spec.identity}") is None
+
+    def test_spec_citing_an_unheld_or_foreign_register_refuses(self, typed_writer):
+        from fixtures_cut3 import spec_draft, spec_rules
+
+        from beliefs.register import register_identity
+
+        foreign = self._register("biology:" + "1" * 64, entries={})
+        typed_writer.add(stored.assumptions_register_node(foreign))
+        target = self._spec(typed_writer, []).target
+        for cited, reason in (
+            (register_identity(self._register()), "not held"),
+            (register_identity(foreign), "does not activate"),
+        ):
+            spec = freeze(spec_draft(target=target, registers=(cited,)), held_rules=spec_rules())
+            with pytest.raises(RegisterNotCurrent, match=reason):
+                typed_writer.add(stored.analysis_spec_node(spec))
+
+    def test_spec_citing_current_register_writes(self, typed_writer):
+        from beliefs.register import register_identity
+
+        current = self._register()
+        typed_writer.add(stored.assumptions_register_node(current))
+        spec = self._spec(typed_writer, [register_identity(current)])
+        assert typed_writer.add(stored.analysis_spec_node(spec)).id == f"analysis-spec:{spec.identity}"
 
 
 # --- the staging doors -----------------------------------

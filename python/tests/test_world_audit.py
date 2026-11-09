@@ -27,6 +27,14 @@ def codes(findings) -> list[tuple[str, str]]:
     return sorted((finding.code, finding.detail) for finding in findings)
 
 
+def subject(findings) -> tuple:
+    """`findings` without `register-missing`. The fixture worlds' corpora carry
+    no assumptions register, so each owes one for every activated domain
+    contract (design §9.2); `test_a_clean_world_audits_clean` asserts that
+    warning, and a test whose subject is another finding sets it aside here."""
+    return tuple(finding for finding in findings if finding.code != "register-missing")
+
+
 def attestation(left: str, right: str):
     return stored.coreference_attestation_node(
         title="coreference attestation",
@@ -54,7 +62,8 @@ def test_a_clean_world_audits_clean(tmp_path):
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
     assert isinstance(audit, WorldAudit) and audit.stamp.packaging_identity == published.packaging_identity
-    assert dict(audit.corpora) == {ALPHA: (), BETA: ()}
+    owed = [("register-missing", "biology")]
+    assert {corpus_id: codes(findings) for corpus_id, findings in audit.corpora.items()} == {ALPHA: owed, BETA: owed}
     assert audit.world == ()
 
 
@@ -65,7 +74,7 @@ def test_a_raw_written_record_is_drift_and_judged_and_skipped_by_recomputation(t
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
-    assert codes(audit.corpora[ALPHA]) == [
+    assert codes(subject(audit.corpora[ALPHA])) == [
         ("drift", "state"),
         ("drift", f"unmapped:{late.uid}"),
         ("semantic-hash-stale", "mismatch"),
@@ -87,7 +96,7 @@ def test_a_new_record_after_publication_is_state_and_unmapped_drift(tmp_path):
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
-    assert codes(audit.corpora[BETA]) == [
+    assert codes(subject(audit.corpora[BETA])) == [
         ("drift", "state"),
         ("drift", f"unmapped:{moved.uid}"),
         ("semantic-hash-stale", "mismatch"),
@@ -116,7 +125,7 @@ def test_a_damaged_corpus_is_judged_on_its_remainder_and_never_compared(tmp_path
     assert ("semantic-hash-stale", "mismatch") in found
     assert any(code == "corpus-damaged" and detail.startswith("construction:") for code, detail in found)
     assert not any(code == "drift" for code, _detail in found)
-    assert audit.corpora[ALPHA] == ()
+    assert subject(audit.corpora[ALPHA]) == ()
 
 
 def test_a_foreign_base_pin_is_reported_from_the_manifest_alone(tmp_path):
@@ -247,7 +256,7 @@ def test_a_healthy_attestation_naming_a_damaged_endpoint_reports_and_the_audit_c
     (roots[BETA] / "verification" / "bad.md").unlink()
     repaired = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
     assert not any(f.code.startswith("attestation-endpoint") for f in repaired.world)
-    assert repaired.corpora[BETA] == ()
+    assert subject(repaired.corpora[BETA]) == ()
 
 
 def test_two_sources_sharing_a_secondary_identifier_are_reported(tmp_path):
@@ -485,7 +494,7 @@ def test_an_absent_composite_member_does_not_hide_a_dangling_sibling(tmp_path):
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
     assert second != first
-    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [
+    assert [(finding.code, finding.ref) for finding in subject(audit.corpora[ALPHA])] == [
         ("composite-member-unresolvable", composite.id)
     ]
 
@@ -501,8 +510,8 @@ def test_a_dangling_composite_is_reported_through_the_world_audits_recompute(tmp
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
-    assert [(f.code, f.ref) for f in audit.corpora[ALPHA]] == [("composite-member-unresolvable", composite.id)]
-    assert audit.corpora[BETA] == ()
+    assert [(f.code, f.ref) for f in subject(audit.corpora[ALPHA])] == [("composite-member-unresolvable", composite.id)]
+    assert subject(audit.corpora[BETA]) == ()
 
 
 def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recompute(tmp_path):
@@ -529,7 +538,9 @@ def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recomput
 
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=TESTING_PROFILE)
 
-    assert [(finding.code, finding.ref) for finding in audit.corpora[ALPHA]] == [("spec-target-contradicted", spec.id)]
+    assert [(finding.code, finding.ref) for finding in subject(audit.corpora[ALPHA])] == [
+        ("spec-target-contradicted", spec.id)
+    ]
 
 
 def test_a_raw_written_snapshot_retraction_naming_nothing_retained_is_reported_from_captured_records(tmp_path):

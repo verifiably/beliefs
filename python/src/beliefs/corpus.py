@@ -112,6 +112,8 @@ from beliefs.errors import (
     PredecessorNotStanding,
     ProjectNotResolvable,
     RecordAlreadyMinted,
+    RecordError,
+    RegisterNotCurrent,
     RelocationTargetMissing,
     ReservationRefused,
     RetractionCycleMalformed,
@@ -149,6 +151,7 @@ from beliefs.lineage import (
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import RunInput, RunValue
+from beliefs.register import ENTRY_KINDS, REGISTER_FACET, REGISTER_KIND, AssumptionsRegister, register_from_stored
 from beliefs.report import OperationIntent
 from beliefs.reservation import (
     ReservationAssignment,
@@ -163,6 +166,7 @@ from beliefs.view_query import _world_address, parse_view_query
 
 if TYPE_CHECKING:
     from beliefs.closure import RetractionEnumeration
+    from beliefs.spec import FrozenSpec
     from beliefs.world import CorpusManifest
     from beliefs.world.view import WorldReadView
 
@@ -2005,14 +2009,25 @@ class _EligibilityReader(Protocol):
 ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved"})
 
 
-_RESERVATION_READERS: Mapping[str, tuple[str, Callable[[Node], object]]] = MappingProxyType(
+_WHOLE_READERS: Mapping[str, tuple[str, Callable[[Node], object]]] = MappingProxyType(
     {
         "exposure-event": (stored.EXPOSURE_EVENT_FACET, stored.exposure_event_value),
         "reservation-assignment": (stored.RESERVATION_ASSIGNMENT_FACET, stored.reservation_assignment_value),
+        REGISTER_KIND: (REGISTER_FACET, register_from_stored),
     }
 )
-"""The two reader-shaped facets `validate_payload` skips, read whole by `corpus_check` instead: a facet
+"""The reader-shaped facets `validate_payload` skips, read whole by `corpus_check` instead: a facet
 its reader refuses is `facet-payload-malformed`, and nothing below the classification reads it again."""
+
+
+def _domain_pins(profile: ProfileSpec) -> dict[str, str]:
+    """Namespace → pinned content identity for every activated **domain**
+    contract: the coordination contract is activated too, and owes no register."""
+    return {
+        namespace: identity
+        for namespace, identity in profile.activated_contracts.items()
+        if namespace != "coordination"
+    }
 
 
 def _record_findings(
@@ -2024,6 +2039,7 @@ def _record_findings(
     citations: _EligibilityReader | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
+    unread: list[str] = []
     judge_namespaced = scope == "none"
     withhold_coordination = "coordination" in disagreeing
     base_kinds = shipped_base().kinds
@@ -2118,8 +2134,8 @@ def _record_findings(
                         str(refused),
                     )
                 )
-        if node.kind in _RESERVATION_READERS:
-            facet_key, read = _RESERVATION_READERS[node.kind]
+        if node.kind in _WHOLE_READERS:
+            facet_key, read = _WHOLE_READERS[node.kind]
             try:
                 read(node)
             except MalformedRecord as refused:
@@ -2137,6 +2153,7 @@ def _record_findings(
                     finding_reasons = bearer_or_retrieval.setdefault(("facet-bearer-produced", target), set())
                     finding_reasons.add(f"produced by {node.id}")
         if not base_valid or not coordination_valid:
+            unread.append(node.id)
             continue
         if stored.display_facet_malformed(node):
             findings.append(
@@ -2224,6 +2241,7 @@ def _record_findings(
                 message=str(refused),
             )
         )
+    findings.extend(_register_findings(check, profile, unread=frozenset(unread), disagreeing=disagreeing))
     for address, revisions in coordination_revisions.items():
         if revisions and not standing_tips(revisions):
             findings.append(
@@ -2236,6 +2254,177 @@ def _record_findings(
                 )
             )
     return findings
+
+
+def _register_findings(
+    check: _CheckView | _CapturedCheckView,
+    profile: ProfileSpec,
+    *,
+    unread: frozenset[str] = frozenset(),
+    disagreeing: frozenset[str] = frozenset(),
+) -> tuple[Finding, ...]:
+    """The register hygiene report (design §9.2, §6.5): reported, never refused.
+
+    Registers and specs are read in one pass. A record `unread` names was
+    classified malformed above and is not read again, except that every
+    register's raw entry keys are scanned for a kind tag outside `ENTRY_KINDS`,
+    which its reader refuses before any typed value exists. A namespace in
+    `disagreeing` has no single pin to compare against (`profile-mismatch`
+    reports it), so it is judged for nothing here."""
+    pins = {
+        namespace: identity for namespace, identity in _domain_pins(profile).items() if namespace not in disagreeing
+    }
+    findings: list[Finding] = []
+    registers: dict[str, AssumptionsRegister] = {}
+    specs: list[tuple[str, FrozenSpec]] = []
+    for node in check.iter_stored():
+        if node.kind == REGISTER_KIND:
+            findings.extend(_unknown_entry_tags(node))
+            if node.id in unread:
+                continue
+            try:
+                registers[node.id] = register_from_stored(node)
+            except MalformedRecord:
+                continue  # `facet-payload-malformed`, reported by the whole-reader pass
+        elif node.kind == "analysis-spec" and node.id not in unread:
+            try:
+                specs.append((node.id, stored.analysis_spec_value(node, profile=profile)))
+            except RecordError:
+                continue  # the audit's `derivation-malformed` / `spec-pre-grammar`
+    findings.extend(_registers_report(registers, pins, profile))
+    for spec_id, spec in specs:
+        findings.extend(_bridging_findings(check, spec_id, spec, registers, profile))
+    return tuple(findings)
+
+
+def _unknown_entry_tags(node: Node) -> tuple[Finding, ...]:
+    facet = node.facets.get(REGISTER_FACET)
+    entries = facet.get("entries") if isinstance(facet, dict) else None
+    if not isinstance(entries, dict):
+        return ()
+    return tuple(
+        Finding(
+            "error",
+            "register-entry-unknown",
+            node.id,
+            key,
+            f"{node.id}: entry {key!r} names kind {key.partition(':')[0]!r}, not one of {', '.join(ENTRY_KINDS)}",
+        )
+        for key in sorted(key for key in entries if isinstance(key, str))
+        if key.partition(":")[0] not in ENTRY_KINDS
+    )
+
+
+def _register_chain_ends(registers: Mapping[str, AssumptionsRegister]) -> tuple[str, ...]:
+    """The registers compared to the pin: every chain head (a register no held
+    register names as `previous`), then every member of a cycle no head reaches.
+    One walk down `previous` from each head with a visited set; a `previous` that
+    is not held ends its chain. Every register off a head's walk lies on a
+    cycle, since each names at most one predecessor (Review Focus 3)."""
+    named = {register.previous for register in registers.values() if register.previous is not None}
+    heads = tuple(sorted(identity for identity in registers if identity not in named))
+    visited: dict[str, None] = {}
+    for head in heads:
+        current: str | None = head
+        while current is not None and current in registers and current not in visited:
+            visited[current] = None
+            current = registers[current].previous
+    return heads + tuple(sorted(identity for identity in registers if identity not in visited))
+
+
+_DECLARATION_TABLES: Mapping[str, str] = MappingProxyType(
+    {
+        "sort": "sorts",
+        "template": "templates",
+        "instantiation": "instantiations",
+        "bridge": "bridges",
+        "dimension": "dimensions",
+    }
+)
+"""Each entry kind's compiled table on `ProfileSpec`, keyed `<namespace>/<name>`."""
+
+
+def _registers_report(
+    registers: Mapping[str, AssumptionsRegister], pins: Mapping[str, str], profile: ProfileSpec
+) -> list[Finding]:
+    """`register-stale`, `register-missing` and the declaration half of
+    `register-entry-unknown` over decoded registers keyed by id."""
+    findings: list[Finding] = []
+    for identity in _register_chain_ends(registers):
+        namespace, _, described = registers[identity].describes.partition(":")
+        if namespace in pins and described != pins[namespace]:
+            findings.append(
+                Finding(
+                    "warning",
+                    "register-stale",
+                    identity,
+                    namespace,
+                    f"{identity}: describes {namespace!r} at {described[:12]}…, and the manifest pins "
+                    f"{pins[namespace][:12]}…; a contract successor needs a new register revision",
+                )
+            )
+    described_namespaces = {register.describes.partition(":")[0] for register in registers.values()}
+    for namespace in sorted(pins):
+        if namespace not in described_namespaces:
+            findings.append(
+                Finding(
+                    "warning",
+                    "register-missing",
+                    "corpus.yaml",
+                    namespace,
+                    f"activated contract {namespace!r} has no assumptions register in this corpus",
+                )
+            )
+    for identity, register in sorted(registers.items()):
+        namespace, _, described = register.describes.partition(":")
+        if pins.get(namespace) != described:
+            continue  # the contract its keys name is not this profile's: `register-stale` alone
+        for key in register.entries:
+            kind, _, term = key.partition(":")
+            table: Mapping[str, object] = getattr(profile, _DECLARATION_TABLES[kind])
+            if term.partition("/")[0] != namespace or term not in table:
+                findings.append(
+                    Finding(
+                        "error",
+                        "register-entry-unknown",
+                        identity,
+                        key,
+                        f"{identity}: no {kind} {term!r} is declared in the described contract {namespace!r}",
+                    )
+                )
+    return findings
+
+
+def _bridging_findings(
+    check: _CheckView | _CapturedCheckView,
+    spec_id: str,
+    spec: FrozenSpec,
+    registers: Mapping[str, AssumptionsRegister],
+    profile: ProfileSpec,
+) -> tuple[Finding, ...]:
+    """`bridging-register-uncited` (§6.5): a spec targeting a proposition whose
+    operator is a bridge cites no register revision carrying `bridge:<operator>`.
+    An entry for an instantiation or template of the same name does not count."""
+    target = check.resolve(spec.target)
+    if target is None or check.get(target).kind != "proposition":
+        return ()
+    claim = check.get(target).facets.get(stored.PROPOSITION_FACET)
+    operator = claim.get("operator") if isinstance(claim, dict) else None
+    if not isinstance(operator, str) or operator not in profile.bridges:
+        return ()
+    entry = f"bridge:{operator}"
+    if any(cited in registers and entry in registers[cited].entries for cited in spec.registers):
+        return ()
+    return (
+        Finding(
+            "warning",
+            "bridging-register-uncited",
+            target,
+            spec_id,
+            f"{target}: {spec_id} targets this claim over bridge {operator!r} and cites no register "
+            f"revision carrying {entry!r}",
+        ),
+    )
 
 
 class SnapshotResolver(Protocol):
@@ -3851,6 +4040,37 @@ class CorpusWriter:
         except EstimandError as refused:
             raise ValidationRefused(f"{record.id}: estimand-not-admitted: {refused}") from refused
 
+    def _refuse_registers(self, spec: FrozenSpec, *, view: ReadView | _ImportView | MountCitations) -> None:
+        """Every register the spec cites is current (design §9.3): a held
+        `assumptions-register` record whose `describes` names an activated domain
+        contract at the identity this profile pins for it. `freeze` checked only
+        the ids' form; the door is where the corpus and the profile are."""
+        pins = _domain_pins(self._profile)
+        for cited in spec.registers:
+            if not view.holds(cited):
+                raise RegisterNotCurrent(f"{spec.identity[:12]}…: cited register {cited} is not held")
+            record = view.get(cited)
+            if record.kind != REGISTER_KIND:
+                raise RegisterNotCurrent(f"{spec.identity[:12]}…: {cited} is a {record.kind!r}, not a register")
+            try:
+                register = register_from_stored(record)
+            except MalformedRecord as refused:
+                raise RegisterNotCurrent(
+                    f"{spec.identity[:12]}…: cited register {cited} is malformed: {refused}"
+                ) from refused
+            namespace, _, identity = register.describes.partition(":")
+            if namespace not in pins:
+                raise RegisterNotCurrent(
+                    f"{spec.identity[:12]}…: cited register {cited} describes {namespace!r}, which this profile "
+                    f"does not activate; activated domain contracts are {sorted(pins)}"
+                )
+            if identity != pins[namespace]:
+                raise RegisterNotCurrent(
+                    f"{spec.identity[:12]}…: cited register {cited} describes {namespace!r} at "
+                    f"{identity[:12]}…, not the pinned {pins[namespace][:12]}…; a contract successor needs a new "
+                    "register revision"
+                )
+
     @staticmethod
     def _refuse_malformed_act_report(record: Node) -> None:
         try:
@@ -4074,6 +4294,9 @@ class CorpusWriter:
         if node.kind == "analysis-spec":
             self._refuse_r20_contradiction(node)
             self._refuse_estimand_target_mismatch(node, view=self._view if view is None else view)
+            self._refuse_registers(
+                stored.analysis_spec_value(node, profile=self._profile), view=self._view if view is None else view
+            )
         reading = self._view if view is None else view
         self._refuse_supersedes_same_kind(node, view=reading)
         self._refuse_assesses_target_kind(node, view=reading)
@@ -4114,6 +4337,8 @@ class CorpusWriter:
             stored.exposure_event_value(node)
         elif node.kind == "reservation-assignment":
             stored.reservation_assignment_value(node)
+        elif node.kind == REGISTER_KIND:
+            register_from_stored(node)
 
     def _refuse_facets(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None, provenance: bool = False

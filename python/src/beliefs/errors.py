@@ -1232,6 +1232,14 @@ class WriteRefused(ScienceError):
     layer with no added discrimination."""
 
 
+class RegisterNotCurrent(WriteRefused):
+    """The analysis-spec write door: a cited assumptions register is not a held
+    `assumptions-register` record whose `describes` names an activated domain
+    contract at the identity the profile pins for it. `freeze` checks only the
+    id's form; currency is judged here, so an old analysis never appears to have
+    relied on today's register."""
+
+
 class ReservationRefused(WriteRefused):
     """An exposure event or reservation assignment refused at the write boundary. `code` is the stable
     name the reservation tables carry; the message names the position."""

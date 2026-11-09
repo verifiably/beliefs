@@ -23,6 +23,11 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="assessment"></a>**Assessment** — The outcome (`supported`, `refuted` or
   `inconclusive`) of one run of a spec against one proposition, with the typed
   estimand and estimate. ([records](records.md#specs-runs-and-assessments))
+- <a id="assumptions-register"></a>**Assumptions register** — A content-addressed
+  record of what a domain contract's declarations collapse, license and leave
+  unestablished, entries keyed by typed declaration address (`sort:<ns>/<name>`, …).
+  A spec cites the registers it relies on, and each must be current at the write door.
+  ([records](records.md#assumptions-registers))
 - <a id="authority"></a>**Authority** — A write permit bound to an actor.
   ([writes](writes.md#authority-and-permits))
 - <a id="base-contract"></a>**Base contract** — The Science contract that declares the

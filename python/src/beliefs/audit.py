@@ -163,6 +163,10 @@ WORLD_AUDIT_CODES = frozenset(
         "assignment-suspension-unflagged",
         "assignment-flagged-without-suspension",
         "assignment-unchanged",
+        "register-stale",
+        "register-missing",
+        "register-entry-unknown",
+        "bridging-register-uncited",
     }
 )
 """The closed set of codes a world audit may report, beside `MALFORMEDNESS_CODES`."""

@@ -93,6 +93,7 @@ from beliefs.identity import v1
 from beliefs.permit import require_actor
 from beliefs.profile import ProfileSpec, shipped_base
 from beliefs.record import ASSESSMENT_DOMAIN, AssessmentValue
+from beliefs.register import REGISTER_FACET, AssumptionsRegister, register_identity, register_projection
 from beliefs.reservation import (
     ExposureEvent,
     ReservationAssignment,
@@ -159,6 +160,7 @@ __all__ = [
     "analysis_spec_value",
     "assessment_reference",
     "assessment_value",
+    "assumptions_register_node",
     "composite_node",
     "composite_value",
     "coreference_attestation_node",
@@ -1187,6 +1189,23 @@ def proposition_node(slug: str, *, title: str, claim: Mapping[str, Any], display
     if display_statement is not None:
         facets[DISPLAY_FACET] = {"display_statement": display_statement}
     return _node("proposition", slug, title, facets, ())
+
+
+def assumptions_register_node(register: AssumptionsRegister, *, body: str = "") -> Node:
+    """A register at its content address: the id is `register_identity`, the
+    facet its projection. Prose about the register goes in `body`, outside identity."""
+    if type(register) is not AssumptionsRegister:
+        raise MalformedRecord("assumptions_register_node writes an AssumptionsRegister and nothing else")
+    slug = register_identity(register).partition(":")[2]
+    namespace = register.describes.partition(":")[0]
+    return _node(
+        "assumptions-register",
+        slug,
+        f"assumptions register for {namespace}",
+        {REGISTER_FACET: register_projection(register)},
+        (),
+        body=body,
+    )
 
 
 def source_node(*, title: str, identifiers: Mapping[str, object]) -> Node:
