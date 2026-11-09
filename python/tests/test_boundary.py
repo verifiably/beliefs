@@ -947,6 +947,8 @@ def test_planning_restage_refuses_source_mutated_after_initial_staging_and_clean
 
     if policy == CONFINED_POLICY:
         monkeypatch.setattr(_boundary, "materialize_snapshot", lambda captured, root: root)
+        # The host probe would refuse the run before staging where bwrap cannot run (as on hosted CI).
+        monkeypatch.setattr(_boundary, "require_host", lambda: None)
     monkeypatch.setattr(_boundary, "_stage_inputs", mutating_stage_inputs)
     _forbid_engines(monkeypatch)
 
@@ -1268,6 +1270,8 @@ def test_boundary_refuses_when_two_members_swap_bytes_between_initial_and_planni
 
     if policy == CONFINED_POLICY:
         monkeypatch.setattr(_boundary, "materialize_snapshot", lambda captured, root: root)
+        # The host probe would refuse the run before staging where bwrap cannot run (as on hosted CI).
+        monkeypatch.setattr(_boundary, "require_host", lambda: None)
     monkeypatch.setattr(_boundary, "_stage_inputs", swapping_stage_inputs)
     _forbid_engines(monkeypatch)
 
