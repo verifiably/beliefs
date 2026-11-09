@@ -16,7 +16,7 @@ from test_corpus_write import OperationRecorder
 from beliefs import stored
 from beliefs.claim import Referent, build_claim
 from beliefs.composite import CompositeError, CompositeNode, build_composite
-from beliefs.contract.domain import VocabularyBinding
+from beliefs.contract.domain import ReleaseBinding
 from beliefs.corpus import CorpusWriter, superseded_by
 from beliefs.errors import FamilyKindUnsupported, ImportRefused, SignatureRefused, SupersedeIdentityUnchanged
 from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
@@ -25,7 +25,7 @@ from beliefs.resolution import build_snapshot
 
 GENE = "biology/gene"
 AFFECTS = "biology/affects"
-EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
+EX = ReleaseBinding(namespace="EX", release="2026-01-01")
 # Every biology-fixture sort binds `EX/2026-01-01`, so one binding carries the nodes and the estimand's terms.
 SNAPSHOT = build_snapshot(readable={EX: ["EX:a", "EX:b", "EX:c", "EX:lo", "EX:hi", "EX:expr", "EX:observational"]})
 A, B, C = (CompositeNode(GENE, f"EX:{t}") for t in "abc")
