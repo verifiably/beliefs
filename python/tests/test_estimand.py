@@ -245,14 +245,27 @@ def test_existential_admission_two_declarations(profile, claim, unconsulted):
 
 
 def test_admission_is_order_independent(base_contract, testing_document, crossing_document, unconsulted):
+    # `crossing` also instantiates `affects` over `testing`'s own sorts, with the
+    # declaration `affects-entity-outcome` carries: one claim, a fully admitting
+    # declaration in each contract. A first-match or last-wins lookup would
+    # answer one contract, and which one would follow activation order.
+    import copy
+
+    widened = copy.deepcopy(crossing_document)
+    widened["instantiations"]["affects-testing-sorts"] = {
+        "template": "testing/affects",
+        "roles": {"cause": ["testing/entity"], "effect": ["testing/outcome"]},
+    }
+    widened["estimands"]["instantiation:affects-testing-sorts"] = dict(
+        widened["estimands"]["instantiation:affects-local-entity"]
+    )
+
     def admitted(order):
         contracts = {
             "testing": domain.parse_domain_contract(
                 testing_document, source="<t>", base=base_contract, predecessor=None
             ),
-            "crossing": domain.parse_domain_contract(
-                crossing_document, source="<c>", base=base_contract, predecessor=None
-            ),
+            "crossing": domain.parse_domain_contract(widened, source="<c>", base=base_contract, predecessor=None),
         }
         profile = compile_profile(base_contract, [contracts[name] for name in order])
         claim = affects(profile)
@@ -262,9 +275,66 @@ def test_admission_is_order_independent(base_contract, testing_document, crossin
         )
         with pytest.raises(EstimandNotAdmitted):
             admit_estimand(profile, mixed, claim, authoring=False)
-        return admit_estimand(profile, estimand, claim, authoring=False), estimand_projection(estimand)
+        return (
+            profile.admitting(claim.operator, claim.assignment(), authoring=False),
+            admit_estimand(profile, estimand, claim, authoring=False),
+            estimand_projection(estimand),
+        )
 
-    assert admitted(("testing", "crossing")) == admitted(("crossing", "testing"))
+    forward, backward = admitted(("testing", "crossing")), admitted(("crossing", "testing"))
+    assert forward[1] == frozenset({"testing", "crossing"})  # a declaration from each contract admits
+    assert "instantiation:crossing/affects-testing-sorts" in forward[0]
+    assert forward == backward
+
+
+def test_authoring_and_decodable_admission_at_the_call_sites(base_contract, testing_document, unconsulted):
+    """A claim only a retired instantiation admits: `build_estimand` (authoring)
+    refuses its estimand, while the three consumers that read the decodable set —
+    the analysis-spec door, the audit's `check_spec_target` and the consulted
+    walk — admit it."""
+    import copy
+    from types import SimpleNamespace
+
+    from fixtures_cut3 import spec_draft, spec_rules
+
+    from beliefs import stored as stored_records
+    from beliefs.audit import check_spec_target
+    from beliefs.consulted import estimand_contracts
+    from beliefs.corpus import CorpusWriter
+    from beliefs.projection import project_claim
+    from beliefs.spec import freeze
+
+    genesis = domain.parse_domain_contract(testing_document, source="<t>", base=base_contract, predecessor=None)
+    document = copy.deepcopy(testing_document)
+    document["lineage"] = {"successor": genesis.content_identity}
+    document["version"] = genesis.version + 1
+    document["instantiations"]["affects-entity-entity"]["retired"] = True
+    retired = compile_profile(
+        base_contract, [domain.parse_domain_contract(document, source="<r>", base=base_contract, predecessor=genesis)]
+    )
+    live = compile_profile(base_contract, [genesis])
+
+    claim = affects(live, effect=Referent(E, "EX:gene-y"))  # only `affects-entity-entity` admits entity→entity
+    via_entity = {"contrast": levels(sort=O), "measure": Measure(quantity=Referent(O, "EX:tpm"), scale="additive")}
+    estimand = build(live, claim, unconsulted, **via_entity)
+    assert retired.admitting(claim.operator, claim.assignment(), authoring=True) == ()
+
+    with pytest.raises(EstimandNotAdmitted):
+        build(retired, claim, unconsulted, **via_entity)  # authoring: retired excluded
+    assert admit_estimand(retired, estimand, claim, authoring=False) == frozenset({"testing"})
+
+    # The walk.
+    assert estimand_contracts(estimand, retired, claim) == frozenset({"testing"})
+
+    # The door and the audit, over a spec whose target carries the claim.
+    target = stored_records.proposition_node("p-ee", title="p-ee", claim=project_claim(claim))
+    spec = stored_records.analysis_spec_node(
+        freeze(spec_draft(target=target.id, estimand=estimand), held_rules=spec_rules())
+    )
+    view = SimpleNamespace(holds=lambda ref: ref == target.id, get=lambda ref: target)
+    CorpusWriter._refuse_estimand_target_mismatch(SimpleNamespace(_profile=retired), spec, view=view)  # type: ignore[arg-type]
+    outcome = check_spec_target(view, spec, profile=retired)  # type: ignore[arg-type]
+    assert outcome.checked and outcome.contradiction is None
 
 
 def test_decode_is_shape_only_admission_needs_claim(profile):

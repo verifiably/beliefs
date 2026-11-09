@@ -1037,7 +1037,14 @@ class SignatureRefused(RecordError):
 
 class CompositeError(RecordError):
     """A composite refused at construction, at the boundary or at reading. `code` is the stable name
-    the composite tables carry; the message names the position."""
+    the composite tables carry; the message names the position.
+
+    The classification codes (`composite.classify`, shared by all three) are
+    `composite-shape`, `composite-node-sort`, `composite-member-undeclared` (the
+    member's template declares no edge), `composite-member-retired`,
+    `composite-edge-role-many` (an edge role of the member's template is a `many`
+    role, which forms no `dag` edge), `composite-member-layer`,
+    `composite-member-outside-nodes` and `composite-cyclic`."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(f"{code}: {message}")

@@ -39,13 +39,16 @@ IMPORT: dict[str, Any] = {
 
 def _estimand(claim):
     """A typed estimand for a biology-fixture `affects` claim, under the profile that stores and restores it —
-    the fixture's `estimands:` row for `affects` names `biology/level`, `biology/measure`, `biology/identification`."""
+    the fixture's `estimands:` row for `instantiation:affects-gene-gene` names `biology/level`, `biology/measure`, `biology/identification`."""
     estimand, _ = build_estimand(
         WITH_BIOLOGY,
         claim,
         snapshot=SNAPSHOT,
         contrast=LevelsContrast(
-            slot=0, baseline=Referent("biology/level", "EX:lo"), comparison=Referent("biology/level", "EX:hi")
+            role="cause",
+            member=None,
+            baseline=Referent("biology/level", "EX:lo"),
+            comparison=Referent("biology/level", "EX:hi"),
         ),
         measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
         reference=Decimal(0),
@@ -65,7 +68,7 @@ def _claim(cause: str, effect: str, polarity: str = "positive"):
     return build_claim(
         WITH_BIOLOGY,
         operator=AFFECTS,
-        args=(Referent(GENE, cause), Referent(GENE, effect)),
+        roles={"cause": Referent(GENE, cause), "effect": Referent(GENE, effect)},
         layer="causal",
         polarity=polarity,
     )

@@ -274,8 +274,10 @@ def test_narrowing_applicability_needs_a_successor_spec_and_a_new_run(
     minted,
 ):
     spec = freeze(spec_draft(), held_rules=spec_rules())
+    # `follow-up` is the fixture's applicability-side dimension on `affects`; a
+    # claim-side one (`population`) is refused in applicability by design.
     narrower = typed_applicability(
-        {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}
+        {"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:five-years"))}
     )
     narrowed = revise(
         spec,

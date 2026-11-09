@@ -521,10 +521,13 @@ It also carries a `stance` of `1` or `-1`, an `actor`, `grounds` and an
 
 A `composite` facet has exactly four fields: `grammar`, `shape` (`dag`), `nodes` (a
 list of `{sort, term}`) and `members` (claim identities), plus one `composes` edge
-per member. Each member must be a causal-layer claim whose operator declares an edge
-in a domain contract, and every argument of the claim must be a declared node. A
-cycle is refused, whatever the signs of its edges. An assessment cannot assess a
-composite.
+per member. A member's edge is its template's `edge` role pair, from the cause role's
+referent to the effect role's; a bridge has its template's edge. Each member must
+be a causal-layer claim whose template declares an edge and is not retired (nor is
+the bridge), both of whose edge roles are `one` (a `many` edge role is refused as
+`composite-edge-role-many`), and every referent of its roles, except the
+`within-model` referent, must be a declared node. A cycle is refused, whatever the
+signs of its edges. An assessment cannot assess a composite.
 
 An `act-report` carries only its `act-report` facet and its identity stamp, and has
 no relations. The facet's fields are `operation` (one of the operation kinds in
@@ -737,6 +740,19 @@ and an implementation identity) and returns one of three answers:
   `unavailable-corpus-absent`, `no-eligible-assessment` and
   `no-directional-outcome`;
 - `Refused(reason)`.
+
+A belief's input digest covers the contracts its derivation consulted, each as
+`(namespace, identity)`: the base contract always, and a domain contract only when
+the derivation read something it declares. A claim reads its operator's contract
+(and a bridge's template's), the contract of every instantiation admitting it,
+retired ones included, each role referent's sort's contract (`within-model`
+included), and each qualifier's dimension's and restriction sort's contracts. An
+assessment's estimand reads its operator's contract and each of its referents'
+sorts' contracts and, when the proposition it targets has a claim, the contracts of
+the estimand declarations that admit it for that claim. An estimand naming another
+claim, or one that claim does not admit, raises `MalformedRecord`. A read domain
+facet reads its namespace. Every consulted namespace must be pinned by the closure's
+corpora to one identity, the profile's; otherwise the answer is `Refused`.
 
 An assessment counts only when it is admitted. That requires its run to have an
 `observes` input, every input to be held, and its verification state to be

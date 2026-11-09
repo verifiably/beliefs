@@ -8,6 +8,8 @@ is the one classification the constructor, the write boundary and the audit
 share, so the three cannot disagree about what a member contributes.
 """
 
+# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence
@@ -19,7 +21,7 @@ from nodes.core.errors import RefError
 from nodes.core.node import Node
 
 from beliefs.belief import Availability, Belief, NoBelief, NotReached, Refused, SuppliedContext
-from beliefs.claim import Claim, require_identifier
+from beliefs.claim import Claim, Referent, require_identifier
 from beliefs.contract.base import COMPOSITE_GRAMMAR
 from beliefs.corpus import superseded_by
 from beliefs.decode import claim_from_stored
@@ -33,6 +35,8 @@ from beliefs.resolution import ReferentPosition, ResolutionSnapshot, TermOutcome
 from beliefs.sealed import sealed
 from beliefs.stored import COMPOSES
 from beliefs.stored import composite_value as stored_composite_value
+
+_MANY = "many"
 
 COMPOSITE_DOMAIN = "science.composite.v1"
 EMPTY_SNAPSHOT = build_snapshot()
@@ -181,7 +185,13 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
     """The classification table for `shape: dag`. `claims` is keyed by member identity and
     must cover every member; a missing key is the caller's defect. The whole
     node-set contract is checked here, because this is the one function the
-    constructor, the boundary and the audit share."""
+    constructor, the boundary and the audit share.
+
+    A member's edge is its template's `edge` role pair, read through
+    `ProfileSpec.template_of`: a template's own, or a bridge's template's (R8).
+    Under `dag` a member forms an edge only when both edge roles are `one`; a
+    `many` edge role is `composite-edge-role-many` until a process-network
+    shape exists (beliefs-d6060a)."""
     if facet.shape not in profile.composite_grammar.shapes:
         raise CompositeError(
             "composite-shape",
@@ -192,32 +202,63 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
     edges: list[Edge] = []
     for member in facet.members:
         claim = claims[member]
-        edge = profile.edges.get(claim.operator)
-        if edge is None:
+        operator = profile.operator(claim.operator)
+        template = profile.template_of(operator)
+        if template.edge is None:
             raise CompositeError(
-                "composite-member-undeclared", f"member {member}: operator {claim.operator!r} declares no edge"
+                "composite-member-undeclared",
+                f"member {member}: operator {claim.operator!r} declares no edge (its template {template.term!r} has none)",
             )
-        if edge.retired:
+        if operator.retired or template.retired:
             raise CompositeError(
                 "composite-member-retired",
-                f"member {member}: the edge declaration for {claim.operator!r} is retired; a retired row types history and admits no new structure",
+                f"member {member}: {claim.operator!r} (template {template.term!r}) is retired; a retired declaration "
+                "types history and admits no new structure",
+            )
+        cause_role, effect_role = template.edge
+        many = [role for role in (cause_role, effect_role) if template.roles[role].arity == _MANY]
+        if many:
+            raise CompositeError(
+                "composite-edge-role-many",
+                f"member {member}: the edge of {template.term!r} runs from role {cause_role!r} to {effect_role!r} and "
+                f"{many} is a `many` role; a dag edge joins two `one` roles, and a process-network shape does not "
+                "exist yet",
             )
         if claim.layer != "causal":
             raise CompositeError(
                 "composite-member-layer",
                 f"member {member}: layer {claim.layer!r} forms no edge in a dag; the inhabited fragment is the causal layer",
             )
-        # Every argument must be a declared node, not only the two the edge
-        # reads: a ternary operator's third slot is part of the claim the
-        # composite asserts over these nodes.
-        for slot, referent in enumerate(claim.args):
-            if (referent.sort, referent.term) not in declared:
-                raise CompositeError(
-                    "composite-member-outside-nodes",
-                    f"member {member}: argument {slot} ({referent.sort}, {referent.term}) is not a declared node",
-                )
-        cause, effect = (declared[(claim.args[slot].sort, claim.args[slot].term)] for slot in (edge.cause, edge.effect))
-        edges.append(Edge(cause=cause, effect=effect, sign=claim.polarity, member=member))
+        # Every role referent must be a declared node, not only the two the edge
+        # reads: a third role is part of the claim the composite asserts over
+        # these nodes. A reserved role (`within-model`) scopes the claim to a
+        # procedure and names no variable of the graph, so it is not a node.
+        for name in sorted(claim.roles):
+            if name in profile.claim_grammar.reserved_roles:
+                continue
+            value = claim.roles[name]
+            positioned = (
+                ((ReferentPosition.role(name), value),)
+                if isinstance(value, Referent)
+                else tuple((ReferentPosition.member(name, index), m.referent) for index, m in enumerate(value))
+            )
+            for position, referent in positioned:
+                if (referent.sort, referent.term) not in declared:
+                    raise CompositeError(
+                        "composite-member-outside-nodes",
+                        f"member {member}: {position.label()} ({referent.sort}, {referent.term}) is not a declared node",
+                    )
+        cause_referent, effect_referent = claim.roles[cause_role], claim.roles[effect_role]
+        # Both edge roles are `one`, so each holds a referent.
+        assert isinstance(cause_referent, Referent) and isinstance(effect_referent, Referent)
+        edges.append(
+            Edge(
+                cause=declared[(cause_referent.sort, cause_referent.term)],
+                effect=declared[(effect_referent.sort, effect_referent.term)],
+                sign=claim.polarity,
+                member=member,
+            )
+        )
     _refuse_cycle(facet.nodes, edges)
     return tuple(edges)
 
@@ -311,7 +352,7 @@ def _member_outcomes(
     nodes: Sequence[CompositeNode], profile: ProfileSpec, snapshot: ResolutionSnapshot
 ) -> dict[str, TermOutcome]:
     outcomes = {
-        ReferentPosition.node(index).label(): snapshot.resolve(profile.sorts[node.sort].vocabulary, node.term)
+        ReferentPosition.node(index).label(): snapshot.resolve(profile.sorts[node.sort], node.term)
         for index, node in enumerate(nodes)
     }
     refused = [label for label, outcome in outcomes.items() if outcome.refuses]

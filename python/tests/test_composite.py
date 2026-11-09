@@ -9,10 +9,10 @@ from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 
 from beliefs import composite, stored
-from beliefs.claim import Referent, build_claim
+from beliefs.claim import Member, Referent, build_claim
 from beliefs.composite import CompositeError, CompositeNode, build_composite
 from beliefs.contract import parse_base_contract, parse_domain_contract
-from beliefs.contract.domain import VocabularyBinding
+from beliefs.contract.domain import ReleaseBinding
 from beliefs.errors import MalformedRecord
 from beliefs.profile import compile_profile
 from beliefs.projection import claim_identity, project_claim
@@ -29,7 +29,7 @@ TESTING = parse_domain_contract(
     predecessor=None,
 )
 PROFILE = compile_profile(BASE, [TESTING])
-EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
+EX = ReleaseBinding(namespace="EX", release="2026-01-01")
 
 ENTITY, OUTCOME = "testing/entity", "testing/outcome"
 A, B, C = CompositeNode(ENTITY, "EX:a"), CompositeNode(ENTITY, "EX:b"), CompositeNode(OUTCOME, "EX:y")
@@ -39,11 +39,11 @@ UNCONSULTED = build_snapshot()
 
 
 def _claim(operator: str, cause: str, effect: str, *, polarity: str | None = "positive", layer: str = "causal"):
-    sorts = PROFILE.operator(operator).arg_sorts
+    """A claim over an operator whose roles are `cause: entity` and `effect: outcome`."""
     return build_claim(
         PROFILE,
         operator=operator,
-        args=(Referent(sorts[0], cause), Referent(sorts[1], effect)),
+        roles={"cause": Referent(ENTITY, cause), "effect": Referent(OUTCOME, effect)},
         layer=layer,
         polarity=polarity,
     )
@@ -162,34 +162,29 @@ class TestConstruction:
             )
         assert caught.value.code == "composite-member-kind"
 
-    def test_an_undeclared_operator_and_a_non_causal_layer_refuse(self, tmp_path):
-        stat = _claim("testing/correlates-with", "EX:a", "EX:y", layer="statistical")
-        structural = _claim("testing/subtype-of", "EX:a", "EX:b", polarity=None, layer="structural")
-        view = _corpus(tmp_path, _proposition("stat", stat), _proposition("sub", structural))
-        with pytest.raises(CompositeError) as caught:
-            build_composite(
-                PROFILE, view, shape="dag", nodes=[A, C], members=["proposition:stat"], snapshot=CONSULTED, slug="x"
-            )
-        assert caught.value.code == "composite-member-undeclared"
-        with pytest.raises(CompositeError) as caught:
-            build_composite(
-                PROFILE, view, shape="dag", nodes=[A, B], members=["proposition:sub"], snapshot=CONSULTED, slug="x"
-            )
-        assert (
-            caught.value.code == "composite-member-undeclared"
-        )  # subtype-of has no edges: row; the layer check never runs
+    def test_an_operator_whose_template_declares_no_edge_refuses(self, tmp_path):
+        stat = build_claim(
+            PROFILE,
+            operator="testing/correlates-with",
+            roles={"parties": [Member(Referent(ENTITY, "EX:a")), Member(Referent(OUTCOME, "EX:y"))]},
+            layer="statistical",
+            polarity="positive",
+        )
+        measured = build_claim(
+            PROFILE,
+            operator="testing/measured-by",
+            roles={"subject": Referent(ENTITY, "EX:a"), "instrument": Referent("testing/method", "EX:m")},
+            layer="methodological",
+        )
+        view = _corpus(tmp_path, _proposition("stat", stat), _proposition("measured", measured))
+        for ref in ("proposition:stat", "proposition:measured"):
+            with pytest.raises(CompositeError) as caught:
+                build_composite(PROFILE, view, shape="dag", nodes=[A, C], members=[ref], snapshot=CONSULTED, slug="x")
+            assert caught.value.code == "composite-member-undeclared"  # no edge; the layer check never runs
 
     def test_a_causal_operator_member_at_another_layer_refuses_on_layer(self, tmp_path):
         # `affects` declares an edge, but this claim asserts it at the statistical layer.
-        member = (
-            _claim("testing/affects", "EX:a", "EX:y", layer="statistical")
-            if "statistical" in PROFILE.operator("testing/affects").layers
-            else None
-        )
-        if member is None:
-            pytest.skip(
-                "the fixture's affects admits causal only; the layer arm is exercised by the biology fixture in test_composite_boundary"
-            )
+        member = _claim("testing/affects", "EX:a", "EX:y", layer="statistical")
         view = _corpus(tmp_path, _proposition("m", member))
         with pytest.raises(CompositeError) as caught:
             build_composite(
@@ -208,7 +203,7 @@ class TestConstruction:
             classify(PROFILE, facet, {})
         assert caught.value.code == "composite-node-sort"
 
-    def test_a_retired_edge_declaration_refuses(self, tmp_path):
+    def test_a_retired_template_refuses(self, tmp_path):
         import copy
 
         import yaml
@@ -216,7 +211,7 @@ class TestConstruction:
         document = yaml.safe_load((REPO / "fixtures/contracts/testing.yaml").read_text())
         successor = copy.deepcopy(document)
         successor["lineage"] = {"successor": TESTING.content_identity}
-        successor["edges"]["affects"]["retired"] = True
+        successor["templates"]["affects"]["retired"] = True
         retired = compile_profile(
             BASE, [parse_domain_contract(successor, source="<r>", base=BASE, predecessor=TESTING)]
         )
@@ -277,6 +272,57 @@ class TestConstruction:
     def test_the_value_has_no_public_constructor(self):
         with pytest.raises(CompositeError):
             composite.Composite()  # type: ignore[call-arg]
+
+
+class TestTemplateEdges:
+    """A member's edge is its template's `edge` role pair (R8, §6.6)."""
+
+    def test_edge_from_template_roles(self, tmp_path):
+        # Role names, not positions, carry direction: the claim names `effect` first.
+        claim = build_claim(
+            PROFILE,
+            operator="testing/affects",
+            roles={"effect": Referent(OUTCOME, "EX:y"), "cause": Referent(ENTITY, "EX:b")},
+            layer="causal",
+            polarity="negative",
+        )
+        view = _corpus(tmp_path, _proposition("by", claim))
+        value, _ = build_composite(
+            PROFILE, view, shape="dag", nodes=[B, C], members=["proposition:by"], snapshot=CONSULTED, slug="x"
+        )
+        assert PROFILE.templates["testing/affects"].edge == ("cause", "effect")
+        assert [(e.cause, e.effect, e.sign) for e in value.edges] == [(B, C, "negative")]
+
+    def test_bridge_member_forms_template_edge(self, tmp_path):
+        # `promotes` is a bridge over `affects`; it declares no edge of its own and inherits its template's.
+        bridged = _claim("testing/promotes", "EX:a", "EX:y")
+        assert PROFILE.bridges["testing/promotes"].template == "testing/affects"
+        view = _corpus(tmp_path, _proposition("bridged", bridged))
+        value, _ = build_composite(
+            PROFILE, view, shape="dag", nodes=[A, C], members=["proposition:bridged"], snapshot=CONSULTED, slug="x"
+        )
+        assert [(e.cause, e.effect, e.sign, e.member) for e in value.edges] == [
+            (A, C, "positive", claim_identity(bridged))
+        ]
+
+    def test_many_edge_role_reports_code(self, tmp_path):
+        transforms = build_claim(
+            PROFILE,
+            operator="testing/transforms",
+            roles={
+                "inputs": [Member(Referent(ENTITY, "EX:a"))],
+                "outputs": [Member(Referent(ENTITY, "EX:b"))],
+                "facilitators": [],
+            },
+            layer="causal",
+        )
+        view = _corpus(tmp_path, _proposition("t", transforms))
+        with pytest.raises(CompositeError) as caught:
+            build_composite(
+                PROFILE, view, shape="dag", nodes=[A, B], members=["proposition:t"], snapshot=CONSULTED, slug="x"
+            )
+        assert caught.value.code == "composite-edge-role-many"
+        assert "inputs" in str(caught.value) and "outputs" in str(caught.value)
 
 
 class TestStoredShape:

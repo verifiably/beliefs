@@ -305,17 +305,16 @@ def test_an_additive_successor_moves_consulted_digests(base_contract, testing_do
     # The real succession path, not a hand-typed string — the "additive
     # successor" is the loaded artifact.
     genesis = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
-    operators = copy.deepcopy(testing_document["operators"])
-    operators["precedes"] = {
-        "arity": 2,
-        "arg_sorts": ["entity", "entity"],
+    templates = copy.deepcopy(testing_document["templates"])
+    templates["precedes"] = {
+        "roles": {"before": {"arity": "one"}, "after": {"arity": "one"}},
         "sign_apt": False,
         "layers": ["structural"],
-        "dimensions": [],
+        "forms": ["polar"],
     }
-    document = _successor_document(testing_document, genesis, operators=operators)
+    document = _successor_document(testing_document, genesis, templates=templates)
     successor = domain.parse_domain_contract(document, source="<test>", base=base_contract, predecessor=genesis)
-    assert set(successor.operators) == {"affects", "subtype-of", "correlates-with", "measured-by", "precedes"}
+    assert set(successor.templates) == {*testing_document["templates"], "precedes"}
 
     kwargs = closure_kwargs()
     kwargs["consulted"] = (("testing", genesis.content_identity),)
@@ -330,9 +329,9 @@ def test_an_editorial_bump_moves_the_belief_digest(base_contract, testing_docume
     # pattern (test_domain_contract.py::TestSuccession
     # ::test_an_editorial_change_is_accepted_and_moves_contract_identity).
     genesis = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
-    operators = copy.deepcopy(testing_document["operators"])
-    operators["affects"]["description"] = "Reworded. Meaning-bearing fields untouched."
-    document = _successor_document(testing_document, genesis, operators=operators)
+    templates = copy.deepcopy(testing_document["templates"])
+    templates["affects"]["description"] = "Reworded. Meaning-bearing fields untouched."
+    document = _successor_document(testing_document, genesis, templates=templates)
     successor = domain.parse_domain_contract(document, source="<test>", base=base_contract, predecessor=genesis)
     assert successor.content_identity != genesis.content_identity  # editorial, still moves contract identity
 

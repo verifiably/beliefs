@@ -29,7 +29,7 @@ from test_belief import PROFILE
 
 from beliefs import stored
 from beliefs.belief import Availability, Belief, NoBelief, Refused, SuppliedContext, evaluate
-from beliefs.contract.domain import VocabularyBinding
+from beliefs.contract.domain import ReleaseBinding
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.evaluation import READ_KINDS, EvaluationInputs, evaluate_over, gather
@@ -40,22 +40,29 @@ from beliefs.resolution import ResolutionSnapshot, build_snapshot
 
 # --- the claim the proposition node carries --------------------------------
 
-EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
+EX = ReleaseBinding(namespace="EX", release="2026-01-01")
 GENE = "EX:gene-x"
 PHENO = "EX:pheno-y"
 OTHER_GENE = "EX:gene-z"
 
 CLAIM_FACET: dict[str, Any] = {
     "operator": "testing/affects",
-    "args": [GENE, PHENO],
+    "roles": {
+        "cause": {"sort": "testing/entity", "term": GENE},
+        "effect": {"sort": "testing/outcome", "term": PHENO},
+    },
     "qualifiers": {},
+    "form": "polar",
     "polarity": "positive",
     "layer": "causal",
 }
-"""`test_belief.CLAIM`'s wire shape — the same operator, args, polarity and
-layer, so the restored claim is that claim and `PROFILE` types it."""
+"""`test_belief.CLAIM`'s wire shape — the same operator, roles, form, polarity
+and layer, so the restored claim is that claim and `PROFILE` types it."""
 
-OTHER_CLAIM_FACET: dict[str, Any] = {**CLAIM_FACET, "args": [OTHER_GENE, PHENO]}
+OTHER_CLAIM_FACET: dict[str, Any] = {
+    **CLAIM_FACET,
+    "roles": {**CLAIM_FACET["roles"], "cause": {"sort": "testing/entity", "term": OTHER_GENE}},
+}
 
 EMPIRICAL: dict[str, str] = {"locator": "instrument:fixture", "attested_by": ACTOR}
 """The empirical-observation facet every fixture dataset carries; the writer's

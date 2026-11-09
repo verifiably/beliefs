@@ -1537,7 +1537,7 @@ def test_a_raw_written_cross_kind_supersedes_edge_is_reported_on_any_record(tmp_
     )
 
 
-def test_a_successor_that_retires_the_edge_row_makes_the_composite_malformed(tmp_path):
+def test_a_successor_that_retires_the_edge_template_makes_the_composite_malformed(tmp_path):
     import copy
 
     from profiles import FIXTURE, biology
@@ -1552,7 +1552,7 @@ def test_a_successor_that_retires_the_edge_row_makes_the_composite_malformed(tmp
     successor = copy.deepcopy(document)
     successor["description"] = "fixture"
     successor["lineage"] = {"successor": biology("fixture").content_identity}
-    successor["edges"]["affects"]["retired"] = True
+    successor["templates"]["affects"]["retired"] = True
     retired = compile_profile(
         shipped_base_contract(),
         [parse_domain_contract(successor, source="<r>", base=shipped_base_contract(), predecessor=biology("fixture"))],
