@@ -8,7 +8,16 @@
  * because `ts/` is a second system.
  */
 
-export { buildClaim, Claim, type ClaimParts, Qualifier, Referent } from "./claim.js";
+export {
+  buildClaim,
+  Claim,
+  type ClaimParts,
+  canonicalMembers,
+  Member,
+  memberKey,
+  Qualifier,
+  Referent,
+} from "./claim.js";
 export {
   type BaseContract,
   type ClaimGrammar,

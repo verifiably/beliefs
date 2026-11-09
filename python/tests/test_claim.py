@@ -116,7 +116,8 @@ class TestTheOnlyRouteIsTheValidatedConstructor:
 
     def test_no_alternate_constructor_is_exported(self):
         builders = [name for name in claim_module.__all__ if name.islower()]
-        assert builders == ["build_claim"]
+        # `canonical_members` and `member_key` build no Claim: they order and key a role's members.
+        assert builders == ["build_claim", "canonical_members", "member_key"]
 
     def test_the_type_offers_no_coercion(self):
         # A `from_*` classmethod is how the wire type gets a second route in.

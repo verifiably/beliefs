@@ -794,6 +794,16 @@ class MalformedReferent(ClaimError):
     holding an integer where an identifier belongs."""
 
 
+class DuplicateMember(ClaimError):
+    """Two members of one `many` role share a canonical member key (the NFC of
+    sort and term), so they name one referent. A role holds each referent once."""
+
+
+class CoefficientRefused(ClaimError):
+    """A member coefficient that is not a positive integer (a `bool`, a non-`int`,
+    or less than 1)."""
+
+
 class UntypedQualifier(ClaimError):
     """A qualifier entry that is not a `Qualifier`. Structural typing is not
     enough here: an arbitrary object exposing `quantifier` and `restriction`

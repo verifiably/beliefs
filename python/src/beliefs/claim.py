@@ -35,8 +35,10 @@ says nothing about whether its referents exist.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+import unicodedata
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from itertools import pairwise
 from types import MappingProxyType
 from typing import final
 
@@ -44,6 +46,8 @@ from beliefs.errors import (
     ArgumentSortMismatch,
     ArityMismatch,
     ClaimError,
+    CoefficientRefused,
+    DuplicateMember,
     InadmissibleLayer,
     MalformedReferent,
     PolarityRefused,
@@ -59,7 +63,7 @@ from beliefs.identifiers import not_an_identifier
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 
-__all__ = ["Claim", "Qualifier", "Referent", "build_claim"]
+__all__ = ["Claim", "Member", "Qualifier", "Referent", "build_claim", "canonical_members", "member_key"]
 
 
 @sealed
@@ -94,6 +98,48 @@ class Referent:
     def __post_init__(self) -> None:
         require_identifier(self.sort, "a referent's sort")
         require_identifier(self.term, "a referent's term")
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class Member:
+    """A referent with a positive integer coefficient: one entry of a `many` role.
+
+    The referent keeps the spelling it was written in; only `member_key` normalizes.
+    """
+
+    referent: Referent
+    coefficient: int = 1
+
+    def __post_init__(self) -> None:
+        _require_referent(self.referent, "a member's referent")
+        # bool is an int in Python, so it is refused first.
+        if isinstance(self.coefficient, bool) or not isinstance(self.coefficient, int) or self.coefficient < 1:
+            raise CoefficientRefused(
+                f"a member's coefficient is {self.coefficient!r}; it must be an integer of at least 1"
+            )
+
+
+def member_key(referent: Referent) -> tuple[str, str]:
+    """The canonical member key: the NFC of sort and term, compared by code point
+    (Python's tuple-of-str order)."""
+    return (unicodedata.normalize("NFC", referent.sort), unicodedata.normalize("NFC", referent.term))
+
+
+def canonical_members(members: Iterable[Member], *, where: str) -> tuple[Member, ...]:
+    """Members sorted by `member_key`; two sharing a key raise `DuplicateMember`."""
+    items = tuple(members)
+    for item in items:
+        if not isinstance(item, Member):
+            raise UntypedReferent(f"{where} holds {type(item).__name__}, not a Member")
+    ordered = tuple(sorted(items, key=lambda m: member_key(m.referent)))
+    for left, right in pairwise(ordered):
+        if member_key(left.referent) == member_key(right.referent):
+            raise DuplicateMember(
+                f"{where} names {member_key(left.referent)!r} more than once; a role holds each referent once"
+            )
+    return ordered
 
 
 @sealed

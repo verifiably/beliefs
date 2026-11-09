@@ -116,6 +116,8 @@ export class ProfileError extends ScienceError {}
 export class ClaimError extends ScienceError {}
 export class UntypedReferent extends ClaimError {}
 export class MalformedReferent extends ClaimError {}
+export class DuplicateMember extends ClaimError {}
+export class CoefficientRefused extends ClaimError {}
 export class UntypedQualifier extends ClaimError {}
 export class ArityMismatch extends ClaimError {}
 export class ArgumentSortMismatch extends ClaimError {}

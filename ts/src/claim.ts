@@ -27,6 +27,8 @@ import {
   ArgumentSortMismatch,
   ArityMismatch,
   ClaimError,
+  CoefficientRefused,
+  DuplicateMember,
   InadmissibleLayer,
   MalformedReferent,
   PolarityRefused,
@@ -38,6 +40,7 @@ import {
   UntypedQualifier,
   UntypedReferent,
 } from "./errors.js";
+import { compareByCodePoint } from "./identity/v1.js";
 import { ProfileSpec, resolveOperator } from "./profile.js";
 
 const MINT = Symbol("science.claim.mint");
@@ -72,6 +75,63 @@ export class Referent {
   static is(value: unknown): value is Referent {
     return typeof value === "object" && value !== null && #minted in value;
   }
+}
+
+/**
+ * A referent with a positive integer coefficient: one entry of a `many` role.
+ * Coefficients are `bigint` so they encode as integers under `encodeValue`.
+ */
+export class Member {
+  #minted = true;
+  readonly referent: Referent;
+  readonly coefficient: bigint;
+
+  constructor(referent: Referent, coefficient = 1n) {
+    if (new.target !== Member) {
+      throw new SubclassRefused("Member is sealed: a subclass could mint an unchecked value that still passes for one");
+    }
+    if (!Referent.is(referent)) {
+      throw new UntypedReferent("a member's referent is not a Referent; a bare term carries no sort to check");
+    }
+    if (typeof coefficient !== "bigint" || coefficient < 1n) {
+      throw new CoefficientRefused(
+        `a member's coefficient is ${String(coefficient)}; it must be an integer of at least 1`,
+      );
+    }
+    this.referent = referent;
+    this.coefficient = coefficient;
+    Object.freeze(this);
+  }
+
+  static is(value: unknown): value is Member {
+    return typeof value === "object" && value !== null && #minted in value;
+  }
+}
+
+/** The canonical member key: NFC of sort and term, compared by code point. */
+export function memberKey(referent: Referent): [string, string] {
+  return [referent.sort.normalize("NFC"), referent.term.normalize("NFC")];
+}
+
+function compareKeys(a: [string, string], b: [string, string]): number {
+  return compareByCodePoint(a[0], b[0]) || compareByCodePoint(a[1], b[1]);
+}
+
+/** Members sorted by `memberKey`; two sharing a key throw `DuplicateMember`. */
+export function canonicalMembers(members: readonly Member[], where: string): readonly Member[] {
+  for (const item of members) {
+    if (!Member.is(item)) throw new UntypedReferent(`${where} holds a value that is not a Member`);
+  }
+  const keyed = members.map((member) => ({ member, key: memberKey(member.referent) }));
+  keyed.sort((a, b) => compareKeys(a.key, b.key));
+  for (let i = 1; i < keyed.length; i += 1) {
+    if (compareKeys(keyed[i - 1].key, keyed[i].key) === 0) {
+      throw new DuplicateMember(
+        `${where} names ${JSON.stringify(keyed[i].key)} more than once; a role holds each referent once`,
+      );
+    }
+  }
+  return Object.freeze(keyed.map((entry) => entry.member));
 }
 
 /** One entry of the flat fragment: `d ↦ ⟨quantifier, restriction⟩`. */
