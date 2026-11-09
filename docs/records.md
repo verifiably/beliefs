@@ -28,11 +28,12 @@ to an equal node, and one that does not is refused.
 
 ## Record kinds
 
-The Science base contract (`contracts/science/CONTRACT.yaml`) declares sixteen
+The Science base contract (`contracts/science/CONTRACT.yaml`) declares nineteen
 world kinds and three prose kinds. A world kind is either governed, meaning the
 contract names an identity domain for it, or ungoverned (only
 `instrument-certification`). A kind's required facet is present on every record of
-that kind.
+that kind. Two governed kinds, `procedure` and `classification-rule`, declare no
+facet yet, and every door that mints a record refuses them (`KindNotMintedHere`).
 
 | Kind | Required facet | Enters through |
 |---|---|---|
@@ -52,6 +53,9 @@ that kind.
 | `composite` | `composite` | `add`, `supersede` |
 | `exposure-event` | `exposure-event` | `add`, `revise` |
 | `reservation-assignment` | `reservation-assignment` | `add` (a chain root), `supersede`, `revise` |
+| `assumptions-register` | `assumptions-register` | `add` |
+| `procedure` | none declared yet | not minted |
+| `classification-rule` | none declared yet | not minted |
 
 The base contract names a reader for each kernel facet, but that name is not
 resolved or called: the code checks each facet where it is used. At the write

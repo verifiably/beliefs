@@ -236,6 +236,9 @@ COREFERENCE_ENDPOINT_KINDS: tuple[str, ...] = (
     "retraction",
     "instrument-certification",
     "composite",
+    "assumptions-register",
+    "procedure",
+    "classification-rule",
 )
 """The kinds a coreference attestation may name as endpoints: the world kinds less the attestation itself, the two
 boundary-minted occurrence records and the two append-only kinds. `test_coreference_attestation.py` holds

@@ -36,6 +36,9 @@ class TestKindActsIsClosedAndComplete:
         assert KIND_ACTS["dataset"] == {"corpus-write"}
         assert KIND_ACTS["act-report"] == {"corpus-write", "run"}
         assert KIND_ACTS["holdings-observation"] == {"holdings"}
+        # P1 and ruling F1: the three base-v2 world kinds are minted by `add` alone.
+        for kind in ("assumptions-register", "procedure", "classification-rule"):
+            assert KIND_ACTS[kind] == {"corpus-write"}
         for kind in ORDINARY_COORDINATION_KINDS:
             assert KIND_ACTS[kind] == {"corpus-write"}
         for kind in PUBLICATION_KINDS:

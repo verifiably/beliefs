@@ -20,14 +20,21 @@ import { compileProfile } from "../src/profile.js";
 
 const BASE = `
 contract: science
-version: 1
+version: 2
 claim_grammar:
-  version: 1
+  version: 2
   tag_encoding: science.identity.v1
   quantifiers: [generic, universal, existential]
   polarities: [positive, negative, unsigned]
   sign_inapt_tag: inapt
+  forms: [polar, "null"]
   layers: [causal, structural]
+  role_categories: [set, temporal, class, pattern]
+  binding_kinds: [release, dataset, scheme, selection, run-output, world-kind]
+  mapping_types: [exact, narrower, broader, contextual]
+  placements: [claim, applicability]
+  reserved_roles:
+    within-model: { world_kind: procedure }
 estimand_grammar:
   version: 1
   tag_encoding: science.identity.v1
@@ -37,7 +44,8 @@ estimand_grammar:
 composite_grammar:
   version: 1
   shapes: [dag]
-kinds: {}
+kinds:
+  procedure: { domain: science.procedure.v1, facets: {} }
 relations: {}
 facets: {}
 `;

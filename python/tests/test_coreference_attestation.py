@@ -211,6 +211,9 @@ class TestTheKindIsGoverned:
             "retraction",
             "instrument-certification",
             "composite",
+            "assumptions-register",
+            "procedure",
+            "classification-rule",
         )
 
 

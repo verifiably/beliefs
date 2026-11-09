@@ -31,6 +31,23 @@ from beliefs.errors import (
 from beliefs.profile import ProfileSpec, compile_profile
 
 
+def forged_grammar(polarities: tuple[str, ...], inapt: str, layers: tuple[str, ...]) -> base.ClaimGrammar:
+    """A hand-built claim grammar, the forgery these tests prove is refused."""
+    return base.ClaimGrammar(
+        version=2,
+        quantifiers=("generic",),
+        polarities=polarities,
+        sign_inapt_tag=inapt,
+        layers=layers,
+        forms=base.SUPPORTED_FORMS,
+        role_categories=base.SUPPORTED_ROLE_CATEGORIES,
+        binding_kinds=base.SUPPORTED_BINDING_KINDS,
+        mapping_types=base.SUPPORTED_MAPPING_TYPES,
+        placements=base.SUPPORTED_PLACEMENTS,
+        reserved_roles={"within-model": base.ReservedRole("procedure")},
+    )
+
+
 def test_coordination_compiles_into_immutable_authorization(base_contract):
     contract = coordination_contract()
     compiled = compile_profile(base_contract, [], coordination=contract)
@@ -49,7 +66,7 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     and again when the (here empty) `edges` table entered it too,
     and again when the exposure and reservation kinds entered it."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "a2ba154ec3c555c85a6d421aa9643010c8a925ae0ca4ffb74fe479bdf5618c77"
+    assert before.compiled_identity == "301a88e8638a93ef3fb669b0e1dbe8020a2ba0b0fbd729f811e878684e133300"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -620,7 +637,7 @@ class TestTheTrustChainStartsAtTheDocument:
             base.BaseContract(
                 name="science",
                 version=1,
-                claim_grammar=base.ClaimGrammar(1, ("generic",), ("positive",), "inapt", ("causal",)),
+                claim_grammar=forged_grammar(("positive",), "inapt", ("causal",)),
                 content_identity="0" * 64,
             )
 
@@ -643,7 +660,7 @@ class TestTheTrustChainStartsAtTheDocument:
 
     def test_compilation_refuses_a_base_contract_no_parser_produced(self, testing):
         class Impostor:
-            claim_grammar = base.ClaimGrammar(1, ("generic",), ("positive",), "inapt", ("causal",))
+            claim_grammar = forged_grammar(("positive",), "inapt", ("causal",))
             content_identity = "0" * 64
 
         with pytest.raises(UnparsedContract, match="parse_base_contract"):
@@ -737,7 +754,7 @@ class TestTwoGenuineContractsThatDoNotBelongTogether:
     def test_the_domain_parser_authenticates_its_base(self, testing_document):
         class Impostor:
             name = "science"
-            claim_grammar = base.ClaimGrammar(1, ("generic",), ("positive",), "inapt", ("causal",))
+            claim_grammar = forged_grammar(("positive",), "inapt", ("causal",))
             content_identity = "0" * 64
 
         with pytest.raises(UnparsedContract, match="parse_base_contract"):
@@ -790,7 +807,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 object(),
                 name="science",
                 version=1,
-                claim_grammar=base.ClaimGrammar(1, ("generic",), ("positive",), "inapt", ("causal",)),
+                claim_grammar=forged_grammar(("positive",), "inapt", ("causal",)),
                 content_identity="0" * 64,
             )
 
@@ -836,7 +853,7 @@ class TestTheClaimConstructorAuthenticatesItsProfile:
     """
 
     class Impostor:
-        claim_grammar = base.ClaimGrammar(1, ("generic",), ("yes",), "no", ("made-up",))
+        claim_grammar = forged_grammar(("yes",), "no", ("made-up",))
         dimensions: ClassVar[dict] = {}
 
         def authorable_dimensions(self, term):

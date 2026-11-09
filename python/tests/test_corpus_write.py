@@ -38,6 +38,7 @@ from beliefs.errors import (
     EligibilityUnmet,
     IdentifierMalformed,
     ImportRefused,
+    KindNotMintedHere,
     ManifestAlreadyPresent,
     ManifestMalformed,
     PermitExceeded,
@@ -1433,3 +1434,15 @@ def test_the_staging_doors_require_their_permits_first(tmp_path):
     with pytest.raises(PermitExceeded):
         unpublishing._stage_marker(marker_record(intent(), world_id="d" * 32, epoch="f" * 64, selection=("run:r",)))
     assert not (writer.root / "run").exists() and not (writer.root / "publication").exists()
+
+
+@pytest.mark.parametrize("kind", ["procedure", "classification-rule"])
+def test_procedure_cannot_be_added(tmp_path, kind):
+    # Base v2 names these kinds with a domain and no facet (design §8.1, R4): the
+    # measurement model adds their facets and readers, and until it does `add`
+    # has nothing to mint. The node is correctly stamped, so the refusal is the
+    # kind's own and not a stale stamp, and it comes before any write.
+    node = stored.stamp_semantic_identity(Node(id=f"{kind}:{'a' * 64}", kind=kind, title="unminted"))
+    with pytest.raises(KindNotMintedHere, match=kind):
+        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE).add(node)
+    assert not (tmp_path / kind).exists()

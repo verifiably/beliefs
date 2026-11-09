@@ -39,11 +39,30 @@ dimensions, although the Python parser accepts all of these.
 
 The base contract has exactly these fields: `contract` (always `science`),
 `version`, `claim_grammar`, `estimand_grammar`, `composite_grammar`, `kinds`,
-`relations` and `facets`.
+`relations` and `facets`. The shipped base is version 2.
 
 - `claim_grammar` holds `version`, `tag_encoding` (`science.identity.v1`),
-  `quantifiers`, `polarities`, `sign_inapt_tag` and `layers`. The sign-inapt tag
-  must not also be a polarity.
+  `quantifiers`, `polarities`, `sign_inapt_tag`, `forms`, `layers`,
+  `role_categories`, `binding_kinds`, `mapping_types`, `placements` and
+  `reserved_roles`. Its `version` must be 2. The sign-inapt tag must not also be a
+  polarity.
+- Six of those fields must equal exactly the sets the implementation operates; a
+  wider or a narrower set is refused:
+
+  | Field | Value |
+  |---|---|
+  | `forms` | `polar`, `"null"` |
+  | `role_categories` | `set`, `temporal`, `class`, `pattern` |
+  | `binding_kinds` | `release`, `dataset`, `scheme`, `selection`, `run-output`, `world-kind` |
+  | `mapping_types` | `exact`, `narrower`, `broader`, `contextual` |
+  | `placements` | `claim`, `applicability` |
+  | `reserved_roles` (its role names) | `within-model` |
+
+  The form tag `"null"` is a string and is quoted in every document: an unquoted
+  `null` is a YAML null value, which no closed set accepts.
+- Each `reserved_roles` entry has exactly one field, `world_kind`, which must name
+  a world kind the contract declares. The shipped base reserves
+  `within-model: { world_kind: procedure }`.
 - `estimand_grammar` holds `version` and `tag_encoding`, plus `contrast_kinds`,
   `scales` and `uncertainty_kinds`. Those three must equal exactly the sets the
   implementation operates: `levels, continuous`, `additive, multiplicative` and

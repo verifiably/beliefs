@@ -65,6 +65,12 @@ KIND_ACTS: Mapping[str, frozenset[str]] = MappingProxyType(
         "composite": _CORPUS_WRITE,
         "exposure-event": _CORPUS_WRITE,
         "reservation-assignment": _CORPUS_WRITE,
+        # Base v2 (beliefs-d64969): the register is minted by `add`; `procedure` and
+        # `classification-rule` carry rows now because `_PUBLICATION_PERMIT` holds every
+        # world kind, and the measurement model gives them their facets (ruling P1).
+        "assumptions-register": _CORPUS_WRITE,
+        "procedure": _CORPUS_WRITE,
+        "classification-rule": _CORPUS_WRITE,
         **{kind: _CORPUS_WRITE for kind in _ORDINARY_COORDINATION_KINDS},
         "publication": frozenset({"publish"}),
         "publication-binding": frozenset({"publish"}),

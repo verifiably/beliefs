@@ -4049,6 +4049,7 @@ class CorpusWriter:
         view: ReadView | _ImportView | MountCitations | None = None,
         provenance: bool = False,
     ) -> None:
+        self._refuse_facetless_world_kind(node)
         view = self._citation_view() if view is None else view
         self._refuse_already_minted(node)
         self._refuse_source(node, provenance=provenance)
@@ -4072,6 +4073,19 @@ class CorpusWriter:
         self._refuse_governed_stamp(node)
         self._refuse_rendering(node)
         self._refuse_collision(node)
+
+    def _refuse_facetless_world_kind(self, node: Node) -> None:
+        """A governed world kind the base names with no facet is not mintable yet.
+
+        Base v2 names `procedure` and `classification-rule` ahead of the measurement
+        model, which adds their facets and readers (design §8.1, R4). A record of
+        such a kind would carry nothing but a stamp over nothing, so every write
+        door through here refuses it rather than mint an empty claimant."""
+        kind = self._profile.kinds.get(node.kind)
+        if kind is not None and kind.role == "world" and kind.domain is not None and not kind.facets:
+            raise KindNotMintedHere(
+                f"{node.kind!r} declares no facet yet, so nothing mints it; the measurement model adds its facets"
+            )
 
     def _refuse_facet_shapes(self, node: Node) -> None:
         """The view-free half: registry membership and every facet payload's shape."""

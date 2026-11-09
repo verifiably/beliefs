@@ -16,8 +16,8 @@ describe("document load refuses duplicate keys", () => {
 
 describe("the base contract's declarations", () => {
   const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
-  it("declares sixteen world kinds and three prose kinds", () => {
-    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(16);
+  it("declares nineteen world kinds and three prose kinds", () => {
+    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(19);
     expect(Object.values(base.kinds).filter((kind) => kind.role === "prose")).toHaveLength(3);
     expect(base.kinds["instrument-certification"].domain).toBeNull();
     expect(base.kinds["coreference-attestation"].domain).toBe("science.coreference-attestation.v1");
@@ -119,6 +119,83 @@ describe("the base contract's declarations", () => {
         "<bad>",
       ),
     ).toThrow(/log/);
+  });
+  it("declares the v2 claim grammar's closed sets", () => {
+    const grammar = base.claimGrammar;
+    expect(base.version).toBe(2);
+    expect(grammar.version).toBe(2);
+    expect(grammar.forms).toEqual(["polar", "null"]);
+    expect(grammar.roleCategories).toEqual(["set", "temporal", "class", "pattern"]);
+    expect(grammar.bindingKinds).toEqual(["release", "dataset", "scheme", "selection", "run-output", "world-kind"]);
+    expect(grammar.mappingTypes).toEqual(["exact", "narrower", "broader", "contextual"]);
+    expect(grammar.placements).toEqual(["claim", "applicability"]);
+    expect(grammar.reservedRoles).toEqual({ "within-model": { worldKind: "procedure" } });
+    expect(Object.isFrozen(grammar.reservedRoles)).toBe(true);
+    expect(Object.isFrozen(grammar.reservedRoles["within-model"])).toBe(true);
+  });
+  it("declares the three base-v2 world kinds", () => {
+    expect(base.kinds["assumptions-register"].domain).toBe("science.assumptions-register.v1");
+    expect(base.kinds["assumptions-register"].facets["assumptions-register"]).toEqual({
+      required: true,
+      covered: true,
+    });
+    expect(base.facets["assumptions-register"].shape).toBe("reader");
+    for (const name of ["procedure", "classification-rule"]) {
+      expect(base.kinds[name].role).toBe("world");
+      expect(base.kinds[name].domain).toBe(`science.${name}.v1`);
+      expect(Object.keys(base.kinds[name].facets)).toEqual([]);
+    }
+  });
+  it("refuses a widened form set", () => {
+    const bad = SHIPPED.replace('forms: [polar, "null"]', 'forms: [polar, "null", value]');
+    expect(bad).not.toBe(SHIPPED);
+    expect(() => parseBaseContract(bad, "<bad>")).toThrow(/forms/);
+  });
+  it("refuses a YAML null inside a closed set", () => {
+    const bad = SHIPPED.replace('forms: [polar, "null"]', "forms: [polar, null]");
+    expect(bad).not.toBe(SHIPPED);
+    expect(() => parseBaseContract(bad, "<bad>")).toThrow(/forms/);
+  });
+  it("refuses a narrowed binding-kind set", () => {
+    const bad = SHIPPED.replace(
+      "binding_kinds: [release, dataset, scheme, selection, run-output, world-kind]",
+      "binding_kinds: [release, dataset, scheme, selection, run-output]",
+    );
+    expect(bad).not.toBe(SHIPPED);
+    expect(() => parseBaseContract(bad, "<bad>")).toThrow(/binding_kinds/);
+  });
+  it.each([
+    ["role_categories", "role_categories: [set, temporal, class, pattern]", "role_categories: [set, temporal, class]"],
+    [
+      "mapping_types",
+      "mapping_types: [exact, narrower, broader, contextual]",
+      "mapping_types: [exact, narrower, broader, contextual, related]",
+    ],
+    ["placements", "placements: [claim, applicability]", "placements: [claim]"],
+  ])("refuses a %s set other than the operated one", (name, line, mutated) => {
+    const bad = SHIPPED.replace(line, mutated);
+    expect(bad).not.toBe(SHIPPED);
+    expect(() => parseBaseContract(bad, "<bad>")).toThrow(new RegExp(name));
+  });
+  it("refuses a reserved role naming no declared world kind", () => {
+    for (const kind of ["nowhere", "discussion"]) {
+      const bad = SHIPPED.replace("within-model: { world_kind: procedure }", `within-model: { world_kind: ${kind} }`);
+      expect(bad).not.toBe(SHIPPED);
+      expect(() => parseBaseContract(bad, "<bad>")).toThrow(new RegExp(kind));
+    }
+  });
+  it("refuses a malformed reserved role entry", () => {
+    for (const entry of ["null", "{}", "{ world_kind: procedure, extra: 1 }", "{ world_kind: null }"]) {
+      const bad = SHIPPED.replace("within-model: { world_kind: procedure }", `within-model: ${entry}`);
+      expect(() => parseBaseContract(bad, "<bad>")).toThrow(/reserved_roles/);
+    }
+  });
+  it("refuses a claim grammar version other than 2", () => {
+    for (const version of ["1", "3"]) {
+      const bad = SHIPPED.replace(/claim_grammar:\n {2}version: 2/, `claim_grammar:\n  version: ${version}`);
+      expect(bad).not.toBe(SHIPPED);
+      expect(() => parseBaseContract(bad, "<bad>")).toThrow(/claim_grammar\.version/);
+    }
   });
   it("refuses a base contract without the estimand grammar", () => {
     const missing = SHIPPED.replace(/estimand_grammar:[\s\S]*?uncertainty_kinds: \[interval, standard-error\]\n/, "");

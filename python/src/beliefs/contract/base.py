@@ -40,7 +40,12 @@ __all__ = [
     "COMPOSES_SIGNATURE",
     "COMPOSITE_GRAMMAR",
     "ESTIMAND_GRAMMAR",
+    "SUPPORTED_BINDING_KINDS",
     "SUPPORTED_CONTRAST_KINDS",
+    "SUPPORTED_FORMS",
+    "SUPPORTED_MAPPING_TYPES",
+    "SUPPORTED_PLACEMENTS",
+    "SUPPORTED_ROLE_CATEGORIES",
     "SUPPORTED_SCALES",
     "SUPPORTED_UNCERTAINTY_KINDS",
     "BaseContract",
@@ -50,6 +55,7 @@ __all__ = [
     "FacetUse",
     "KindDecl",
     "RelationDecl",
+    "ReservedRole",
     "load_base_contract",
     "parse_base_contract",
 ]
@@ -82,7 +88,39 @@ distinction worth keeping is between a hole and a documented limit.
 _CONTRACT_FIELDS = frozenset(
     {"contract", "version", "claim_grammar", "estimand_grammar", "composite_grammar", "kinds", "relations", "facets"}
 )
-_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"})
+_GRAMMAR_FIELDS = frozenset(
+    {
+        "version",
+        "tag_encoding",
+        "quantifiers",
+        "polarities",
+        "sign_inapt_tag",
+        "forms",
+        "layers",
+        "role_categories",
+        "binding_kinds",
+        "mapping_types",
+        "placements",
+        "reserved_roles",
+    }
+)
+CLAIM_GRAMMAR_VERSION = 2
+"""The one claim-grammar version this implementation reads. A v1 grammar has
+operators with positional slots, which nothing here can type any longer."""
+SUPPORTED_FORMS = ("polar", "null")
+"""A claim's form. The second tag is the *string* ``"null"``; a YAML null value
+in any closed set is refused as a malformed tag."""
+SUPPORTED_ROLE_CATEGORIES = ("set", "temporal", "class", "pattern")
+SUPPORTED_BINDING_KINDS = ("release", "dataset", "scheme", "selection", "run-output", "world-kind")
+SUPPORTED_MAPPING_TYPES = ("exact", "narrower", "broader", "contextual")
+SUPPORTED_PLACEMENTS = ("claim", "applicability")
+"""The five claim-grammar closed sets base v2 adds (design §8.1). As with the
+estimand sets, a contract must declare each exactly: wider would route a tag no
+code operates, narrower would make a kernel tag unreachable."""
+_RESERVED_ROLE_FIELDS = frozenset({"world_kind"})
+_SUPPORTED_RESERVED_ROLES = ("within-model",)
+"""The reserved role names typing admits on every operator; the table's key set
+is a closed set like the others and must match exactly."""
 _ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
 SUPPORTED_SHAPES = ("dag",)
@@ -108,6 +146,14 @@ spelled inline so the parser and its message read from one statement."""
 
 
 @dataclass(frozen=True)
+class ReservedRole:
+    """A role name the kernel admits on every operator: its referent is a record
+    of ``world_kind``, a world kind this contract declares."""
+
+    world_kind: str
+
+
+@dataclass(frozen=True)
 class ClaimGrammar:
     """The closed sets a claim's structure draws from."""
 
@@ -116,6 +162,12 @@ class ClaimGrammar:
     polarities: tuple[str, ...]
     sign_inapt_tag: str
     layers: tuple[str, ...]
+    forms: tuple[str, ...]
+    role_categories: tuple[str, ...]
+    binding_kinds: tuple[str, ...]
+    mapping_types: tuple[str, ...]
+    placements: tuple[str, ...]
+    reserved_roles: Mapping[str, ReservedRole]
 
     @property
     def polarity_tags(self) -> tuple[str, ...]:
@@ -329,6 +381,36 @@ def _closed_set(value: object, where: str) -> tuple[str, ...]:
     return tags
 
 
+def _require_operated(declared: tuple[str, ...], supported: tuple[str, ...], where: str) -> None:
+    """Exact equality with the set this implementation operates (ruling P2): wider and narrower both refuse."""
+    if set(declared) != set(supported):
+        unoperable = sorted(set(declared) ^ set(supported))
+        raise MalformedContract(
+            f"{where} declares {sorted(declared)}, not the set this implementation operates "
+            f"{sorted(supported)}; {unoperable} is not operable here (a later grammar version arrives with its "
+            "interpretation, never ahead of it)"
+        )
+
+
+def _reserved_roles(value: object, kinds: Mapping[str, KindDecl], where: str) -> Mapping[str, ReservedRole]:
+    roles: dict[str, ReservedRole] = {}
+    table = _mapping(value, where)
+    _require_operated(tuple(table), _SUPPORTED_RESERVED_ROLES, f"{where}:")
+    for role_name, entry_value in table.items():
+        role_where = f"{where}.{_tag(role_name, where)}"
+        entry = _mapping(entry_value, role_where)
+        _exact_fields(entry, _RESERVED_ROLE_FIELDS, role_where)
+        world_kind = _tag(entry["world_kind"], f"{role_where}: world_kind")
+        declared = kinds.get(world_kind)
+        if declared is None or declared.role != "world":
+            raise MalformedContract(
+                f"{role_where}: world_kind {world_kind!r} is not a world kind this contract declares; a reserved "
+                "role's referent is a record, and only a world kind is one"
+            )
+        roles[role_name] = ReservedRole(world_kind=world_kind)
+    return MappingProxyType(roles)
+
+
 def parse_base_contract(document: object, *, source: str) -> BaseContract:
     """Validate a parsed base-contract document, or refuse it."""
     root = _mapping(document, source)
@@ -359,13 +441,23 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             "operator has no sign to assert. One tag cannot carry both."
         )
 
-    claim_grammar = ClaimGrammar(
-        version=_positive_int(grammar["version"], f"{grammar_where}: version"),
-        quantifiers=_closed_set(grammar["quantifiers"], f"{grammar_where}: quantifiers"),
-        polarities=polarities,
-        sign_inapt_tag=sign_inapt_tag,
-        layers=_closed_set(grammar["layers"], f"{grammar_where}: layers"),
-    )
+    grammar_version = _positive_int(grammar["version"], f"{grammar_where}: version")
+    if grammar_version != CLAIM_GRAMMAR_VERSION:
+        raise MalformedContract(
+            f"{grammar_where}: version is {grammar_version}, and this implementation reads claim grammar version "
+            f"{CLAIM_GRAMMAR_VERSION} only"
+        )
+    v2_sets: dict[str, tuple[str, ...]] = {}
+    for set_name, supported in (
+        ("forms", SUPPORTED_FORMS),
+        ("role_categories", SUPPORTED_ROLE_CATEGORIES),
+        ("binding_kinds", SUPPORTED_BINDING_KINDS),
+        ("mapping_types", SUPPORTED_MAPPING_TYPES),
+        ("placements", SUPPORTED_PLACEMENTS),
+    ):
+        declared = _closed_set(grammar[set_name], f"{grammar_where}: {set_name}")
+        _require_operated(declared, supported, f"{grammar_where}: {set_name}")
+        v2_sets[set_name] = declared
 
     composite_where = f"{source}: composite_grammar"
     composite = _mapping(root["composite_grammar"], composite_where)
@@ -400,13 +492,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         ("scales", estimand_grammar.scales, SUPPORTED_SCALES),
         ("uncertainty_kinds", estimand_grammar.uncertainty_kinds, SUPPORTED_UNCERTAINTY_KINDS),
     ):
-        if set(declared) != set(supported):
-            unoperable = sorted(set(declared) ^ set(supported))
-            raise MalformedContract(
-                f"{estimand_where}: {set_name} declares {sorted(declared)}, not the set this implementation operates "
-                f"{sorted(supported)}; {unoperable} is not operable here (a later grammar version arrives with its "
-                "interpretation, never ahead of it)"
-            )
+        _require_operated(declared, supported, f"{estimand_where}: {set_name}")
 
     facets = parse_facet_declarations(root["facets"], where=f"{source}: facets", namespace=None)
     kinds: dict[str, KindDecl] = {}
@@ -435,6 +521,20 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             uses[key] = FacetUse(required=use["required"], covered=use["covered"])
         kind_domain = domain if isinstance(domain, str) and role == "world" and body else None
         kinds[kind_name] = KindDecl(kind_name, role, kind_domain, MappingProxyType(uses))
+
+    claim_grammar = ClaimGrammar(
+        version=grammar_version,
+        quantifiers=_closed_set(grammar["quantifiers"], f"{grammar_where}: quantifiers"),
+        polarities=polarities,
+        sign_inapt_tag=sign_inapt_tag,
+        layers=_closed_set(grammar["layers"], f"{grammar_where}: layers"),
+        forms=v2_sets["forms"],
+        role_categories=v2_sets["role_categories"],
+        binding_kinds=v2_sets["binding_kinds"],
+        mapping_types=v2_sets["mapping_types"],
+        placements=v2_sets["placements"],
+        reserved_roles=_reserved_roles(grammar["reserved_roles"], kinds, f"{grammar_where}: reserved_roles"),
+    )
 
     relations: dict[str, RelationDecl] = {}
     for relation_name, body_value in _mapping(root["relations"], f"{source}: relations").items():

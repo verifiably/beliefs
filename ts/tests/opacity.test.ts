@@ -71,6 +71,12 @@ const FORGED_GRAMMAR: ClaimGrammar = {
   polarities: ["yes"],
   signInaptTag: "no",
   layers: ["made-up"],
+  forms: ["made-up"],
+  roleCategories: ["made-up"],
+  bindingKinds: ["made-up"],
+  mappingTypes: ["made-up"],
+  placements: ["made-up"],
+  reservedRoles: { "made-up": { worldKind: "nowhere" } },
 };
 
 /** Likewise, for the estimand grammar. */

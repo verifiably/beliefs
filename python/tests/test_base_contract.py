@@ -30,7 +30,7 @@ class TestTheShippedContract:
         assert request.node.get_closest_marker("xdist_group") is None
         contract = base.load_base_contract(base_contract_path)
         assert contract.name == "science"
-        assert contract.version == 1
+        assert contract.version == 2
 
     def test_it_declares_the_closed_sets_7_1_names(self, base_contract_path):
         grammar = base.load_base_contract(base_contract_path).claim_grammar
@@ -55,7 +55,7 @@ class TestContentIdentity:
         # Purely editorial changes move the contract identity — and so
         # belief_input_digest — while touching no declared schema.
         edited = copy.deepcopy(document)
-        edited["claim_grammar"]["version"] = 2
+        edited["version"] = 3
         assert parse(edited).content_identity != parse(document).content_identity
 
     def test_reformatting_does_not_move_it(self, base_contract_path):
@@ -117,7 +117,21 @@ class TestRefusals:
             parse(broken)
 
     @pytest.mark.parametrize(
-        "field", ["version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"]
+        "field",
+        [
+            "version",
+            "tag_encoding",
+            "quantifiers",
+            "polarities",
+            "sign_inapt_tag",
+            "forms",
+            "layers",
+            "role_categories",
+            "binding_kinds",
+            "mapping_types",
+            "placements",
+            "reserved_roles",
+        ],
     )
     def test_a_missing_grammar_field_is_refused(self, document, field):
         broken = copy.deepcopy(document)
@@ -182,8 +196,133 @@ def test_explicit_null_kind_facets_are_not_an_empty_deferred_declaration(documen
 
 def test_genuinely_empty_deferred_declarations_remain_accepted(document):
     contract = parse(document)
-    for kind in ("instrument-certification",):
+    for kind in ("instrument-certification", "procedure", "classification-rule"):
         assert not contract.kinds[kind].facets
+
+
+class TestClaimGrammarV2:
+    """The six closed sets base v2 adds (design §8.1), each refused unless exactly the operated set."""
+
+    def test_v2_closed_sets_parse(self, base_contract_path):
+        grammar = base.load_base_contract(base_contract_path).claim_grammar
+        assert grammar.version == 2
+        assert grammar.forms == ("polar", "null")
+        assert grammar.role_categories == ("set", "temporal", "class", "pattern")
+        assert grammar.binding_kinds == ("release", "dataset", "scheme", "selection", "run-output", "world-kind")
+        assert grammar.mapping_types == ("exact", "narrower", "broader", "contextual")
+        assert grammar.placements == ("claim", "applicability")
+        assert dict(grammar.reserved_roles) == {"within-model": base.ReservedRole(world_kind="procedure")}
+        assert grammar.quantifiers == ("generic", "universal", "existential")
+        assert grammar.layers == ("causal", "structural", "statistical", "methodological")
+
+    def test_the_supported_sets_are_the_spec_values(self):
+        assert base.SUPPORTED_FORMS == ("polar", "null")
+        assert base.SUPPORTED_ROLE_CATEGORIES == ("set", "temporal", "class", "pattern")
+        assert base.SUPPORTED_BINDING_KINDS == (
+            "release",
+            "dataset",
+            "scheme",
+            "selection",
+            "run-output",
+            "world-kind",
+        )
+        assert base.SUPPORTED_MAPPING_TYPES == ("exact", "narrower", "broader", "contextual")
+        assert base.SUPPORTED_PLACEMENTS == ("claim", "applicability")
+
+    def test_the_reserved_roles_are_read_only(self, base_contract):
+        with pytest.raises(TypeError):
+            base_contract.claim_grammar.reserved_roles["other"] = base.ReservedRole("procedure")  # type: ignore[index]
+
+    def test_widened_form_set_refuses(self, document):
+        document["claim_grammar"]["forms"] = ["polar", "null", "value"]
+        with pytest.raises(MalformedContract, match="forms"):
+            parse(document)
+
+    def test_null_value_in_closed_set_refuses(self, document):
+        # A bare YAML `null` is a null value, never the form tag `"null"`.
+        loaded = yaml.safe_load("forms: [polar, null]")
+        assert loaded["forms"] == ["polar", None]
+        document["claim_grammar"]["forms"] = loaded["forms"]
+        with pytest.raises(MalformedContract, match="forms"):
+            parse(document)
+
+    def test_narrowed_binding_kinds_refuses(self, document):
+        document["claim_grammar"]["binding_kinds"] = ["release", "dataset", "scheme", "selection", "run-output"]
+        with pytest.raises(MalformedContract, match="binding_kinds"):
+            parse(document)
+
+    @pytest.mark.parametrize(
+        ("closed_set", "tags"),
+        [
+            ("role_categories", ["set", "temporal", "class"]),
+            ("mapping_types", ["exact", "narrower", "broader", "contextual", "related"]),
+            ("placements", ["claim"]),
+        ],
+    )
+    def test_every_new_closed_set_must_be_exact(self, document, closed_set, tags):
+        document["claim_grammar"][closed_set] = tags
+        with pytest.raises(MalformedContract, match=closed_set):
+            parse(document)
+
+    @pytest.mark.parametrize("closed_set", ["forms", "role_categories", "binding_kinds", "mapping_types", "placements"])
+    def test_a_duplicate_inside_a_new_closed_set_is_refused(self, document, closed_set):
+        document["claim_grammar"][closed_set] *= 2
+        with pytest.raises(TagCollision):
+            parse(document)
+
+    def test_reserved_role_names_a_world_kind(self, document):
+        document["claim_grammar"]["reserved_roles"] = {"within-model": {"world_kind": "nowhere"}}
+        with pytest.raises(MalformedContract, match="nowhere"):
+            parse(document)
+
+    def test_a_reserved_role_naming_a_prose_kind_refuses(self, document):
+        document["claim_grammar"]["reserved_roles"] = {"within-model": {"world_kind": "discussion"}}
+        with pytest.raises(MalformedContract, match="discussion"):
+            parse(document)
+
+    @pytest.mark.parametrize(
+        "entry",
+        [None, {}, {"world_kind": "procedure", "extra": 1}, {"world_kind": None}, {"world_kind": 3}],
+    )
+    def test_a_malformed_reserved_role_entry_refuses(self, document, entry):
+        document["claim_grammar"]["reserved_roles"] = {"within-model": entry}
+        with pytest.raises(MalformedContract):
+            parse(document)
+
+    @pytest.mark.parametrize(
+        "roles",
+        [
+            None,
+            [],
+            {},
+            {"Within Model": {"world_kind": "procedure"}},
+            {"within-world": {"world_kind": "procedure"}},
+            {"within-model": {"world_kind": "procedure"}, "within-world": {"world_kind": "procedure"}},
+        ],
+    )
+    def test_a_malformed_reserved_roles_table_refuses(self, document, roles):
+        document["claim_grammar"]["reserved_roles"] = roles
+        with pytest.raises(MalformedContract):
+            parse(document)
+
+    @pytest.mark.parametrize("version", [1, 3])
+    def test_a_claim_grammar_version_other_than_2_refuses(self, document, version):
+        document["claim_grammar"]["version"] = version
+        with pytest.raises(MalformedContract, match="version"):
+            parse(document)
+
+    def test_the_three_new_kinds(self, base_contract):
+        register = base_contract.kinds["assumptions-register"]
+        assert register.role == "world"
+        assert register.domain == "science.assumptions-register.v1"
+        assert dict(register.facets) == {"assumptions-register": base.FacetUse(required=True, covered=True)}
+        facet = base_contract.facets["assumptions-register"]
+        assert facet.shape == "reader"
+        for name in ("procedure", "classification-rule"):
+            kind = base_contract.kinds[name]
+            assert kind.role == "world"
+            assert kind.domain == f"science.{name}.v1"
+            assert dict(kind.facets) == {}
 
 
 class TestEstimandGrammar:

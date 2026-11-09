@@ -47,6 +47,9 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
         "composite",
         "exposure-event",
         "reservation-assignment",
+        "assumptions-register",
+        "procedure",
+        "classification-rule",
     )
     assert stored.PROSE_KINDS == ("interpretation", "discussion", "story")
     assert stored.WORLD_RELATIONS == (

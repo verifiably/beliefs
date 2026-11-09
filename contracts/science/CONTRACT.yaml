@@ -10,10 +10,10 @@
 # change, because the identities *are* the bytes.
 
 contract: science
-version: 1
+version: 2
 
 claim_grammar:
-  version: 1
+  version: 2
 
   # A kernel tag's canonical bytes are its symbol, encoded as a string under the
   # named contract. Declared rather than assumed so that no implementation can
@@ -30,7 +30,26 @@ claim_grammar:
   polarities: [positive, negative, unsigned]
   sign_inapt_tag: inapt
 
+  # A claim's form. `null` asserts the effect absent within a margin and carries
+  # the inapt tag. The tag is the *string* "null", quoted here and in every
+  # document: a bare `null` is a YAML null value, which no closed set admits.
+  forms: [polar, "null"]
+
   layers: [causal, structural, statistical, methodological]
+
+  # The closed sets base v2 adds. Each is one the kernel operates on: role
+  # categories and binding kinds in compile and resolution, mapping types in the
+  # bridge check, placements in typing. A parser refuses any set that is not
+  # exactly the one its implementation operates.
+  role_categories: [set, temporal, class, pattern]
+  binding_kinds: [release, dataset, scheme, selection, run-output, world-kind]
+  mapping_types: [exact, narrower, broader, contextual]
+  placements: [claim, applicability]
+
+  # Role names the kernel reserves beside every template's own roles. A reserved
+  # role's referent is a record of the named world kind; no pack may declare it.
+  reserved_roles:
+    within-model: { world_kind: procedure }
 
 # --- estimand grammar ---------------------------------------------------------
 # Three closed *structural* sets: each member is defined by an operation the
@@ -100,6 +119,13 @@ kinds:
     facets:
       reservation-assignment: { required: true, covered: true }
       display: { required: false, covered: false }
+  assumptions-register:
+    domain: science.assumptions-register.v1
+    facets: { assumptions-register: { required: true, covered: true } }
+  # Named now, with no facet yet: the measurement model adds their facets,
+  # readers and relations. Until then `add` refuses to mint either.
+  procedure: { domain: science.procedure.v1, facets: {} }
+  classification-rule: { domain: science.classification-rule.v1, facets: {} }
   interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
   discussion: { role: prose, facets: { display: { required: false, covered: false } } }
   story: { role: prose, facets: { display: { required: false, covered: false } } }
@@ -150,6 +176,7 @@ facets:
   composite: { shape: reader, reader: stored.composite_value }
   exposure-event: { shape: reader, reader: stored.exposure_event_value }
   reservation-assignment: { shape: reader, reader: stored.reservation_assignment_value }
+  assumptions-register: { shape: reader, reader: register.register_from_stored }
   empirical-observation:
     shape: schema
     description: The declared acquisition boundary (design §6). `locator` names the most upstream form outside the held boundary; `attested_by` is bound to the writer's actor at mint; `retrieval` is the boundary-minted acquisition report when one exists.

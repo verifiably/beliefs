@@ -57,12 +57,23 @@ function frozenTable<T>(entries: readonly (readonly [string, T])[]): Declaration
   return Object.freeze(table);
 }
 
+/** A role name the kernel admits on every operator; its referent is a record of `worldKind`. */
+export interface ReservedRole {
+  readonly worldKind: string;
+}
+
 export interface ClaimGrammar {
   readonly version: number;
   readonly quantifiers: readonly string[];
   readonly polarities: readonly string[];
   readonly signInaptTag: string;
   readonly layers: readonly string[];
+  readonly forms: readonly string[];
+  readonly roleCategories: readonly string[];
+  readonly bindingKinds: readonly string[];
+  readonly mappingTypes: readonly string[];
+  readonly placements: readonly string[];
+  readonly reservedRoles: Readonly<Record<string, ReservedRole>>;
 }
 
 export interface EstimandGrammar {
@@ -80,6 +91,24 @@ const SUPPORTED_SHAPES: readonly string[] = ["dag"];
 const SUPPORTED_CONTRAST_KINDS: readonly string[] = ["continuous", "levels"];
 const SUPPORTED_SCALES: readonly string[] = ["additive", "multiplicative"];
 const SUPPORTED_UNCERTAINTY_KINDS: readonly string[] = ["interval", "standard-error"];
+/** The one claim-grammar version this implementation reads. */
+const CLAIM_GRAMMAR_VERSION = 2;
+/** The claim-grammar closed sets base v2 adds (design §8.1), mirrored from the Python
+ * parser. Each must be declared exactly (ruling P2). The form tag `"null"` is a string;
+ * a YAML null in any closed set is refused as a malformed tag. */
+const SUPPORTED_FORMS: readonly string[] = ["polar", "null"];
+const SUPPORTED_ROLE_CATEGORIES: readonly string[] = ["set", "temporal", "class", "pattern"];
+const SUPPORTED_BINDING_KINDS: readonly string[] = [
+  "release",
+  "dataset",
+  "scheme",
+  "selection",
+  "run-output",
+  "world-kind",
+];
+const SUPPORTED_MAPPING_TYPES: readonly string[] = ["exact", "narrower", "broader", "contextual"];
+const SUPPORTED_PLACEMENTS: readonly string[] = ["claim", "applicability"];
+const SUPPORTED_RESERVED_ROLES: readonly string[] = ["within-model"];
 
 export type FieldType = "string" | "integer" | "boolean" | "ref" | "locator" | "actor";
 export interface FieldDecl {
@@ -166,6 +195,16 @@ export class BaseContract {
       polarities: Object.freeze([...parts.claimGrammar.polarities]),
       signInaptTag: parts.claimGrammar.signInaptTag,
       layers: Object.freeze([...parts.claimGrammar.layers]),
+      forms: Object.freeze([...parts.claimGrammar.forms]),
+      roleCategories: Object.freeze([...parts.claimGrammar.roleCategories]),
+      bindingKinds: Object.freeze([...parts.claimGrammar.bindingKinds]),
+      mappingTypes: Object.freeze([...parts.claimGrammar.mappingTypes]),
+      placements: Object.freeze([...parts.claimGrammar.placements]),
+      reservedRoles: frozenTable(
+        Object.entries(parts.claimGrammar.reservedRoles).map(
+          ([name, role]) => [name, Object.freeze({ worldKind: role.worldKind })] as const,
+        ),
+      ),
     });
     this.estimandGrammar = Object.freeze({
       version: parts.estimandGrammar.version,
@@ -374,6 +413,41 @@ function closedSet(value: unknown, where: string): string[] {
   return tags;
 }
 
+/** Exact equality with the set this implementation operates (ruling P2): wider and narrower both refuse. */
+function requireOperated(declared: readonly string[], supported: readonly string[], where: string): void {
+  const unoperable = [
+    ...declared.filter((entry) => !supported.includes(entry)),
+    ...supported.filter((entry) => !declared.includes(entry)),
+  ].sort();
+  if (unoperable.length > 0)
+    throw new MalformedContract(
+      `${where}: does not declare exactly the set this implementation operates; ${JSON.stringify(unoperable)} is not operable here`,
+    );
+}
+
+function reservedRoles(
+  value: unknown,
+  kinds: DeclarationTable<KindDecl>,
+  where: string,
+): Readonly<Record<string, ReservedRole>> {
+  const table = mapping(value, where);
+  requireOperated(Object.keys(table), SUPPORTED_RESERVED_ROLES, where);
+  const entries: [string, ReservedRole][] = [];
+  for (const [name, entryValue] of Object.entries(table)) {
+    const roleWhere = `${where}.${tag(name, where)}`;
+    const entry = mapping(entryValue, roleWhere);
+    exactFields(entry, ["world_kind"], [], roleWhere);
+    const worldKind = tag(entry.world_kind, `${roleWhere}.world_kind`);
+    const declared = Object.hasOwn(kinds, worldKind) ? kinds[worldKind] : undefined;
+    if (declared === undefined || declared.role !== "world")
+      throw new MalformedContract(
+        `${roleWhere}.world_kind: ${JSON.stringify(worldKind)} is not a world kind this contract declares`,
+      );
+    entries.push([name, Object.freeze({ worldKind })]);
+  }
+  return frozenTable(entries);
+}
+
 function parseField(name: string, value: unknown, where: string): FieldDecl {
   if (!FIELD_NAME.test(name))
     throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not a field identifier`);
@@ -455,10 +529,38 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   const grammarDocument = mapping(document.claim_grammar, `${source}.claim_grammar`);
   exactFields(
     grammarDocument,
-    ["version", "tag_encoding", "quantifiers", "polarities", "sign_inapt_tag", "layers"],
+    [
+      "version",
+      "tag_encoding",
+      "quantifiers",
+      "polarities",
+      "sign_inapt_tag",
+      "forms",
+      "layers",
+      "role_categories",
+      "binding_kinds",
+      "mapping_types",
+      "placements",
+      "reserved_roles",
+    ],
     [],
     `${source}.claim_grammar`,
   );
+  const grammarVersion = positiveInt(grammarDocument.version, `${source}.claim_grammar.version`);
+  if (grammarVersion !== CLAIM_GRAMMAR_VERSION)
+    throw new MalformedContract(
+      `${source}.claim_grammar.version: ${grammarVersion}, and this implementation reads claim grammar version ${CLAIM_GRAMMAR_VERSION} only`,
+    );
+  const operatedSet = (name: string, supported: readonly string[]): string[] => {
+    const declared = closedSet(grammarDocument[name], `${source}.claim_grammar.${name}`);
+    requireOperated(declared, supported, `${source}.claim_grammar.${name}`);
+    return declared;
+  };
+  const forms = operatedSet("forms", SUPPORTED_FORMS);
+  const roleCategories = operatedSet("role_categories", SUPPORTED_ROLE_CATEGORIES);
+  const bindingKinds = operatedSet("binding_kinds", SUPPORTED_BINDING_KINDS);
+  const mappingTypes = operatedSet("mapping_types", SUPPORTED_MAPPING_TYPES);
+  const placements = operatedSet("placements", SUPPORTED_PLACEMENTS);
   if (grammarDocument.tag_encoding !== TAG_ENCODING) {
     throw new MalformedContract(
       `${source}.claim_grammar.tag_encoding: this implementation carries ${TAG_ENCODING}, ` +
@@ -510,14 +612,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     ["scales", estimandGrammar.scales, SUPPORTED_SCALES],
     ["uncertainty_kinds", estimandGrammar.uncertaintyKinds, SUPPORTED_UNCERTAINTY_KINDS],
   ] as const) {
-    const unoperable = [
-      ...declared.filter((tag) => !supported.includes(tag)),
-      ...supported.filter((tag) => !declared.includes(tag)),
-    ].sort();
-    if (unoperable.length > 0)
-      throw new MalformedContract(
-        `${source}.estimand_grammar: ${name} does not declare exactly the set this implementation operates; ${JSON.stringify(unoperable)} is not operable here`,
-      );
+    requireOperated(declared, supported, `${source}.estimand_grammar.${name}`);
   }
   const facets = parseFacetDeclarations(document.facets, `${source}.facets`, null);
   const kindEntries: [string, KindDecl][] = [];
@@ -592,11 +687,17 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   return new BaseContract(MINT, {
     version: positiveInt(document.version, `${source}.version`),
     claimGrammar: {
-      version: positiveInt(grammarDocument.version, `${source}.claim_grammar.version`),
+      version: grammarVersion,
       quantifiers: closedSet(grammarDocument.quantifiers, `${source}.claim_grammar.quantifiers`),
       polarities,
       signInaptTag,
       layers: closedSet(grammarDocument.layers, `${source}.claim_grammar.layers`),
+      forms,
+      roleCategories,
+      bindingKinds,
+      mappingTypes,
+      placements,
+      reservedRoles: reservedRoles(grammarDocument.reserved_roles, kinds, `${source}.claim_grammar.reserved_roles`),
     },
     estimandGrammar,
     compositeGrammar,
