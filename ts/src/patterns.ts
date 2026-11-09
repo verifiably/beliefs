@@ -13,13 +13,17 @@
  *     quantifier:= "*" | "+" | "?" | "{" digits "}" | "{" digits "," digits "}"
  *     class     := "[" "^"? classitem+ "]"
  *     classitem := classatom ( "-" classatom )?
- *     classatom := "\" one of  \ ] - ^   | any code point except  \ ] - ^
+ *     classatom := "\" one of  \ ] - ^   | any code point except  \ [ ] - ^
+ *                  (and no doubled & ~ | inside a class: engines read them as set operations)
+ *     digits    := [0-9]+, at most 65535
  */
 
 import { MalformedContract } from "./errors.js";
 
 const SPECIAL = new Set(Array.from("\\.[](){}|*+?^$"));
 const CLASS_SPECIAL = new Set(Array.from("\\]-^"));
+const DOUBLED = new Set(Array.from("&~|"));
+const MAX_BOUND = 65535;
 const QUANTIFIERS = new Set(Array.from("*+?"));
 
 class Walk {
@@ -110,7 +114,9 @@ class Walk {
     const start = this.i;
     for (let c = this.peek(); c !== undefined && c >= "0" && c <= "9"; c = this.peek()) this.i += 1;
     if (start === this.i) throw this.refuse("has a malformed '{...}' quantifier");
-    return Number(this.cps.slice(start, this.i).join(""));
+    const value = Number(this.cps.slice(start, this.i).join(""));
+    if (value > MAX_BOUND) throw this.refuse(`has a repetition bound above ${MAX_BOUND}`);
+    return value;
   }
 
   klass(): void {
@@ -145,7 +151,10 @@ class Walk {
       this.i += 1;
       return e;
     }
-    if (CLASS_SPECIAL.has(c)) throw this.refuse(`has '${c}' unescaped in a character class`);
+    if (DOUBLED.has(c) && this.cps[this.i + 1] === c) {
+      throw this.refuse(`has '${c}${c}' in a character class, which engines read as a set operation`);
+    }
+    if (CLASS_SPECIAL.has(c) || c === "[") throw this.refuse(`has '${c}' unescaped in a character class`);
     this.i += 1;
     return c;
   }
@@ -167,7 +176,13 @@ export function compilePortable(pattern: string): RegExp {
   return new RegExp(`^(?:${pattern})$`, "su");
 }
 
-/** A per-sort identifier class: a literal prefix and a portable pattern that begins with it. */
+/**
+ * A per-sort identifier class: a literal prefix and a portable pattern.
+ *
+ * The prefix is informational to the kernel. The only check is that the pattern
+ * text begins with the prefix and that the prefix holds no pattern metacharacter;
+ * the pattern as a whole may still admit terms without it.
+ */
 export class IdentifierClass {
   private readonly compiled: RegExp;
 

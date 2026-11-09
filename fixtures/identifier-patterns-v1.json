@@ -410,6 +410,38 @@
   {
    "name": "lazy",
    "pattern": "a*?"
+  },
+  {
+   "name": "class-open-bracket",
+   "pattern": "id:[[]"
+  },
+  {
+   "name": "class-and-and",
+   "pattern": "id:[a&&b]"
+  },
+  {
+   "name": "class-tilde-tilde",
+   "pattern": "id:[~~]"
+  },
+  {
+   "name": "class-pipe-pipe",
+   "pattern": "id:[||]"
+  },
+  {
+   "name": "class-dash-dash",
+   "pattern": "id:[a--b]"
+  },
+  {
+   "name": "bound-huge",
+   "pattern": "a{99999999999}"
+  },
+  {
+   "name": "bound-above-cap",
+   "pattern": "a{1,70000}"
+  },
+  {
+   "name": "bound-low-above-cap",
+   "pattern": "a{65536}"
   }
  ]
 }

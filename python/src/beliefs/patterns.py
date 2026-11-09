@@ -14,7 +14,9 @@ grammar (``ts/src/patterns.ts``) and are held to one agreement oracle,
     quantifier:= "*" | "+" | "?" | "{" digits "}" | "{" digits "," digits "}"
     class     := "[" "^"? classitem+ "]"
     classitem := classatom ( "-" classatom )?
-    classatom := "\\" one of  \\ ] - ^   | any code point except  \\ ] - ^
+    classatom := "\\" one of  \\ ] - ^   | any code point except  \\ [ ] - ^
+                 (and no doubled & ~ | inside a class: engines read them as set operations)
+    digits    := [0-9]+, at most 65535
 
 Engine options are fixed, never authored: ``re.DOTALL`` with ``fullmatch`` here,
 the ``s`` and ``u`` flags with ``^(?:...)$`` in TypeScript. Terms are matched
@@ -33,6 +35,8 @@ _SPECIAL = frozenset("\\.[](){}|*+?^$")
 _CLASS_SPECIAL = frozenset("\\]-^")
 _QUANTIFIERS = frozenset("*+?")
 _DIGITS = frozenset("0123456789")
+_DOUBLED = frozenset("&~|")
+_MAX_BOUND = 65535
 
 
 class _Walk:
@@ -114,7 +118,10 @@ class _Walk:
             self.i += 1
         if start == self.i:
             raise self.refuse("has a malformed '{...}' quantifier")
-        return int("".join(self.cps[start : self.i]))
+        value = int("".join(self.cps[start : self.i]))
+        if value > _MAX_BOUND:
+            raise self.refuse(f"has a repetition bound above {_MAX_BOUND}")
+        return value
 
     def klass(self) -> None:
         self.i += 1
@@ -149,8 +156,10 @@ class _Walk:
                 raise self.refuse("has an escape outside the portable subset")
             self.i += 1
             return e
-        if c in _CLASS_SPECIAL:
+        if c in _CLASS_SPECIAL or c == "[":
             raise self.refuse(f"has {c!r} unescaped in a character class")
+        if c in _DOUBLED and self.cps[self.i + 1 : self.i + 2] == [c]:
+            raise self.refuse(f"has {c + c!r} in a character class, which engines read as a set operation")
         self.i += 1
         return c
 
@@ -175,8 +184,9 @@ def compile_portable(pattern: str) -> re.Pattern[str]:
 class IdentifierClass:
     """A per-sort identifier class: a literal ``prefix`` and a portable pattern.
 
-    The pattern must begin with the prefix as literal text, so a class names its
-    own scheme and cannot be widened by a metacharacter inside it.
+    The prefix is informational to the kernel. The only check is that the
+    pattern text begins with the prefix and that the prefix holds no pattern
+    metacharacter; the pattern as a whole may still admit terms without it.
     """
 
     prefix: str

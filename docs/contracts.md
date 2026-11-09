@@ -88,11 +88,12 @@ integer), `lineage`, `sorts`, `dimensions` and `operators`. It may add
 - **Facets.** A domain facet declares `attaches_to` (world kinds) and `fields`. Its
   key in a profile is `<namespace>/<name>`.
 - **Identifier classes.** An identifier class is a literal `prefix` and a `pattern`
-  in the portable subset, and the pattern must begin with the prefix as literal text (the
-  prefix contains none of `\ . [ ] ( ) { } | * + ? ^ $`). The subset is literals, `.`,
+  in the portable subset. The prefix is informational: the parser checks only that the
+  pattern text begins with it and that it contains none of `\ . [ ] ( ) { } | * + ? ^ $`,
+  not that every admitted term carries it. The subset is literals, `.`,
   character classes with ranges and `^` negation, `(?:...)`, `|`, the quantifiers `*`, `+`,
-  `?`, `{m}` and `{m,n}`, and backslash escapes of the metacharacters; anything else, a
-  non-NFC pattern included, is refused as a malformed contract. Terms are normalized to NFC
+  `?`, `{m}` and `{m,n}` (bounds up to 65535), and backslash escapes of the metacharacters; anything else, a
+  non-NFC pattern, an unescaped `[` in a class and a doubled `&&`, `~~` or `||` in a class included, is refused as a malformed contract. Terms are normalized to NFC
   and matched whole, with `.` and negated classes matching any code point including line
   terminators: Python uses `re.DOTALL` with `fullmatch`, TypeScript uses
   `^(?:pattern)$` with the `s` and `u` flags, and authors set no flags.
