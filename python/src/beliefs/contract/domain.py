@@ -364,8 +364,8 @@ class DimensionDecl:
 
 @dataclass(frozen=True)
 class RoleDecl:
-    """One role of a template. A ``one`` role holds one referent and its
-    ``min`` and ``max`` are both 1; a ``many`` role holds a multiset whose size
+    """One role of a template. A ``one`` role holds one referent, its ``min``
+    and ``max`` are both 1 and it admits no coefficient; a ``many`` role holds a multiset whose size
     lies in ``[min, max]`` (``max`` ``None`` is unbounded). ``constraint`` names
     the role categories a filling sort must declare."""
 
@@ -829,10 +829,11 @@ def _parse_role(name: str, value: object, where: str, base: BaseContract) -> Rol
     if arity not in _ARITIES:
         raise MalformedContract(f"{where}: arity is `one` or `many`, found {arity!r}")
     if arity == "one":
-        for bound in ("min", "max"):
-            if bound in body:
+        for field in ("min", "max", "coefficients"):
+            if field in body:
                 raise MalformedContract(
-                    f"{where}: `{bound}` is declared on a `one` role; min and max bound a `many` role only"
+                    f"{where}: `{field}` is declared on a `one` role; min, max and coefficients apply to a "
+                    "`many` role only"
                 )
         minimum, maximum = 1, 1
     else:

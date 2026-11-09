@@ -182,27 +182,61 @@ Some records are content-addressed: their id is derived from their content.
 
 A record whose id does not match its derived address is refused.
 
-A claim's identity is `I_claim = digest("science.claim.v1", π_claim)`. Here
-`π_claim` is `{operator, args, qualifiers, polarity, layer}`, and every value in it
-is an identifier. The arguments are listed as their terms in slot order, and each
-qualifier as `{quantifier, restriction}`. The polarity of a sign-inapt operator is
-always present as the tag `inapt`. Contract releases, sorts and prose never enter
-`π_claim`.
+A claim's identity is `I_claim = digest("science.claim.v2", π_claim)`. Here
+`π_claim` is `{operator, roles, qualifiers, form, polarity, layer}`. `roles` maps
+each role name to its filling: a `one` role (and `within-model`) to a referent
+`{sort, term}`, a `many` role to a list of members `{sort, term, coefficient}` in
+canonical member-key order, where the key is the NFC of the sort and of the term,
+compared by code point, and `coefficient` is an integer present even when it is 1;
+an empty `many` role is `[]`. Each qualifier is `{quantifier, restriction}`, the
+restriction a referent `{sort, term}`. Every other value is an identifier or a tag:
+`form` is `polar` or `"null"`, and where there is no sign to assert the polarity is
+present as the tag `inapt`. A referent carries its sort's identifier; the sort's
+binding, contract releases and prose never enter `π_claim`.
 
 ## Propositions and claims
 
 When read, a proposition's `proposition` facet must have exactly the fields
-`operator`, `args`, `qualifiers`, `polarity` and `layer`. A typed claim satisfies
-the following rules:
+`operator`, `args`, `qualifiers`, `polarity` and `layer`. A claim's operator is a
+template or a bridge of the profile, and its roles are the template's (a bridge's
+are its template's). A typed claim satisfies the following rules, checked in this
+order, each refused with its own error:
 
-- the number of arguments equals the operator's arity, and each argument's sort is
-  the one its slot declares;
-- each qualifier uses a dimension the operator permits, a quantifier from `generic`,
-  `universal` and `existential`, and a restriction of the dimension's sort;
-- a sign-apt operator has a polarity of `positive`, `negative` or `unsigned`. A
-  sign-inapt operator is stored with the tag `inapt`; an author supplies no
-  polarity for it, and supplying one is refused;
-- the layer is one of the layers the operator admits.
+1. the operator resolves in the profile (`ProfileError` otherwise);
+2. the roles present are exactly the operator's declared roles, plus optionally
+   `within-model` (`RoleRefused`);
+3. each `one` role holds one referent; each `many` role holds members whose count
+   lies within the role's `min` and `max` (`RoleRefused`), whose coefficients are 1
+   unless the role declares `coefficients: true` (`CoefficientRefused`), and no two
+   of which share a canonical member key (`DuplicateMember`);
+4. every referent, in a role or a qualifier's restriction, has a sort the profile
+   declares (`UndeclaredSort`) and a term matching that sort's identifier class
+   after NFC normalization (`IdentifierClassMismatch`); for a sort bound to a world
+   kind the class is that kind's record id, `<kind>:` followed by 64 lowercase hex
+   characters. The `within-model` referent is a record of a model-specification
+   procedure: its sort must be bound by `world-kind` to `procedure`
+   (`WithinModelRefused`);
+5. some declaration admits the claim's role-to-sort assignment: for a template, an
+   instantiation listing, for every role, each sort the claim puts in it (several
+   may admit one claim); for a bridge, the bridge's own role sorts
+   (`UninstantiatedTemplate`). `within-model` takes no part in admission;
+6. each qualifier names a dimension placed `claim` (`DimensionNotClaimSide` for an
+   `applicability` one) whose `applies_to` names the operator (`UndeclaredDimension`),
+   with a quantifier from `generic`, `universal` and `existential`
+   (`UnknownQuantifier`) and a restriction of the dimension's restriction sort
+   (`RestrictionSortMismatch`);
+7. the form is one the template declares (`FormRefused`). A `polar` claim over a
+   sign-apt operator has a polarity of `positive`, `negative` or `unsigned`; over a
+   sign-inapt operator, and for every `"null"` claim, it is stored with the tag
+   `inapt`, an author supplies no polarity, and supplying one is refused
+   (`PolarityRefused`);
+8. the layer is one the operator admits: the template's layers, or the bridge's own
+   narrowing of them (`InadmissibleLayer`).
+
+Authoring a claim (`build_claim`) also refuses, with `WithdrawnFromAuthoring`, a
+retired operator, a referent of a retired sort, a claim that only retired
+instantiations admit, and a qualifier on a retired dimension or with a restriction
+of a retired sort. Typing a stored claim refuses none of them.
 
 `add` does not type the claim. It is typed whenever it is read through
 `claim_from_stored`: when an analysis spec that targets the proposition is written
@@ -666,9 +700,12 @@ contract that declares a predecessor or a retired identifier.
   and non-canonical numbers (`CanonicalTextRefused`).
 - A stored claim facet with missing or extra fields, or with `args` that is not a
   sequence or `qualifiers` that is not a mapping (`MalformedWireClaim`).
-- A claim that breaks a typing rule (`ArityMismatch`, `ArgumentSortMismatch`,
-  `UndeclaredDimension`, `UnknownQuantifier`, `RestrictionSortMismatch`,
-  `PolarityRefused`, `InadmissibleLayer`).
+- A claim that breaks a typing rule (`RoleRefused`, `UntypedReferent`,
+  `CoefficientRefused`, `DuplicateMember`, `UndeclaredSort`,
+  `IdentifierClassMismatch`, `WithinModelRefused`, `UninstantiatedTemplate`,
+  `DimensionNotClaimSide`, `UndeclaredDimension`, `UnknownQuantifier`,
+  `RestrictionSortMismatch`, `FormRefused`, `PolarityRefused`,
+  `InadmissibleLayer`).
 - A claim whose referent was checked against a vocabulary the decoder holds and is
   not in it (`UnboundReferent`). Decoding a claim does not refuse retired
   identifiers; authoring a new one does (`WithdrawnFromAuthoring`).

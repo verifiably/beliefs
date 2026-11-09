@@ -28,6 +28,7 @@ from beliefs.errors import (
     UnparsedContract,
     WithdrawnFromAuthoring,
 )
+from beliefs.patterns import IdentifierClass
 from beliefs.profile import ProfileSpec, compile_profile, shipped_domain_contract
 
 
@@ -1006,13 +1007,20 @@ class TestTwoGenuineContractsThatDoNotBelongTogether:
             compile_profile(base_contract, [under_wide])
 
     def test_it_compiles_under_the_base_it_was_parsed_against(self, wide_base, speculative_document):
-        # The compiled template carries the layer the wide base admits. (A claim
-        # standing on it is typed by the v2 claim constructor, beliefs-d64969 Task 5.)
         under_wide = domain.parse_domain_contract(
             speculative_document, source="<testing>", base=wide_base, predecessor=None
         )
-        profile = compile_profile(wide_base, [under_wide])
-        assert "speculative" in profile.operator("testing/affects").layers
+        claim = build_claim(
+            compile_profile(wide_base, [under_wide]),
+            operator="testing/affects",
+            roles={
+                "cause": Referent(sort="testing/entity", term="EX:g"),
+                "effect": Referent(sort="testing/outcome", term="EX:o"),
+            },
+            layer="speculative",
+            polarity="positive",
+        )
+        assert claim.layer == "speculative"
 
     def test_the_domain_records_the_base_it_was_typed_against(self, base_contract, testing):
         assert testing.base_identity == base_contract.content_identity
@@ -1097,36 +1105,75 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
 
 class TestTheClaimConstructorAuthenticatesItsProfile:
     """Every check a claim passes is read out of the profile object, so an
-    impostor exposing `operator`, `claim_grammar` and `authorable_dimensions`
-    would type a claim against declarations of its own choosing. The
-    constructor's first check is that the profile is a compiled one.
+    impostor exposing `operator`, `template_of`, `admitting`, `claim_dimensions`,
+    `sorts`, `dimensions` and `claim_grammar` would type a claim against
+    declarations of its own choosing. The constructor's first check is that the
+    profile is a compiled one.
     """
 
     class Impostor:
         claim_grammar = forged_grammar(("yes",), "no", ("made-up",))
         dimensions: ClassVar[dict] = {}
-
-        def authorable_dimensions(self, term):
-            return ()
-
-        def operator(self, term):
-            return profile_module.CompiledTemplate(
-                term="forged/op",
-                roles=MappingProxyType({}),
-                sign_apt=True,
-                layers=("made-up",),
-                forms=("polar",),
-                edge=None,
+        sorts: ClassVar[dict] = {
+            "forged/sort": profile_module.CompiledSort(
+                term="forged/sort",
+                binding=domain.SchemeBinding(scheme="X", version="1"),
+                identifier_class=IdentifierClass(prefix="X", pattern="X:[0-9]+"),
+                categories=frozenset(),
                 retired=False,
                 contract="forged",
             )
+        }
+        template = profile_module.CompiledTemplate(
+            term="forged/op",
+            roles=MappingProxyType(
+                {
+                    "subject": profile_module.CompiledRole(
+                        name="subject", arity="one", min=1, max=1, coefficients=False, constraint=frozenset()
+                    )
+                }
+            ),
+            sign_apt=True,
+            layers=("made-up",),
+            forms=("polar",),
+            edge=None,
+            retired=False,
+            contract="forged",
+        )
+
+        def operator(self, term):
+            return self.template
+
+        def template_of(self, operator):
+            return self.template
+
+        def admitting(self, operator, assignment, *, authoring):
+            return ("instantiation:forged/anything",)
+
+        def claim_dimensions(self, operator):
+            return ()
+
+    def test_the_impostor_is_a_complete_duck(self, monkeypatch):
+        # Without the authentication it would type a claim: the refusal below is
+        # the profile check's, not a gap in the forgery.
+        import beliefs.claim as claim_module
+
+        monkeypatch.setattr(claim_module, "_require_profile", lambda value: None)
+        claim = build_claim(
+            self.Impostor(),  # type: ignore[arg-type]
+            operator="forged/op",
+            roles={"subject": Referent(sort="forged/sort", term="X:1")},
+            layer="made-up",
+            polarity="yes",
+        )
+        assert claim.layer == "made-up"
 
     def test_build_claim_refuses_an_impostor(self):
         with pytest.raises(ProfileError, match="compile_profile"):
             build_claim(
                 self.Impostor(),  # type: ignore[arg-type]
                 operator="forged/op",
-                args=(Referent(sort="forged/sort", term="X:1"),),
+                roles={"subject": Referent(sort="forged/sort", term="X:1")},
                 layer="made-up",
                 polarity="yes",
             )
@@ -1140,8 +1187,9 @@ class TestTheClaimConstructorAuthenticatesItsProfile:
             Claim._checked(
                 self.Impostor(),  # type: ignore[arg-type]
                 operator="forged/op",
-                args=(Referent(sort="forged/sort", term="X:1"),),
+                roles={"subject": Referent(sort="forged/sort", term="X:1")},
                 qualifiers={},
+                form="polar",
                 polarity="yes",
                 layer="made-up",
             )

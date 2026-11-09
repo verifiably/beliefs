@@ -136,11 +136,11 @@ and a list of them may not repeat a value.
   claim over which may carry it.
 - **Templates.** A template requires `roles`, `sign_apt`, `layers` and `forms`, and
   may add `edge`, `definition`, `external`, `description` and `retired`.
-  - Each role requires `arity`, `one` or `many`, and may add `coefficients` (a
-    boolean, default false) and `constraint` (role categories a filling sort must
-    declare). A `many` role may add `min` (default 1, at least 0) and `max` (at
-    least `min` and at least 1; absent is unbounded); a `one` role may declare
-    neither. A role may not be named after a reserved role (`within-model`).
+  - Each role requires `arity`, `one` or `many`, and may add `constraint` (role
+    categories a filling sort must declare). A `many` role may add `coefficients`
+    (a boolean, default false), `min` (default 1, at least 0) and `max` (at least
+    `min` and at least 1; absent is unbounded); a `one` role may declare none of
+    the three. A role may not be named after a reserved role (`within-model`).
   - `layers` and `forms` are non-empty. A template that is not sign-apt may not
     declare the form `"null"`.
   - `edge` names two distinct roles of the template, `{cause, effect}`, and is

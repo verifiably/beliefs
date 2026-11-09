@@ -11,7 +11,8 @@ One thing this file is careful about. Several of those assertions **cannot fail
 given the signature** — `project_claim` takes a `Claim` and nothing else, so no
 merge order, compiler build or contract release can reach it. Those are marked
 where they appear and kept as regression guards. The arm that can fail is the
-signature itself, and the absence of any contract-derived value from the bytes.
+signature itself, and the absence of any contract-declared value — a binding, a
+release, a contract identity — from the bytes.
 """
 
 import copy
@@ -19,16 +20,20 @@ import inspect
 
 import pytest
 
-from beliefs.claim import Qualifier, Referent, build_claim
+from beliefs.claim import Member, Qualifier, Referent, build_claim
 from beliefs.contract import base, domain
 from beliefs.identity import v1
 from beliefs.profile import compile_profile
 from beliefs.projection import CLAIM_DOMAIN, claim_identity, project_claim
 
 AFFECTS = "testing/affects"
-SUBTYPE_OF = "testing/subtype-of"
+CORRELATES = "testing/correlates-with"
+TRANSFORMS = "testing/transforms"
+MEASURED_BY = "testing/measured-by"
+PROMOTES = "testing/promotes"
 POPULATION = "testing/population"
 SETTING = "testing/setting"
+MODEL = Referent(sort="testing/procedure-spec", term="procedure:" + "a" * 64)
 
 
 @pytest.fixture()
@@ -65,6 +70,11 @@ def outcome():
 
 
 @pytest.fixture()
+def method():
+    return Referent(sort="testing/method", term="EX:assay")
+
+
+@pytest.fixture()
 def adults():
     return Referent(sort="testing/cohort", term="EX:adults")
 
@@ -76,19 +86,43 @@ def humans():
 
 @pytest.fixture()
 def affects(profile, gene, outcome):
-    """`⟨affects, [gene, outcome], {}, positive, causal⟩`."""
+    """`⟨affects, {cause: gene, effect: outcome}, {}, polar, positive, causal⟩`."""
 
-    def _affects(qualifiers=None, polarity="positive"):
+    def _affects(qualifiers=None, polarity="positive", roles=None, operator=AFFECTS, form="polar"):
         return build_claim(
             profile,
-            operator=AFFECTS,
-            args=(gene, outcome),
+            operator=operator,
+            roles=roles or {"cause": gene, "effect": outcome},
             qualifiers=qualifiers or {},
+            form=form,
             polarity=polarity,
             layer="causal",
         )
 
     return _affects
+
+
+@pytest.fixture()
+def measured(profile, gene, method):
+    """A sign-inapt `measured-by` claim."""
+    return build_claim(
+        profile, operator=MEASURED_BY, roles={"subject": gene, "instrument": method}, layer="methodological"
+    )
+
+
+@pytest.fixture()
+def correlates(profile):
+    def _correlates(*parties, qualifiers=None):
+        return build_claim(
+            profile,
+            operator=CORRELATES,
+            roles={"parties": parties},
+            qualifiers=qualifiers or {},
+            polarity="positive",
+            layer="statistical",
+        )
+
+    return _correlates
 
 
 class TestTheProjectionIsAFunctionOfTheClaimAlone:
@@ -113,22 +147,29 @@ class TestTheProjectionIsAFunctionOfTheClaimAlone:
         ]:
             assert identity not in encoded
 
-    def test_no_sort_identifier_reaches_the_bytes(self, affects, adults):
-        # The projection admits the referent identifier, not the sort that admitted it. A
-        # sort is contract-declared, so carrying it would let a re-declaration
-        # re-project stored claims.
+    def test_the_sort_identifier_reaches_the_bytes_and_its_binding_never_does(self, profile, affects, adults):
+        # The sort *identifier* enters; its binding is contract-declared, so
+        # carrying it would let a re-declaration re-project stored claims.
         claim = affects({POPULATION: Qualifier("generic", adults)})
         encoded = v1.encode(project_claim(claim)).decode("utf-8")
         for sort in ["testing/entity", "testing/outcome", "testing/cohort"]:
-            assert sort not in encoded
-        assert '"EX:gene-x"' in encoded
+            assert f'"{sort}"' in encoded
+        entity_binding = profile.sorts["testing/entity"].binding.projection()
+        cohort_binding = profile.sorts["testing/cohort"].binding.projection()
+        for value in [
+            entity_binding["kind"],
+            entity_binding["release"],
+            cohort_binding["kind"],
+            cohort_binding["dataset"],
+        ]:
+            assert value not in encoded
 
     def test_an_editorial_contract_bump_leaves_the_identity_still(
         self, base_contract, parse, testing_document, testing, gene, outcome
     ):
         # The contract identity moves and `I_claim` does not.
         edited = copy.deepcopy(testing_document)
-        edited["operators"]["affects"]["description"] = "Reworded."
+        edited["templates"]["affects"]["description"] = "Reworded."
         edited["lineage"] = {"successor": testing.content_identity}
         edited["version"] = 2
         successor = parse(edited, predecessor=testing)
@@ -137,7 +178,13 @@ class TestTheProjectionIsAFunctionOfTheClaimAlone:
         def mint(contract):
             spec = compile_profile(base_contract, [contract])
             return claim_identity(
-                build_claim(spec, operator=AFFECTS, args=(gene, outcome), polarity="positive", layer="causal")
+                build_claim(
+                    spec,
+                    operator=AFFECTS,
+                    roles={"cause": gene, "effect": outcome},
+                    polarity="positive",
+                    layer="causal",
+                )
             )
 
         assert mint(successor) == mint(testing)
@@ -155,30 +202,99 @@ class TestTheProjectionIsAFunctionOfTheClaimAlone:
         def mint(domains):
             spec = compile_profile(base_contract, domains)
             return claim_identity(
-                build_claim(spec, operator=AFFECTS, args=(gene, outcome), polarity="positive", layer="causal")
+                build_claim(
+                    spec,
+                    operator=AFFECTS,
+                    roles={"cause": gene, "effect": outcome},
+                    polarity="positive",
+                    layer="causal",
+                )
             )
 
         assert mint([testing, second]) == mint([second, testing])
 
-    def test_the_domain_is_the_projections_own(self, affects):
+    def test_domain_is_v2(self, affects):
         # A shape change takes a new domain, so a v2 projection can never be
         # mistaken for a v1 one.
         claim = affects()
+        assert CLAIM_DOMAIN == "science.claim.v2"
         assert claim_identity(claim) == v1.digest(CLAIM_DOMAIN, project_claim(claim))
-        assert CLAIM_DOMAIN == "science.claim.v1"
+        assert claim_identity(claim) != v1.digest("science.claim.v1", project_claim(claim))
 
 
-class TestTheShapeDependsOnTheClaimNeverOnAContractField:
-    def test_the_polarity_position_is_present_at_a_sign_inapt_operator(self, profile, base_contract, gene, other_gene):
-        claim = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
-        projection = project_claim(claim)
-        assert "polarity" in projection
+class TestTheShapeIsTheDesigns:
+    """§5.3: roles by name, every referent carrying its sort, the form and
+    polarity always present."""
+
+    def test_projection_shape_v2(self, correlates, gene, outcome, adults):
+        # The §5.3 example's shape, over the fixture contract.
+        claim = correlates(Member(outcome), Member(gene), qualifiers={POPULATION: Qualifier("generic", adults)})
+        assert project_claim(claim) == {
+            "operator": "testing/correlates-with",
+            "roles": {
+                "parties": [
+                    {"sort": "testing/entity", "term": "EX:gene-x", "coefficient": 1},
+                    {"sort": "testing/outcome", "term": "EX:outcome-y", "coefficient": 1},
+                ]
+            },
+            "qualifiers": {
+                "testing/population": {
+                    "quantifier": "generic",
+                    "restriction": {"sort": "testing/cohort", "term": "EX:adults"},
+                }
+            },
+            "form": "polar",
+            "polarity": "positive",
+            "layer": "statistical",
+        }
+
+    def test_a_one_role_projects_as_a_referent_object(self, affects):
+        assert project_claim(affects())["roles"] == {
+            "cause": {"sort": "testing/entity", "term": "EX:gene-x"},
+            "effect": {"sort": "testing/outcome", "term": "EX:outcome-y"},
+        }
+
+    def test_a_coefficient_projects_as_an_integer(self, profile, gene, other_gene):
+        claim = build_claim(
+            profile,
+            operator=TRANSFORMS,
+            roles={"inputs": [Member(gene, 2)], "outputs": [Member(other_gene)], "facilitators": []},
+            layer="structural",
+        )
+        roles = project_claim(claim)["roles"]
+        assert isinstance(roles, dict)
+        assert roles["inputs"] == [{"sort": "testing/entity", "term": "EX:gene-x", "coefficient": 2}]
+        assert type(roles["inputs"][0]["coefficient"]) is int
+        assert roles["outputs"][0]["coefficient"] == 1
+
+    def test_many_role_order_is_canonical(self, correlates, gene, outcome):
+        # Case 3: a size-2 `parties` role written in both orders has one identity.
+        forward = correlates(Member(gene), Member(outcome))
+        reverse = correlates(Member(outcome), Member(gene))
+        assert project_claim(forward) == project_claim(reverse)
+        assert claim_identity(forward) == claim_identity(reverse)
+
+    def test_empty_many_role_projects_as_list(self, profile, gene, other_gene):
+        # Case 4a.
+        claim = build_claim(
+            profile,
+            operator=TRANSFORMS,
+            roles={"inputs": [Member(gene)], "outputs": [Member(other_gene)], "facilitators": []},
+            layer="structural",
+        )
+        assert project_claim(claim)["roles"]["facilitators"] == []  # type: ignore[index]
+
+    def test_the_polarity_position_is_present_at_a_sign_inapt_operator(self, measured, base_contract):
+        projection = project_claim(measured)
         assert projection["polarity"] == base_contract.claim_grammar.sign_inapt_tag
 
-    def test_the_position_set_is_the_same_at_both_kinds_of_operator(self, profile, affects, gene, other_gene):
-        inapt = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
-        assert set(project_claim(inapt)) == set(project_claim(affects()))
-        assert set(project_claim(inapt)) == {"operator", "args", "qualifiers", "polarity", "layer"}
+    def test_the_position_set_is_the_same_at_every_kind_of_claim(self, affects, measured, base_contract):
+        positions = {"operator", "roles", "qualifiers", "form", "polarity", "layer"}
+        assert set(project_claim(measured)) == positions
+        assert set(project_claim(affects())) == positions
+        null = affects(form="null", polarity=None)
+        assert set(project_claim(null)) == positions
+        assert project_claim(null)["polarity"] == base_contract.claim_grammar.sign_inapt_tag
 
     def test_inapt_and_unsigned_are_distinct_bytes_in_the_encoding(self, base_contract):
         # Asserted **directly against the base contract**, never inferred from
@@ -190,18 +306,61 @@ class TestTheShapeDependsOnTheClaimNeverOnAContractField:
         assert grammar.sign_inapt_tag not in grammar.polarities
         assert len({v1.encode(tag) for tag in grammar.polarity_tags}) == len(grammar.polarity_tags)
 
-    def test_every_polarity_tag_projects_distinctly(self, profile, affects, gene, other_gene):
-        inapt = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
+    def test_every_polarity_tag_projects_distinctly(self, affects, measured):
         projected = [project_claim(affects(polarity=tag))["polarity"] for tag in ["positive", "negative", "unsigned"]]
-        projected.append(project_claim(inapt)["polarity"])
+        projected.append(project_claim(measured)["polarity"])
         assert len(set(projected)) == 4
 
-    def test_the_claim_carries_the_tag_so_no_contract_is_consulted(self, profile, gene, other_gene):
-        # The point: the projection reads `claim.polarity`, which is
-        # already a tag, so flipping `sign_apt` cannot re-project a stored claim
-        # — there is no path from the contract to this shape.
-        claim = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
-        assert project_claim(claim)["polarity"] == claim.polarity
+    def test_the_claim_carries_the_tag_so_no_contract_is_consulted(self, measured):
+        # The projection reads `claim.polarity`, which is already a tag, so
+        # flipping `sign_apt` cannot re-project a stored claim.
+        assert project_claim(measured)["polarity"] == measured.polarity
+
+
+class TestEachPositionParticipatesInIdentity:
+    """The acceptance cases this design owns, in their projection half."""
+
+    def test_sort_identifier_changes_identity(self, affects, gene):
+        # Case 1: one term under two sorts is two referents.
+        as_outcome = affects(roles={"cause": gene, "effect": Referent("testing/outcome", "EX:x-1")})
+        as_entity = affects(roles={"cause": gene, "effect": Referent("testing/entity", "EX:x-1")})
+        assert claim_identity(as_outcome) != claim_identity(as_entity)
+
+    def test_form_changes_identity(self, affects):
+        # Case 6.
+        polar = affects(polarity="unsigned")
+        null = affects(form="null", polarity=None)
+        assert project_claim(null)["form"] == "null"
+        assert claim_identity(polar) != claim_identity(null)
+
+    def test_within_model_changes_identity(self, affects, gene, outcome):
+        # Case 7: "in model M" never shares an identity with the world claim.
+        world = affects()
+        modelled = affects(roles={"cause": gene, "effect": outcome, "within-model": MODEL})
+        assert project_claim(modelled)["roles"]["within-model"] == {  # type: ignore[index]
+            "sort": MODEL.sort,
+            "term": MODEL.term,
+        }
+        assert claim_identity(world) != claim_identity(modelled)
+
+    def test_bridge_and_template_differ(self, affects):
+        # Case 9: a bridge is an operator of its own.
+        assert claim_identity(affects(operator=PROMOTES)) != claim_identity(affects())
+
+    def test_swapping_two_roles_forks_the_identity(self, affects, gene, other_gene):
+        forward = affects(roles={"cause": gene, "effect": other_gene})
+        reverse = affects(roles={"cause": other_gene, "effect": gene})
+        assert claim_identity(forward) != claim_identity(reverse)
+
+    def test_the_roles_are_keyed_by_name_never_held_positionally(self, affects):
+        roles = project_claim(affects())["roles"]
+        assert isinstance(roles, dict)
+        assert set(roles) == {"cause", "effect"}
+
+    def test_the_operator_and_layer_are_identifiers(self, affects):
+        projection = project_claim(affects())
+        assert projection["operator"] == AFFECTS
+        assert projection["layer"] == "causal"
 
 
 class TestQualificationParticipatesInIdentity:
@@ -215,8 +374,6 @@ class TestQualificationParticipatesInIdentity:
         assert claim_identity(c_adults) != claim_identity(c_humans)
 
     def test_the_restriction_alone_forks_it(self, affects, adults, humans):
-        # The case that matters: the widening a reviewer would miss is usually a
-        # restriction swap, not a visible "all".
         held = affects({POPULATION: Qualifier("generic", adults)})
         swapped = affects({POPULATION: Qualifier("generic", humans)})
         assert claim_identity(held) != claim_identity(swapped)
@@ -232,75 +389,48 @@ class TestQualificationParticipatesInIdentity:
         assert claim_identity(restricted) != claim_identity(both)
         assert claim_identity(affects()) != claim_identity(restricted)
 
-    def test_the_dimension_key_participates(self, profile, gene, outcome):
-        # Two claims whose qualifier *values* are identical and whose dimensions
-        # differ. Without the key in the projection these would collide.
-        entity_restriction = Referent(sort="testing/entity", term="EX:adults")
-        cohort_restriction = Referent(sort="testing/cohort", term="EX:adults")
-        by_population = build_claim(
-            profile,
-            operator=AFFECTS,
-            args=(gene, outcome),
-            qualifiers={POPULATION: Qualifier("generic", cohort_restriction)},
-            polarity="positive",
-            layer="causal",
-        )
-        by_setting = build_claim(
-            profile,
-            operator=AFFECTS,
-            args=(gene, outcome),
-            qualifiers={SETTING: Qualifier("generic", entity_restriction)},
-            polarity="positive",
-            layer="causal",
-        )
+    def test_the_dimension_key_participates(self, affects):
+        # Two qualifiers whose quantifier and term agree and whose dimensions
+        # differ. Without the key in the projection these would differ only in
+        # the restriction's sort.
+        by_population = affects({POPULATION: Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+        by_setting = affects({SETTING: Qualifier("generic", Referent("testing/entity", "EX:adults"))})
         assert claim_identity(by_population) != claim_identity(by_setting)
 
     def test_qualifier_key_order_is_inert(self, affects, adults, gene):
-        # The negative case. `science.identity.v1` sorts object keys at encode
-        # time, so this is delivered by the encoder rather than re-implemented.
+        # `science.identity.v1` sorts object keys at encode time, so this is
+        # delivered by the encoder rather than re-implemented.
         forward = affects({POPULATION: Qualifier("generic", adults), SETTING: Qualifier("generic", gene)})
         reverse = affects({SETTING: Qualifier("generic", gene), POPULATION: Qualifier("generic", adults)})
         assert claim_identity(forward) == claim_identity(reverse)
         assert list(forward.qualifiers) != list(reverse.qualifiers)
 
     def test_the_qualifiers_are_keyed_by_dimension_never_held_positionally(self, affects, adults):
-        # A sequence here would make the authoring order an identity input, and
-        # the negative arm above would then be enforcing nothing.
         projection = project_claim(affects({POPULATION: Qualifier("generic", adults)}))
         assert isinstance(projection["qualifiers"], dict)
         assert set(projection["qualifiers"]) == {POPULATION}
 
 
-class TestArgumentsAreHeldBySlot:
-    """`ArgSort(op)` is positional, so the sequence is the meaning."""
-
-    def test_swapping_two_arguments_forks_the_identity(self, profile, gene, other_gene):
-        forward = build_claim(profile, operator=SUBTYPE_OF, args=(gene, other_gene), layer="structural")
-        reverse = build_claim(profile, operator=SUBTYPE_OF, args=(other_gene, gene), layer="structural")
-        assert claim_identity(forward) != claim_identity(reverse)
-
-    def test_the_arguments_are_a_sequence(self, affects):
-        projection = project_claim(affects())
-        assert projection["args"] == ["EX:gene-x", "EX:outcome-y"]
-
-    def test_the_operator_and_layer_are_identifiers(self, affects):
-        projection = project_claim(affects())
-        assert projection["operator"] == AFFECTS
-        assert projection["layer"] == "causal"
+def _leaves(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield key
+            yield from _leaves(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _leaves(item)
+    else:
+        yield value
 
 
 class TestNoProseReachesIdentity:
-    def test_the_projection_holds_nothing_but_identifiers_and_tags(self, affects, adults):
-        claim = affects({POPULATION: Qualifier("generic", adults)})
-        projection = project_claim(claim)
-        flat = [
-            projection["operator"],
-            *projection["args"],  # type: ignore[misc]  # π_claim's shape is what the assert below checks
-            projection["polarity"],
-            projection["layer"],
-            *[value for entry in projection["qualifiers"].values() for value in entry.values()],  # type: ignore[attr-defined]
-        ]
-        assert all(isinstance(value, str) and value and " " not in value for value in flat)
+    def test_the_projection_holds_nothing_but_identifiers_tags_and_coefficients(
+        self, correlates, gene, outcome, adults
+    ):
+        claim = correlates(Member(gene), Member(outcome), qualifiers={POPULATION: Qualifier("generic", adults)})
+        leaves = list(_leaves(project_claim(claim)))
+        assert all((isinstance(value, str) and value and " " not in value) or type(value) is int for value in leaves)
+        assert [value for value in leaves if not isinstance(value, str)] == [1, 1]
 
     def test_a_claim_has_no_statement_to_project(self, affects):
         # `statement` is in exactly the position `title` was: a

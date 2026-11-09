@@ -76,8 +76,9 @@ TESTING_PROFILE = compile_profile(
 TESTING_CLAIM = build_claim(
     TESTING_PROFILE,
     operator="testing/affects",
-    args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+    roles={"cause": Referent("testing/entity", "EX:gene-x"), "effect": Referent("testing/outcome", "EX:pheno-y")},
     layer="causal",
+    form="polar",
     polarity="positive",
 )
 UNCONSULTED = build_snapshot(readable={})

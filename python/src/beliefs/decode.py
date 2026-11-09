@@ -42,7 +42,6 @@ from nodes.core.node import Node
 
 from beliefs.claim import Claim, Qualifier, Referent
 from beliefs.errors import (
-    ArityMismatch,
     MalformedWireClaim,
     MalformedWireEstimand,
     RestrictionSortMismatch,

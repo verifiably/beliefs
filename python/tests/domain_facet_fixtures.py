@@ -11,12 +11,12 @@ from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from profiles import biology, pins_for
-from test_evaluation import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
 
 from beliefs import stored
 from beliefs.belief import Availability, SuppliedContext
 from beliefs.closure import RetractionEnumeration
 from beliefs.contract import domain
+from beliefs.contract.domain import ReleaseBinding
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
@@ -26,6 +26,26 @@ from beliefs.world import registry
 from beliefs.world.view import WorldReadView
 
 LOCAL_CORPUS_ID = "c1" + "0" * 30
+
+EX = ReleaseBinding(namespace="EX", release="2026-01-01")
+"""The binding `testing`'s `entity` and `outcome` sorts share."""
+GENE = "EX:gene-x"
+PHENO = "EX:pheno-y"
+OTHER_GENE = "EX:gene-z"
+
+CLAIM_FACET: dict[str, Any] = {
+    "operator": "testing/affects",
+    "roles": {
+        "cause": {"sort": "testing/entity", "term": GENE},
+        "effect": {"sort": "testing/outcome", "term": PHENO},
+    },
+    "qualifiers": {},
+    "form": "polar",
+    "polarity": "positive",
+    "layer": "causal",
+}
+"""`fixtures_cut3.TESTING_CLAIM`'s projection: a stored proposition facet is its
+claim's projection."""
 
 PROPOSITION_REF = "proposition:p"
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -73,12 +93,18 @@ def profile_with(
 
 
 CROSSING_CLAIM: dict[str, Any] = {
-    "operator": "crossing/affects-local-entity",
-    "args": [OTHER_GENE, GENE],
+    "operator": "testing/affects",
+    "roles": {
+        "cause": {"sort": "testing/entity", "term": OTHER_GENE},
+        "effect": {"sort": "crossing/local-entity", "term": GENE},
+    },
     "qualifiers": {},
+    "form": "polar",
     "polarity": "positive",
     "layer": "causal",
 }
+"""A claim over `testing`'s template that only `crossing`'s instantiation
+`affects-local-entity` admits (its effect is `crossing/local-entity`)."""
 
 
 def seed_nodes(

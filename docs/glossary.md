@@ -48,8 +48,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   `CapabilityUnavailable`. ([development](development.md#the-certified-host))
 - <a id="chain"></a>**Chain** — See [the root's log](#roots-log); for the sequence of
   reservation assignments, see [reservation chain](#reservation-chain).
-- <a id="claim"></a>**Claim** — The typed content of a proposition: operator,
-  arguments, qualifiers, polarity and layer. ([records](records.md#propositions-and-claims))
+- <a id="claim"></a>**Claim** — The typed content of a proposition: an operator,
+  referents in its named [roles](#role), claim-side qualifiers, a [form](#form), a
+  polarity and a layer. ([records](records.md#propositions-and-claims))
 - <a id="claim-identity"></a>**Claim identity** — `I_claim`, the digest of the claim's
   canonical projection `π_claim`. Wording and contract releases never enter it.
   ([records](records.md#identity))
@@ -95,6 +96,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#exposure-events))
 - <a id="facet"></a>**Facet** — A named block of fields on a record, declared by a
   contract. ([contracts](contracts.md#facet-fields))
+- <a id="form"></a>**Form** — A claim's form, from those its template declares:
+  `polar`, an effect with a polarity, or `"null"`, an absent effect, whose polarity is
+  always `inapt`. ([records](records.md#propositions-and-claims))
 - <a id="governed-kind"></a>**Governed kind** — A world kind with an identity domain;
   each of its records carries a `semantic-identity` stamp. ([records](records.md#identity))
 - <a id="held"></a>**Held** — A dataset is held when holdings observations match every
@@ -129,11 +133,14 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="operation"></a>**Operation** — An act made of several member acts. It opens
   with an intent in the root's log and closes with one terminal record.
   ([writes](writes.md#operations))
-- <a id="operator"></a>**Operator** — A domain contract's claim predicate. It fixes the
-  arity, the argument sorts, the qualifier dimensions, the sign and the layers.
-  ([contracts](contracts.md#domain-contracts))
+- <a id="operator"></a>**Operator** — What a claim asserts: a [template](#template)
+  or a [bridge](#bridge), named `<namespace>/<name>`. It fixes the claim's roles,
+  sign aptness, forms and layers; its instantiations (or, for a bridge, its own
+  role sorts) fix which sorts may fill each role.
+  ([records](records.md#propositions-and-claims))
 - <a id="polarity"></a>**Polarity** — The direction a claim asserts: `positive`,
-  `negative` or `unsigned`, or the tag `inapt` for an operator with no sign.
+  `negative` or `unsigned`, or the tag `inapt` for an operator with no sign and for a
+  `"null"`-form claim.
   ([records](records.md#propositions-and-claims))
 - <a id="policy-binding"></a>**Policy binding** — The exact pair of a belief policy's
   rule identity and implementation identity. ([records](records.md#beliefs))
@@ -164,9 +171,12 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="retraction"></a>**Retraction** — A record that withdraws the standing of a
   record, a dataset route or a producer snapshot without changing it.
   ([records](records.md#other-world-records))
-- <a id="role"></a>**Role** — A group's standing in a reservation assignment: `open`,
-  `reserved`, `unresolved` or `withheld`.
-  ([records](records.md#reservation-assignments))
+- <a id="role"></a>**Role** — Two senses. In a claim, a named position its template
+  declares, `one` (a referent) or `many` (members with coefficients, in canonical
+  order), plus the reserved `within-model`, which any claim may carry
+  ([records](records.md#propositions-and-claims)). In a reservation assignment, a
+  group's standing: `open`, `reserved`, `unresolved` or `withheld`
+  ([records](records.md#reservation-assignments)).
 - <a id="roots-log"></a>**The root's log** — The append-only, hash-linked chain the
   `atoms` engine keeps for each registered root: intents, transaction registrations
   and their settlements. Operation completion and log audit are read from it.

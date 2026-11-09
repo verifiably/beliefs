@@ -511,6 +511,14 @@ class TestTemplates:
         with pytest.raises(MalformedContract, match=f"{field}.*`one`"):
             parse(testing_document)
 
+    @pytest.mark.parametrize("value", [True, False])
+    def test_coefficients_on_a_one_role_is_refused(self, parse, testing_document, value):
+        # A coefficient has no meaning on a role holding one referent, so the
+        # field never reaches a `one` role's schema projection, even as `false`.
+        testing_document["templates"]["affects"]["roles"]["cause"]["coefficients"] = value
+        with pytest.raises(MalformedContract, match="coefficients.*`one`"):
+            parse(testing_document)
+
     @pytest.mark.parametrize(
         "role",
         [

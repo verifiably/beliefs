@@ -753,9 +753,9 @@ class SubclassRefused(ScienceError):
 
 
 class WithdrawnFromAuthoring(ScienceError):
-    """A retired identifier reached the **authoring** boundary — an operator, one
-    of its argument sorts, a selected dimension, or that dimension's restriction
-    sort.
+    """A retired identifier reached the **authoring** boundary — an operator, the
+    sort of a referent, every instantiation that would admit the claim, a selected
+    dimension, or that dimension's restriction sort.
 
     Deliberately not a `ContractError`: nothing is wrong with the contract, and
     nothing is wrong with the claim as a historical record. Retirement belongs
@@ -776,11 +776,12 @@ class ClaimError(ScienceError):
 
 
 class UntypedReferent(ClaimError):
-    """A bare string, or any untyped value, in an argument slot or a restriction.
+    """A bare string, or any untyped value, where a role or a restriction needs a
+    referent: a `one` role holding anything but a `Referent`, a `many` role
+    holding anything but `Member`s.
 
-    A slot is typed `Referent(ArgSort(op, i))`, so the sort must travel with
-    the value. A string carries no sort, which means nothing about it can be
-    checked against the slot it was put in."""
+    A referent's sort must travel with the value. A string carries no sort, which
+    means nothing about it can be checked against the role it was put in."""
 
 
 class MalformedReferent(ClaimError):
@@ -810,26 +811,59 @@ class UntypedQualifier(ClaimError):
     would be stored inside a `Claim` and trusted as one."""
 
 
-class ArityMismatch(ClaimError):
-    """More or fewer arguments than the operator declares. Arity is per operator
-    because it is not universally 2."""
+class RoleRefused(ClaimError):
+    """A claim whose roles are not exactly its operator's declared roles (plus,
+    optionally, a reserved role): a declared role missing, an undeclared one
+    present, or a ``many`` role whose member count lies outside its declared
+    ``[min, max]``."""
 
 
-class ArgumentSortMismatch(ClaimError):
-    """A referent of one sort in a slot declared for another. Inside the model
-    these are different types and neither inhabits the other; here the sorts are
-    runtime values, so the same fact is a refusal."""
+class UndeclaredSort(ClaimError):
+    """A referent — in a role or a qualifier's restriction — whose sort the
+    profile does not declare. A sort is a type; a term of an undeclared one has
+    no type to be checked against."""
+
+
+class IdentifierClassMismatch(ClaimError):
+    """A referent's term that does not match its sort's identifier class after
+    NFC normalization (for a sort bound to a world kind, the kernel's record-id
+    grammar for that kind)."""
+
+
+class UninstantiatedTemplate(ClaimError):
+    """A claim whose role-to-sort assignment no declaration admits: no
+    instantiation of its template (any, retired ones included) lists every
+    referent's sort for its role, or, for a bridge, the bridge's own role sorts
+    do not."""
+
+
+class DimensionNotClaimSide(ClaimError):
+    """A qualifier on a dimension the pack placed applicability-side. Such a
+    dimension restricts where an estimate applies, never what a claim says, so
+    it never appears among a claim's qualifiers."""
+
+
+class FormRefused(ClaimError):
+    """A claim form the operator's template does not admit. ``"null"`` is
+    admitted only by a template that declares it, and only a sign-apt template
+    may."""
+
+
+class WithinModelRefused(ClaimError):
+    """A reserved-role referent (``within-model``) whose sort is not bound, by
+    the ``world-kind`` binding kind, to the world kind the base contract reserves
+    the role for (``procedure``)."""
 
 
 class UndeclaredDimension(ClaimError):
-    """A qualifier on a dimension the operator does not permit. `Dims(op)` is
-    declared per operator — a population restriction is meaningless for a
-    structural operator."""
+    """A qualifier on a dimension the profile does not declare, or whose
+    ``applies_to`` does not name the claim's operator. A population restriction is
+    meaningless for a structural operator."""
 
 
 class RestrictionSortMismatch(ClaimError):
-    """A restriction bound to a referent of the wrong sort. A restriction is
-    sorted exactly as an argument is."""
+    """A restriction bound to a referent of a sort other than its dimension's
+    restriction sort."""
 
 
 class UnknownQuantifier(ClaimError):
@@ -838,15 +872,16 @@ class UnknownQuantifier(ClaimError):
 
 
 class PolarityRefused(ClaimError):
-    """A polarity the operator cannot carry — a sign asserted on a sign-inapt
-    operator, no sign supplied for a sign-apt one, or a tag outside the base
-    contract's closed set. For a sign-inapt operator `Polarity(op)` is the unit
-    type, so there is exactly one inhabitant and nothing for an author to
-    choose."""
+    """A polarity the claim cannot carry — a sign asserted on a sign-inapt
+    operator or on a `"null"`-form claim, no sign supplied for a polar claim over
+    a sign-apt one, or a tag outside the base contract's closed set. Where there
+    is no sign to assert, the polarity is the unit type: exactly one inhabitant
+    (`inapt`) and nothing for an author to choose."""
 
 
 class InadmissibleLayer(ClaimError):
-    """A layer outside the operator's declared set. `Layers(op)` is non-empty by
+    """A layer outside the operator's declared set (a template's, or a bridge's
+    effective set). `Layers(op)` is non-empty by
     construction — an operator admitting no layer would make `Claim` uninhabited
     at that operator."""
 
@@ -888,7 +923,7 @@ class UncertaintyRefused(EstimandError):
 
 class EstimandSortMismatch(EstimandError):
     """A referent whose sort is not the one the operator's declaration names
-    for its position — a term with no slot to occupy, as `ArgumentSortMismatch`."""
+    for its position — a term with no position to occupy."""
 
 
 class EstimandFragmentRefused(EstimandError):

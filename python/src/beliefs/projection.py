@@ -1,15 +1,16 @@
 """``π_claim`` and ``I_claim`` — the canonical projection and claim identity.
 
 ```text
-π_claim(c)  =  ⟨ operator, args by slot, qualifiers by dimension, polarity, layer ⟩
+π_claim(c)  =  ⟨ operator, roles by name, qualifiers by dimension, form, polarity, layer ⟩
 I_claim(c)  =  H( tag_claim ‖ encode(π_claim(c)) )        under science.identity.v1
 ```
 
-**Every position is an identifier**. A symbol is what a term is *called*;
-an identifier is what it *is*. No prose reaches here — `statement` left identity
-for the reason `title` did, *"a field cannot be both
+**Every leaf is an identifier, a tag or a member coefficient**. A symbol is what
+a term is *called*; an identifier is what it *is*. No prose reaches here —
+`statement` left identity for the reason `title` did, *"a field cannot be both
 hand-editable prose and an identity input"* — and neither does anything a
-contract declares.
+contract declares: a referent carries its sort's *identifier*, never the sort's
+binding, so re-declaring a binding re-projects nothing.
 
 **The projection takes a `Claim` and nothing else.** That signature is the whole
 guarantee: claim identity is independent of contract release and of compilation. A
@@ -26,56 +27,58 @@ where a claim is *named*.
 
 from __future__ import annotations
 
-from beliefs.claim import Claim
+from beliefs.claim import Claim, Member, Referent
 from beliefs.identity import v1
 
 __all__ = ["CLAIM_DOMAIN", "claim_identity", "project_claim"]
 
-CLAIM_DOMAIN = "science.claim.v1"
+CLAIM_DOMAIN = "science.claim.v2"
 """The `tag_claim` domain, separated under `science.identity.v1`.
 
 The version is the **projection's**, not the corpus's or the grammar's. A change
 to π_claim's *shape* takes a new domain, so a v2 projection can never collide
-with a v1 one. A later qualifier grammar that adds scope order is
-exactly such a change — and until one arrives, the flat fragment's claims keep
-the identities they were written with.
+with a v1 one: v2 replaced positional `args` (terms only) with roles by name,
+every referent carrying its sort, and added the form position. There is no
+v1-to-v2 mapping; corpora are recreated.
 """
 
 
 def project_claim(claim: Claim) -> dict[str, object]:
     """Project a claim into its canonical form.
 
-    Three choices here are load-bearing, and each is a place where the obvious
+    Four choices here are load-bearing, and each is a place where the obvious
     alternative would be wrong:
 
-    **Arguments emit `term`, never `sort`.** The projection emits *"the referent
-    identifier, in the sort's vocabulary"* — the sort is the context that
-    admitted the term, not part of what the claim says. It is also
-    contract-declared, so carrying it would put a declaration inside claim
-    identity and let a re-declaration re-project stored claims, which is the
-    prohibition on contract-dependent identity arriving through the argument position.
+    **Every referent emits `sort` and `term`.** Under templates the operator and
+    the terms no longer fix the sorts: one term over a gene and over a protein
+    would otherwise collide. The sort enters as its *identifier*; its binding is
+    the contract's and never enters.
 
-    **Slots stay ordered; dimensions do not get ordered here.** `args` is a
-    sequence because `ArgSort(op)` is positional and *"X affects Y"* is not *"Y
-    affects X"*. The qualifier map is a map because `Dims(op)` is a set — and
-    the projection's *"sorted by dimension identifier"* is delivered by
-    `science.identity.v1`, which sorts object keys at encode time. Sorting them
-    again here would be a second, silent canonicalization that could drift from
-    the encoder's.
+    **Roles are a map by name, never a sequence.** Role names are the
+    template's, and `science.identity.v1` sorts object keys at encode time, so
+    declaration order cannot reach the identity. A `one` role projects as a
+    referent object; a `many` role as its members in canonical member-key order
+    (the claim already holds them so), each carrying `coefficient` even when it
+    is 1, and an empty role as `[]`.
 
-    **The polarity position is always present**, carrying the base
-    contract's `sign_inapt_tag` for the unit inhabitant. The claim already holds
-    the tag, so no contract field is consulted to decide the shape: `π_claim`'s
-    arity is a function of the claim's own content — one entry per slot, one per
-    present dimension, and one polarity, always.
+    **Dimensions do not get ordered here.** The qualifier map is a map, and the
+    projection's *"sorted by dimension identifier"* is delivered by the
+    encoder. Sorting them again here would be a second, silent canonicalization
+    that could drift from the encoder's.
+
+    **The form and polarity positions are always present**, the polarity
+    carrying the base contract's `sign_inapt_tag` where there is no sign. The
+    claim already holds the tag, so no contract field is consulted to decide the
+    shape.
     """
     return {
         "operator": claim.operator,
-        "args": [referent.term for referent in claim.args],
+        "roles": {name: _project_role(value) for name, value in claim.roles.items()},
         "qualifiers": {
-            dimension: {"quantifier": qualifier.quantifier, "restriction": qualifier.restriction.term}
+            dimension: {"quantifier": qualifier.quantifier, "restriction": _project_referent(qualifier.restriction)}
             for dimension, qualifier in claim.qualifiers.items()
         },
+        "form": claim.form,
         "polarity": claim.polarity,
         "layer": claim.layer,
     }
@@ -84,3 +87,17 @@ def project_claim(claim: Claim) -> dict[str, object]:
 def claim_identity(claim: Claim) -> str:
     """``I_claim`` — the identity a claim keeps across every ontology release."""
     return v1.digest(CLAIM_DOMAIN, project_claim(claim))
+
+
+def _project_referent(referent: Referent) -> dict[str, object]:
+    return {"sort": referent.sort, "term": referent.term}
+
+
+def _project_member(member: Member) -> dict[str, object]:
+    return {**_project_referent(member.referent), "coefficient": member.coefficient}
+
+
+def _project_role(value: Referent | tuple[Member, ...]) -> object:
+    if isinstance(value, Referent):
+        return _project_referent(value)
+    return [_project_member(member) for member in value]
