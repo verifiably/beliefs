@@ -1649,6 +1649,16 @@ class SessionProtocolError(ScienceError):
     through the dispatcher's lock; reaching it is a bug, never an outcome."""
 
 
+class RunSessionRefused(ScienceError):
+    """A run session refused an operation it never performs: a tree write
+    (`operation == "tree-write"`). Refused before any intent or ledger effect;
+    the session stays live."""
+
+    def __init__(self, operation: str) -> None:
+        super().__init__(f"a run session refuses {operation}")
+        self.operation = operation
+
+
 class SessionLedgerFailed(ScienceError):
     """A ledger `write`, `flush` or `fsync` failed, or a store call that may
     have registered raised (`LedgerWriter.fail`); the session is terminal and

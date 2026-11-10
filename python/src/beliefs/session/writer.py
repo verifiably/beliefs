@@ -21,6 +21,7 @@ from beliefs.errors import (
     PermitFact,
     ProjectNotResolvable,
     PublicationReadingRefused,
+    RunSessionRefused,
     ScienceError,
     SessionClosed,
     SessionLedgerFailed,
@@ -226,7 +227,11 @@ class WriterSession:
         project: CoordinationAddress | None = None,
         world_config: WorldConfig | None = None,
         claims: tuple[ChainClaim, ...] = (),
+        run: bool = False,
     ) -> None:
+        if type(run) is not bool:
+            raise TypeError("run must be an exact bool")
+        self.run = run
         if type(claims) is not tuple or any(type(claim) is not ChainClaim for claim in claims):
             raise TypeError("claims is a tuple of ChainClaim")
         self._claims = claims
@@ -847,6 +852,8 @@ class ScopedWriter:
         (`seal_acquisition`'s precondition)."""
         from beliefs.holdings.seal import seal_acquisition as run_seal
 
+        if self._session.run:
+            raise RunSessionRefused("tree-write")
         ctx = self.holdings_context(instrument=instrument)
         return run_seal(
             ctx,

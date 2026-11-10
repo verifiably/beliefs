@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 from nodes.core.frontmatter import node_from_markdown
 from nodes.core.write_plan import CreateOp, WritePlan
 
-from beliefs.errors import SessionProtocolError, StoreWriteRefused
+from beliefs.errors import RunSessionRefused, SessionProtocolError, StoreWriteRefused
 from beliefs.holdings.seam import StoreActSeam, StoreOutcomeView
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
@@ -176,6 +176,8 @@ def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) 
             return outcome
 
     def store_create(root: Path, path: str, content: bytes, intent: str) -> StoreOutcomeView:
+        if session.run:
+            raise RunSessionRefused("tree-write")
         with store_registration(root):
             outcome = inner.store_create(root, path, content, intent)
             session._record_store_act(invocation, entry=outcome.entry, intent=intent)

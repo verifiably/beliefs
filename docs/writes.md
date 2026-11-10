@@ -82,6 +82,15 @@ The `science` layer writes through a session:
    `session:<32 hex>`, derived from a fresh session id. The session claims its
    write root, then its store root when it has one (see below), writes
    `session-open` to its ledger and reconciles the other sessions' ledgers.
+   `open_run_session(..., ceiling=permit)` opens the unattended form for a launched
+   run. Its ceiling is a `WritePermit` deserialized from the launcher's file
+   (`WritePermit.from_json`, the exact inverse of the `permit` object in
+   `session-open`) and is recorded there. The ceiling must be admissible: never
+   ungoverned, and naming only the `corpus-write`, `run` and `holdings` families;
+   otherwise `SessionRefused` is raised before any claim or session directory exists.
+   A run session refuses tree writes: `seal_acquisition` and a store `tree-write`
+   create raise `RunSessionRefused("tree-write")` before any intent or ledger line,
+   and the session stays live.
 2. `claim_invocation(id, command, input_digest)` writes `invocation-open` for a new
    id and returns `ClaimFresh`. For an id it has seen, it returns `ClaimDone` (with
    the recorded outcome), `ClaimOpen` or `ClaimMismatch`, and writes nothing.

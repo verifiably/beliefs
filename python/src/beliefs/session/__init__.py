@@ -20,7 +20,7 @@ from beliefs.corpus import (
     require_profile_compatible,
 )
 from beliefs.errors import ChainRole, CorpusRootRefused, ManifestMalformed, ManifestMissing, SessionRefused
-from beliefs.permit import Authority
+from beliefs.permit import Authority, WritePermit
 from beliefs.profile import ProfileSpec
 from beliefs.root import durable_executor_factory, durable_operation_port, holdings_seam, log_seam, store_identity
 from beliefs.session.claim import ChainClaim, claim_chain
@@ -71,9 +71,13 @@ __all__ = [
     "WriterSession",
     "open_attended_session",
     "open_ledger_reader",
+    "open_run_session",
     "reconcile",
     "reconcile_sessions",
 ]
+
+
+_RUN_FAMILIES = frozenset({"corpus-write", "run", "holdings"})
 
 
 def _fsync_directory(path: Path) -> None:
@@ -107,8 +111,77 @@ def open_attended_session(
     resolves through the coordination resolver before the session directory
     exists, and the pinned result is written into `session-open`.
     """
+    return _open_session(
+        world_config,
+        operations_root,
+        write_root=write_root,
+        profile=profile,
+        mounts=mounts,
+        store_root=store_root,
+        snapshot_resolver=snapshot_resolver,
+        project=project,
+        ceiling=None,
+        run=False,
+    )
+
+
+def open_run_session(
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    write_root: Path,
+    profile: ProfileSpec,
+    ceiling: WritePermit,
+    mounts: Mapping[Path, ProfileSpec] | None = None,
+    store_root: Path | None = None,
+    snapshot_resolver: SnapshotResolver | None = None,
+    project: CoordinationAddress | None = None,
+) -> WriterSession:
+    """The unattended constructor for a launched run: the same claims, ledger and
+    reconciliation as `open_attended_session`, under `ceiling`, the permit the
+    launcher's file carried (`WritePermit.from_json`). The ceiling is recorded in
+    `session-open`. It must be admissible: never ungoverned, and naming only the
+    `corpus-write`, `run` and `holdings` families; anything else refuses with
+    `SessionRefused` before any claim or directory. A run session refuses tree
+    writes (`RunSessionRefused("tree-write")`).
+    """
+    if type(ceiling) is not WritePermit:
+        raise TypeError("ceiling must be a WritePermit")
+    if ceiling.ungoverned:
+        raise SessionRefused("a run session's ceiling is never ungoverned")
+    inadmissible = sorted(ceiling.act_families - _RUN_FAMILIES)
+    if inadmissible:
+        raise SessionRefused(f"a run session's ceiling names only corpus-write, run and holdings; not {inadmissible}")
+    return _open_session(
+        world_config,
+        operations_root,
+        write_root=write_root,
+        profile=profile,
+        mounts=mounts,
+        store_root=store_root,
+        snapshot_resolver=snapshot_resolver,
+        project=project,
+        ceiling=ceiling,
+        run=True,
+    )
+
+
+def _open_session(
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    write_root: Path,
+    profile: ProfileSpec,
+    mounts: Mapping[Path, ProfileSpec] | None,
+    store_root: Path | None,
+    snapshot_resolver: SnapshotResolver | None,
+    project: CoordinationAddress | None,
+    ceiling: WritePermit | None,
+    run: bool,
+) -> WriterSession:
+    """The shared body: validation, then the claim-to-reconciliation block."""
     if type(world_config) is not WorldConfig:
-        raise TypeError("open_attended_session takes an exact WorldConfig")
+        raise TypeError("the session constructors take an exact WorldConfig")
     if not isinstance(operations_root, Path):
         raise TypeError("operations_root must be a Path")
     if not isinstance(write_root, Path):
@@ -205,6 +278,8 @@ def open_attended_session(
             project=pinned,
             world_config=world_config,
             claims=tuple(claims),
+            ceiling=ceiling,
+            run=run,
         )
         # Session-open is written (by the constructor) before reconciliation runs.
         session.findings = reconcile_sessions(
