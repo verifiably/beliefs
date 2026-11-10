@@ -1379,10 +1379,12 @@ def test_a_holdings_write_through_the_scoped_writer_is_ledgered_against_the_chai
     published = write(
         writer.holdings_context(instrument="acceptance"), StoreLocator(writer.store_id, "held.bin"), b"held"
     )
-    (act,) = session.invocation_acts("A")
+    (stored, act) = session.invocation_acts("A")
     session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
     session.close()
 
+    # The store registration is ledgered first, on the store chain, under the act's intent.
+    assert (stored.corpus, stored.intent, stored.record_ids) == (writer.store_id, act.intent, ())
     # The persisted node is the only holder of the uid the boundary minted.
     persisted = node_from_markdown((root / "holdings-observation" / f"{published.record.identity()}.md").read_text())
     assert act.record_ids == ((persisted.uid, persisted.id),)

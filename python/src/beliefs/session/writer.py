@@ -472,6 +472,34 @@ class WriterSession:
             )
             self._index[invocation].acts.append(ActLine(invocation, self.corpus_id, entry, intent, records))
 
+    def _record_store_act(self, invocation: str, *, entry: str, intent: str) -> None:
+        """Ledger one committed store registration: its `corpus` is the store
+        chain's id, its `intent` the holdings act's corpus-chain intent, and it
+        names no records. Reached only from `ledgered_seam`'s store wrappers,
+        which hold this lock and the store root's operation lock and checked
+        currency under them; the re-check is an invariant, as in
+        `_record_committed`."""
+        with self._lock:
+            self._require_live()
+            if self.store_id is None:
+                raise ScienceError("a store act was recorded on a session that binds no store")
+            if self._current != invocation:
+                raise ScienceError(
+                    f"the current invocation moved from {invocation} to {self._current} while a store act "
+                    "held the session lock"
+                )
+            self._ledger.append(
+                {
+                    "line": "act",
+                    "invocation": invocation,
+                    "corpus": self.store_id,
+                    "entry": entry,
+                    "intent": intent,
+                    "records": [],
+                }
+            )
+            self._index[invocation].acts.append(ActLine(invocation, self.store_id, entry, intent, ()))
+
     def _record_act(self, invocation: str, commit: OperationCommit) -> None:
         records = () if commit.record is None else ((commit.record.uid, commit.record.id),)
         self._record_committed(invocation, intent=commit.intent_digest, entry=commit.entry_digest, records=records)

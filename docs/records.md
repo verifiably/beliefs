@@ -350,6 +350,13 @@ object exists. The act holds one member's bytes at a time, leaves only whole obj
 interrupted (with its intent unmatched), and on success publishes one `found` observation
 of the tree's digest.
 
+Under a writer session every store transaction a holdings act commits (a write,
+delete or move, and each object a tree-write creates) is recorded in the session's
+ledger as an `act` line whose `corpus` is the store id, the id of the chain the
+registration is on, and whose `intent` is the act's intent on the corpus chain. A
+store failure that may have registered ends the session; see
+[writes.md](writes.md#writer-sessions).
+
 The re-check of a store-tree location is a `re-check` act that reads the tree file and
 then each member object. An unreadable read is an inconclusive attempt that mints nothing.
 A missing tree file, or one with other bytes or that does not parse, is an `absent`

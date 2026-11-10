@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -12,21 +13,28 @@ import pytest
 from authority import FULL
 from fixtures_cut3 import run_assessment, run_production
 from holdings_transport_fixtures import Scripted, scripted_seam
+from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp, DeleteOp
 from profiles import BASE, pins_for
 from test_boundary import _assessment
 from test_operation_writes import proposition
-from test_session_writer import DIGEST, make_session
+from test_session_writer import CORPUS, DIGEST, make_session
 
 from beliefs import root as science_root
 from beliefs.boundary import RunMinted, RunRefused
 from beliefs.corpus import _operation_lock_for
-from beliefs.errors import SessionProtocolError
+from beliefs.errors import SessionLedgerFailed, SessionProtocolError, StoreWriteRefused
 from beliefs.holdings.acquire import AcquisitionRequest, ResourceRequest
-from beliefs.holdings.boundary import ActContext, recheck, write
-from beliefs.holdings.records import StoreLocator, url_locator
-from beliefs.holdings.seam import FileStateView, PathObservedView, StoreActSeam, StoreOutcomeView
+from beliefs.holdings.boundary import ActContext, delete, move, recheck, tree_write, write
+from beliefs.holdings.records import StoreLocator, StoreTreeLocator, url_locator
+from beliefs.holdings.seam import (
+    AbsentStateView,
+    FileStateView,
+    PathObservedView,
+    StoreActSeam,
+    StoreOutcomeView,
+)
 from beliefs.holdings.transport import RetrievalBounds
 from beliefs.permit import RequiredCapabilities
 from beliefs.report import PublishedObservation
@@ -34,7 +42,7 @@ from beliefs.root import init_corpus_root, init_store_root, init_world_root, ope
 from beliefs.runrecord import GuardedCommit
 from beliefs.session import open_attended_session, open_ledger_reader, reconcile_sessions
 from beliefs.session.routes import plan_records
-from beliefs.world.logmodel import RegisteredEntryView, WellFormedView
+from beliefs.world.logmodel import RegisteredEntryView, SettledEntryView, WellFormedView
 from beliefs.world.registry import WorldConfig
 
 RUNS = RequiredCapabilities.for_kinds({"run", "dataset", "act-report"}, {"run": "run", "act-report": "run"})
@@ -394,13 +402,26 @@ GENESIS = b'{"domain":"science.store-root.v1","store_id":"' + STORE_ID.encode() 
 STATE = FileStateView("sha256:" + "a" * 64, 1)
 
 
+def _state_of(content: bytes) -> FileStateView:
+    return FileStateView("sha256:" + sha256(content).hexdigest(), len(content))
+
+
 @dataclass
 class FakeSeam:
+    """A holdings seam over no engine. Each intent is its payload's digest, so two
+    intents differ; each store call returns a fresh registration digest, recorded
+    in `entries`; `raises`, when set, is raised by every store call instead."""
+
     root: Path
     lock: TracingLock | None = None
     on_corpus_lock: Any = None
+    raises: BaseException | None = None
     reached: list[str] = field(default_factory=list)
+    events: list[tuple[object, ...]] = field(default_factory=list)
     published: list[tuple[object, ...]] = field(default_factory=list)
+    intents: list[str] = field(default_factory=list)
+    entries: list[str] = field(default_factory=list)
+    created: set[str] = field(default_factory=set)
     entered: int = 0
 
     def _touch(self, name: str) -> None:
@@ -408,55 +429,72 @@ class FakeSeam:
             assert self.lock.held_by_me(), f"{name} entered without the session lock"
         self.reached.append(name)
 
+    def _store(self, name: str, final_states) -> StoreOutcomeView:
+        self._touch(name)
+        self.events.append((name,))
+        if self.raises is not None:
+            raise self.raises
+        entry = sha256(f"{name}:{len(self.entries)}".encode()).hexdigest()
+        self.entries.append(entry)
+        return StoreOutcomeView("tx", tuple(final_states), entry)
+
     def build(self) -> StoreActSeam:
         @contextmanager
         def corpus_lock(root):
             self._touch("corpus_lock")
             with _operation_lock_for(root):
                 self.entered += 1
+                self.events.append(("corpus_lock-enter", Path(root), self.lock is None or self.lock.held_by_me()))
                 if self.on_corpus_lock is not None:
                     self.on_corpus_lock(self.entered)
                 yield
+                self.events.append(("corpus_lock-exit", Path(root)))
 
-        def append_intent(_root, _payload):
+        def append_intent(_root, payload):
             self._touch("append_intent")
-            return INTENT
+            digest = sha256(payload).hexdigest()
+            self.intents.append(digest)
+            return digest
 
         def publish_fulfilling(_root, plan, _intent):
             self._touch("publish_fulfilling")
             self.published.append(tuple(plan))
             return "2" * 64
 
-        def read_path(_root, _path):
+        def read_path(_root, path):
             self._touch("read_path")
+            if path.startswith("objects/") and path not in self.created:
+                return PathObservedView(AbsentStateView())
             return PathObservedView(STATE)
 
-        def store_write(_root, path, _bytes, _intent):
-            self._touch("store_write")
-            return StoreOutcomeView("tx", ((path, STATE),), "e" * 64)
+        def store_write(_root, path, content, _intent):
+            return self._store("store_write", ((path, _state_of(content)),))
 
-        def store_create(_root, path, _bytes, _intent):
-            self._touch("store_create")
-            return StoreOutcomeView("tx", ((path, STATE),), "e" * 64)
+        def store_delete(_root, path, _intent):
+            return self._store("store_delete", ((path, AbsentStateView()),))
+
+        def store_move(_root, source, destination, _intent):
+            return self._store("store_move", ((source, AbsentStateView()), (destination, STATE)))
+
+        def store_create(_root, path, content, _intent):
+            outcome = self._store("store_create", ((path, _state_of(content)),))
+            self.created.add(path)
+            return outcome
 
         def store_genesis(_root):
             self._touch("store_genesis")
             return GENESIS
 
-        def unused(*_):
-            raise AssertionError("not reached")
-
-        # This fake never raises `ExecutionError`, so the predicate is never reached.
         return StoreActSeam(
             corpus_lock,
             append_intent,
             publish_fulfilling,
             read_path,
             store_write,
-            unused,
-            unused,
+            store_delete,
+            store_move,
             store_genesis,
-            lambda _caught: False,
+            lambda caught: isinstance(caught, ExecutionError) and caught.applied == 0,
             store_create,
         )
 
@@ -513,12 +551,14 @@ def test_a_holdings_write_ledgers_an_act_naming_the_observation(tmp_path):
     pair = _published_pair(seam)
     session.close_invocation("A", {"done": [list(pair)]})
     session.close()
-    (act,) = open_ledger_reader(session.operations_root, session.session_id).acts()
-    assert (act.intent, act.entry, act.record_ids) == (INTENT, "2" * 64, (pair,))
+    (_stored, act) = open_ledger_reader(session.operations_root, session.session_id).acts()
+    ((intent,),) = (seam.intents,)
+    assert (act.corpus, act.intent, act.entry, act.record_ids) == (CORPUS, intent, "2" * 64, (pair,))
     assert seam.reached == [
         "corpus_lock",
         "append_intent",
         "store_genesis",
+        "corpus_lock",
         "store_write",
         "corpus_lock",
         "publish_fulfilling",
@@ -529,11 +569,152 @@ def test_ledgered_seam_guards_store_create(tmp_path):
     seam = FakeSeam(tmp_path / "corpus")
     session, _writer, ctx, _ = _holdings(tmp_path, seam)
     ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x", "f" * 64)
-    assert seam.reached == ["store_create"]
+    assert seam.reached == ["corpus_lock", "store_create"]
     session.close_invocation("A", {"done": []})
     with pytest.raises(SessionProtocolError):
         ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x", "f" * 64)
-    assert seam.reached == ["store_create"]
+    assert seam.reached == ["corpus_lock", "store_create"]
+    assert not session._ledger.failed
+
+
+# --- ledgered store registrations ------------------------------------------
+
+
+def _ledger_acts(session):
+    return open_ledger_reader(session.operations_root, session.session_id).acts()
+
+
+def test_each_store_call_ledgers_one_act_on_the_store_chain(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus")
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    delete(ctx, StoreLocator(STORE_ID, "p.bin"))
+    move(ctx, StoreLocator(STORE_ID, "q.bin"), StoreLocator(STORE_ID, "r.bin"))
+    write_intent, delete_intent, source_intent, destination_intent = seam.intents
+    assert len({write_intent, delete_intent, source_intent, destination_intent}) == 4
+    written, deleted, moved = seam.entries
+    session.close_invocation("A", {"done": []})
+    session.close()
+    acts = _ledger_acts(session)
+    assert [(act.corpus, act.entry, act.intent, act.record_ids) for act in acts if act.corpus == STORE_ID] == [
+        (STORE_ID, written, write_intent, ()),
+        (STORE_ID, deleted, delete_intent, ()),
+        (STORE_ID, moved, source_intent, ()),
+    ]
+    # Each store line comes before the corpus line of its act's publication.
+    assert [(act.corpus, act.intent) for act in acts] == [
+        (STORE_ID, write_intent),
+        (CORPUS, write_intent),
+        (STORE_ID, delete_intent),
+        (CORPUS, delete_intent),
+        (STORE_ID, source_intent),
+        (CORPUS, source_intent),
+        (CORPUS, destination_intent),
+    ]
+
+
+def test_a_tree_write_ledgers_every_create_under_its_one_intent(tmp_path):
+    from beliefs.tree import TreeMember, make_tree, tree_digest
+
+    contents = {"a.txt": b"alpha", "d/b.txt": b"beta"}
+    sources = {}
+    for name, data in contents.items():
+        source = tmp_path / "src" / name
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_bytes(data)
+        sources[name] = source
+    tree = make_tree(
+        tuple(TreeMember(name, _state_of(data).content_hash, len(data)) for name, data in contents.items())
+    )
+    seam = FakeSeam(tmp_path / "corpus")
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    tree_write(ctx, StoreTreeLocator(STORE_ID, tree_digest(tree).split(":", 1)[1]), tree, sources)
+    ((intent,),) = (seam.intents,)
+    assert seam.reached.count("store_create") == 3  # two members, then the tree file
+    acts = session.invocation_acts("A")
+    assert [(act.corpus, act.entry, act.intent, act.record_ids) for act in acts] == [
+        *((STORE_ID, entry, intent, ()) for entry in seam.entries),
+        (CORPUS, "2" * 64, intent, (_published_pair(seam),)),
+    ]
+
+
+def test_an_engine_refusal_fails_the_ledger(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus", raises=ExecutionError("refused", index=None, applied=0))
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    with pytest.raises(StoreWriteRefused):  # the boundary still reports a routine refusal as one
+        write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    assert _ledger_acts(session) == ()
+    assert session._ledger.failed is True
+    with pytest.raises(SessionLedgerFailed):
+        session.close_invocation("A", {"done": []})
+
+
+def test_an_uncertain_store_failure_fails_the_ledger(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus", raises=ExecutionError("unproved", index=None, applied=None))
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    with pytest.raises(ExecutionError, match="unproved"):
+        write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    assert _ledger_acts(session) == ()
+    assert session._ledger.failed is True
+    with pytest.raises(SessionLedgerFailed):
+        session.close_invocation("A", {"done": []})
+
+
+def test_a_store_argument_refusal_keeps_the_session_live(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus", raises=StoreWriteRefused("p.bin", "a malformed path"))
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    with pytest.raises(StoreWriteRefused, match="a malformed path"):
+        write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    assert session._ledger.failed is False
+    assert session.invocation_acts("A") == ()
+    seam.raises = None
+    write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    (entry,) = seam.entries
+    assert [(act.corpus, act.entry) for act in session.invocation_acts("A")] == [
+        (STORE_ID, entry),
+        (CORPUS, "2" * 64),
+    ]
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
+def test_a_store_call_on_another_root_is_refused_before_the_store(tmp_path):
+    seam = FakeSeam(tmp_path / "corpus")
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    with pytest.raises(SessionProtocolError, match="store root"):
+        ctx.seam.store_write(tmp_path / "elsewhere", "p.bin", b"x", "f" * 64)
+    assert seam.reached == [] and session._ledger.failed is False
+    assert session.invocation_acts("A") == ()
+
+
+def test_a_store_act_holds_the_store_roots_operation_lock_through_its_line(tmp_path, monkeypatch):
+    lock = TracingLock()
+    seam = FakeSeam(tmp_path / "corpus", lock=lock)
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    session._lock = lock  # type: ignore[assignment]
+    append = session._ledger.append
+
+    def recording(line):
+        seam.events.append(("append", line["line"], line.get("corpus"), lock.held_by_me()))
+        append(line)
+
+    monkeypatch.setattr(session._ledger, "append", recording)
+    write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    store = tmp_path / "store"
+    start = seam.events.index(("corpus_lock-enter", store, True))
+    end = seam.events.index(("corpus_lock-exit", store))
+    assert seam.events[start : end + 1] == [
+        ("corpus_lock-enter", store, True),  # the session lock is already held
+        ("store_write",),
+        ("append", "act", STORE_ID, True),
+        ("corpus_lock-exit", store),
+    ]
+    # The observer root's lock was taken and released before the store call: one
+    # operation lock at a time.
+    before = seam.events[:start]
+    observer_enters = [e for e in before if e[:2] == ("corpus_lock-enter", session.corpus_root)]
+    observer_exits = [e for e in before if e == ("corpus_lock-exit", session.corpus_root)]
+    assert len(observer_enters) == len(observer_exits) == 1
 
 
 def test_a_context_kept_past_its_invocation_reaches_no_member(tmp_path):
@@ -589,7 +770,7 @@ def test_a_holdings_write_and_a_corpus_add_on_two_threads_both_complete(tmp_path
     lock = TracingLock(on_attempt=lambda name, _outcome: b_signalled.set() if name == "B" else None)
 
     def on_corpus_lock(entered: int) -> None:
-        if entered == 2:
+        if entered == 3:  # the intent's lock, the store root's, then the publication's
             a_in_publication.set()
             assert b_signalled.wait(5), "B never attempted the session lock"
 
@@ -671,7 +852,11 @@ def test_seal_route_ledgers_its_acts(certified_work, tmp_path):
     session.close_invocation("A", {"done": []})
     session.close()
     acts = open_ledger_reader(session.operations_root, session.session_id).acts()
-    assert len(acts) == 3  # the log write's publication, the tree write's publication, the closing transaction
+    corpus_acts = [act for act in acts if act.corpus == session.corpus_id]
+    store_acts = [act for act in acts if act.corpus == scoped.store_id]
+    assert len(corpus_acts) == 3  # the log write's publication, the tree write's publication, the closing transaction
+    assert len(store_acts) == 5  # the log write, then three member objects and the tree file
+    assert len(acts) == len(corpus_acts) + len(store_acts)
     assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.dataset.id}
 
 
@@ -706,9 +891,55 @@ def test_recheck_through_a_session_ledgers_every_commit(certified_work):
     session.close_invocation("A", {"done": []})
     session.close()
     acts = open_ledger_reader(session.operations_root, session.session_id).acts()
-    assert len(acts) == 3  # the write's publication, the re-check's publication, the closing transaction
+    # The write's store registration and its publication, the re-check's publication, the closing transaction.
+    assert [act.corpus for act in acts] == [scoped.store_id, session.corpus_id, session.corpus_id, session.corpus_id]
+    stored, published = acts[0], acts[1]
+    assert session.store_root is not None
+    assert [entry.digest for entry in _registrations(session.store_root)] == [stored.entry]
+    assert (stored.intent, stored.record_ids) == (published.intent, ())
     assert isinstance(outcome.entries[0].outcome, PublishedObservation)
     assert {pair[1] for act in acts for pair in act.record_ids} >= {outcome.report_ref, outcome.entries[0].outcome.ref}
+
+
+def test_an_effect_time_rollback_fails_the_ledger_and_leaves_its_registration(certified_work, monkeypatch):
+    """The engine registers before it applies effects; an effect that meets drift
+    rolls back and settles the registration as not committed. A routine refusal
+    therefore does not prove nothing registered, so the session ledger fails."""
+    from atoms.coordinator import execute as engine_execute
+    from atoms.coordinator.effects.common import EffectMismatch
+
+    session = _durable_session(certified_work)
+    session.claim_invocation("A", "write", DIGEST)
+    scoped = session.scoped(RECHECKS, "A")
+    ctx = scoped.holdings_context(instrument="inst")
+    store_root = session.store_root
+    assert store_root is not None
+    before = science_root.log_seam().inspect_detached(store_root)
+    assert type(before) is WellFormedView
+    real = engine_execute._apply_effect
+    calls: list[object] = []
+
+    def mismatching(lease, approved, table, effect):
+        calls.append(effect)
+        if len(calls) == 1:
+            raise EffectMismatch("create", "op-0")
+        return real(lease, approved, table, effect)
+
+    monkeypatch.setattr(engine_execute, "_apply_effect", mismatching)
+    with pytest.raises(StoreWriteRefused):
+        write(ctx, StoreLocator(scoped.store_id, "a.bin"), b"alpha")
+    assert len(calls) == 1
+    after = science_root.log_seam().inspect_detached(store_root)
+    assert type(after) is WellFormedView
+    added = after.entries[len(before.entries) :]
+    (registered,) = [entry for entry in added if type(entry) is RegisteredEntryView]
+    (settled,) = [entry for entry in added if type(entry) is SettledEntryView]
+    assert (settled.registration, settled.committed) == (registered.digest, False)
+    assert len(added) == 2
+    assert open_ledger_reader(session.operations_root, session.session_id).acts() == ()
+    assert session._ledger.failed is True
+    with pytest.raises(SessionLedgerFailed):
+        session.close_invocation("A", {"done": []})
 
 
 def test_a_store_less_session_audits_and_cannot_recheck(certified_work):

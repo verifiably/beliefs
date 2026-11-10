@@ -370,6 +370,22 @@ def test_a_failed_fsync_ends_the_writer(tmp_path, monkeypatch):
     assert writer.failed is True
 
 
+def test_ledger_fail_is_terminal_and_idempotent(tmp_path):
+    path = ledger_path(tmp_path, SESSION)
+    path.parent.mkdir(parents=True)
+    writer = LedgerWriter(path)
+    writer.append(open_line())
+    before = path.read_bytes()
+    writer.fail("a store call may have registered")
+    assert writer.failed is True
+    writer.fail("a second reason")  # idempotent: no raise, still failed
+    assert writer.failed is True
+    with pytest.raises(SessionLedgerFailed, match="a store call may have registered"):
+        writer.append(lines()[1])
+    assert path.read_bytes() == before  # nothing further reached the file
+    writer.close()
+
+
 def test_validated_outcome_accepts_the_two_shapes_and_nothing_else():
     assert validated_outcome({"done": [["u", "proposition:p"]]}) == {"done": [["u", "proposition:p"]]}
     refusal = validated_outcome({"refusal": {"code": "c", "message": "m", "data": {"k": 1}}})["refusal"]

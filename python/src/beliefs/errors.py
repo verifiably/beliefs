@@ -1636,8 +1636,9 @@ class SessionProtocolError(ScienceError):
 
 
 class SessionLedgerFailed(ScienceError):
-    """A ledger `write`, `flush` or `fsync` failed; the session is terminal
-    and appends nothing further."""
+    """A ledger `write`, `flush` or `fsync` failed, or a store call that may
+    have registered raised (`LedgerWriter.fail`); the session is terminal and
+    appends nothing further."""
 
 
 class LedgerMalformed(ScienceError):

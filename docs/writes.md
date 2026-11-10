@@ -91,12 +91,25 @@ The `science` layer writes through a session:
    current one. It then appends a `corpus-write` operation intent, commits the
    write as the transaction that fulfils that intent, and writes an `act` line that
    names the intent, the [registration](glossary.md#registration) and the records
-   written.
+   written. A holdings act through the session (`holdings_context`) also writes one
+   `act` line for every store transaction it commits: a `write`, `delete` or `move`,
+   and each object a `tree-write` creates (the tree file included).
 5. `close_invocation(id, outcome)` writes `invocation-close`, and `close()` writes
    `session-close`.
 
 The ledger is the append-only file `<operations_root>/sessions/<id>/ledger.v1`.
 Every line is written, flushed and fsynced before the call that wrote it returns.
+
+An `act` line carries `invocation`, `corpus`, `entry`, `intent` and `records`.
+`corpus` is the id of the chain the entry is on: the corpus id for a corpus write,
+and the store id (the store genesis's `store_id`) for a store transaction. For a
+store transaction, `entry` is the store registration's digest as the engine
+returned it, `intent` is the holdings act's intent on the corpus chain (for a move,
+the move-source intent; for a tree-write, its one intent on every create), and
+`records` is empty. The session holds its lock, then the store root's operation
+lock, across the store call and its `act` line; holdings takes the corpus root's
+operation lock only around an intent append or a publication, so a writer holds one
+operation lock at a time.
 
 ## Citations across mounts
 
@@ -284,8 +297,20 @@ intent. An interrupted publish resumes with `resume_publish(event_token=...)`
 under the same actor, and `pending_publishes` lists the unfinished ones.
 
 **Sessions.** A failed ledger append makes the session terminal
-(`SessionLedgerFailed`). A write from an invocation that is not the current one
-raises `SessionProtocolError`. When a session opens, `reconcile_sessions` compares
+(`SessionLedgerFailed`). So does a store call through a session that raises
+anything other than `StoreWriteRefused` for its arguments (a malformed path, an
+`objects/` path, a create outside `objects/sha256/`), which is refused before
+anything reaches the engine and leaves the session live. The engine registers a
+store transaction before it applies its effects, and an effect that meets drift
+rolls back, settles the registration as not committed and raises a routine refusal.
+A refusal therefore does not prove that nothing registered, and no `act` line can
+describe a rolled-back registration, so the ledger is marked failed before the
+exception propagates; the holdings boundary still reports a routine refusal as
+`StoreWriteRefused`. The failed ledger cannot close its invocation or the session.
+This ends attended sessions too, on any such failure: an engine refusal caused by a
+write outside the session, and also a missing source for a `delete` or `move`,
+which fails before anything is submitted. A write from an invocation that is not
+the current one raises `SessionProtocolError`. When a session opens, `reconcile_sessions` compares
 every other session's ledger with the chains. It reports findings such as
 `session-unclosed`, `session-intent-unclaimed` and `session-act-unverified`.
 
