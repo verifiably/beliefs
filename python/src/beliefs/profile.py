@@ -437,9 +437,14 @@ class CompiledUnit:
     quantity_kind: str
     external: Mapping[str, str] | None
     contract: str
+    calendar: bool = False
 
     def schema_projection(self) -> dict[str, object]:
-        projection: dict[str, object] = {"symbol": self.symbol, "quantity_kind": self.quantity_kind}
+        projection: dict[str, object] = {
+            "symbol": self.symbol,
+            "quantity_kind": self.quantity_kind,
+            "calendar": self.calendar,
+        }
         if self.external is not None:
             projection["external"] = dict(self.external)
         return projection
@@ -517,11 +522,11 @@ class CompiledTransformation:
 @dataclass(frozen=True)
 class CompiledDurationConvention:
     term: str
-    fields: Mapping[str, str | int]
+    conversion: str
     contract: str
 
     def schema_projection(self) -> dict[str, object]:
-        return {key: self.fields[key] for key in sorted(self.fields)}
+        return {"conversion": self.conversion}
 
 
 @dataclass(frozen=True)
@@ -717,12 +722,14 @@ class ProfileSpec:
         )
 
     def conversion_between(self, a_unit: str, b_unit: str) -> CompiledConversion | None:
-        """The one declared route joining the pair, in either authored direction."""
+        """The declared noncalendar route joining the pair, in either authored direction."""
         return next(
             (
                 conversion
                 for conversion in self.conversions.values()
                 if {conversion.from_unit, conversion.to_unit} == {a_unit, b_unit}
+                and not self.units[conversion.from_unit].calendar
+                and not self.units[conversion.to_unit].calendar
             ),
             None,
         )
@@ -1162,10 +1169,14 @@ def compile_profile(
             resolve_measurement(contract, decl.quantity_kind, quantity_kinds, f"units.{name}: quantity_kind"),
             decl.external,
             contract.namespace,
+            calendar=decl.calendar,
         )
         for contract in contracts
         for name, decl in contract.units.items()
     }
+    for unit in units.values():
+        if unit.calendar and quantity_kinds[unit.quantity_kind].dimension != {"T": 1}:
+            raise ProfileError(f"{unit.term}: a calendar unit requires physical dimension exactly {{T: 1}}")
     constants = {
         contract.term(name): CompiledConstant(
             contract.term(name),
@@ -1266,13 +1277,27 @@ def compile_profile(
         for decl in contract.estimands.values():
             compiled = _compile_estimand(contract, decl, sorts, templates, instantiations, bridges)
             estimands[compiled.target] = compiled
-    duration_conventions = {
-        contract.term(name): CompiledDurationConvention(
-            term=contract.term(name), fields=decl.fields, contract=contract.namespace
-        )
-        for contract in contracts
-        for name, decl in contract.duration_conventions.items()
-    }
+    duration_conventions: dict[str, CompiledDurationConvention] = {}
+    for contract in contracts:
+        for name, decl in contract.duration_conventions.items():
+            term = contract.term(name)
+            conversion_term = resolve_measurement(
+                contract, decl.conversion, conversions, f"duration_conventions.{name}: conversion"
+            )
+            conversion = conversions[conversion_term]
+            source, target = units[conversion.from_unit], units[conversion.to_unit]
+            if (
+                conversion.kind != "multiplicative"
+                or not conversion.exact
+                or conversion.error is not None
+                or conversion.constant is not None
+                or source.calendar == target.calendar
+                or source.quantity_kind != target.quantity_kind
+            ):
+                raise ProfileError(
+                    f"{term}: a duration convention requires an exact multiplicative conversion joining one calendar and one noncalendar unit of the same quantity kind, without error or constant"
+                )
+            duration_conventions[term] = CompiledDurationConvention(term, conversion_term, contract.namespace)
     admission = {
         term: tuple(
             sorted(

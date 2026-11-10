@@ -288,7 +288,7 @@ class TestSemanticEditsRecompileAndEditorialOnesDoNot:
             ("bridges", "promotes", "mapping", "contextual"),
             ("dimensions", "population", "placement", "applicability"),
             ("sorts", "entity", "categories", []),
-            ("duration_conventions", "day", "length", 25),
+            ("duration_conventions", "mean-month", "conversion", "mean-month-to-hour"),
         ],
     )
     def test_a_semantic_schema_edit_moves_the_compiled_profile(
@@ -297,6 +297,14 @@ class TestSemanticEditsRecompileAndEditorialOnesDoNot:
         # Not reachable within a lineage — succession refuses it — so this is a
         # parallel genesis, which is the open escape hatch.
         testing_document[section][name][field] = value
+        if section == "duration_conventions":
+            testing_document["conversions"]["mean-month-to-hour"] = {
+                "from": "calendar-month",
+                "to": "hour",
+                "kind": "multiplicative",
+                "factor": "730.5",
+                "exact": True,
+            }
         if section == "dimensions" and field == "placement" and value == "applicability":
             testing_document[section][name]["restriction"] = {"form": "term", "sort": "cohort"}
         assert compile_profile(base_contract, [parse(testing_document)]).compiled_identity != compiled.compiled_identity
@@ -460,8 +468,12 @@ class TestResolution:
         assert compiled.sorts["testing/procedure-spec"].identifier_class is None
 
     def test_duration_conventions_compile_under_their_terms(self, compiled):
-        day = compiled.duration_conventions["testing/day"]
-        assert (day.term, dict(day.fields), day.contract) == ("testing/day", {"unit": "hours", "length": 24}, "testing")
+        convention = compiled.duration_conventions["testing/mean-month"]
+        assert (convention.term, convention.conversion, convention.contract) == (
+            "testing/mean-month",
+            "testing/mean-month-to-second",
+            "testing",
+        )
 
     def test_same_local_names_in_different_namespaces_compose(self, base_contract, testing, other):
         profile = compile_profile(base_contract, [testing, other])

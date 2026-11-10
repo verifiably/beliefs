@@ -23,7 +23,7 @@ def test_the_fixture_tables_parse_and_read_as_written(parse, testing_document):
     assert tuple(
         len(getattr(contract, table))
         for table in ("quantity_kinds", "units", "constants", "conversions", "transformations")
-    ) == (10, 15, 1, 6, 8)
+    ) == (10, 16, 1, 7, 8)
     assert contract.quantity_kinds["energy"].dimension == {"M": 1, "L": 2, "T": -2}
     assert contract.constants["avogadro"].value == Fraction(602214076000000000000000)
     assert contract.conversions["hour-to-second"].factor == Fraction(3600)
@@ -147,7 +147,7 @@ def test_the_tables_enter_the_schema_projection_and_succession_keys(parse, testi
     prior = parse(testing_document)
     vocabulary = prior.claim_vocabulary()
     assert vocabulary["quantity-kind:duration"] == {"dimension": {"T": 1}}
-    assert vocabulary["unit:second"] == {"symbol": "s", "quantity_kind": "duration"}
+    assert vocabulary["unit:second"] == {"symbol": "s", "quantity_kind": "duration", "calendar": False}
     assert vocabulary["constant:avogadro"] == {"value": "6.02214076E23", "unit": "per-mole", "exact": True}
     assert vocabulary["conversion:hour-to-second"] == {
         "from": "hour",

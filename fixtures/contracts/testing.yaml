@@ -207,7 +207,7 @@ estimands:
     conditioning_sort: entity
 
 duration_conventions:
-  day: { unit: hours, length: 24 }
+  mean-month: { conversion: mean-month-to-second, definition: Fixed mean month of 30.4375 days. }
 
 quantity_kinds:
   duration: { dimension: {T: 1}, definition: Elapsed time. }
@@ -223,6 +223,7 @@ quantity_kinds:
 
 units:
   second: { symbol: s, quantity_kind: duration, definition: A second. }
+  calendar-month: { symbol: mo, quantity_kind: duration, calendar: true, definition: A calendar duration requiring a named convention. }
   hour: { symbol: h, quantity_kind: duration, definition: An hour. }
   per-second: { symbol: s^-1, quantity_kind: rate, definition: Per second. }
   per-hour: { symbol: h^-1, quantity_kind: rate, definition: Per hour. }
@@ -243,6 +244,7 @@ constants:
 
 conversions:
   hour-to-second: { from: hour, to: second, kind: multiplicative, factor: "3600", exact: true, definition: Hours to seconds. }
+  mean-month-to-second: { from: calendar-month, to: second, kind: multiplicative, factor: "2629800", exact: true, definition: A fixed mean month in seconds. }
   per-second-to-per-hour: { from: per-second, to: per-hour, kind: multiplicative, factor: "3600", exact: true, definition: Per second to per hour. }
   kelvin-to-celsius: { from: kelvin, to: celsius, kind: affine, factor: "1", offset: "-273.15", exact: true, definition: Kelvin to Celsius. }
   kelvin-to-millikelvin: { from: kelvin, to: millikelvin, kind: multiplicative, factor: "1000", exact: true, definition: Kelvin to millikelvin. }

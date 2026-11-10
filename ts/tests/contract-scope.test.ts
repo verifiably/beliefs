@@ -129,13 +129,16 @@ describe("the v2 testing document", () => {
       "bridge:promotes",
       "instantiation:promotes",
     ]);
-    expect(contract.durationConventions.day).toEqual({ name: "day", fields: { unit: "hours", length: 24 } });
+    expect(contract.durationConventions["mean-month"]).toEqual({
+      name: "mean-month",
+      conversion: "mean-month-to-second",
+    });
     expect(Object.keys(contract.facets).sort()).toEqual(["testing/annotation", "testing/axis"]);
     expect(
       [contract.quantityKinds, contract.units, contract.constants, contract.conversions, contract.transformations].map(
         (table) => Object.keys(table).length,
       ),
-    ).toEqual([10, 15, 1, 6, 8]);
+    ).toEqual([10, 16, 1, 7, 8]);
   });
 
   it("reads each of the six binding arms", () => {
@@ -262,7 +265,7 @@ describe("the v2 testing document", () => {
       contract.instantiations["affects-entity-entity"].roles.effect,
       contract.bridges.promotes.layers,
       contract.estimands["bridge:promotes"].levelSorts,
-      contract.durationConventions.day.fields,
+      contract.durationConventions["mean-month"],
     ]) {
       expect(Object.isFrozen(value)).toBe(true);
     }
@@ -541,13 +544,13 @@ describe("the domain grammar's refusals, mirrored from the Python parser", () =>
 
   it.each([true, null, ["hours"], { x: 1 }])("refuses the duration-convention field %j", (value) => {
     refuses((document) => {
-      document.duration_conventions.day.length = value;
-    }, /string or an integer/);
+      document.duration_conventions["mean-month"].conversion = value;
+    }, /reference/);
   });
 
   it("refuses a float duration-convention field at the document reader, as Python does", () => {
     refuses((document) => {
-      document.duration_conventions.day.length = 1.5;
+      document.duration_conventions["mean-month"].conversion = 1.5;
     }, /the float 1\.5 is refused/);
   });
 

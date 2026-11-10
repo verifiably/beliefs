@@ -97,7 +97,7 @@ describe("measurement declaration tables", () => {
       [tables.quantityKinds, tables.units, tables.constants, tables.conversions, tables.transformations]
         .map(Object.keys)
         .map((x) => x.length),
-    ).toEqual([10, 15, 1, 6, 8]);
+    ).toEqual([10, 16, 1, 7, 8]);
     expect(tables.conversions["hour-to-second"].factor).toEqual({ numerator: 3600n, denominator: 1n, text: "3600" });
     expect(tables.constants.avogadro.value).toEqual({
       numerator: 602214076000000000000000n,

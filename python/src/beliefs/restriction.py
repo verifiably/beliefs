@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from fractions import Fraction
 from functools import cmp_to_key
@@ -81,9 +81,14 @@ class IntervalRestriction:
     high: Fraction | None
     low_closed: bool
     high_closed: bool
+    convention: str | None = None
 
     def __post_init__(self) -> None:
         _term(self.unit, "restriction unit")
+        if self.convention is not None:
+            text = _text(self.convention, "restriction convention")
+            if re.fullmatch(r"(?:[a-z][a-z0-9-]*/)?[a-z][a-z0-9-]*", text) is None:
+                raise MalformedRestriction("a convention must be a local or qualified duration-convention term")
         if type(self.low_closed) is not bool or type(self.high_closed) is not bool:
             raise MalformedRestriction("interval closure flags must be booleans")
         for bound in (self.low, self.high):
@@ -176,6 +181,8 @@ def restriction_projection(value: Restriction) -> dict[str, object] | list[dict[
             projection["low"] = _decimal_text(value.low)
         if value.high is not None:
             projection["high"] = _decimal_text(value.high)
+        if value.convention is not None:
+            projection["convention"] = value.convention
         return projection
     if isinstance(value, TimeIntervalRestriction):
         return {"start": value.start, "end": value.end}
@@ -241,7 +248,7 @@ def restriction_from_projection(value: object, *, form: str) -> Restriction:
     }
     if form not in required:
         raise MalformedRestriction(f"unsupported restriction form {form!r}")
-    optional = {"low", "high"} if form == "interval" else set()
+    optional = {"low", "high", "convention"} if form == "interval" else set()
     if not required[form] <= value.keys() or set(value) - required[form] - optional:
         raise MalformedRestriction(f"{form}: unexpected or missing restriction fields")
     if form == "term":
@@ -253,6 +260,7 @@ def restriction_from_projection(value: object, *, form: str) -> Restriction:
             _bound(value["high"]) if "high" in value else None,
             value["low_closed"],
             value["high_closed"],
+            convention=_text(value["convention"], "restriction convention") if "convention" in value else None,
         )
     if form == "time-interval":
         return TimeIntervalRestriction(value["start"], value["end"])
@@ -267,28 +275,35 @@ def _check_terms(profile: ProfileSpec, sort: str, terms: tuple[str, ...]) -> Non
         raise MalformedRestriction(f"a restriction term is outside the identifier class of {sort!r}")
 
 
-def _typed(profile: ProfileSpec, value: Restriction, decl: CompiledRestrictionForm) -> None:
+def _typed(profile: ProfileSpec, value: Restriction, decl: CompiledRestrictionForm, namespace: str) -> Restriction:
     if isinstance(value, UnionRestriction) and decl.form == "union":
         assert decl.of is not None
-        for member in value.members:
-            _typed(profile, member, decl.of)
-        return
+        return UnionRestriction(tuple(_typed(profile, member, decl.of, namespace) for member in value.members))
     if isinstance(value, TermRestriction) and decl.form == "term":
         if value.sort != decl.sort:
             raise MalformedRestriction(f"expected restriction sort {decl.sort!r}")
         _check_terms(profile, value.sort, (value.term,))
-        return
+        return value
     if isinstance(value, IntervalRestriction) and decl.form == "interval":
         unit = profile.units.get(value.unit)
         if unit is None or unit.quantity_kind != decl.quantity_kind:
             raise MalformedRestriction(f"restriction unit must have quantity kind {decl.quantity_kind!r}")
-        return
+        if value.convention is not None:
+            term = value.convention if "/" in value.convention else f"{namespace}/{value.convention}"
+            convention = profile.duration_conventions.get(term)
+            if convention is None or not unit.calendar:
+                raise MalformedRestriction("a supplied convention must be declared and restrict a calendar unit")
+            conversion = profile.conversions[convention.conversion]
+            if value.unit not in (conversion.from_unit, conversion.to_unit):
+                raise MalformedRestriction("the convention conversion does not involve this calendar unit")
+            return replace(value, convention=term)
+        return value
     if isinstance(value, RuleRestriction) and decl.form == "rule":
         assert decl.classes is not None
         _check_terms(profile, decl.classes, value.classes)
-        return
+        return value
     if isinstance(value, TimeIntervalRestriction) and decl.form == "time-interval":
-        return
+        return value
     raise MalformedRestriction(f"expected restriction form {decl.form!r}")
 
 
@@ -299,8 +314,7 @@ def type_restriction_map(profile: ProfileSpec, raw: Mapping[str, object]) -> Res
         if dimension is None or dimension.placement != "applicability" or dimension.restriction is None:
             raise MalformedRestriction(f"{key!r} is not a declared applicability-side typed dimension")
         value = restriction_from_projection(projected, form=dimension.restriction.form)
-        _typed(profile, value, dimension.restriction)
-        typed[key] = value
+        typed[key] = _typed(profile, value, dimension.restriction, dimension.contract)
     return MappingProxyType(typed)
 
 
@@ -369,24 +383,47 @@ def _span_scope(a: list[_Span[_Bound]], b: list[_Span[_Bound]]) -> CoScope:
     return "overlapping"
 
 
-def _interval_span(value: IntervalRestriction, unit: str, profile: ProfileSpec) -> _Span[Fraction] | None:
-    factor, offset = Fraction(1), Fraction(0)
-    if value.unit != unit:
-        source, target = profile.units.get(value.unit), profile.units.get(unit)
-        if source is None or target is None or source.quantity_kind != target.quantity_kind:
-            return None
-        conversion = profile.conversion_between(value.unit, unit)
-        if conversion is None:
-            return None
-        factor, offset = conversion.factor, conversion.offset or Fraction(0)
-        if conversion.from_unit != value.unit:
-            factor, offset = 1 / factor, -offset / factor
+def _calendar_span(value: IntervalRestriction, profile: ProfileSpec) -> tuple[str, _Span[Fraction]] | None:
+    unit = profile.units.get(value.unit)
+    if unit is None:
+        return None
+    span = _Span(value.low, value.high, value.low_closed, value.high_closed)
+    if not unit.calendar:
+        return (value.unit, span) if value.convention is None else None
+    convention = profile.duration_conventions.get(value.convention) if value.convention is not None else None
+    if convention is None:
+        return None
+    conversion = profile.conversions[convention.conversion]
+    if conversion.from_unit == value.unit:
+        target, factor = conversion.to_unit, conversion.factor
+    elif conversion.to_unit == value.unit:
+        target, factor = conversion.from_unit, 1 / conversion.factor
+    else:
+        return None
+    return target, _map_span(span, factor, Fraction(0))
+
+
+def _map_span(span: _Span[Fraction], factor: Fraction, offset: Fraction) -> _Span[Fraction]:
     return _Span(
-        None if value.low is None else factor * value.low + offset,
-        None if value.high is None else factor * value.high + offset,
-        value.low_closed,
-        value.high_closed,
+        None if span.low is None else factor * span.low + offset,
+        None if span.high is None else factor * span.high + offset,
+        span.low_closed,
+        span.high_closed,
     )
+
+
+def _interval_span(span: _Span[Fraction], source: str, target: str, profile: ProfileSpec) -> _Span[Fraction] | None:
+    if source == target:
+        return span
+    if profile.units[source].quantity_kind != profile.units[target].quantity_kind:
+        return None
+    conversion = profile.conversion_between(source, target)
+    if conversion is None:
+        return None
+    factor, offset = conversion.factor, conversion.offset or Fraction(0)
+    if conversion.from_unit != source:
+        factor, offset = 1 / factor, -offset / factor
+    return _map_span(span, factor, offset)
 
 
 _SetItem = TypeVar("_SetItem")
@@ -408,9 +445,13 @@ def _compare(a: Restriction, b: Restriction, profile: ProfileSpec) -> CoScope:
     members = (*left, *right)
     intervals = [value for value in members if isinstance(value, IntervalRestriction)]
     if len(intervals) == len(members):
+        normalized = [_calendar_span(value, profile) for value in intervals]
+        if any(value is None for value in normalized):
+            return "unknown"
+        resolved = [value for value in normalized if value is not None]
         # A union's normalization unit must not depend on argument or member order.
-        unit = min(value.unit for value in intervals) if len(members) > 2 else intervals[0].unit
-        spans = [_interval_span(value, unit, profile) for value in intervals]
+        unit = min(unit for unit, _ in resolved) if len(members) > 2 else resolved[0][0]
+        spans = [_interval_span(span, source, unit, profile) for source, span in resolved]
         if any(span is None for span in spans):
             return "unknown"
         known = [span for span in spans if span is not None]

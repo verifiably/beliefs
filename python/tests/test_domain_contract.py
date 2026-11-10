@@ -78,8 +78,8 @@ class TestTheTestingContract:
             "bridge:promotes",
             "instantiation:promotes",
         }
-        assert set(contract.duration_conventions) == {"day"}
-        assert contract.duration_conventions["day"].fields == {"unit": "hours", "length": 24}
+        assert set(contract.duration_conventions) == {"mean-month"}
+        assert contract.duration_conventions["mean-month"].conversion == "mean-month-to-second"
         assert set(contract.facets) == {"testing/axis", "testing/annotation"}
         assert (
             len(contract.quantity_kinds),
@@ -87,7 +87,7 @@ class TestTheTestingContract:
             len(contract.constants),
             len(contract.conversions),
             len(contract.transformations),
-        ) == (10, 15, 1, 6, 8)
+        ) == (10, 16, 1, 7, 8)
 
     def test_the_declarations_read_as_written(self, parse, testing_document):
         contract = parse(testing_document)
@@ -741,15 +741,14 @@ class TestEstimandKeys:
 
 
 class TestDurationConventions:
-    def test_the_schema_projection_is_the_mapping(self, parse, testing_document):
-        assert parse(testing_document).duration_conventions["day"].schema_projection() == {
-            "unit": "hours",
-            "length": 24,
+    def test_the_schema_projection_names_the_conversion(self, parse, testing_document):
+        assert parse(testing_document).duration_conventions["mean-month"].schema_projection() == {
+            "conversion": "mean-month-to-second",
         }
 
     @pytest.mark.parametrize("value", [True, 1.5, None, ["hours"], {"x": 1}])
-    def test_a_field_is_a_string_or_an_integer(self, parse, testing_document, value):
-        testing_document["duration_conventions"]["day"]["unit"] = value
+    def test_a_conversion_is_a_reference(self, parse, testing_document, value):
+        testing_document["duration_conventions"]["mean-month"]["conversion"] = value
         with pytest.raises(MalformedContract):
             parse(testing_document)
 
@@ -831,7 +830,7 @@ class TestSuccession:
             ("sorts", "entity", "identifier_class", {"prefix": "EX", "pattern": "EX:.+"}, "sort:entity"),
             ("sorts", "entity", "categories", [], "sort:entity"),
             ("estimands", "bridge:promotes", "measure_sort", "outcome", "estimand:bridge:promotes"),
-            ("duration_conventions", "day", "length", 25, "duration-convention:day"),
+            ("duration_conventions", "mean-month", "conversion", "hour-to-second", "duration-convention:mean-month"),
         ],
     )
     def test_redefining_a_declared_schema_is_refused(
@@ -856,7 +855,7 @@ class TestSuccession:
             ("templates", "measured-by", "template:measured-by"),
             ("instantiations", "transforms-entities", "instantiation:transforms-entities"),
             ("estimands", "instantiation:promotes", "estimand:instantiation:promotes"),
-            ("duration_conventions", "day", "duration-convention:day"),
+            ("duration_conventions", "mean-month", "duration-convention:mean-month"),
             ("dimensions", "follow-up", "dimension:follow-up"),
         ],
     )
@@ -904,7 +903,7 @@ class TestSuccession:
         assert {"sort:population", "dimension:population"} <= keys
         assert {"instantiation:promotes", "bridge:promotes"} <= keys
         assert {"estimand:instantiation:promotes", "estimand:bridge:promotes"} <= keys
-        assert "duration-convention:day" in keys
+        assert "duration-convention:mean-month" in keys
 
     def test_un_retiring_an_instantiation_is_refused(self, parse, testing_document, genesis):
         retired = successor_document(testing_document, genesis)
@@ -998,7 +997,7 @@ class TestRetirementIsOneWay:
             parse(edited, predecessor=contract)
 
     def test_estimands_and_duration_conventions_carry_no_retired(self, parse, testing_document):
-        for section, name in (("estimands", "bridge:promotes"), ("duration_conventions", "day")):
+        for section, name in (("estimands", "bridge:promotes"), ("duration_conventions", "mean-month")):
             document = copy.deepcopy(testing_document)
             document[section][name]["retired"] = True
             with pytest.raises(MalformedContract):

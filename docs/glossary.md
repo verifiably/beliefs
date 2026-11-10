@@ -97,6 +97,10 @@ the beliefs documents use, each linking the document that specifies or explains 
   sorts, dimensions, templates, instantiations, bridges, estimand declarations,
   duration conventions and facets.
   ([contracts](contracts.md#domain-contracts))
+- <a id="duration-convention"></a>**Duration convention** — A named exact
+  conversion from a calendar unit to a noncalendar unit of the same duration
+  quantity kind. Calendar restrictions name it explicitly.
+  ([contracts](contracts.md#typed-restrictions))
 - <a id="epoch"></a>**Epoch** — An immutable, published index of a world over an
   explicit set of corpus states. A read bound to an epoch names it.
   ([guide](guide.md#worlds-identity-and-change))

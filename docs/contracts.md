@@ -218,15 +218,22 @@ and a list of them may not repeat a value.
   `measure_sort`, `identification_sort` and `conditioning_sort`, and may add
   `description`. These are the interim estimand fields; the estimand grammar's own
   design replaces them.
-- **Duration conventions.** A duration convention is a mapping of fields, each a
-  string or an integer. No field is validated yet; its projection is the mapping.
+- **Duration conventions.** A duration convention requires exactly `conversion`,
+  a local or foreign-qualified conversion reference, plus optional editorial
+  `definition` and `description`. Compilation resolves the reference and requires
+  an exact multiplicative conversion without error or constant, joining exactly
+  one calendar unit to one noncalendar unit of the same quantity kind. The
+  convention adds no coefficients; its schema projection names the conversion.
+  The provisional arbitrary scalar mapping is refused.
 - **Quantity kinds.** A quantity kind requires `dimension`: a map of SI base
   dimensions (`L`, `M`, `T`, `I`, `Θ`, `N`, `J`) to integer exponents, or
   `dimensionless`, `counted` or `construct`. Dimensions validate an explicitly
   declared conversion through a constant; they never infer a conversion.
 - **Units.** A unit requires `symbol` and `quantity_kind`, a reference resolved
   against activated quantity kinds at compile. Optional `external` maps `ucum`
-  and/or `qudt` to citable reference text.
+  and/or `qudt` to citable reference text. Optional boolean `calendar` defaults to
+  false and enters the schema projection as its resolved boolean. A calendar unit
+  must have physical dimension exactly `{T: 1}`; no name or symbol implies it.
 - **Constants.** A constant requires nonzero `value`, `unit` (resolved at compile)
   and `exact` (a boolean).
 - **Conversions.** A conversion requires `from` and `to` unit references,
@@ -237,7 +244,9 @@ and a list of them may not repeat a value.
   dimension exponents from the source must yield the target exponents. Compilation
   records whether the constant multiplies or divides; `dimensionless`, `counted`
   and `construct` kinds cannot participate in that reconciliation. A conversion
-  within one kind refuses a constant. At most one declaration joins any unit pair,
+  within one kind refuses a constant. Ordinary `conversion_between` lookup excludes
+  every conversion touching a calendar unit; a named duration convention selects
+  those conversions explicitly. At most one declaration joins any unit pair,
   across both directions and every activated contract; `conversion_between`
   retrieves that declaration in either direction, without composing a route.
 - **Transformations.** Every transformation requires `kind`, `domain` (`real`,
@@ -301,7 +310,7 @@ form, a term's sort and identifier class, an interval unit's quantity kind, and 
 rule's class identifiers against the declared classes sort. Malformed shapes or
 typings raise `MalformedRestriction`, a `MeasurementError`.
 
-The value forms are `{sort, term}`, `{unit, low?, high?, low_closed, high_closed}`,
+The value forms are `{sort, term}`, `{unit, low?, high?, low_closed, high_closed, convention?}`,
 `{start, end}`, `{rule, classes}`, and a list of two or more values of one non-union
 form. Numeric bounds are exact decimal strings on projection and `Fraction`s in
 memory. At least one bound is required; equal bounds require both ends closed.
@@ -318,8 +327,17 @@ and unions use endpoint-sensitive interval arithmetic. Matching terms and class
 sets establish equality or containment; distinct terms and distinct rules stay
 unknown. Per-dimension results fold with disjoint first, then unknown, then mixed
 narrower/broader or overlapping, then a single containment direction or equality.
-`co_scope_by_dimension` exposes those particulars. Calendar convention semantics
-are not yet represented by this API.
+`co_scope_by_dimension` exposes those particulars.
+
+A calendar interval without a convention is admitted as unresolved and compares
+unknown even against itself. A supplied `convention` must name a declared duration
+convention whose conversion involves the interval's calendar unit; it is refused
+on noncalendar units. Local convention references resolve in the dimension's
+namespace when typed, and projections retain qualified references. Each calendar
+interval, including every union member, normalizes exactly through its own named
+conversion into that conversion's noncalendar unit before ordinary direct-unit
+normalization. Missing subsequent direct routes stay unknown. This applies no
+calendar arithmetic, date inference or automatic convention selection.
 
 ## Facet fields
 

@@ -610,18 +610,17 @@ class EstimandDecl:
 
 @dataclass(frozen=True)
 class DurationConventionDecl:
-    """A duration convention: a mapping of scalar fields. beliefs-c23d2c fixes the
-    fields; until then none is validated beyond being a string or an integer."""
+    """A named exact conversion from a calendar unit to elapsed time."""
 
     name: str
-    fields: Mapping[str, str | int]
+    conversion: str
 
     @property
     def retired(self) -> bool:
         return False
 
     def schema_projection(self) -> dict[str, object]:
-        return {key: self.fields[key] for key in sorted(self.fields)}
+        return {"conversion": self.conversion}
 
 
 QuantityDimension = Mapping[str, int] | Literal["dimensionless", "counted", "construct"]
@@ -643,10 +642,15 @@ class UnitDecl:
     symbol: str
     quantity_kind: str
     external: Mapping[str, str] | None
+    calendar: bool = False
     retired: ClassVar[bool] = False
 
     def schema_projection(self) -> dict[str, object]:
-        projection: dict[str, object] = {"symbol": self.symbol, "quantity_kind": self.quantity_kind}
+        projection: dict[str, object] = {
+            "symbol": self.symbol,
+            "quantity_kind": self.quantity_kind,
+            "calendar": self.calendar,
+        }
         if self.external is not None:
             projection["external"] = dict(self.external)
         return projection
@@ -977,7 +981,7 @@ def _parse_quantity_kind(name: str, body: object, where: str) -> QuantityKindDec
 
 
 def _parse_unit(name: str, body: object, where: str, reference: Callable[[object, str], str]) -> UnitDecl:
-    decl = _measurement_fields(body, frozenset({"symbol", "quantity_kind"}), frozenset({"external"}), where)
+    decl = _measurement_fields(body, frozenset({"symbol", "quantity_kind"}), frozenset({"external", "calendar"}), where)
     external = None
     if "external" in decl:
         entries = _mapping(decl["external"], f"{where}: external")
@@ -990,6 +994,7 @@ def _parse_unit(name: str, body: object, where: str, reference: Callable[[object
         _require_text(decl["symbol"], f"{where}: symbol"),
         reference(decl["quantity_kind"], f"{where}: quantity_kind"),
         external,
+        _bool(decl.get("calendar", False), f"{where}: calendar"),
     )
 
 
@@ -1618,12 +1623,17 @@ def parse_domain_contract(
     duration_conventions: dict[str, DurationConventionDecl] = {}
     for name, body in _declarations(root.get("duration_conventions", {}), f"{source}: duration_conventions").items():
         where = f"{source}: duration_conventions.{name}"
-        scalars: dict[str, str | int] = {}
-        for field, scalar in _mapping(body, where).items():
-            if isinstance(scalar, bool) or not isinstance(scalar, str | int):
-                raise MalformedContract(f"{where}: {field} is a string or an integer, found {scalar!r}")
-            scalars[field] = scalar
-        duration_conventions[name] = DurationConventionDecl(name=name, fields=MappingProxyType(scalars))
+        decl = _measurement_fields(body, frozenset({"conversion"}), frozenset(), where)
+        duration_conventions[name] = DurationConventionDecl(
+            name=name,
+            conversion=_reference(
+                decl["conversion"],
+                f"{where}: conversion",
+                namespace=namespace,
+                base_name=base.name,
+                what="duration convention conversion",
+            ),
+        )
 
     def measurement_reference(value: object, where: str) -> str:
         return _reference(value, where, namespace=namespace, base_name=base.name, what="measurement declaration")

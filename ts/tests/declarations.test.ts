@@ -313,9 +313,10 @@ describe("compileProfile resolves the v2 declarations", () => {
     expect(entity.identifierClass?.pattern).toBe("EX:[a-z0-9\\-]+");
     expect(entity.categories).toEqual(["set"]);
     expect(compiled.sorts["testing/procedure-spec"].identifierClass).toBeNull();
-    expect(compiled.durationConventions["testing/day"]).toEqual({
-      term: "testing/day",
-      fields: { unit: "hours", length: 24 },
+    expect(compiled.durationConventions["testing/mean-month"]).toEqual({
+      term: "testing/mean-month",
+      conversion: "testing/mean-month-to-second",
+      contract: "testing",
     });
   });
 
@@ -610,7 +611,7 @@ describe("compileProfile resolves the v2 declarations", () => {
       compiled.instantiations["testing/affects-entity-entity"].roles.effect,
       compiled.bridges["testing/promotes"].layers,
       compiled.estimands["bridge:testing/promotes"].levelSorts,
-      compiled.durationConventions["testing/day"].fields,
+      compiled.durationConventions["testing/mean-month"],
       compiled.admission,
       compiled.admission["testing/affects"],
     ]) {

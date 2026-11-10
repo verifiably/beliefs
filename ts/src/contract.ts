@@ -422,10 +422,10 @@ export interface EstimandDecl {
   readonly conditioningSort: string;
 }
 
-/** A duration convention: scalar fields, each a string or an integer, none validated yet (ruling P3). */
+/** A named exact conversion from a calendar unit to elapsed time. */
 export interface DurationConventionDecl {
   readonly name: string;
-  readonly fields: Readonly<Record<string, string | number>>;
+  readonly conversion: string;
 }
 
 /** Exact decimal coefficients, with their authored spelling retained. */
@@ -447,6 +447,7 @@ export interface UnitDecl {
   readonly symbol: string;
   readonly quantityKind: string;
   readonly external: Readonly<Record<string, string>> | null;
+  readonly calendar: boolean;
 }
 
 export interface ConstantDecl {
@@ -1481,7 +1482,7 @@ function parseUnit(
   where: string,
   ref: (value: unknown, where: string) => string,
 ): UnitDecl {
-  const body = measurementFields(value, ["symbol", "quantity_kind"], ["external"], where);
+  const body = measurementFields(value, ["symbol", "quantity_kind"], ["external", "calendar"], where);
   let external: Readonly<Record<string, string>> | null = null;
   if ("external" in body) {
     const entries = mapping(body.external, `${where}.external`);
@@ -1495,6 +1496,7 @@ function parseUnit(
     symbol: canonicalText(body.symbol, `${where}.symbol`),
     quantityKind: ref(body.quantity_kind, `${where}.quantity_kind`),
     external,
+    calendar: "calendar" in body ? bool(body.calendar, `${where}.calendar`) : false,
   });
 }
 
@@ -1884,14 +1886,20 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     declarations(document.duration_conventions, `${source}.duration_conventions`),
   )) {
     const where = `${source}.duration_conventions.${name}`;
-    const fields: Record<string, string | number> = Object.create(null);
-    for (const [field, scalar] of Object.entries(mapping(body, where))) {
-      if (typeof scalar !== "string" && !(typeof scalar === "number" && Number.isInteger(scalar))) {
-        throw new MalformedContract(`${where}: ${field} is a string or an integer, found ${shown(scalar)}`);
-      }
-      fields[field] = scalar;
-    }
-    conventionEntries.push([name, Object.freeze({ name, fields: Object.freeze(fields) })]);
+    const declaration = measurementFields(body, ["conversion"], [], where);
+    conventionEntries.push([
+      name,
+      Object.freeze({
+        name,
+        conversion: reference(
+          declaration.conversion,
+          `${where}.conversion`,
+          namespace,
+          base.name,
+          "duration convention conversion",
+        ),
+      }),
+    ]);
   }
   const durationConventions = frozenTable(conventionEntries);
 

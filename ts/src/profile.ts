@@ -158,7 +158,8 @@ export interface CompiledEstimandDecl {
 
 export interface CompiledDurationConvention {
   readonly term: string;
-  readonly fields: Readonly<Record<string, string | number>>;
+  readonly conversion: string;
+  readonly contract: string;
 }
 
 export type CompiledQuantityKind = Omit<QuantityKindDecl, "name"> & {
@@ -304,13 +305,15 @@ export class ProfileSpec {
       ),
     );
   }
-  /** The one declared route joining a unit pair, in either authored direction. */
+  /** The declared noncalendar route joining a unit pair, in either authored direction. */
   conversionBetween(aUnit: string, bUnit: string): CompiledConversion | null {
     return (
       Object.values(this.conversions).find(
         (conversion) =>
-          (conversion.fromUnit === aUnit && conversion.toUnit === bUnit) ||
-          (conversion.fromUnit === bUnit && conversion.toUnit === aUnit),
+          !this.units[conversion.fromUnit].calendar &&
+          !this.units[conversion.toUnit].calendar &&
+          ((conversion.fromUnit === aUnit && conversion.toUnit === bUnit) ||
+            (conversion.fromUnit === bUnit && conversion.toUnit === aUnit)),
       ) ?? null
     );
   }
@@ -548,8 +551,15 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
         symbol: decl.symbol,
         quantityKind: resolveMeasurement(contract, decl.quantityKind, quantityKinds, `units.${name}: quantity_kind`),
         external: decl.external,
+        calendar: decl.calendar,
         contract: contract.namespace,
       });
+    }
+  }
+  for (const unit of Object.values(units)) {
+    const dimension = quantityKinds[unit.quantityKind].dimension;
+    if (unit.calendar && (typeof dimension === "string" || Object.keys(dimension).length !== 1 || dimension.T !== 1)) {
+      throw new ProfileError(`${unit.term}: a calendar unit requires physical dimension exactly {T: 1}`);
     }
   }
   for (const contract of contracts) {
@@ -763,9 +773,32 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       });
     }
     for (const [name, decl] of Object.entries(contract.durationConventions)) {
-      durationConventions[term(contract.namespace, name)] = Object.freeze({
-        term: term(contract.namespace, name),
-        fields: decl.fields,
+      const conventionTerm = term(contract.namespace, name);
+      const conversionTerm = resolveMeasurement(
+        contract,
+        decl.conversion,
+        conversions,
+        `duration_conventions.${name}: conversion`,
+      );
+      const conversion = conversions[conversionTerm];
+      const source = units[conversion.fromUnit];
+      const target = units[conversion.toUnit];
+      if (
+        conversion.kind !== "multiplicative" ||
+        !conversion.exact ||
+        conversion.error !== null ||
+        conversion.constant !== null ||
+        source.calendar === target.calendar ||
+        source.quantityKind !== target.quantityKind
+      ) {
+        throw new ProfileError(
+          `${conventionTerm}: a duration convention requires an exact multiplicative conversion joining one calendar and one noncalendar unit of the same quantity kind, without error or constant`,
+        );
+      }
+      durationConventions[conventionTerm] = Object.freeze({
+        term: conventionTerm,
+        conversion: conversionTerm,
+        contract: contract.namespace,
       });
     }
   }
