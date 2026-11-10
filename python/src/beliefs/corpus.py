@@ -94,6 +94,7 @@ from beliefs.errors import (
     DatasetAddressDisagreement,
     DeletionKindExcluded,
     DeletionTargetMissing,
+    DependencyNotHeld,
     DeprecatedKeyCollision,
     EligibilityUnmet,
     FacetPayloadRefused,
@@ -174,7 +175,7 @@ from beliefs.reservation import (
     assignment_succession_refusal,
     exposure_event_refusal,
 )
-from beliefs.restriction import type_restriction_map
+from beliefs.restriction import check_held_rule_scope, type_restriction_map
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
@@ -4364,7 +4365,7 @@ class CorpusWriter:
         self._refuse_collision(node)
 
     def _refuse_measurement_record(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
-        """Profile checks and held procedures, after the canonical facet reader."""
+        """Profile and held-record checks after the canonical facet reader."""
 
         def refuse(clause: str, detail: str) -> None:
             raise MeasurementRecordRefused(f"{node.id}: {clause}: {detail}")
@@ -4395,6 +4396,14 @@ class CorpusWriter:
                 refuse(clause, f"procedure {address!r} is not a scale authority")
             return value
 
+        def held_rule_classes(address: str) -> str:
+            if view.resolve(address) != address:
+                raise DependencyNotHeld(f"classification rule {address!r} is not held")
+            held = view.get(address)
+            if held.id != address:
+                raise MalformedRecord(f"held view returned {held.id!r} for {address!r}")
+            return rule_from_stored(held).classes
+
         def scope(clause: str, raw: Mapping[str, object]) -> None:
             try:
                 typed = type_restriction_map(self._profile, raw)
@@ -4402,6 +4411,7 @@ class CorpusWriter:
                 raise MeasurementRecordRefused(f"{node.id}: {clause}: {exc}") from exc
             if scope_projection(typed) != raw:
                 refuse(clause, "resolve authoring references with type_restriction_map before building the record")
+            checked(clause, lambda: check_held_rule_scope(self._profile, typed, classes_of=held_rule_classes))
 
         if node.kind == PROCEDURE_KIND:
             procedure = procedure_from_stored(node)

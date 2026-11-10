@@ -24,6 +24,7 @@ from beliefs.restriction import (
     TermRestriction,
     TimeIntervalRestriction,
     UnionRestriction,
+    check_held_rule_scope,
 )
 
 __all__ = [
@@ -164,6 +165,7 @@ def record_references(value: WalkValue, profile: ProfileSpec) -> tuple[str, ...]
 def dependency_closure(ids: Iterable[str], records: HeldRecords, profile: ProfileSpec) -> tuple[DependencyEntry, ...]:
     entries: dict[str, DependencyEntry] = {}
     active: set[str] = set()
+    rule_classes: dict[str, str] = {}
 
     def follow(id: str) -> None:
         if id in active:
@@ -181,6 +183,12 @@ def dependency_closure(ids: Iterable[str], records: HeldRecords, profile: Profil
         result = walk(value, profile)
         for reference in sorted(result.references):
             follow(reference)
+        if isinstance(value, ClassificationRule):
+            rule_classes[id] = value.classes
+        elif isinstance(value, Procedure):
+            check_held_rule_scope(profile, value.validated_in, classes_of=rule_classes.__getitem__)
+        elif isinstance(value, ProxyModel):
+            check_held_rule_scope(profile, value.validity, classes_of=rule_classes.__getitem__)
         active.discard(id)
         entries[id] = DependencyEntry(id, tuple(sorted(result.terms)))
 

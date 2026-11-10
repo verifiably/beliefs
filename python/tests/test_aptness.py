@@ -11,11 +11,12 @@ from test_proxy_model import CROSSWALK, proxy
 from beliefs import errors
 from beliefs.aptness import check_aptness
 from beliefs.assumptions import AssumptionInstance, check_instance
+from beliefs.classification_rule import ClassificationRule
 from beliefs.measurement import Aspect, Measure, Observable
 from beliefs.procedure import SameAs, Scale
 from beliefs.proxy_model import ProxySource, ProxyTarget
 from beliefs.referent_mapping import ReferentMapping
-from beliefs.restriction import IntervalRestriction
+from beliefs.restriction import IntervalRestriction, RuleRestriction
 
 
 @pytest.fixture()
@@ -132,6 +133,29 @@ def test_broader_scope_than_validated_in_adds_procedure_validity(profile):
     assert apt(profile, records, measure, scope=narrow, role="testing/event").assumptions == ()
     records2, measure2, _, _ = setup_binding(validated_in=SCOPE)
     assert apt(profile, records2, measure2, scope=narrow, role="testing/event").assumptions == ()
+
+
+@pytest.mark.parametrize(
+    "sort,term,refusal", [("testing/stage", "EX:a", "classes sort"), ("testing/level", "invalid:a", "identifier class")]
+)
+def test_aptness_refuses_an_input_scope_that_disagrees_with_its_held_rule(profile, sort, term, refusal):
+    records, measure, _, _ = setup_binding()
+    rule = records.put(ClassificationRule(sort, (OBS,), "Classify.", None, None, None))
+    scope = {"testing/case-status": RuleRestriction(rule, (term,))}
+    with pytest.raises(errors.MalformedRestriction, match=refusal):
+        apt(profile, records, measure, scope=scope, role="testing/event")
+
+
+def test_aptness_checks_heldness_without_adding_input_rule_to_its_dependencies(profile):
+    records, measure, _, _ = setup_binding()
+    rule = records.put(ClassificationRule("testing/level", (OBS,), "Classify.", None, None, None))
+    scope = {"testing/case-status": RuleRestriction(rule, ("EX:a",))}
+    answer = apt(profile, records, measure, scope=scope, role="testing/event")
+    assert answer.assumptions == ()
+    assert tuple(entry.id for entry in answer.dependencies) == (measure.procedure,)
+    del records.nodes[rule]
+    with pytest.raises(errors.DependencyNotHeld, match=rule):
+        apt(profile, records, measure, scope=scope, role="testing/event")
 
 
 def test_broader_scope_than_proxy_validity_adds_proxy_validity(profile):

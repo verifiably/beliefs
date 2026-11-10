@@ -80,7 +80,11 @@ authoritative held `same_as` procedure when present, and `inputs` exactly for
 sorts and any aggregation rule. Classification rules require a declared classes
 sort. Proxy models require a held source procedure, an authoritative held
 `scale_of` when present, typed validity, and valid assumption particulars for
-the basis and any calibration transfer. A calibration also requires nonempty
+the basis and any calibration transfer. A rule in `validated_in` or proxy
+validity, including a union member, must resolve in the supplied view to a
+classification rule whose classes sort matches the dimension declaration. The
+restriction's class terms must fit that sort. Bundle validation uses the view
+that includes the arriving records. A calibration also requires nonempty
 held assessments whose outcomes are all `supported`,
 and held specs whose applicability is equal to or broader than validity over the
 union of dimensions. Only term qualifiers on term-form dimensions can be adapted

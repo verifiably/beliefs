@@ -3,6 +3,7 @@
 from fractions import Fraction
 
 import pytest
+from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from test_procedure import AID, OBS, PID, node_for, procedure
 from test_proxy_model import proxy
@@ -14,7 +15,7 @@ from beliefs.classification_rule import ClassificationRule
 from beliefs.contract.domain import parse_domain_contract
 from beliefs.dependencies import dependency_closure, read_record, record_references, record_terms, walk
 from beliefs.measurement import Observable
-from beliefs.procedure import SameAs, Scale, procedure_identity, procedure_projection
+from beliefs.procedure import SameAs, Scale, procedure_from_stored, procedure_identity, procedure_projection
 from beliefs.profile import compile_profile
 from beliefs.proxy_model import Calibration, ProxySource, ProxyTarget, proxy_from_stored
 from beliefs.register import AssumptionsRegister
@@ -31,6 +32,11 @@ from beliefs.restriction import (
 def profile(base_contract, testing_document):
     from copy import deepcopy
 
+    case_status = testing_document["dimensions"]["case-status"]
+    testing_document["dimensions"]["case-status-union"] = {
+        **case_status,
+        "restriction": {"form": "union", "of": case_status["restriction"]},
+    }
     second = deepcopy(testing_document)
     second["contract"] = "secondpack"
     second["assumption_kinds"] = {}
@@ -83,6 +89,18 @@ class Records:
         return tuple(sorted(result))
 
 
+class ViewRecords(Records):
+    def __init__(self, view):
+        super().__init__()
+        self.view = view
+
+    def holds(self, id):
+        return self.view.holds(id)
+
+    def read(self, id):
+        return self.view.get(id)
+
+
 def test_closure_follows_same_as_and_proxy_references(profile):
     authority = procedure(name="authority", scale=Scale(Fraction(0), Fraction(1), "higher-is-more"))
     follower = procedure(name="follower", scale=SameAs(procedure_identity(authority)))
@@ -124,15 +142,15 @@ def test_terms_are_the_records_namespaced_names(profile):
 
 
 def test_a_rule_cited_only_inside_validated_in_is_frozen(profile):
-    rule = ClassificationRule("testing/stage", (OBS,), "Classify.", None, None, None)
+    rule = ClassificationRule("testing/level", (OBS,), "Classify.", None, None, None)
     records = Records(rule)
     rule_id = records.put(rule)
-    restriction = RuleRestriction(rule_id, ("member/opaque",))
-    proc = procedure(validated_in={"testing/population": restriction})
+    restriction = RuleRestriction(rule_id, ("EX:a",))
+    proc = procedure(validated_in={"testing/case-status": restriction})
     proc_id = records.put(proc)
     p = proxy(
         source=ProxySource(OBS, proc_id),
-        validity={"testing/population": UnionRestriction((restriction, RuleRestriction(rule_id, ("second",))))},
+        validity={"testing/case-status-union": UnionRestriction((restriction, RuleRestriction(rule_id, ("EX:b",))))},
     )
     entries = dependency_closure([records.put(p)], records, profile)
     assert {entry.id for entry in entries} == {rule_id, proc_id, records.put(p)}
@@ -140,9 +158,9 @@ def test_a_rule_cited_only_inside_validated_in_is_frozen(profile):
         "testing/energy",
         "testing/energy-aspect",
         "testing/event",
-        "testing/stage",
+        "testing/level",
     )
-    assert "member/opaque" not in record_terms(proc, profile)
+    assert "EX:a" not in record_terms(proc, profile)
 
 
 def test_terms_reached_only_through_nested_values_are_present(profile):
@@ -236,14 +254,7 @@ def test_real_held_view_freezes_transitive_rule_and_authority(certified_work):
         )
     )
 
-    class HeldView(Records):
-        def holds(self, id):
-            return writer.read_view.holds(id)
-
-        def read(self, id):
-            return writer.read_view.get(id)
-
-    result = dependency_closure([follower.id], HeldView(), writer.profile)
+    result = dependency_closure([follower.id], ViewRecords(writer.read_view), writer.profile)
     assert {entry.id for entry in result} == {follower.id, authority.id, rule.id}
     assert next(entry.terms for entry in result if entry.id == follower.id) == (
         "testing/case-status",
@@ -252,6 +263,21 @@ def test_real_held_view_freezes_transitive_rule_and_authority(certified_work):
         "testing/event",
         "testing/instrument",
     )
+
+
+@pytest.mark.parametrize(
+    "sort,term,refusal", [("testing/stage", "EX:a", "classes sort"), ("testing/level", "invalid:a", "identifier class")]
+)
+def test_closure_refuses_a_raw_stored_scope_that_disagrees_with_its_rule(certified_work, sort, term, refusal):
+    writer = _testing_writer(certified_work / "dependency-world")
+    rule = writer.add(stored.classification_rule_node(ClassificationRule(sort, (OBS,), "Classify.", None, None, None)))
+    scope = {"testing/case-status": RuleRestriction(rule.id, (term,))}
+    node = stored.procedure_node(procedure(validated_in=scope))
+    raw_write(writer.root, node)
+    view = reopen(writer.root)
+    assert procedure_from_stored(view.get(node.id)).validated_in == scope
+    with pytest.raises(errors.MalformedRestriction, match=refusal):
+        dependency_closure([node.id], ViewRecords(view), writer.profile)
 
 
 def test_calibration_transfer_walks_kind_but_not_opaque_particulars(profile):

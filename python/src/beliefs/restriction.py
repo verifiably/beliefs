@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from fractions import Fraction
@@ -25,6 +25,7 @@ __all__ = [
     "TermRestriction",
     "TimeIntervalRestriction",
     "UnionRestriction",
+    "check_held_rule_scope",
     "co_scope",
     "co_scope_by_dimension",
     "decimal_from_projection",
@@ -362,6 +363,31 @@ def type_restriction_map(profile: ProfileSpec, raw: Mapping[str, object]) -> Res
         value = restriction_from_projection(projected, form=dimension.restriction.form)
         typed[key] = _typed(profile, value, dimension.restriction, dimension.contract)
     return MappingProxyType(typed)
+
+
+def check_held_rule_scope(profile: ProfileSpec, scope: RestrictionMap, *, classes_of: Callable[[str], str]) -> None:
+    """Check rule restrictions using the classes sort of each strictly read held rule."""
+    for term, restriction in scope.items():
+        union = isinstance(restriction, UnionRestriction)
+        members = restriction.members if union else (restriction,)
+        rules = [member for member in members if isinstance(member, RuleRestriction)]
+        if not rules:
+            continue
+        dimension = profile.dimensions.get(term)
+        declaration = (
+            dimension.restriction if dimension is not None and dimension.placement == "applicability" else None
+        )
+        if union:
+            declaration = declaration.of if declaration is not None and declaration.form == "union" else None
+        if declaration is None or declaration.form != "rule" or declaration.classes is None:
+            raise MalformedRestriction(f"{term!r} does not declare this rule restriction form")
+        for rule in rules:
+            actual = classes_of(rule.rule)
+            if actual != declaration.classes:
+                raise MalformedRestriction(
+                    f"{term!r}: rule {rule.rule!r} has classes sort {actual!r}, expected {declaration.classes!r}"
+                )
+            _check_terms(profile, actual, rule.classes)
 
 
 _Bound = TypeVar("_Bound", Fraction, str)

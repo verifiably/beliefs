@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from beliefs.assumptions import AssumptionInstance, check_instance, instance_projection
+from beliefs.classification_rule import ClassificationRule
 from beliefs.dependencies import DependencyEntry, HeldRecords, dependency_closure, read_record
 from beliefs.errors import (
     MalformedRecord,
@@ -18,7 +19,7 @@ from beliefs.procedure import Procedure, SameAs
 from beliefs.profile import ProfileSpec
 from beliefs.proxy_model import ProxyModel
 from beliefs.referent_mapping import ReferentMapping
-from beliefs.restriction import RestrictionMap, co_scope, co_scope_by_dimension
+from beliefs.restriction import RestrictionMap, check_held_rule_scope, co_scope, co_scope_by_dimension
 
 __all__ = ["Apt", "check_aptness"]
 
@@ -112,6 +113,14 @@ def check_aptness(
         correspondence = read_record(records, mapping)
         if not isinstance(correspondence, ReferentMapping) or not correspondence.joins(source.bearer_sort, role_sort):
             raise MappingRequired("the mapping must join the source and role bearer sorts")
+
+    def held_rule_classes(id: str) -> str:
+        rule = read_record(records, id)
+        if not isinstance(rule, ClassificationRule):
+            raise MalformedRecord("a scope rule reference must name a classification rule")
+        return rule.classes
+
+    check_held_rule_scope(profile, scope, classes_of=held_rule_classes)
     assumptions: list[AssumptionInstance] = []
     validity = _validity(profile, scope, procedure.validated_in, measure.procedure, "procedure-validity")
     if validity is not None:

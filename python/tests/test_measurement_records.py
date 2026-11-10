@@ -5,6 +5,7 @@ from fractions import Fraction
 from typing import Any, cast
 
 import pytest
+import test_stored
 from authority import FULL
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.frontmatter import node_to_markdown
@@ -27,7 +28,13 @@ from beliefs.profile import compile_profile
 from beliefs.proxy_model import Calibration, ProxySource, ProxyTarget, proxy_from_stored
 from beliefs.referent_mapping import ReferentMapping, mapping_from_stored
 from beliefs.register import AssumptionsRegister
-from beliefs.restriction import IntervalRestriction, TermRestriction, type_restriction_map
+from beliefs.restriction import (
+    IntervalRestriction,
+    RuleRestriction,
+    TermRestriction,
+    UnionRestriction,
+    type_restriction_map,
+)
 
 KINDS = ("procedure", "referent-mapping", "proxy-model", "classification-rule")
 BASIS = AssumptionInstance("testing/proxy-validity", {"record": "proxy", "co_scope": "equal", "dimensions": "{}"})
@@ -136,6 +143,59 @@ def test_procedure_door_checks(tmp_path, changes, clause):
     with pytest.raises(errors.MeasurementRecordRefused, match=clause) as raised:
         writer.add(node)
     assert node.id in str(raised.value)
+
+
+@pytest.mark.parametrize("kind,clause", [("procedure", "validated_in"), ("proxy-model", "validity")])
+@pytest.mark.parametrize("case", ["wrong-sort", "wrong-term", "unheld", "valid"])
+def test_scope_admission_checks_the_rules_inside_a_union(
+    certified_work, base_contract, testing_document, monkeypatch, kind, clause, case
+):
+    dimension = testing_document["dimensions"]["case-status"]
+    dimension["restriction"] = {"form": "union", "of": dimension["restriction"]}
+    profile = compile_profile(
+        base_contract,
+        [parse_domain_contract(testing_document, source="<rule-union>", base=base_contract, predecessor=None)],
+    )
+    monkeypatch.setattr(test_stored, "TESTING_PROFILE", profile)
+    writer = _testing_writer(certified_work / "corpus")
+    rule = ClassificationRule("testing/level", (OBS,), "Classify.", None, None, None)
+    first = writer.add(stored.classification_rule_node(rule))
+    second_id, term, refusal = first.id, "EX:b", None
+    if case == "wrong-sort":
+        second_id = writer.add(stored.classification_rule_node(replace(rule, classes="testing/stage"))).id
+        refusal = "classes sort"
+    elif case == "wrong-term":
+        term, refusal = "invalid:b", "identifier class"
+    elif case == "unheld":
+        second_id, refusal = "classification-rule:" + "a" * 64, "not held"
+    scope = {
+        "testing/case-status": UnionRestriction(
+            (RuleRestriction(first.id, ("EX:a",)), RuleRestriction(second_id, (term,)))
+        )
+    }
+    if kind == "procedure":
+        node = stored.procedure_node(procedure(validated_in=scope))
+    else:
+        source = writer.add(stored.procedure_node(procedure()))
+        node = stored.proxy_model_node(proxy(source=ProxySource(OBS, source.id), validity=scope, basis=BASIS))
+    if refusal is None:
+        assert writer.add(node).id == node.id
+    else:
+        with pytest.raises(errors.MeasurementRecordRefused, match=f"{clause}.*{refusal}") as raised:
+            writer.add(node)
+        assert node.id in str(raised.value)
+        assert not reopen(writer.root).holds(node.id)
+
+
+def test_imported_procedure_can_cite_a_rule_arriving_in_the_same_bundle(certified_work):
+    writer = _testing_writer(certified_work / "corpus")
+    rule = stored.classification_rule_node(ClassificationRule("testing/level", (OBS,), "Classify.", None, None, None))
+    scope = {"testing/case-status": RuleRestriction(rule.id, ("EX:a",))}
+    node = stored.procedure_node(procedure(validated_in=scope))
+    writer.import_bundle([node, rule], observer="o", instrument="i", opened_at="T0", closed_at="T1")
+    view = reopen(writer.root)
+    assert view.holds(rule.id)
+    assert procedure_from_stored(view.get(node.id)).validated_in == scope
 
 
 def test_same_as_refuses_a_held_non_authority_and_a_non_procedure(tmp_path):

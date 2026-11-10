@@ -664,6 +664,10 @@ those records to be held.
 
 Validation and proxy-validity scopes must pass `type_restriction_map` under the
 writer's profile. Applicability dimensions need not apply to a particular operator.
+A rule restriction, including each rule member of a union, must cite a held
+classification rule whose classes sort matches the dimension's declared classes
+sort. Its class terms must fit that sort's identifier class. The check reads the
+rule's declaration without executing it.
 A local convention that resolves to a qualified term changes the facet projection,
 so the door refuses it as `MeasurementRecordRefused`: call `type_restriction_map`
 before constructing the value, then build the record from that resolved scope.
@@ -743,8 +747,11 @@ match the source observable and procedure (or its `same_as` authority), target t
 role's bearer sort, and cite a referent mapping joining the two bearer sorts in
 either direction. A scale-target proxy cannot bridge a binding's bearer.
 
-Validity is checked against both the procedure's validation scope and any proxy's
-validity scope. Equal or narrower scope adds nothing. Every other verdict adds
+Before comparing scopes, aptness validates the input scope's rule restrictions
+against the supplied held records. The input's rule ids are not added to the
+returned dependency closure on account of that check. Validity is checked against
+both the procedure's validation scope and any proxy's validity scope. Equal or
+narrower scope adds nothing. Every other verdict adds
 an instance of the activated `procedure-validity` or `proxy-validity` assumption
 kind, with `record`, `co_scope` and comma-joined, sorted nonequal `dimensions`.
 Exactly one activated contract must declare the required kind by local name.
@@ -762,7 +769,9 @@ restriction includes its convention, conversion, endpoint units and their
 quantity kinds, resolved through the explicit compiled profile without a world
 read. Ordinary interval units also contribute their quantity kinds. Unheld
 references refuse, cycles refuse, and stored readers enforce canonical facets
-and content addresses. Calibration assessments are held terminal entries with no
+and content addresses. While following a procedure or proxy scope, the closure
+also checks that each cited rule has the dimension's classes sort and that the
+class terms fit it. Calibration assessments are held terminal entries with no
 terms in this walk; their internals are not followed. These helpers coexist with
 the interim estimand path, which does not call them.
 
@@ -783,12 +792,13 @@ ancestor outside the cycle retains its own local verdict.
 id's transitive closure. It reports `dependency-ineligible: <id>` for the first
 ineligible member in id order, `not-held` when a member is absent, or `cycle` when
 the closure cycles. This includes rules cited only inside procedure validation
-or proxy validity, including unions. Its `ClosureEligibility` result pairs the
-requested verdicts with sorted, distinct `reads`: every id observed by heldness
-or record reads, including attempted missing ids and members visited before a
-failed traversal. A later snapshot's retraction can change eligibility while the
-frozen ids and terms remain unchanged. These helpers do not alter the interim
-assessment and belief path.
+or proxy validity, including unions. A rule scope with an invalid classes sort
+or class term raises `MalformedRestriction`. Its `ClosureEligibility` result
+pairs the requested verdicts with sorted, distinct `reads`: every id observed
+by heldness or record reads, including attempted missing ids and members visited
+before a `not-held` or `cycle` verdict. A later snapshot's retraction can change
+eligibility while the frozen ids and terms remain unchanged. These helpers do
+not alter the interim assessment and belief path.
 
 #### Coordinate convertibility
 
