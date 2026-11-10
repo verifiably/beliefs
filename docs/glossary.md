@@ -23,6 +23,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="assessment"></a>**Assessment** — The outcome (`supported`, `refuted` or
   `inconclusive`) of one run of a spec against one proposition, with the typed
   estimand and estimate. ([records](records.md#specs-runs-and-assessments))
+- <a id="aspect"></a>**Aspect** — A sort and term distinguishing which aspect of
+  an observable is measured; the pack must admit its sort for the quantity kind.
+  ([contracts](contracts.md#domain-contracts))
 - <a id="assumptions-register"></a>**Assumptions register** — A content-addressed
   record of what a domain contract's declarations collapse, license and leave
   unestablished, entries keyed by typed declaration address (`sort:<ns>/<name>`, …).
@@ -33,6 +36,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="base-contract"></a>**Base contract** — The Science contract that declares the
   record kinds, relations, kernel facets and closed grammars.
   ([contracts](contracts.md#base-contract))
+- <a id="bearer-sort"></a>**Bearer sort** — The declared sort of the thing an
+  observable is a property of, independent of its role in a claim.
+  ([contracts](contracts.md#domain-contracts))
 - <a id="belief"></a>**Belief** — The answer `evaluate` computes for a proposition
   under an exact policy binding, never stored. ([records](records.md#beliefs))
 - <a id="binding"></a>**Binding** — What a sort's terms are checked against: exactly one
@@ -133,8 +139,15 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="live-query"></a>**Live query** — `evaluate_live_query`: a view query over every
   live admitted corpus as it is now, stamped with the states it captured.
   ([guide](guide.md#worlds-identity-and-change))
+- <a id="measure"></a>**Measure** — An observable with a unit or procedure-defined
+  scale, resulting level of measurement, value type, transformation and producing
+  procedure; represented by `measurement.Measure` alongside the interim estimand value.
+  ([contracts](contracts.md#domain-contracts))
 - <a id="nobelief"></a>**NoBelief** — The answer that no belief can be given, with its
   reason, such as `no-eligible-assessment`. ([records](records.md#beliefs))
+- <a id="observable"></a>**Observable** — A quantity kind, bearer sort and optional
+  aspect; two observables are equal only when all three parts match.
+  ([contracts](contracts.md#domain-contracts))
 - <a id="observes"></a>**Observes** — The run-input role for held data, the only role
   that can make an assessment count; `reads` never can.
   ([records](records.md#specs-runs-and-assessments))

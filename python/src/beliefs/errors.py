@@ -28,6 +28,18 @@ class MeasurementError(ScienceError):
     """Base for measurement and restriction refusals."""
 
 
+class AspectNotAdmitted(MeasurementError):
+    """An observable's aspect sort is not admitted for its quantity kind."""
+
+
+class UndeclaredQuantityKind(MeasurementError):
+    """An observable names a quantity kind outside the compiled profile."""
+
+
+class MalformedMeasure(MeasurementError):
+    """An observable or measure has an invalid shape or coordinate typing."""
+
+
 class MalformedRestriction(MeasurementError):
     """A restriction has an invalid shape or dimension typing."""
 
