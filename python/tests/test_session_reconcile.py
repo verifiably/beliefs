@@ -9,15 +9,15 @@ from pathlib import Path
 import pytest
 from authority import FULL
 from fixtures_cut6 import PINS
-from profiles import WITH_BIOLOGY
+from profiles import BASE, WITH_BIOLOGY
 
 from beliefs.corpus import CorpusWriter
 from beliefs.holdings.boundary import intent_payload
 from beliefs.holdings.qualify import decode_holdings_intent
 from beliefs.holdings.records import StoreLocator, url_locator
 from beliefs.identity import v1
-from beliefs.root import durable_executor_factory, init_corpus_root
-from beliefs.session import reconcile_sessions
+from beliefs.root import durable_executor_factory, init_corpus_root, log_seam
+from beliefs.session import open_attended_session, open_ledger_reader, reconcile_sessions
 from beliefs.session.ledger import LedgerEmpty, LedgerMissing, LedgerReader, LedgerUnreadable, encode_line, ledger_path
 from beliefs.session.ledger import _parse as parse_ledger
 from beliefs.session.reconcile import reconcile
@@ -403,3 +403,204 @@ def test_an_unfulfilled_url_recheck_intent_reads_as_a_store_one_does():
     ledgers = [ledger(opens=("A",), closed=False)]
     assert codes(reconcile(ledgers, chains)) == codes(reconcile(ledgers, store))
     assert ("session-outcome-unknown", "warning", I) in codes(reconcile(ledgers, chains))
+
+
+# --- store chains (spec §4.6) ------------------------------------------------------
+STORE = "5" * 32
+
+
+def store_view(*entries) -> WellFormedView:
+    """A store chain: registrations and their settlements, never an intent."""
+    return view(*entries)
+
+
+def store_registration(digest: str) -> RegisteredEntryView:
+    return RegisteredEntryView(digest=digest, txid="t" + digest[:4], initial=(), final=(), fulfills=None)
+
+
+def test_a_store_act_verifies_against_the_store_chain():
+    chains = {STORE: store_view(store_registration(R), settled(R, True))}
+    acts = (("A", R, I),)
+    assert reconcile([ledger(opens=("A",), closes=("A",), acts=acts, corpus=STORE)], chains) == ()
+
+
+def test_a_fabricated_store_act_is_unverified():
+    chains = {STORE: store_view(store_registration(R), settled(R, True))}
+    fabricated = "f" * 64
+    acts = (("A", fabricated, I),)
+    found = codes(reconcile([ledger(opens=("A",), closes=("A",), acts=acts, corpus=STORE)], chains))
+    assert found == [("session-act-unverified", "error", fabricated)]
+
+
+def test_store_chains_contribute_no_intent_findings():
+    """A store chain carries registrations and settlements and no intents: it
+    yields no intent-loop finding, even with acts naming nothing on it."""
+    other = "e" * 64
+    chains = {STORE: store_view(store_registration(R), settled(R, True), store_registration(other))}
+    found = codes(reconcile([ledger(opens=("A",), closed=False)], chains))
+    assert found == [("session-unclosed", "warning", S1)]
+
+
+def _fabricated_store_ledger(ops: Path, store_id: str, entry: str) -> None:
+    """A closed session `S1` whose one act claims `entry` on the store chain."""
+    path = ledger_path(ops, S1)
+    path.parent.mkdir(parents=True)
+    path.write_bytes(
+        b"".join(
+            encode_line(line)
+            for line in (
+                {
+                    "line": "session-open",
+                    "session": S1,
+                    "actor": f"session:{S1}",
+                    "world": WORLD,
+                    "permit": {"kinds": [], "act_families": [], "ungoverned": True},
+                    "at": AT,
+                },
+                {"line": "invocation-open", "invocation": "A", "command": "mint", "input_digest": "d" * 64, "at": AT},
+                {"line": "act", "invocation": "A", "corpus": store_id, "entry": entry, "intent": I, "records": []},
+                {"line": "invocation-close", "invocation": "A", "outcome": {"done": []}},
+                {"line": "session-close", "at": AT},
+            )
+        )
+    )
+
+
+def test_reconcile_sessions_reads_the_given_store_roots(certified_work):
+    """A real store act verifies against the store chain read from the given
+    root; a fabricated one is unverified only when that root is read; and the
+    constructor reads its own store root."""
+    from test_session_routes import RECHECKS, _durable_session
+    from test_session_writer import DIGEST
+
+    from beliefs.holdings.boundary import write
+
+    session = _durable_session(certified_work)
+    store_root = session.store_root
+    assert store_root is not None and session.world_config is not None
+    config, ops = session.world_config, session.operations_root
+    session.claim_invocation("A", "write", DIGEST)
+    scoped = session.scoped(RECHECKS, "A")
+    write(scoped.holdings_context(instrument="inst"), StoreLocator(scoped.store_id, "a.bin"), b"alpha")
+    session.close_invocation("A", {"done": []})
+    session.close()
+    store_acts = [act for act in open_ledger_reader(ops, session.session_id).acts() if act.corpus == scoped.store_id]
+    assert len(store_acts) == 1
+    assert reconcile_sessions(config, ops, store_roots=(store_root,)) == ()
+
+    fabricated = "f" * 64
+    _fabricated_store_ledger(ops, scoped.store_id, fabricated)
+    assert reconcile_sessions(config, ops) == ()  # the store chain was not read: no evidence either way
+    assert codes(reconcile_sessions(config, ops, store_roots=(store_root,))) == [
+        ("session-act-unverified", "error", fabricated)
+    ]
+    opened = open_attended_session(config, ops, write_root=session.corpus_root, profile=BASE, store_root=store_root)
+    assert codes(opened.findings) == [("session-act-unverified", "error", fabricated)]
+
+
+def test_an_unreadable_store_root_is_a_finding(certified_work):
+    """A store root with no store genesis, and a root whose genesis is a
+    corpus's, each read as `session-store-unreadable`, not a raise."""
+    root, ops = certified_work / "corpus", certified_work / "ops"
+    init_corpus_root(root, authority=FULL)
+    CorpusWriter(root, durable_executor_factory(), authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
+    config = WorldConfig(world_root=certified_work / "world", world_id=WORLD, corpus_roots=(root,))
+    missing = certified_work / "no-store"
+    found = reconcile_sessions(config, ops, store_roots=(root, missing))
+    assert codes(found) == [
+        ("session-store-unreadable", "error", str(root)),
+        ("session-store-unreadable", "error", str(missing)),
+    ]
+
+
+def test_a_store_write_between_the_chain_and_ledger_reads_is_not_unverified(certified_work, monkeypatch):
+    """Plan review round 1, P2-1, with controller ruling R1: the writer is
+    paused after its corpus intent and before the ledgered store call. Once
+    reconciliation has read the chains, the gate opens; the store root's
+    operation lock, held by the ledgered store call across the registration and
+    its act line, keeps the write out until reconciliation has read the ledgers
+    too."""
+    import dataclasses
+    import threading
+
+    from test_session_routes import RECHECKS, _durable_session
+    from test_session_writer import DIGEST
+
+    import beliefs.session as session_module
+    from beliefs.holdings.boundary import write
+
+    session = _durable_session(certified_work)
+    store_root = session.store_root
+    assert store_root is not None and session.world_config is not None
+    config, ops = session.world_config, session.operations_root
+    session.claim_invocation("A", "write", DIGEST)
+    scoped = session.scoped(RECHECKS, "A")
+    ctx = scoped.holdings_context(instrument="inst")
+
+    at_gate, gate_open, chains_read, writer_done = (threading.Event() for _ in range(4))
+    ledgered_store_write = ctx.seam.store_write
+
+    def gated(root, path, content, intent):
+        at_gate.set()
+        assert gate_open.wait(5), "the gate never opened"
+        return ledgered_store_write(root, path, content, intent)
+
+    gated_ctx = dataclasses.replace(ctx, seam=dataclasses.replace(ctx.seam, store_write=gated))
+    real_read = session_module.read_ledger_evidence
+    waits: list[tuple[bool, bool]] = []
+    registered_during_wait: list[int] = []
+
+    def store_registrations() -> int:
+        inspected = log_seam().inspect_detached(store_root)
+        assert type(inspected) is WellFormedView
+        return sum(type(entry) is RegisteredEntryView for entry in inspected.entries)
+
+    def paused_read(operations_root, session_id):
+        if not chains_read.is_set():
+            before = store_registrations()
+            chains_read.set()
+            woke = writer_done.wait(1.0)
+            waits.append((woke, writer_done.is_set()))
+            registered_during_wait.append(store_registrations() - before)
+        return real_read(operations_root, session_id)
+
+    monkeypatch.setattr(session_module, "read_ledger_evidence", paused_read)
+    failures: list[BaseException] = []
+    results: dict[str, object] = {}
+
+    def run_writer():
+        try:
+            results["written"] = write(gated_ctx, StoreLocator(scoped.store_id, "a.bin"), b"alpha")
+            writer_done.set()
+        except BaseException as caught:  # noqa: BLE001
+            failures.append(caught)
+
+    def run_reconcile():
+        try:
+            results["findings"] = reconcile_sessions(config, ops, store_roots=(store_root,))
+        except BaseException as caught:  # noqa: BLE001
+            failures.append(caught)
+
+    writer = threading.Thread(name="writer", target=run_writer, daemon=True)
+    writer.start()
+    assert at_gate.wait(5), "the writer never reached the store call"
+    auditor = threading.Thread(name="auditor", target=run_reconcile, daemon=True)
+    auditor.start()
+    assert chains_read.wait(5), "reconciliation never read the ledgers"
+    gate_open.set()
+    auditor.join(10)
+    writer.join(10)
+    assert not auditor.is_alive() and not writer.is_alive()
+    assert failures == []
+    assert waits == [(False, False)]  # the wait timed out with the write unfinished
+    # The store write itself was held off: the store root's operation lock, not
+    # only the corpus root's around the publication that follows it.
+    assert registered_during_wait == [0]
+    assert writer_done.is_set()  # and then completed
+    findings = results["findings"]
+    assert isinstance(findings, tuple)
+    assert "session-act-unverified" not in [f.code for f in findings]
+    store_acts = [act for act in session.invocation_acts("A") if act.corpus == scoped.store_id]
+    assert len(store_acts) == 1
+    again = reconcile_sessions(config, ops, store_roots=(store_root,))
+    assert "session-act-unverified" not in [f.code for f in again]

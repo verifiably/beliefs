@@ -317,6 +317,19 @@ which fails before anything is submitted. A write from an invocation that is not
 the current one raises `SessionProtocolError`. When a session opens, `reconcile_sessions` compares
 every other session's ledger with the chains. It reports findings such as
 `session-unclosed`, `session-intent-unclaimed` and `session-act-unverified`.
+`reconcile_sessions` reads every configured corpus root's chain and, given
+`store_roots`, each of those store roots' chains, keyed by store id; a session
+opened with a store root passes it. It holds every one of those roots'
+operation locks (corpus roots first, then store roots, each sorted) while it
+reads the chains and the ledgers. A store `act` line is then checked against its
+store chain: one naming a registration that chain does not hold as committed is
+`session-act-unverified`. Because every store registration under a session and
+its `act` line are written under the store root's operation lock, a store write
+cannot land between the chain read and the ledger read. Store chains hold no
+intents, so they add no intent findings. A store root whose identity cannot be
+read (no store genesis, or a corpus's genesis) is a `session-store-unreadable`
+error naming the root, and its chain is not read. An `act` line naming a chain
+that was not read is not classified.
 
 **Gaps.** Reconciliation reports, but it writes nothing and recovers nothing. A
 contended or refused write is not retried automatically; the caller retries it.

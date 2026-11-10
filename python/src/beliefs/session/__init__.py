@@ -19,7 +19,7 @@ from beliefs.corpus import (
     require_pins_agree,
     require_profile_compatible,
 )
-from beliefs.errors import ManifestMalformed, ManifestMissing, SessionRefused
+from beliefs.errors import CorpusRootRefused, ManifestMalformed, ManifestMissing, SessionRefused
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
 from beliefs.root import durable_executor_factory, durable_operation_port, holdings_seam, log_seam, store_identity
@@ -195,7 +195,12 @@ def open_attended_session(
         world_config=world_config,
     )
     # Session-open is written (by the constructor) before reconciliation runs.
-    session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)
+    session.findings = reconcile_sessions(
+        world_config,
+        operations_root,
+        exclude=session_id,
+        store_roots=() if store_root is None else (store_root,),
+    )
     return session
 
 
@@ -211,7 +216,11 @@ def _mount_resolver(mounted: Mapping[Path, ProfileSpec] | None) -> CoordinationR
 
 
 def reconcile_sessions(
-    world_config: WorldConfig, operations_root: Path, *, exclude: str | None = None
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    exclude: str | None = None,
+    store_roots: tuple[Path, ...] = (),
 ) -> tuple[Finding, ...]:
     """The audit surface: one lock-coherent snapshot per root, read
     through detached inspection; writes nothing and recovers nothing.
@@ -220,13 +229,22 @@ def reconcile_sessions(
     session that opens between a listing and the chain read would show an intent
     the chain holds under an id the listing never saw, and reconciliation would
     call it `session-unknown`.
+
+    `store_roots` are read too, each keyed by its store id, so a store `act`
+    line verifies against its store chain. Their operation locks join the hold
+    after the corpus roots'. Every store registration under a session and its
+    `act` line are written under that store root's operation lock, so inside the
+    hold the store chain and the ledgers agree.
     """
+    if type(store_roots) is not tuple or any(not isinstance(root, Path) for root in store_roots):
+        raise TypeError("store_roots is a tuple of store root Paths")
     sessions = Path(operations_root) / "sessions"
     chains: dict[str, ChainView] = {}
     extra: list[Finding] = []
     roots = sorted(world_config.corpus_roots)
+    stores = sorted(store_roots)
     with ExitStack() as stack:
-        for root in roots:
+        for root in (*roots, *stores):
             stack.enter_context(_operation_lock_for(root))
         ids = (
             sorted(entry.name for entry in sessions.iterdir() if entry.is_dir() and entry.name != exclude)
@@ -248,7 +266,28 @@ def reconcile_sessions(
                 )
                 continue
             chains[corpus_id] = log_seam().inspect_detached(root)
+        for root in stores:
+            try:
+                store_id = store_identity(root)
+            except CorpusRootRefused as caught:
+                extra.append(_store_unreadable(root, str(caught)))
+                continue
+            if store_id is None:
+                extra.append(_store_unreadable(root, "no chain, no well-formed chain, or no store genesis"))
+                continue
+            chains[store_id] = log_seam().inspect_detached(root)
         ledgers = tuple(read_ledger_evidence(operations_root, sid) for sid in ids)
-    # The order is `reconcile`'s own — corpus id, then chain position, then code.
-    # The unadopted roots precede it in sorted-root order; nothing is re-sorted.
+    # The order is `reconcile`'s own — chain id, then chain position, then code.
+    # The unadopted corpus roots precede it in sorted-root order, then the
+    # unreadable store roots in theirs; nothing is re-sorted.
     return (*extra, *reconcile(ledgers, chains))
+
+
+def _store_unreadable(root: Path, detail: str) -> Finding:
+    return Finding(
+        severity="error",
+        code="session-store-unreadable",
+        ref=str(root),
+        detail=detail,
+        message="a store root whose identity cannot be read is not reconciled",
+    )
