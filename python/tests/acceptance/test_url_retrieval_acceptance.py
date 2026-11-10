@@ -1124,9 +1124,8 @@ def test_the_materialization_classification(observer, certified_work, tmp_path):
     read_only = read_only_store(ctx, certified_work)
     with pytest.raises(StoreWriteRefused) as refused:
         write(read_only, StoreLocator(store_id, "probe.bin"), b"x")
-    cause = refused.value.__cause__
-    assert isinstance(cause, ExecutionError) and cause.applied == 0
-    assert type(cause.__cause__) is PreconditionRefused  # the replica's refusal, in the routine set
+    assert refused.value.location == f"store:{store_id}:probe.bin"
+    assert "does not grant writability" in refused.value.detail
     seam, log = scripted_seam({"/a": ok(A), "/b": ok(B)})
     first = acquire(
         read_only,

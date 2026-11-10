@@ -205,9 +205,22 @@ def test_store_mutation_on_an_ungranted_root_refuses(certified_work):
     source = _store(certified_work)
     replica = certified_work / "replica"
     replicate_root(source, replica, authority=FULL)
+    before = science_root._log_seam().inspect_detached(replica)
 
-    with pytest.raises(ExecutionError):
+    with pytest.raises(StoreWriteRefused, match="does not grant writability"):
         holdings_seam().store_write(replica, "payload.bin", b"held bytes", "f" * 64)
+    assert science_root._log_seam().inspect_detached(replica) == before
+
+
+def test_store_write_wraps_a_lifecycle_read_failure_as_execution_error(tmp_path, monkeypatch):
+    def fail_lifecycle(_root):
+        raise RuntimeError("corrupt metadata")
+
+    monkeypatch.setattr(science_root, "read_lifecycle_state", fail_lifecycle)
+    with pytest.raises(ExecutionError, match="lifecycle read failed before store write") as caught:
+        holdings_seam().store_write(tmp_path, "payload.bin", b"held bytes", "f" * 64)
+    assert caught.value.applied is None
+    assert isinstance(caught.value.__cause__, RuntimeError)
 
 
 def test_the_seam_is_a_singleton():
@@ -235,6 +248,7 @@ def test_store_commands_submit_the_exact_protocol_contract(tmp_path, monkeypatch
         )
 
     monkeypatch.setattr(science_root, "_mapped_submit", capture)
+    monkeypatch.setattr(science_root, "read_lifecycle_state", lambda _root: science_root.LifecycleState.WRITABLE)
     seam = holdings_seam()
     if operation == "create":
         path = "directory/payload.bin"

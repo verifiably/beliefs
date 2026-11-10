@@ -291,6 +291,8 @@ def write(
     _bind(ctx, location)
     try:
         outcome = ctx.seam.store_write(ctx.store_root, location.relative_path, content, intent)
+    except StoreWriteRefused as caught:
+        raise StoreWriteRefused(location.canonical(), caught.detail) from caught.__cause__
     except ExecutionError as caught:
         if ctx.seam.store_refusal(caught):
             raise StoreWriteRefused(location.canonical(), str(caught)) from caught

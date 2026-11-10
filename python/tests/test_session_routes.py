@@ -981,6 +981,53 @@ def test_an_effect_time_rollback_fails_the_ledger_and_leaves_its_registration(ce
         session.close_invocation("A", {"done": []})
 
 
+def test_a_store_write_against_a_non_writable_store_root_keeps_the_session_live(certified_work):
+    """A store root whose lifecycle state does not grant writability is refused
+    before anything reaches the engine: no store registration is appended, the
+    act raises `StoreWriteRefused` with the canonical locator, and the session
+    stays live so the invocation and session can close cleanly."""
+    from beliefs.world.anchors import StoreSubject
+    from beliefs.world.verify import ArtifactCarrier, ObserverSet
+
+    corpus_root, source_store, replica = (
+        certified_work / "corpus",
+        certified_work / "source-store",
+        certified_work / "replica-store",
+    )
+    init_corpus_root(corpus_root, authority=FULL)
+    open_corpus(corpus_root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
+    store_id = init_store_root(source_store, authority=FULL)
+    config = WorldConfig(certified_work / "world", "a" * 32, (corpus_root,))
+    init_world_root(config, authority=FULL)
+    world = science_root.open_world(config, authority=FULL)
+    science_root.anchor_heads(world, frozenset(), store_roots=((store_id, source_store),))
+    subject = StoreSubject(store_id)
+    artifact = science_root.export_head_artifact(world, subject, store_root=source_store)
+    science_root.replicate_root(source_store, replica, authority=FULL)
+    science_root.restore_root(replica, subject, ObserverSet((ArtifactCarrier.from_bytes(artifact),)), authority=FULL)
+    assert science_root.read_lifecycle_state(replica) is science_root.LifecycleState.READ_ONLY_SERVICEABLE
+    before = science_root.log_seam().inspect_detached(replica)
+    assert type(before) is WellFormedView
+
+    session = open_attended_session(
+        config, certified_work / "ops", write_root=corpus_root, profile=BASE, store_root=replica
+    )
+    session.claim_invocation("A", "write", DIGEST)
+    scoped = session.scoped(RECHECKS, "A")
+    ctx = scoped.holdings_context(instrument="inst")
+    location = StoreLocator(scoped.store_id, "a.bin")
+
+    with pytest.raises(StoreWriteRefused) as caught:
+        write(ctx, location, b"alpha")
+    assert caught.value.location == location.canonical()
+    assert "does not grant writability" in caught.value.detail
+    assert science_root.log_seam().inspect_detached(replica) == before
+    assert session.invocation_acts("A") == ()
+    assert session._ledger.failed is False
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
 def test_a_store_less_session_audits_and_cannot_recheck(certified_work):
     from beliefs.audit import NO_EVIDENCE
 

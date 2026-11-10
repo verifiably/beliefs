@@ -818,14 +818,12 @@ def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_p
         LifecycleState.READ_ONLY_UNSERVICEABLE,
         LifecycleState.READ_ONLY_SERVICEABLE,
     )
+    before = science_root._log_seam().inspect_detached(replica)
     with pytest.raises(StoreWriteRefused) as caught:
         write(replace(ctx, store_root=replica), StoreLocator(store_id, "held.bin"), b"other")
-    cause = caught.value.__cause__
-    assert isinstance(cause, ExecutionError) and cause.applied == 0
-    # `replicate_root` produces `READ_ONLY_UNSERVICEABLE`, refused by the engine
-    # with `PreconditionRefused` (not `ProjectApprovalRefused` as elsewhere);
-    # it is still in the routine set.
-    assert isinstance(cause.__cause__, PreconditionRefused)
+    assert caught.value.location == f"store:{store_id}:held.bin"
+    assert "does not grant writability" in caught.value.detail
+    assert science_root._log_seam().inspect_detached(replica) == before
 
 
 # -- tree-write and the tree re-check ---------------------------------------

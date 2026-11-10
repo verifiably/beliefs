@@ -1867,10 +1867,12 @@ class RecheckRefused(WriteRefused):
 
 
 class StoreWriteRefused(ScienceError):
-    """The store transaction of a managed `write` was a routine engine refusal:
-    `applied == 0` and a `ProjectApprovalRefused`, `PreconditionRefused` or
-    `PendingUnresolved` cause. Raised for that phase only; the intent append and the publication
-    raise as themselves."""
+    """The store transaction of a managed `write` was refused before submission
+    (a malformed path, an `objects/` path, or a store root that does not grant
+    writability) or was a routine engine refusal (`applied == 0` and a
+    `ProjectApprovalRefused`, `PreconditionRefused` or `PendingUnresolved` cause).
+    Raised for that phase only; the intent append and the publication raise as
+    themselves."""
 
     def __init__(self, location: str, detail: str) -> None:
         super().__init__(f"{location}: the store refused the write: {detail}")
