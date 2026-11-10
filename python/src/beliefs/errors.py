@@ -1659,6 +1659,29 @@ class RunSessionRefused(ScienceError):
         self.operation = operation
 
 
+class SessionSealed(ScienceError):
+    """A sealed run session refused an act, a phase, a claim or a selection.
+    Deliberately not a `SessionClosed`: the session stays open, and
+    `close_invocation`, `close` and the reads stay available."""
+
+
+class SealTimeout(ScienceError):
+    """`seal(timeout)` could not take the session lock in time: a hold begun
+    before the seal is still running. The seal stays set; a later `seal()`
+    retries the wait."""
+
+
+class SealTipsUnavailable(ScienceError):
+    """`seal()` could not name a written chain's tip: the detached read of
+    `root` is not well-formed, or it carries a registration nothing has
+    settled. `reason` is `chain-absent`, `chain-malformed` or `pending`."""
+
+    def __init__(self, root: Path, reason: str) -> None:
+        super().__init__(f"{root}: the sealed tip is unavailable: {reason}")
+        self.root = root
+        self.reason = reason
+
+
 class SessionLedgerFailed(ScienceError):
     """A ledger `write`, `flush` or `fsync` failed, or a store call that may
     have registered raised (`LedgerWriter.fail`); the session is terminal and

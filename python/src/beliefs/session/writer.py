@@ -23,9 +23,12 @@ from beliefs.errors import (
     PublicationReadingRefused,
     RunSessionRefused,
     ScienceError,
+    SealTimeout,
+    SealTipsUnavailable,
     SessionClosed,
     SessionLedgerFailed,
     SessionProtocolError,
+    SessionSealed,
     SharingEvidenceDisagrees,
     StatusTargetUnknown,
     StatusTerminal,
@@ -33,7 +36,7 @@ from beliefs.errors import (
 from beliefs.holdings.seam import StoreActSeam
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit, permit_covers, scoped_authority
 from beliefs.profile import ProfileSpec
-from beliefs.root import moment_seam, open_world
+from beliefs.root import log_seam, moment_seam, open_world
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.session.claim import ChainClaim
@@ -51,6 +54,7 @@ from beliefs.session.ledger import (
     validated_outcome,
 )
 from beliefs.world import ReplicaOf, WorldConfig
+from beliefs.world.logmodel import AbsentView, WellFormedView
 
 if TYPE_CHECKING:
     from beliefs.audit_operation import AuditOutcome
@@ -71,6 +75,7 @@ if TYPE_CHECKING:
     from beliefs.world.view import WorldReadView
 
 __all__ = [
+    "ChainTip",
     "Claim",
     "ClaimDone",
     "ClaimFresh",
@@ -78,6 +83,7 @@ __all__ = [
     "ClaimOpen",
     "KernelRefusalValue",
     "ScopedWriter",
+    "SealedTips",
     "WriterSession",
 ]
 
@@ -111,6 +117,27 @@ class ClaimMismatch:
 
 
 Claim: TypeAlias = ClaimFresh | ClaimDone | ClaimOpen | ClaimMismatch
+
+
+@final
+@dataclass(frozen=True)
+class ChainTip:
+    """A written chain's identity and the tip a seal read it at: `chain_id` is
+    the corpus id or the store id, `genesis` and `tip` entry digests."""
+
+    chain_id: str
+    genesis: str
+    tip: str
+
+
+@final
+@dataclass(frozen=True)
+class SealedTips:
+    """The tips of the chains a sealed run session wrote: its write root's and,
+    when it binds one, its store root's."""
+
+    corpus: ChainTip
+    store: ChainTip | None
 
 
 class KernelRefusalValue(Exception):
@@ -203,6 +230,19 @@ def _bind_sharing_evidence(
         raise SharingEvidenceDisagrees("view", evidence.view, published_from["view"])
 
 
+def _sealed_tip(chain_id: str, root: Path) -> ChainTip:
+    """`root`'s tip from a detached read, or `SealTipsUnavailable`. A pending
+    pair is a staged registration recovery would settle after the tip, where it
+    would read as a post-seal entry, so it refuses rather than widening the
+    tips."""
+    view = log_seam().inspect_detached(root)
+    if type(view) is not WellFormedView:
+        raise SealTipsUnavailable(root, "chain-absent" if type(view) is AbsentView else "chain-malformed")
+    if view.pending:
+        raise SealTipsUnavailable(root, "pending")
+    return ChainTip(chain_id, view.genesis.digest, view.tip)
+
+
 class WriterSession:
     """The trusted server-side object. Holds the ceiling, the
     ledger and the index; constructs no writer of its own."""
@@ -266,6 +306,12 @@ class WriterSession:
         # helpers it calls take it again. `claim_invocation` and
         # `close_invocation` are unchanged by that — they still take it once.
         self._lock = threading.RLock()
+        # The depth of `_hold`s on the lock, changed only while it is held, so a
+        # hold that sees zero is its holder's outermost. Set by `seal()` without
+        # the lock; read by `_hold`, `claim_invocation` and `select_project`
+        # under it.
+        self._hold_depth = 0
+        self._sealed = False
         self._index: dict[str, _Invocation] = {}
         self._current: str | None = None
         self._closed = False
@@ -292,6 +338,26 @@ class WriterSession:
             raise SessionLedgerFailed("the session ledger failed; this session is terminal")
         if self._closed:
             raise SessionClosed("the session is closed")
+
+    @contextmanager
+    def _hold(self, invocation: str) -> Iterator[None]:
+        """The session lock for an act or a phase bound to `invocation`.
+
+        The outermost hold refuses `SessionSealed` when the session was sealed
+        before it took the lock; a hold nested inside one begun before the seal
+        passes, so a hold the seal waits for drains whole. Every hold checks
+        liveness and currency as `_require_current` does."""
+        with self._lock:
+            sealed_at_entry = self._hold_depth == 0 and self._sealed
+            self._hold_depth += 1
+            try:
+                self._require_live()
+                if sealed_at_entry:
+                    raise SessionSealed(f"the session is sealed; {invocation} cannot begin an act or a phase")
+                self._require_current(invocation)
+                yield
+            finally:
+                self._hold_depth -= 1
 
     @property
     def current_invocation(self) -> str | None:
@@ -322,6 +388,8 @@ class WriterSession:
         digest = require_hex(input_digest, 64, "input digest")
         with self._lock:
             self._require_live()
+            if self._sealed:
+                raise SessionSealed(f"the session is sealed; {invocation} cannot be claimed")
             entry = self._index.get(invocation)
             if entry is None:
                 self._ledger.append(
@@ -370,6 +438,8 @@ class WriterSession:
             require_project_address(address)
         with self._lock:
             self._require_live()
+            if self._sealed:
+                raise SessionSealed(f"the session is sealed; {invocation} cannot select a project")
             if invocation != self._current:
                 raise SessionProtocolError(f"{invocation} cannot select; the current invocation is {self._current}")
             entry = self._index[invocation]
@@ -403,9 +473,7 @@ class WriterSession:
         if type(verdict) is not str or not verdict:
             raise ValueError("verdict must be a non-empty string")
         require_utf8(verdict, "verdict")
-        with self._lock:
-            self._require_live()
-            self._require_current(invocation)
+        with self._hold(invocation):
             at = utc_now()
             self._ledger.append(
                 {
@@ -514,6 +582,35 @@ class WriterSession:
         records = () if commit.record is None else ((commit.record.uid, commit.record.id),)
         self._record_committed(invocation, intent=commit.intent_digest, entry=commit.entry_digest, records=records)
 
+    # --- the seal ------------------------------------------------------------------
+    def seal(self, timeout: float) -> SealedTips:
+        """Seal a run session and return its written chains' tips.
+
+        The flag is set without the lock, so every act or phase that has not
+        yet begun its outermost hold is refused from here on; the lock is then
+        taken with `timeout`, which waits for the holds already begun to drain.
+        A timeout raises `SealTimeout` and leaves the flag set; a later call
+        retries the wait. Holding the lock, each written chain (the write root,
+        then the store root when the session binds one) is read detached: no
+        lock, no recovery. A chain that is not well-formed, or that carries a
+        registration nothing has settled, raises `SealTipsUnavailable`. The
+        seal writes no ledger line, and the chain claims stay held until
+        `close()`."""
+        if not self.run:
+            raise SessionProtocolError("only a run session can be sealed")
+        self._sealed = True
+        if not self._lock.acquire(timeout=timeout):
+            raise SealTimeout(f"a hold begun before the seal did not drain within {timeout} s")
+        try:
+            self._require_live()
+            corpus = _sealed_tip(self.corpus_id, self.corpus_root)
+            store = None
+            if self.store_root is not None and self.store_id is not None:
+                store = _sealed_tip(self.store_id, self.store_root)
+            return SealedTips(corpus, store)
+        finally:
+            self._lock.release()
+
     # --- close -----------------------------------------------------------------------
     def close(self) -> None:
         """Write `session-close`, then release the chain claims. The claims are
@@ -616,8 +713,7 @@ class ScopedWriter:
                 "the restore door takes a CorpusSubject: its evidence binds a corpus id, a manifest and a marker"
             )
         _require_door_arguments(root, observers, evidence)
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             self._authority.require("lifecycle")
             _bind_sharing_evidence(root, evidence, observers, subject=subject)
             report = restore(root, subject, observers, authority=self._authority)
@@ -635,8 +731,7 @@ class ScopedWriter:
         from beliefs.publication_arrival import admit_publication as admit
 
         _require_door_arguments(root, observers, evidence)
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             self._authority.require("registry")
             config = self._world_config()
             _bind_sharing_evidence(root, evidence, observers, subject=None)
@@ -660,8 +755,7 @@ class ScopedWriter:
         from the currency check through the line, and the world lock nests
         inside it within `World.retire`."""
         _require_door_arguments(root, observers, evidence)
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             self._authority.require("registry")
             config = self._world_config()
             _bind_sharing_evidence(root, evidence, observers, subject=None)
@@ -765,8 +859,7 @@ class ScopedWriter:
         return, before the act runs."""
         from beliefs.publish import require_publishes
 
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             require_publishes(self._authority)
             resolver = self._session._coordination_resolver
             if resolver is None:
@@ -910,8 +1003,7 @@ class ScopedWriter:
         root lock exactly as `_act` takes it, currency re-checked on entry. The ledgered port's
         `execute_fulfilling` re-enters the same
         `RLock` inside."""
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             yield
 
     def _act(self, perform: Callable[[], OperationCommit]) -> Node | None:
@@ -926,8 +1018,7 @@ class ScopedWriter:
         re-claims between the durable commit and the ledger, producing a
         committed registration with no `act` line in a session that stays live.
         """
-        with self._session._lock, _operation_lock_for(self._writer.root):
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation), _operation_lock_for(self._writer.root):
             commit = perform()
             self._session._record_act(self._invocation, commit)
             return commit.record

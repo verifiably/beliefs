@@ -59,16 +59,14 @@ class LedgeredPort:
         self._inner.preflight(plan)
 
     def append_intent(self, payload: bytes) -> str:
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             return self._inner.append_intent(payload)
 
     def execute(self, plan: WritePlan) -> None:
         raise SessionProtocolError("a session route commits only fulfilling writes")
 
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             records = plan_records(plan)
             entry = self._inner.execute_fulfilling(plan, fulfills)
             self._session._record_committed(self._invocation, intent=fulfills, entry=entry, records=records)
@@ -87,8 +85,7 @@ class LedgeredPort:
         primary's before delegation, the fallback's inside the delegated call
         after the guard chose it — and one act line names the plan that
         committed."""
-        with self._session._lock:
-            self._session._require_current(self._invocation)
+        with self._session._hold(self._invocation):
             records = plan_records(plan)
             chosen: list[tuple[tuple[str, str], ...]] = []
 
@@ -121,22 +118,18 @@ def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) 
 
     def guarded(member: Callable[..., Any]) -> Callable[..., Any]:
         def call(*args: Any) -> Any:
-            with session._lock:
-                session._require_current(invocation)
+            with session._hold(invocation):
                 return member(*args)
 
         return call
 
     @contextmanager
     def corpus_lock(root: Path) -> Iterator[None]:
-        with session._lock:
-            session._require_current(invocation)
-            with inner.corpus_lock(root):
-                yield
+        with session._hold(invocation), inner.corpus_lock(root):
+            yield
 
     def publish_fulfilling(root: Path, plan: Sequence[object], intent: str) -> str:
-        with session._lock:
-            session._require_current(invocation)
+        with session._hold(invocation):
             records = plan_records(plan)
             entry = inner.publish_fulfilling(root, plan, intent)
             session._record_committed(invocation, intent=intent, entry=entry, records=records)
@@ -144,8 +137,7 @@ def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) 
 
     @contextmanager
     def store_registration(root: Path) -> Iterator[None]:
-        with session._lock:
-            session._require_current(invocation)
+        with session._hold(invocation):
             if Path(root) != session.store_root:
                 raise SessionProtocolError(f"a store call names {root}, not this session's store root")
             with inner.corpus_lock(root):

@@ -107,6 +107,35 @@ The `science` layer writes through a session:
 5. `close_invocation(id, outcome)` writes `invocation-close`, and `close()` writes
    `session-close` and releases the session's chain claims.
 
+**Sealing a run session.** `seal(timeout)` ends a run session's writing and returns
+`SealedTips(corpus, store)`, each a `ChainTip(chain_id, genesis, tip)`: `chain_id`
+is the corpus id or the store id, `genesis` and `tip` are entry digests, and
+`store` is `None` when the session binds no store root. Only a run session can be
+sealed; on an attended session `seal()` raises `SessionProtocolError`.
+
+1. The seal flag is set without the session lock.
+2. The session lock is taken with `timeout`. If it cannot be, `SealTimeout` is
+   raised and the flag stays set; a later `seal()` waits again.
+3. Holding the lock, a closed session raises `SessionClosed` and one whose ledger
+   failed `SessionLedgerFailed`. Otherwise the write root's chain, then the store
+   root's, is read detached (no lock, no recovery). A chain that is not well-formed raises
+   `SealTipsUnavailable` with `reason` `chain-absent` or `chain-malformed`, and one
+   with a registration nothing has settled raises it with `reason` `pending`; the
+   exception names the root.
+
+The flag is checked only when an act or a phase takes the session lock as its
+outermost hold. A hold begun before the flag drains whole, and the seal waits for
+it: each scoped write, an audit (whose fulfilment re-enters the lock inside its own
+hold), and the close of an acquisition or a re-check. Anything that takes the lock
+afresh after the flag is refused with `SessionSealed`, which is not a
+`SessionClosed`. That cuts a route act at its next phase: a run whose intent was
+appended before the seal cannot fulfil it, and a holdings act whose store call was
+in progress writes that call's `act` line and is then refused at its publication,
+leaving its corpus intent unfulfilled. After the seal, `claim_invocation` and
+`select_project` raise `SessionSealed`; `close_invocation`, `close()` and the reads
+(`invocation_acts`, `invocation_selection`, `invocation_sharing`) are admitted. The
+seal writes no ledger line, and the chain claims stay held until `close()`.
+
 **One session per written chain per host.** A session claims each chain it writes,
 its write root and its store root, with an exclusive `flock` on the root directory
 itself, taken after every validation and before the session directory is created.

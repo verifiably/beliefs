@@ -70,6 +70,7 @@ def make_session(
     coordination_resolver: CoordinationResolver | None = None,
     project: CoordinationAddress | None = None,
     world_config: Any = None,
+    run: bool = False,
 ) -> tuple[WriterSession, list[RecordingPort]]:
     corpus_root = tmp_path / "corpus"
     corpus_root.mkdir()
@@ -100,6 +101,7 @@ def make_session(
         coordination_resolver=coordination_resolver,
         project=project,
         world_config=world_config,
+        run=run,
     )
     return session, ports
 
