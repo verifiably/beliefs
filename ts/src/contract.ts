@@ -1363,21 +1363,40 @@ function parseRoleSorts(
   return frozenTable(entries);
 }
 
+const MAX_COEFFICIENT_DIGITS = 4096;
+const MAX_COEFFICIENT_EXPONENT = 4096;
+
 function decimal(value: unknown, where: string): ExactRational {
   if (typeof value !== "string" || !/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/.test(value)) {
     throw new MalformedContract(`${where}: expected a decimal string, found ${shown(value)}`);
   }
   const [mantissa, exponent = "0"] = value.toLowerCase().split("e");
+  if (mantissa.replace(/^[+-]/, "").replace(".", "").length > MAX_COEFFICIENT_DIGITS) {
+    throw new MalformedContract(`${where}: coefficient mantissa exceeds ${MAX_COEFFICIENT_DIGITS} decimal digits`);
+  }
+  const exponentDigits = exponent.replace(/^[+-]/, "").replace(/^0+/, "") || "0";
+  const limit = String(MAX_COEFFICIENT_EXPONENT);
+  if (exponentDigits.length > limit.length || (exponentDigits.length === limit.length && exponentDigits > limit)) {
+    throw new MalformedContract(`${where}: coefficient exponent magnitude exceeds ${MAX_COEFFICIENT_EXPONENT}`);
+  }
   const [whole, fractional = ""] = mantissa.split(".");
-  const power = BigInt(exponent) - BigInt(fractional.length);
-  let numerator = BigInt(`${whole}${fractional}`);
-  let denominator = 1n;
-  if (power >= 0n) numerator *= 10n ** power;
-  else denominator = 10n ** -power;
-  let a = numerator < 0n ? -numerator : numerator;
-  let b = denominator;
-  while (b !== 0n) [a, b] = [b, a % b];
-  return Object.freeze({ numerator: numerator / a, denominator: denominator / a, text: value });
+  try {
+    const signedExponent = BigInt(exponentDigits) * (exponent.startsWith("-") ? -1n : 1n);
+    const power = signedExponent - BigInt(fractional.length);
+    let numerator = BigInt(`${whole}${fractional}`);
+    let denominator = 1n;
+    if (power >= 0n) numerator *= 10n ** power;
+    else denominator = 10n ** -power;
+    let a = numerator < 0n ? -numerator : numerator;
+    let b = denominator;
+    while (b !== 0n) [a, b] = [b, a % b];
+    return Object.freeze({ numerator: numerator / a, denominator: denominator / a, text: value });
+  } catch (error) {
+    if (error instanceof RangeError || error instanceof SyntaxError) {
+      throw new MalformedContract(`${where}: coefficient cannot be represented exactly`);
+    }
+    throw error;
+  }
 }
 
 function measurementFields(

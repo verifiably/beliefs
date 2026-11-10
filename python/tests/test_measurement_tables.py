@@ -290,3 +290,64 @@ def test_a_monotone_direction_cannot_be_null(parse, testing_document):
     testing_document["transformations"]["logit"]["direction"] = None
     with pytest.raises(MalformedContract):
         parse(testing_document)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "1e9999999999999999999",
+        "1e-9999999999999999999",
+        "1e4097",
+        "1e-4097",
+        "1e+00004097",
+        "1e-00004097",
+        "1e" + "9" * 5000,
+        "1e-" + "9" * 5000,
+        "1" * 4097,
+        "0." + "0" * 4095 + "1",
+    ],
+    ids=[
+        "huge-positive-exponent",
+        "huge-negative-exponent",
+        "positive-exponent-over-limit",
+        "negative-exponent-over-limit",
+        "padded-positive-over-limit",
+        "padded-negative-over-limit",
+        "long-positive-exponent",
+        "long-negative-exponent",
+        "integer-mantissa-over-limit",
+        "fractional-mantissa-over-limit",
+    ],
+)
+def test_oversized_coefficients_refuse_before_numeric_construction(parse, testing_document, value):
+    testing_document["conversions"]["hour-to-second"]["factor"] = value
+    with pytest.raises(MalformedContract):
+        parse(testing_document)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("1e4096", Fraction(10**4096)),
+        ("1e-4096", Fraction(1, 10**4096)),
+        ("1e+00004096", Fraction(10**4096)),
+        ("1e-00004096", Fraction(1, 10**4096)),
+        ("1e" + "0" * 5000 + "1", Fraction(10)),
+        ("1" * 4096, Fraction(int("1" * 4096))),
+        ("0." + "0" * 4094 + "1e-4096", Fraction(1, 10**8191)),
+    ],
+    ids=[
+        "positive-exponent-limit",
+        "negative-exponent-limit",
+        "padded-positive-exponent-limit",
+        "padded-negative-exponent-limit",
+        "long-padded-small-exponent",
+        "integer-mantissa-limit",
+        "fractional-mantissa-and-negative-exponent-limit",
+    ],
+)
+def test_supported_coefficient_boundaries_stay_exact_and_keep_authored_text(parse, testing_document, value, expected):
+    testing_document["conversions"]["hour-to-second"]["factor"] = value
+    conversion = parse(testing_document).conversions["hour-to-second"]
+    assert conversion.factor == expected
+    assert conversion.schema_projection()["factor"] == value

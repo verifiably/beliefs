@@ -254,6 +254,12 @@ schema projection; the full document content identity still covers it. Numerical
 coefficients (`value`, `factor`, `offset`, `scale`, `base`, `error`) must be quoted
 decimal strings, never YAML numbers. Python reads exact rational values using
 `Fraction(Decimal(text))`; TypeScript holds exact integer numerators and denominators.
+Both parsers limit a coefficient's mantissa to 4,096 decimal digits (including
+leading and trailing zeros, excluding the sign and decimal point) and its signed
+exponent's absolute magnitude to 4,096. Leading zeros in the exponent do not
+change its magnitude. They check these bounds before numeric construction and
+refuse oversized coefficients or numeric construction errors as `MalformedContract`.
+Accepted coefficients remain exact; no rounding or numeric fallback is used.
 Projections preserve the authored decimal text, so `"1"` and `"1.0"` remain distinct
 declarations for succession. Absent optional fields are omitted from projections.
 

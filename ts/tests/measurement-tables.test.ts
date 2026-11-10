@@ -15,6 +15,35 @@ const contract = (value: Document) => parseDomainContract(stringify(value), "<me
 const compile = (value: Document) => compileProfile(base, [contract(value)]);
 
 describe("measurement declaration tables", () => {
+  it.each([
+    "1e9999999999999999999",
+    "1e-9999999999999999999",
+    "1e4097",
+    "1e-4097",
+    "1e+00004097",
+    "1e-00004097",
+    `1e${"9".repeat(5000)}`,
+    `1e-${"9".repeat(5000)}`,
+    "1".repeat(4097),
+    `0.${"0".repeat(4095)}1`,
+  ])("refuses oversized coefficients before numeric construction (%#)", (factor) => {
+    const value = document();
+    value.conversions["hour-to-second"].factor = factor;
+    expect(() => contract(value)).toThrow(MalformedContract);
+  });
+  it.each([
+    ["1e4096", 10n ** 4096n, 1n],
+    ["1e-4096", 1n, 10n ** 4096n],
+    ["1e+00004096", 10n ** 4096n, 1n],
+    ["1e-00004096", 1n, 10n ** 4096n],
+    [`1e${"0".repeat(5000)}1`, 10n, 1n],
+    ["1".repeat(4096), BigInt("1".repeat(4096)), 1n],
+    [`0.${"0".repeat(4094)}1e-4096`, 1n, 10n ** 8191n],
+  ] as const)("preserves exact supported boundary coefficients (%#)", (factor, numerator, denominator) => {
+    const value = document();
+    value.conversions["hour-to-second"].factor = factor;
+    expect(contract(value).conversions["hour-to-second"].factor).toEqual({ numerator, denominator, text: factor });
+  });
   it("refuses a null monotone direction", () => {
     const value = document();
     value.transformations.logit.direction = null;

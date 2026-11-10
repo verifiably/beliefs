@@ -823,13 +823,25 @@ class DomainContract:
 
 
 _DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
+_MAX_COEFFICIENT_DIGITS = 4096
+_MAX_COEFFICIENT_EXPONENT = 4096
 _BASE_DIMENSIONS = frozenset({"L", "M", "T", "I", "Θ", "N", "J"})
 
 
 def _decimal(value: object, where: str) -> Fraction:
     if not isinstance(value, str) or not _DECIMAL.fullmatch(value):
         raise MalformedContract(f"{where}: expected a decimal string, found {value!r}")
-    return Fraction(Decimal(value))
+    mantissa, _, exponent = value.lower().partition("e")
+    if len(mantissa.lstrip("+-").replace(".", "")) > _MAX_COEFFICIENT_DIGITS:
+        raise MalformedContract(f"{where}: coefficient mantissa exceeds {_MAX_COEFFICIENT_DIGITS} decimal digits")
+    exponent_digits = exponent.lstrip("+-").lstrip("0") or "0"
+    limit = str(_MAX_COEFFICIENT_EXPONENT)
+    if len(exponent_digits) > len(limit) or (len(exponent_digits) == len(limit) and exponent_digits > limit):
+        raise MalformedContract(f"{where}: coefficient exponent magnitude exceeds {_MAX_COEFFICIENT_EXPONENT}")
+    try:
+        return Fraction(Decimal(value))
+    except (ArithmeticError, ValueError) as exc:
+        raise MalformedContract(f"{where}: coefficient cannot be represented exactly") from exc
 
 
 def _measurement_fields(
