@@ -168,7 +168,11 @@ launch, planning and execution alike, every bind is checked:
    following a symbolic link, reaches the same file an `lstat` of the source finds.
 
 A failure is `ConfinementNotEstablished`, so the run refuses after its intent with
-`confinement-not-established`. The session holds an invocation's directory
+`confinement-not-established`. The check does not close the window between itself
+and `bwrap`'s own resolution of the same paths: a directory swapped inside that
+window is not caught. That window is closed only by the assumption that the job's
+actor cannot reach `<operations_root>` at all, which the caller must keep true and
+this check does not replace. The session holds an invocation's directory
 descriptor until `close_invocation`, and `close()` closes the rest after releasing
 the chain claims. Removing `<operations_root>/scratch/<session>` is the caller's
 cleanup. Through any other port the caller's `scratch_base` is required (a missing

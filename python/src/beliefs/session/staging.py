@@ -5,7 +5,10 @@ stages: `<operations_root>/scratch/<session>/<invocation>`, with snapshots in th
 shared cache `<operations_root>/scratch/environments`. Each anchor is created or
 opened relative to its parent's descriptor without following a symbolic link,
 and its `(st_dev, st_ino)` pinned; the bind check before every launch compares
-paths against those pins and never resolves one afresh."""
+paths against those pins and never resolves one afresh. The window between that
+check and `bwrap`'s own resolution of the same paths remains: it is closed only by
+the assumption that the actor cannot reach the operations root at all, which the
+check does not replace."""
 
 from __future__ import annotations
 
@@ -150,7 +153,9 @@ class RunStaging:
         that has no `..`, `.` or empty component; (3) that path, walked from the
         pinned descriptor one component at a time without following a symlink,
         reaches the very file an `lstat` of the source finds. Any failure is
-        `ConfinementNotEstablished`."""
+        `ConfinementNotEstablished`. This is not race-free: a swap between this
+        check and `bwrap` resolving the paths is excluded only by the actor having
+        no access to the operations root."""
         if type(plan) is not MountPlan:
             raise TypeError("plan must be a MountPlan")
         invocation = require_invocation_id(invocation)
