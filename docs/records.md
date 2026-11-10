@@ -790,8 +790,36 @@ agree: callers must supply an unambiguous direct-crosswalk set. This helper does
 not rank evidence. A crosswalk contributes a checked `proxy-validity` assumption
 with its declared error; validity is `unknown` with its declared dimensions unless
 empty (universal, hence `equal`). Coordinate convertibility is not synthesis
-permission. This stage returns the map and assumptions with empty estimate steps;
-it does not apply an estimate or uncertainty transformation.
+permission.
+
+The admitted map yields output steps: a response difference takes its scale, a
+response level its scale and nonzero shift, and a response log level a logarithmic
+shift under a positive raw factor with identity transformations. An independent
+output takes its own raw conversion as a level, regardless of response
+transformations or the coordinate value type. A dimensionless output stays
+invariant. A separate complement or negation applies once for a decreasing map
+when its coefficient does not already carry the sign; independent outputs have
+no response flip. Independent-variable bindings produce no output steps.
+
+`apply_estimate` and `apply_interval` render steps under the 34-digit context;
+interval endpoints exchange order for decreasing steps. `apply_standard_error`
+uses the absolute estimate scale, and `apply_covariance` scales each parameter's
+row and column; shifts, including logarithmic shifts, leave those uncertainty
+scales unchanged. These actions follow the output estimate map: an invariant
+dimensionless output leaves its uncertainty unchanged even under nonlinear
+response coordinates. A reciprocal requires positive values and positive interval
+bounds; its standard error and covariance require operands and return the
+`NeedsOperands` sentinel. A functional marked `recompute` requires operands under
+any nonidentity response map, while `none` marks uncertainty absent. A crosswalk
+overrides either disposition with `not-carried: crosswalk`; its error is recorded,
+never propagated by an undeclared formula.
+
+Semantic comparison uses `apply_exact` and `compare_mapped` with exact fractions,
+never rendered decimals. Rational scale, shift, flip and positive reciprocal
+steps compare exactly. Any Decimal coefficient or logarithmic shift returns the
+`Transcendental` sentinel, even when an evaluated logarithm happens to be rational;
+comparison is then `undecidable`, as it is for `NeedsOperands`. These helpers do
+not decide synthesis permission or apply level-order actions.
 
 ## Exposure events and reservation assignments
 

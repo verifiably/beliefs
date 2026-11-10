@@ -765,3 +765,249 @@ def test_logarithmic_offsets_preserve_close_to_one_declared_factors_and_inverses
     assert forward.map.offset != 0 and reverse.map.offset != 0
     assert (forward.map.offset > 0) is (Fraction(factor) > 1)
     assert reverse.map.offset == forward.map.offset.copy_negate()
+
+
+@pytest.mark.parametrize("transformation", ["negate", "log2-plus-one", "standardize"])
+def test_recompute_is_needs_operands_under_any_non_identity_map(transformation):
+    from functionals_fixture import SPEARMAN_CORRELATION
+
+    answer = result(coords(), coords(transformation=transformation), SPEARMAN_CORRELATION)
+    assert isinstance(answer, Convertible) and answer.uncertainty == "needs-operands"
+    identity = result(coords(), coords(), SPEARMAN_CORRELATION)
+    assert isinstance(identity, Convertible) and identity.uncertainty == "exact"
+
+
+def test_exact_interval_endpoints_swap_under_a_decreasing_map():
+    from beliefs import comparability as c
+
+    steps = (c.Scale(Fraction(-3)), c.Shift(Fraction(2)))
+    assert c.apply_interval(steps, Decimal(1), Decimal(2)) == (Decimal(-4), Decimal(-1))
+    assert c.compare_mapped(steps, Fraction(2), Fraction(-4)) == "equal"
+    assert c.compare_mapped(steps, Fraction(1), Fraction(-1)) == "equal"
+    assert c.apply_interval((c.Flip("complement"), c.Flip("negate")), Decimal("0.2"), Decimal("0.8")) == (
+        Decimal("-0.8"),
+        Decimal("-0.2"),
+    )
+
+
+def test_reciprocal_step():
+    from beliefs import comparability as c
+
+    steps = (c.Reciprocal(),)
+    assert c.apply_estimate(steps, Decimal("1.25")) == Decimal("0.8")
+    assert c.apply_exact(steps, Fraction("1.25")) == Fraction("0.8")
+    assert c.apply_interval(steps, Decimal("0.5"), Decimal(2)) == (Decimal("0.5"), Decimal(2))
+    assert c.apply_standard_error(steps, Decimal(1)) is c.NeedsOperands
+    for value in (0, -1):
+        assert c.apply_estimate(steps, Decimal(value)) is c.NeedsOperands
+        assert c.apply_exact(steps, Fraction(value)) is c.NeedsOperands
+        assert c.apply_interval(steps, Decimal(value), Decimal(2)) is c.NeedsOperands
+        assert c.compare_mapped(steps, Fraction(value), Fraction(1)) == "undecidable"
+    assert c.compare_mapped(steps, Fraction(2), Fraction("0.5")) == "equal"
+    assert c.compare_mapped(steps, Fraction("0.5"), Fraction(2)) == "equal"
+    assert c.apply_interval((c.Shift(Fraction(-1)), *steps), Decimal("0.5"), Decimal(2)) is c.NeedsOperands
+
+
+def test_the_exact_path_compares_without_rounding():
+    from beliefs import comparability as c
+
+    value = Fraction("1.1234567890123456789012345678901234")
+    target = 3 * value
+    assert c.compare_mapped((c.Scale(Fraction(3)),), value, target) == "equal"
+    assert c.compare_mapped((c.Scale(Fraction(1, 3)),), target, value) == "equal"
+    assert c.apply_estimate((c.Scale(Fraction(3)),), Decimal("1.1234567890123456789012345678901234")) == Decimal(
+        "3.370370367037037036703703703670370"
+    )
+    rendered = c.apply_estimate((c.Scale(Fraction(3)),), Decimal("1.1234567890123456789012345678901234"))
+    assert isinstance(rendered, Decimal) and Fraction(rendered) != target
+    for step in (c.LogShift(Decimal(0)), c.Scale(Decimal(1)), c.Shift(Decimal(0))):
+        assert c.apply_exact((step,), value) is c.Transcendental
+        assert c.compare_mapped((step,), value, value) == "undecidable"
+    assert c.compare_mapped((c.Flip("negate"),), Fraction("0.75"), Fraction("-0.75")) == "equal"
+    assert c.compare_mapped((c.Flip("complement"),), Fraction("0.75"), Fraction("0.25")) == "equal"
+    assert c.compare_mapped((), value, target) == "unequal"
+
+
+def test_covariance_rows_and_columns_scale_and_a_log_shift_leaves_its_entries():
+    from beliefs import comparability as c
+
+    steps = {
+        "a": (c.Scale(Fraction(-2)), c.Shift(Fraction(10))),
+        "b": (c.LogShift(Decimal(3)),),
+        "c": (c.Flip("complement"),),
+    }
+    assert c.apply_covariance(steps, ("a", "b", "c"), tuple(map(Decimal, (1, 2, 3, 2, 4, 5, 3, 5, 6)))) == tuple(
+        map(Decimal, (4, -4, 6, -4, 4, -5, 6, -5, 6))
+    )
+    assert c.apply_standard_error(steps["a"], Decimal("0.5")) == Decimal(1)
+    assert c.apply_standard_error(steps["b"], Decimal("0.5")) == Decimal("0.5")
+    assert c.apply_standard_error(steps["c"], Decimal("0.5")) == Decimal("0.5")
+    with pytest.raises(ValueError):
+        c.apply_covariance(steps, ("a", "b"), (Decimal(1),))
+
+
+def test_covariance_under_a_non_affine_parameter_map_is_needs_operands():
+    from beliefs import comparability as c
+
+    assert c.apply_covariance({"a": (c.Reciprocal(),)}, ("a",), (Decimal(1),)) is c.NeedsOperands
+
+
+def test_none_returns_an_estimate_and_no_uncertainty():
+    from beliefs import comparability as c
+
+    answer = result(coords(transformation="negate"), coords(), TRANSFER_ENTROPY)
+    assert isinstance(answer, Convertible) and answer.steps == () and answer.uncertainty == "absent"
+    assert c.apply_estimate(answer.steps, Decimal("0.75")) == Decimal("0.75")
+    scaled = result(coords(transformation="negate"), coords(), replace(DIFFERENCE_OF_MEANS, uncertainty="none"))
+    assert isinstance(scaled, Convertible) and scaled.uncertainty == "absent"
+    assert scaled.steps == (c.Scale(Fraction(-1)),)
+    assert c.apply_estimate(scaled.steps, Decimal("0.75")) == Decimal("-0.75")
+
+
+def test_a_crosswalk_marks_not_carried():
+    records, a, b, model = authorities()
+    records.put(model)
+    for uncertainty in ("exact", "recompute", "none"):
+        answer = result(
+            coords(None, scale=a),
+            coords(None, scale=b),
+            replace(DIFFERENCE_OF_MEANS, uncertainty=uncertainty),
+            snap=snapshot(records),
+        )
+        assert isinstance(answer, Convertible) and answer.uncertainty == "not-carried: crosswalk"
+
+
+def test_evaluated_rational_logarithms_remain_undecidable(base_contract, testing_document):
+    from beliefs import comparability as c
+
+    testing_document["transformations"]["log4"] = {
+        "kind": "logarithm",
+        "base": "4",
+        "domain": "positive",
+        "invertible": True,
+        "definition": "Base four.",
+    }
+    testing_document["conversions"]["tpm-to-ktpm"]["factor"] = "4"
+    snap = snapshot(profile=compile_testing(base_contract, testing_document))
+    base = result(coords(transformation="log4"), coords(transformation="log2"), DIFFERENCE_OF_MEANS, snap=snap)
+    assert isinstance(base, Convertible)
+    assert c.compare_mapped(base.steps, Fraction(1), Fraction(2)) == "undecidable"
+    shifted = result(
+        coords(transformation="log2"),
+        coords("ktpm", "log2"),
+        DIFFERENCE_OF_MEANS,
+        snap=snap,
+        output=OutputTyping("response-level", "real"),
+    )
+    assert isinstance(shifted, Convertible)
+    assert c.compare_mapped(shifted.steps, Fraction(1), Fraction(3)) == "undecidable"
+
+
+@pytest.mark.parametrize("value_type", ["level", "difference", "ratio"])
+def test_independent_output_is_its_raw_level_map_without_response_transformations(value_type):
+    from beliefs import comparability as c
+
+    answer = result(
+        coords("kelvin", "log2", value_type),
+        coords("celsius", "negate", value_type),
+        ARRHENIUS,
+        output=OutputTyping("independent", "real"),
+    )
+    assert isinstance(answer, Convertible)
+    assert (answer.map.cls, answer.map.scale, answer.map.offset, answer.flip) == (
+        "affine",
+        Fraction(1),
+        Fraction("-273.15"),
+        None,
+    )
+    assert answer.steps == (c.Scale(Fraction(1)), c.Shift(Fraction("-273.15")))
+    assert c.apply_estimate(answer.steps, Decimal(300)) == Decimal("26.85")
+    assert c.apply_standard_error(answer.steps, Decimal("0.1")) == Decimal("0.1")
+
+
+def test_independent_negative_affine_output_has_one_flip_in_its_coefficient():
+    from beliefs import comparability as c
+
+    records, a, b, model = authorities()
+    records.put(model)
+    answer = result(
+        coords(None, scale=a),
+        coords(None, scale=b),
+        ARRHENIUS,
+        output=OutputTyping("independent", "real"),
+        snap=snapshot(records),
+    )
+    assert isinstance(answer, Convertible)
+    assert answer.steps == (c.Scale(Fraction(-2)), c.Shift(Fraction(10))) and answer.flip is None
+    assert c.apply_interval(answer.steps, Decimal(1), Decimal(3)) == (Decimal(4), Decimal(8))
+    assert c.apply_standard_error(answer.steps, Decimal("0.5")) == Decimal(1)
+    assert c.apply_covariance({"Ea": answer.steps}, ("Ea",), (Decimal(2),)) == (Decimal(8),)
+
+
+def test_invariant_output_uncertainty_follows_its_identity_estimate_map():
+    from beliefs import comparability as c
+
+    answer = result(coords(), coords(transformation="log2-plus-one"))
+    assert isinstance(answer, Convertible) and answer.uncertainty == "exact"
+    assert c.apply_standard_error(answer.steps, Decimal("0.1")) == Decimal("0.1")
+    assert c.apply_covariance({"p": answer.steps}, ("p",), (Decimal("0.01"),)) == (Decimal("0.01"),)
+
+
+def test_rendered_arithmetic_uses_context_34_without_changing_the_callers_context():
+    from decimal import localcontext
+
+    from beliefs import comparability as c
+
+    with localcontext() as context:
+        context.prec = 3
+        steps = (c.Scale(Fraction(1, 3)), c.Shift(Fraction(1)), c.LogShift(Decimal("0.1")), c.Flip("complement"))
+        assert c.apply_estimate(steps, Decimal(1)) == Decimal("-0.433333333333333333333333333333333")
+        assert c.apply_interval((c.Scale(Fraction(-1, 3)),), Decimal(1), Decimal(2)) == (
+            Decimal("-0.6666666666666666666666666666666667"),
+            Decimal("-0.3333333333333333333333333333333333"),
+        )
+        assert c.apply_standard_error((c.Scale(Fraction(-1, 3)),), Decimal(1)) == Decimal(
+            "0.3333333333333333333333333333333333"
+        )
+        assert c.apply_covariance({"a": (c.Scale(Fraction(1, 3)),)}, ("a",), (Decimal(1),)) == (
+            Decimal("0.1111111111111111111111111111111111"),
+        )
+        assert c.apply_estimate((c.Reciprocal(),), Decimal(3)) == Decimal("0.3333333333333333333333333333333333")
+        assert c.apply_estimate((c.Flip("negate"),), Decimal("1.1234567890123456789012345678901234")) == Decimal(
+            "-1.123456789012345678901234567890123"
+        )
+        assert context.prec == 3
+
+
+@pytest.mark.parametrize("side", ["source", "target"])
+def test_decreasing_monotone_applies_its_response_flip_once(side):
+    from beliefs import comparability as c
+
+    a, b = coords(), coords(transformation="negated-standardize")
+    if side == "source":
+        a, b = b, a
+    answer = result(a, b)
+    assert isinstance(answer, Convertible) and answer.map.cls == "strictly-decreasing"
+    assert answer.steps == (c.Flip("complement"),)
+    assert c.apply_estimate(answer.steps, Decimal("0.75")) == Decimal("0.25")
+
+
+def test_response_log_level_refuses_a_nonidentity_response_transformation():
+    answer = result(
+        coords(transformation="log2"),
+        coords(transformation="ln"),
+        ARRHENIUS,
+        output=OutputTyping("response-log-level", "real"),
+    )
+    assert isinstance(answer, NotConvertible) and answer.reason == "transformation"
+
+
+def test_independent_variable_identity_produces_no_output_steps():
+    answer = result(
+        coords("kelvin", "log2"),
+        coords("kelvin", "log2"),
+        ARRHENIUS,
+        binding="independent",
+        output=OutputTyping("response-log-level", "real"),
+    )
+    assert isinstance(answer, Convertible) and answer.map.cls == "identity" and answer.steps == ()

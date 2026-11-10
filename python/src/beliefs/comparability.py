@@ -34,6 +34,7 @@ __all__ = [
     "Increment",
     "LogShift",
     "MapClass",
+    "NeedsOperands",
     "NotConvertible",
     "Null",
     "Output",
@@ -49,9 +50,16 @@ __all__ = [
     "Shift",
     "Step",
     "Ties",
+    "Transcendental",
     "UncertaintyDisposition",
     "UncertaintyPropagation",
     "Unknown",
+    "apply_covariance",
+    "apply_estimate",
+    "apply_exact",
+    "apply_interval",
+    "apply_standard_error",
+    "compare_mapped",
     "convert",
 ]
 
@@ -226,6 +234,126 @@ class Reciprocal:
 
 
 Step: TypeAlias = Scale | Shift | LogShift | Flip | Reciprocal
+
+
+@dataclass(frozen=True)
+class _NeedsOperands:
+    pass
+
+
+@dataclass(frozen=True)
+class _Transcendental:
+    pass
+
+
+NeedsOperands = _NeedsOperands()
+Transcendental = _Transcendental()
+
+
+def _render(value: Fraction) -> Decimal:
+    return CONTEXT.divide(Decimal(value.numerator), Decimal(value.denominator))
+
+
+def apply_estimate(steps: tuple[Step, ...], value: Decimal) -> Decimal | _NeedsOperands:
+    """Render an estimate under Context34, without changing the caller's context."""
+    for step in steps:
+        if isinstance(step, Scale):
+            value = _render(Fraction(value) * Fraction(step.factor))
+        elif isinstance(step, Shift):
+            value = _render(Fraction(value) + Fraction(step.offset))
+        elif isinstance(step, LogShift):
+            value = CONTEXT.add(value, step.ln_c)
+        elif isinstance(step, Flip):
+            value = CONTEXT.subtract(Decimal(1), value) if step.action == "complement" else CONTEXT.minus(value)
+        else:
+            assert isinstance(step, Reciprocal)
+            if value <= 0:
+                return NeedsOperands
+            value = CONTEXT.divide(Decimal(1), value)
+    return value
+
+
+def apply_interval(steps: tuple[Step, ...], low: Decimal, high: Decimal) -> tuple[Decimal, Decimal] | _NeedsOperands:
+    """Map endpoints in order, checking each reciprocal's positive domain."""
+    for step in steps:
+        if isinstance(step, Reciprocal) and low <= 0:
+            return NeedsOperands
+        a, b = apply_estimate((step,), low), apply_estimate((step,), high)
+        if isinstance(a, _NeedsOperands) or isinstance(b, _NeedsOperands):
+            return NeedsOperands
+        decreasing = isinstance(step, (Flip, Reciprocal)) or isinstance(step, Scale) and step.factor < 0
+        low, high = (b, a) if decreasing else (a, b)
+    return low, high
+
+
+def _estimate_scale(steps: tuple[Step, ...]) -> Fraction | _NeedsOperands:
+    scale = Fraction(1)
+    for step in steps:
+        if isinstance(step, Reciprocal):
+            return NeedsOperands
+        if isinstance(step, Scale):
+            scale *= Fraction(step.factor)
+        elif isinstance(step, Flip):
+            scale = -scale
+    return scale
+
+
+def apply_standard_error(steps: tuple[Step, ...], se: Decimal) -> Decimal | _NeedsOperands:
+    scale = _estimate_scale(steps)
+    return NeedsOperands if isinstance(scale, _NeedsOperands) else _render(Fraction(se) * abs(scale))
+
+
+def apply_covariance(
+    parameter_steps: Mapping[str, tuple[Step, ...]], order: tuple[str, ...], matrix: tuple[Decimal, ...]
+) -> tuple[Decimal, ...] | _NeedsOperands:
+    if len(matrix) != len(order) * len(order):
+        raise ValueError("covariance matrix must be square in the declared parameter order")
+    scales: list[Fraction] = []
+    for parameter in order:
+        scale = _estimate_scale(parameter_steps[parameter])
+        if isinstance(scale, _NeedsOperands):
+            return NeedsOperands
+        scales.append(scale)
+    return tuple(
+        _render(Fraction(value) * scales[index // len(order)] * scales[index % len(order)])
+        for index, value in enumerate(matrix)
+    )
+
+
+def apply_exact(steps: tuple[Step, ...], value: Fraction) -> Fraction | _Transcendental | _NeedsOperands:
+    """Apply rational steps only; evaluated Decimal coefficients prove no equality."""
+    if any(
+        isinstance(step, LogShift)
+        or isinstance(step, Scale)
+        and isinstance(step.factor, Decimal)
+        or isinstance(step, Shift)
+        and isinstance(step.offset, Decimal)
+        for step in steps
+    ):
+        return Transcendental
+    for step in steps:
+        if isinstance(step, Scale):
+            assert isinstance(step.factor, Fraction)
+            value *= step.factor
+        elif isinstance(step, Shift):
+            assert isinstance(step.offset, Fraction)
+            value += step.offset
+        elif isinstance(step, Flip):
+            value = 1 - value if step.action == "complement" else -value
+        elif isinstance(step, Reciprocal):
+            if value <= 0:
+                return NeedsOperands
+            value = 1 / value
+    return value
+
+
+def compare_mapped(
+    steps: tuple[Step, ...], value: Fraction, target: Fraction
+) -> Literal["equal", "unequal", "undecidable"]:
+    mapped = apply_exact(steps, value)
+    if not isinstance(mapped, Fraction):
+        return "undecidable"
+    return "equal" if mapped == target else "unequal"
 
 
 @dataclass(frozen=True)
@@ -500,6 +628,27 @@ def _admits(functional: FunctionalProperties, map: ComposedMap) -> bool:
     return certificate == "invariant-positive-scaling" and map.scale > 0 and map.offset == 0
 
 
+def _output_steps(
+    map: ComposedMap,
+    raw: RawMap,
+    output: OutputTyping,
+    a: CompiledTransformation,
+    b: CompiledTransformation,
+) -> tuple[Step, ...] | None:
+    if map.cls == "identity" or output.typing == "dimensionless":
+        return ()
+    if output.typing == "response-log-level":
+        if raw.factor <= 0 or raw.offset != 0 or a.kind != "identity" or b.kind != "identity":
+            return None
+        return (LogShift(_ln_fraction(raw.factor)),)
+    if map.scale is None or map.offset is None:
+        return None
+    steps: tuple[Step, ...] = (Scale(map.scale),)
+    if output.typing != "response-difference" and map.offset != 0:
+        steps += (Shift(map.offset),)
+    return steps
+
+
 def convert(
     a: Coordinates,
     b: Coordinates,
@@ -509,7 +658,7 @@ def convert(
     output: OutputTyping,
     snapshot: ComparabilitySnapshot,
 ) -> Convertible | NotConvertible | Unknown:
-    """Classify and admit a coordinate map; estimate steps belong to the next stage."""
+    """Admit an A-to-B coordinate map and derive its output and uncertainty actions."""
     if binding not in {"certified", "independent"}:
         raise ValueError(f"unsupported binding: {binding!r}")
     if a.quantity_kind != b.quantity_kind:
@@ -522,7 +671,10 @@ def convert(
     if isinstance(value, NotConvertible):
         return value
     raw, assumptions = value
-    if a.value_type == "ratio":
+    own_output = binding == "certified" and output.typing == "independent"
+    if own_output:
+        effective = raw
+    elif a.value_type == "ratio":
         if raw.offset != 0:
             return NotConvertible("ratio across affine change", (a.unit or a.scale or "", b.unit or b.scale or ""))
         effective = _identity()
@@ -530,11 +682,9 @@ def convert(
         effective = RawMap(raw.kind, raw.factor, Fraction(0), raw.exact, raw.error, raw.crosswalk)
     else:
         effective = raw
-    map = _compose(
-        snapshot.profile.transformations[a.transformation],
-        snapshot.profile.transformations[b.transformation],
-        effective,
-    )
+    a_transformation = snapshot.profile.transformations[a.transformation]
+    b_transformation = snapshot.profile.transformations[b.transformation]
+    map = _affine_map(raw.factor, raw.offset) if own_output else _compose(a_transformation, b_transformation, effective)
     if isinstance(map, Unknown):
         return map
     concerns = (a.transformation, b.transformation)
@@ -551,6 +701,16 @@ def convert(
         flip = action
     if raw.crosswalk is not None and raw.error is not None and functional.ties == "undefined":
         return NotConvertible("ties", (raw.crosswalk,))
+    steps: tuple[Step, ...] = ()
+    if binding == "certified":
+        estimate_steps = _output_steps(map, raw, output, a_transformation, b_transformation)
+        if estimate_steps is None:
+            return NotConvertible("transformation", concerns)
+        steps = estimate_steps
+        if (flip == "complement" or flip == "negate") and (
+            map.cls == "strictly-decreasing" or output.typing in {"dimensionless", "response-log-level"}
+        ):
+            steps += (Flip(flip),)
     uncertainty: UncertaintyDisposition = "exact"
     if raw.crosswalk is not None:
         uncertainty = "not-carried: crosswalk"
@@ -558,4 +718,4 @@ def convert(
         uncertainty = "absent"
     elif functional.uncertainty == "recompute" and map.cls != "identity":
         uncertainty = "needs-operands"
-    return Convertible((), map, flip, uncertainty, raw.exact, raw.error, assumptions)
+    return Convertible(steps, map, flip, uncertainty, raw.exact, raw.error, assumptions)
