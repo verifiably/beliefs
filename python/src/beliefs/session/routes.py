@@ -17,9 +17,10 @@ from beliefs.profile import ProfileSpec
 from beliefs.runrecord import GuardedCommit, OperationPort
 
 if TYPE_CHECKING:
+    from beliefs.session.staging import RunStaging
     from beliefs.session.writer import WriterSession
 
-__all__ = ["LedgeredPort", "ledgered_seam", "plan_records"]
+__all__ = ["LedgeredPort", "ledgered_seam", "plan_records", "run_staging_of"]
 
 
 def plan_records(plan: Sequence[object]) -> tuple[tuple[str, str], ...]:
@@ -54,6 +55,11 @@ class LedgeredPort:
     @property
     def authority(self) -> Authority:
         return self._inner.authority
+
+    @property
+    def run_staging(self) -> RunStaging | None:
+        """The session's kernel staging for confined jobs; `None` unless it is a run session."""
+        return self._session._staging
 
     def preflight(self, plan: WritePlan) -> None:
         self._inner.preflight(plan)
@@ -98,6 +104,15 @@ class LedgeredPort:
             committed = records if commit.reason is None else chosen[0]
             self._session._record_committed(self._invocation, intent=fulfills, entry=commit.entry, records=committed)
             return commit
+
+
+def run_staging_of(port: object) -> tuple[RunStaging, str] | None:
+    """`(staging, invocation)` when `port` is exactly a run session's `LedgeredPort`:
+    the session's staging and the invocation the port is bound to. `None` otherwise."""
+    if type(port) is not LedgeredPort:
+        return None
+    staging = port.run_staging
+    return None if staging is None else (staging, port._invocation)
 
 
 def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) -> StoreActSeam:

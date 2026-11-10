@@ -133,6 +133,8 @@ the log. `science` writes through a
 **writer session**, whose ledger records every step so a retried command is
 recognised rather than repeated. A launched run opens a **run session** instead, under a
 ceiling limited to corpus writes, runs and holdings, and one that refuses tree writes.
+Its runs are confined only, and stage in scratch the kernel chooses and checks
+before every launch.
 See [writes.md](writes.md#writer-sessions) and
 [writes.md](writes.md#operations).
 

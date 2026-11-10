@@ -52,6 +52,7 @@ from beliefs.session import (
     open_ledger_reader,
 )
 from beliefs.session.ledger import LedgerWriter, SelectLine, ledger_path
+from beliefs.session.staging import RunStaging
 from beliefs.world.records import RECORD_CEILING
 
 SESSION = "a" * 32
@@ -102,6 +103,7 @@ def make_session(
         project=project,
         world_config=world_config,
         run=run,
+        staging=RunStaging(operations_root, SESSION) if run else None,
     )
     return session, ports
 

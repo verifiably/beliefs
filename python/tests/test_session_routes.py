@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import threading
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
@@ -11,7 +12,7 @@ from typing import Any
 
 import pytest
 from authority import FULL
-from fixtures_cut3 import run_assessment, run_production
+from fixtures_cut3 import MEMORY_PORT, run_assessment, run_production
 from holdings_transport_fixtures import Scripted, scripted_seam
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
@@ -23,6 +24,7 @@ from test_session_writer import CORPUS, DIGEST, make_session
 
 from beliefs import root as science_root
 from beliefs.boundary import RunMinted, RunRefused
+from beliefs.confinement import DEVICES, host_prerequisites
 from beliefs.corpus import _operation_lock_for
 from beliefs.errors import SessionLedgerFailed, SessionProtocolError, StoreWriteRefused
 from beliefs.holdings.acquire import AcquisitionRequest, ResourceRequest
@@ -36,12 +38,13 @@ from beliefs.holdings.seam import (
     StoreOutcomeView,
 )
 from beliefs.holdings.transport import RetrievalBounds
-from beliefs.permit import RequiredCapabilities
+from beliefs.permit import RequiredCapabilities, WritePermit
+from beliefs.recipe import CONFINED_POLICY, MINIMAL_POLICY
 from beliefs.report import PublishedObservation
 from beliefs.root import init_corpus_root, init_store_root, init_world_root, open_corpus
 from beliefs.runrecord import GuardedCommit
-from beliefs.session import open_attended_session, open_ledger_reader, reconcile_sessions
-from beliefs.session.routes import plan_records
+from beliefs.session import open_attended_session, open_ledger_reader, open_run_session, reconcile_sessions
+from beliefs.session.routes import LedgeredPort, plan_records, run_staging_of
 from beliefs.world.logmodel import RegisteredEntryView, SettledEntryView, WellFormedView
 from beliefs.world.registry import WorldConfig
 
@@ -1058,3 +1061,190 @@ def test_acquire_on_a_store_less_session_refuses_before_any_intent(tmp_path):
     with pytest.raises(SessionProtocolError, match="no store"):
         scoped.acquire(_acquisition_request(), instrument="inst", scratch=tmp_path / "scratch", seam=transport)
     assert ports[-1].calls == [] and log.requests == []
+
+
+# --- confined jobs under a run session ------------------------------------------------
+def _run_session_port(tmp_path: Path, *, run: bool = True):
+    session, ports = make_session(tmp_path, run=run)
+    session.claim_invocation("A", "run", DIGEST)
+    port = session.scoped(RUNS, "A").operation_port()
+    return session, port, ports[-1]
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "reason"),
+    [
+        ({"boundary_policy": CONFINED_POLICY}, "scratch-not-staging"),
+        ({"boundary_policy": MINIMAL_POLICY, "kernel_scratch": True}, "policy-unconfined"),
+    ],
+    ids=["caller-scratch", "minimal-policy"],
+)
+@pytest.mark.parametrize("execute", [run_assessment, run_production], ids=["assessment", "production"])
+def test_a_run_port_refuses_caller_scratch_and_an_unconfined_policy_before_the_intent(
+    tmp_path, execute, kwargs, reason
+):
+    session, port, inner = _run_session_port(tmp_path)
+    refused = execute(tmp_path / "w", port=port, **kwargs)
+    assert type(refused) is RunRefused and refused.reason == reason
+    assert refused.report is None and refused.intent is None and refused.registration is None
+    assert inner.calls == []  # no intent, no chain entry
+    assert session.invocation_acts("A") == ()
+    session.close()
+    assert open_ledger_reader(session.operations_root, session.session_id).acts() == ()
+    assert not (session.operations_root / "scratch").exists()
+
+
+@pytest.mark.parametrize("execute", [run_assessment, run_production], ids=["assessment", "production"])
+def test_an_attended_port_takes_caller_scratch_and_the_minimal_policy_as_today(tmp_path, execute):
+    session, port, inner = _run_session_port(tmp_path, run=False)
+    result = execute(tmp_path / "w", port=port, boundary_policy=MINIMAL_POLICY, scratch_base=tmp_path / "scratch")
+    assert type(result) is RunMinted
+    assert inner.calls[0][0] == "append_intent"
+    assert Path(result.run.occurrence.receipt.execution.scratch_mapping).parent == tmp_path / "scratch"
+    session.close()
+
+
+@pytest.mark.parametrize("execute", [run_assessment, run_production], ids=["assessment", "production"])
+def test_a_port_outside_a_run_session_needs_a_scratch_base(tmp_path, execute):
+    with pytest.raises(TypeError, match="scratch_base"):
+        execute(tmp_path / "w", port=MEMORY_PORT, kernel_scratch=True)
+    _session, port, _inner = _run_session_port(tmp_path, run=False)
+    with pytest.raises(TypeError, match="scratch_base"):
+        execute(tmp_path / "w2", port=port, kernel_scratch=True)
+
+
+def test_run_staging_of_returns_the_ports_bound_invocation(tmp_path):
+    session, ports = make_session(tmp_path, run=True)
+    session.claim_invocation("i1", "run", DIGEST)
+    first = session.scoped(RUNS, "i1").operation_port()
+    session.close_invocation("i1", {"done": []})
+    session.claim_invocation("i2", "run", DIGEST)
+    second = session.scoped(RUNS, "i2").operation_port()
+    one, two = run_staging_of(first), run_staging_of(second)
+    assert one is not None and two is not None
+    assert one[1] == "i1" and two[1] == "i2" and one[0] is two[0]
+    assert type(first) is LedgeredPort and first.run_staging is one[0]
+    session.close()
+
+    (tmp_path / "attended").mkdir()
+    attended, _ = make_session(tmp_path / "attended", run=False)
+    attended.claim_invocation("A", "run", DIGEST)
+    attended_port = attended.scoped(RUNS, "A").operation_port()
+    assert type(attended_port) is LedgeredPort and attended_port.run_staging is None
+    assert run_staging_of(attended_port) is None
+    assert run_staging_of(ports[-1]) is None and run_staging_of(MEMORY_PORT) is None
+    attended.close()
+
+
+RUN_CEILING = WritePermit(frozenset({"run", "dataset", "act-report"}), frozenset({"corpus-write", "run"}))
+
+
+def _durable_run_session(work: Path):
+    root = work / "corpus"
+    init_corpus_root(root, authority=FULL)
+    open_corpus(root, authority=FULL, profile=BASE).adopt_manifest(profile=pins_for(BASE))
+    config = WorldConfig(work / "world", "e" * 32, (root,))
+    init_world_root(config, authority=FULL)
+    session = open_run_session(
+        config, work / "ops", write_root=root, profile=BASE, ceiling=RUN_CEILING, mounts={root: BASE}
+    )
+    reason = host_prerequisites()
+    if reason is not None:  # an error, never a skip: this host cannot exercise confinement
+        session.close()
+        raise AssertionError(f"the confined run-session tests need bubblewrap and user namespaces: {reason}")
+    return session
+
+
+def _confined_run(session, work: Path, invocation: str, data: str):
+    session.claim_invocation(invocation, "run", DIGEST)
+    port = session.scoped(RUNS, invocation).operation_port()
+    result = run_production(
+        work / invocation, port=port, boundary_policy=CONFINED_POLICY, data=data, kernel_scratch=True
+    )
+    assert type(result) is RunMinted, result
+    (act,) = session.invocation_acts(invocation)
+    session.close_invocation(invocation, {"done": [list(pair) for pair in act.record_ids]})
+    return result
+
+
+def _bind_sources(result: RunMinted) -> list[str]:
+    receipt = result.run.occurrence.receipt
+    assert receipt.confined
+    sources: list[str] = []
+    for launch in (receipt.planning, receipt.execution):
+        assert launch.mounts is not None
+        sources.extend(host for _sandbox, host in launch.mounts if host not in DEVICES)
+    return sources
+
+
+def _beneath(source: str, *anchors: Path) -> bool:
+    return any(Path(source).is_relative_to(anchor) and Path(source) != anchor for anchor in anchors)
+
+
+def test_confined_runs_under_a_run_session_stage_beneath_their_own_invocations_kernel_staging(certified_work):
+    """Two successive production runs, under invocations i1 then i2: each stages in
+    `<ops>/scratch/<session>/<iN>`, and every non-device bind of both its plans lies
+    beneath that directory or the shared cache. (One test for both claims: each
+    confined run costs seconds.)"""
+    session = _durable_run_session(certified_work)
+    try:
+        first = _confined_run(session, certified_work, "i1", "hello")
+        second = _confined_run(session, certified_work, "i2", "world")
+        ops = certified_work / "ops"
+        cache = ops / "scratch" / "environments"
+        one, two = (ops / "scratch" / session.session_id / name for name in ("i1", "i2"))
+        assert one != two
+        for result, staged in ((first, one), (second, two)):
+            assert Path(result.run.occurrence.receipt.execution.scratch_mapping).parent == staged
+            sources = _bind_sources(result)
+            assert len(sources) == 10  # loader, environment, bundle, output and inputs, in each plan
+            assert all(_beneath(source, staged, cache) for source in sources), sources
+        assert not any(_beneath(source, one) for source in _bind_sources(second))
+    finally:
+        session.close()
+
+
+def test_the_bind_check_gates_the_launch_and_refuses_after_the_intent(tmp_path, monkeypatch):
+    import beliefs.boundary as boundary_module
+    from beliefs.errors import ConfinementNotEstablished
+    from beliefs.session.staging import RunStaging
+
+    checked: list[str] = []
+
+    def refusing_check(self, plan, invocation):
+        checked.append(invocation)
+        raise ConfinementNotEstablished("injected bind-check refusal")
+
+    def no_launch(**_kwargs):
+        raise AssertionError("a launch ran past a refused bind check")
+
+    monkeypatch.setattr(RunStaging, "check_binds", refusing_check)
+    monkeypatch.setattr(boundary_module, "launch_confined", no_launch)
+    monkeypatch.setattr(boundary_module, "materialize_snapshot", lambda captured, root: root)
+    monkeypatch.setattr(boundary_module, "require_host", lambda: None)
+    session, port, inner = _run_session_port(tmp_path)
+    refused = run_production(tmp_path / "w", port=port, boundary_policy=CONFINED_POLICY, kernel_scratch=True)
+    assert type(refused) is RunRefused and refused.reason == "confinement-not-established"
+    assert refused.intent is not None and checked == ["A"]
+    assert [kind for kind, _ in inner.calls] == ["append_intent", "execute_fulfilling"]
+    assert (session.operations_root / "scratch" / session.session_id / "A").is_dir()
+    session.close()
+
+
+def test_a_failed_staging_pin_releases_the_claims(certified_work, monkeypatch):
+    from test_session_claim import _claimable, _one_corpus, _store
+
+    import beliefs.session as session_module
+
+    config, root = _one_corpus(certified_work)
+    store = _store(certified_work)
+
+    def refused_pin(*_args, **_kwargs):
+        raise OSError(errno.EIO, "injected staging-pin failure")
+
+    monkeypatch.setattr(session_module, "RunStaging", refused_pin)
+    with pytest.raises(OSError, match="injected staging-pin failure"):
+        open_run_session(
+            config, certified_work / "ops", write_root=root, profile=BASE, ceiling=RUN_CEILING, store_root=store
+        )
+    assert _claimable(root, "write root") and _claimable(store, "store root")

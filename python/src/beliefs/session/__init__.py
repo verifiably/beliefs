@@ -38,6 +38,7 @@ from beliefs.session.ledger import (
     read_ledger_evidence,
 )
 from beliefs.session.reconcile import reconcile
+from beliefs.session.staging import RunStaging
 from beliefs.session.writer import (
     Claim,
     ClaimDone,
@@ -262,6 +263,12 @@ def _open_session(
         _fsync_directory(path.parent.parent)
         ledger = LedgerWriter(path)
         owned.callback(ledger.close)
+        # A run session pins its operations root for kernel staging before
+        # `session-open` is written; the stack closes it on any failure.
+        staging = None
+        if run:
+            staging = RunStaging(operations_root, session_id)
+            owned.callback(staging.close)
         session = WriterSession(
             session_id=session_id,
             world_id=world_config.world_id,
@@ -280,6 +287,7 @@ def _open_session(
             claims=tuple(claims),
             ceiling=ceiling,
             run=run,
+            staging=staging,
         )
         # Session-open is written (by the constructor) before reconciliation runs.
         session.findings = reconcile_sessions(

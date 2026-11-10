@@ -136,6 +136,45 @@ leaving its corpus intent unfulfilled. After the seal, `claim_invocation` and
 (`invocation_acts`, `invocation_selection`, `invocation_sharing`) are admitted. The
 seal writes no ledger line, and the chain claims stay held until `close()`.
 
+**Confined jobs under a run session.** Every bind a confined run makes (the loader
+and environment from the materialized snapshot, the code bundle, the output root and
+the staged inputs) lies beneath its scratch, so under a run session the kernel
+chooses that scratch itself. `execute_assessment_run` and `execute_production_run`
+take `scratch_base` as an optional keyword. Through a run session's operation port,
+after the permit check and before any intent, they return `RunRefused` with no
+report, intent or registration when:
+
+- the caller passed a `scratch_base` (`scratch-not-staging`);
+- the boundary policy is not the confined one (`policy-unconfined`): the minimal
+  policy runs the workflow outside any sandbox.
+
+Otherwise each confined execution stages in
+`<operations_root>/scratch/<session>/<invocation>`, the invocation the port is bound
+to, and snapshots materialize in `<operations_root>/scratch/environments`, a cache
+shared across sessions and never removed by a run. A run session opens its
+operations root (never through a symbolic link) and records its device and inode
+before `session-open`. The `scratch`, `environments`, session and invocation
+directories are created `0700` or opened relative to their parent's descriptor
+without following a symbolic link, the session and invocation directories created
+exclusively at their first use, and each one's identity is recorded. Later
+executions of the same invocation reuse its directory. Immediately before each
+launch, planning and execution alike, every bind is checked:
+
+1. each of those directories, from the operations root down, is still not a
+   symbolic link and still the recorded directory;
+2. every source but the two device nodes is the invocation's directory or the cache
+   joined, as text, with a relative path that has no `..`, `.` or empty component;
+3. that path, opened one component at a time from the recorded directory without
+   following a symbolic link, reaches the same file an `lstat` of the source finds.
+
+A failure is `ConfinementNotEstablished`, so the run refuses after its intent with
+`confinement-not-established`. The session holds an invocation's directory
+descriptor until `close_invocation`, and `close()` closes the rest after releasing
+the chain claims. Removing `<operations_root>/scratch/<session>` is the caller's
+cleanup. Through any other port the caller's `scratch_base` is required (a missing
+one raises `TypeError`), either policy is accepted, and snapshots materialize in
+`<scratch_base>/environments`.
+
 **One session per written chain per host.** A session claims each chain it writes,
 its write root and its store root, with an exclusive `flock` on the root directory
 itself, taken after every validation and before the session directory is created.
@@ -148,9 +187,9 @@ releases the write root it had claimed. Read mounts are not claimed, so two
 sessions on different corpora with no shared store both open. The claim follows the
 directory, not its name: a root reached through a symbolic link conflicts with the
 same root claimed by its own path. If opening fails after a claim (the session
-directory, `session-open` or reconciliation raises), every claim is released and
-the exception propagates; ledger bytes already written stay, and read as an
-interrupted session. `close()` releases the claims after its `session-close`
+directory, a run session's operations-root pin, `session-open` or reconciliation
+raises), every claim and descriptor is released and the exception propagates;
+ledger bytes already written stay, and read as an interrupted session. `close()` releases the claims after its `session-close`
 attempt, including when the ledger has failed and `close()` raises
 `SessionLedgerFailed`. Process death releases them too. The claim is host-local: it
 does not exclude a session on another host.

@@ -53,6 +53,7 @@ from beliefs.session.ledger import (
     utc_now,
     validated_outcome,
 )
+from beliefs.session.staging import RunStaging
 from beliefs.world import ReplicaOf, WorldConfig
 from beliefs.world.logmodel import AbsentView, WellFormedView
 
@@ -268,10 +269,16 @@ class WriterSession:
         world_config: WorldConfig | None = None,
         claims: tuple[ChainClaim, ...] = (),
         run: bool = False,
+        staging: RunStaging | None = None,
     ) -> None:
         if type(run) is not bool:
             raise TypeError("run must be an exact bool")
         self.run = run
+        if staging is not None and type(staging) is not RunStaging:
+            raise TypeError("staging must be a RunStaging")
+        if (staging is not None) != run:
+            raise TypeError("a run session owns its kernel staging, and only a run session has one")
+        self._staging = staging
         if type(claims) is not tuple or any(type(claim) is not ChainClaim for claim in claims):
             raise TypeError("claims is a tuple of ChainClaim")
         self._claims = claims
@@ -420,6 +427,8 @@ class WriterSession:
             self._ledger.append({"line": "invocation-close", "invocation": invocation, "outcome": validated})
             self._index[invocation].outcome = validated
             self._current = None
+            if self._staging is not None:
+                self._staging.release(invocation)
 
     def invocation_acts(self, invocation_id: str) -> tuple[ActLine, ...]:
         invocation = require_invocation_id(invocation_id)
@@ -613,9 +622,10 @@ class WriterSession:
 
     # --- close -----------------------------------------------------------------------
     def close(self) -> None:
-        """Write `session-close`, then release the chain claims. The claims are
-        released however the close ends: a session whose ledger has failed can
-        no longer write, so holding its chains protects nothing."""
+        """Write `session-close`, then release the chain claims, then close a run
+        session's staging descriptors. The claims are released however the close
+        ends: a session whose ledger has failed can no longer write, so holding its
+        chains protects nothing."""
         with self._lock:
             try:
                 if self._ledger.failed:
@@ -626,8 +636,12 @@ class WriterSession:
                 self._closed = True
                 self._ledger.close()
             finally:
-                for claim in reversed(self._claims):
-                    claim.release()
+                try:
+                    for claim in reversed(self._claims):
+                        claim.release()
+                finally:
+                    if self._staging is not None:
+                        self._staging.close()
 
 
 _NO_WORLD = "this session was opened with no world configuration; the admit and publish doors have no world"
