@@ -698,6 +698,40 @@ crosswalk refusals above are subclasses.
 string-valued particulars. `check_instance` requires each key the compiled kind
 declares and permits additional keys, including a crosswalk's error.
 
+#### Binding aptness
+
+`aptness.check_aptness` checks a measured binding against its role sort, compiled
+profile and held records. It first requires admitted source and explicit-target
+measurement pairs, then validates the measure's observable and coordinates. The
+procedure must yield the complete source observable before any scale-authority
+check. A bearer change requires a proxy; a mapping alone refuses. A proxy must
+match the source observable and procedure (or its `same_as` authority), target the
+role's bearer sort, and cite a referent mapping joining the two bearer sorts in
+either direction. A scale-target proxy cannot bridge a binding's bearer.
+
+Validity is checked against both the procedure's validation scope and any proxy's
+validity scope. Equal or narrower scope adds nothing. Every other verdict adds
+an instance of the activated `procedure-validity` or `proxy-validity` assumption
+kind, with `record`, `co_scope` and comma-joined, sorted nonequal `dimensions`.
+Exactly one activated contract must declare the required kind by local name.
+An assumption-based proxy also contributes its checked basis instance. Returned
+assumptions are distinct and sorted by canonical projection.
+
+`dependencies.dependency_closure` freezes the procedure, any cited mapping and
+proxy, and every normative record they reference, once each and sorted by id.
+Each entry pairs the id with its sorted contract terms. Typed structural walks
+include nested observables and restrictions, classification rules, `same_as`
+authorities and calibration assessments; prose, assumption particulars,
+compatible-procedure ids, evidence ids and interpretation-rule identity strings
+are not scanned. Registers contribute no terms or references. A calendar
+restriction includes its convention, conversion, endpoint units and their
+quantity kinds, resolved through the explicit compiled profile without a world
+read. Ordinary interval units also contribute their quantity kinds. Unheld
+references refuse, cycles refuse, and stored readers enforce canonical facets
+and content addresses. Calibration assessments are held terminal entries with no
+terms in this walk; their internals are not followed. These helpers coexist with
+the interim estimand path, which does not call them.
+
 ## Exposure events and reservation assignments
 
 Two world kinds record what has been seen of a question and how its data is held

@@ -20,6 +20,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="analysis-spec"></a>**Analysis spec** — The frozen plan of an analysis: target
   proposition, estimand, method, input roles, rules and parameters, fixed before
   anything runs. ([records](records.md#specs-runs-and-assessments))
+- <a id="aptness"></a>**Aptness** — A measured binding's admission, yield, scale,
+  bearer and validity checks against a compiled profile and held records.
+  ([records](records.md#binding-aptness))
 - <a id="assessment"></a>**Assessment** — The outcome (`supported`, `refuted` or
   `inconclusive`) of one run of a spec against one proposition, with the typed
   estimand and estimate. ([records](records.md#specs-runs-and-assessments))
@@ -120,6 +123,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="form"></a>**Form** — A claim's form, from those its template declares:
   `polar`, an effect with a polarity, or `"null"`, an absent effect, whose polarity is
   always `inapt`. ([records](records.md#propositions-and-claims))
+- <a id="frozen-dependency"></a>**Frozen dependency** — A normative record id and
+  its referenced contract terms, captured transitively by the dependency walk.
+  ([records](records.md#binding-aptness))
 - <a id="governed-kind"></a>**Governed kind** — A world kind with an identity domain;
   each of its records carries a `semantic-identity` stamp. ([records](records.md#identity))
 - <a id="held"></a>**Held** — A dataset is held when holdings observations match every
@@ -251,6 +257,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#datasets-sources-and-holdings))
 - <a id="supersession"></a>**Supersession** — A `supersedes` link from a new record to
   the same-kind record it replaces. ([records](records.md#relations))
+- <a id="target-observable"></a>**Target observable** — The measure's observable
+  without a proxy, or the cited proxy's explicit target observable.
+  ([records](records.md#binding-aptness))
 - <a id="template"></a>**Template** — A relation template: named roles (`one` or `many`),
   sign aptness, layers, forms and an optional cause/effect edge. Its
   `<namespace>/<name>` is the operator a claim names.

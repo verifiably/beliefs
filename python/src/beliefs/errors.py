@@ -28,6 +28,26 @@ class MeasurementError(ScienceError):
     """Base for measurement and restriction refusals."""
 
 
+class MeasurementNotAdmitted(MeasurementError):
+    """A pack does not admit a measurement's bearer and quantity-kind pair."""
+
+
+class ProxyRequired(MeasurementError):
+    """A binding's bearer change requires a proxy model."""
+
+
+class MappingRequired(MeasurementError):
+    """A proxy binding lacks a matching source, target or referent mapping."""
+
+
+class DependencyNotHeld(MeasurementError):
+    """A normative measurement dependency is not held."""
+
+
+class DependencyCycle(MeasurementError):
+    """Normative measurement references contain a cycle."""
+
+
 class AspectNotAdmitted(MeasurementError):
     """An observable's aspect sort is not admitted for its quantity kind."""
 
