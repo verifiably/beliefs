@@ -169,6 +169,24 @@ lock, across the store call and its `act` line; holdings takes the corpus root's
 operation lock only around an intent append or a publication, so a writer holds one
 operation lock at a time.
 
+**Reading entries after a tip.** `beliefs.after.read_after(root, *, genesis,
+after, through=None)` answers what a chain recorded since a tip a caller saw (a
+`ChainTip`'s `genesis` and `tip`). It reads the chain detached: no lock, no recovery
+and no append, so a registration nothing has settled stays staged and is reported,
+not settled. It returns `AfterEntries(entries, tip, pending)`: the entries strictly
+after `after`, up to and including `through` when given, else to the chain's tip;
+`tip` is the digest the slice runs to (`after` itself when `entries` is empty) and
+`pending` is the chain's unsettled `(txid, registration digest)` pairs. Otherwise it
+returns `AfterUnavailable(reason, detail)` as a value, never an exception, with
+`reason`:
+
+- `chain-absent`: the root has no chain, or no such directory exists;
+- `chain-malformed`: the chain is not well-formed;
+- `genesis-mismatch`: the chain's genesis is not `genesis`;
+- `tip-not-on-chain`: `after` is no entry of the chain;
+- `through-not-on-chain`: `through` is no entry of the chain;
+- `through-before-after`: `through` precedes `after`.
+
 ## Citations across mounts
 
 A session with read mounts writes only to its write root, but a record may cite
