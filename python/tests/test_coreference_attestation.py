@@ -3,6 +3,8 @@ capture, its seam, and its reduction."""
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from authority import ACTOR, FULL, lacking
 from dataset_fixtures import dataset_ref, pinned
@@ -64,6 +66,38 @@ class TestTheSeam:
         assert writer.read_view.get(minted.id).facets == minted.facets
         assert {ref: writer.read_view.get(ref).model_dump() for ref in (LEFT, RIGHT)} == before
         assert minted.relations == [] and writer.read_view.inbound(LEFT) == []
+
+    @pytest.mark.parametrize("kind", ["referent-mapping", "proxy-model"])
+    def test_new_measurement_kinds_are_coreference_endpoints(self, tmp_path, kind):
+        from test_procedure import OBS, procedure
+        from test_stored import _testing_writer
+
+        from beliefs.assumptions import AssumptionInstance
+        from beliefs.proxy_model import ProxyModel, ProxySource, ProxyTarget
+        from beliefs.referent_mapping import ReferentMapping
+
+        w = _testing_writer(tmp_path / "corpus")
+        if kind == "referent-mapping":
+            mapping = ReferentMapping("testing/event", "testing/entity", {"source": "first"}, "many-to-one", None, None)
+            left = w.add(stored.referent_mapping_node(mapping))
+            right = w.add(stored.referent_mapping_node(replace(mapping, reference={"source": "second"})))
+        else:
+            source = w.add(stored.procedure_node(procedure()))
+            basis = AssumptionInstance(
+                "testing/proxy-validity", {"record": "first", "co_scope": "equal", "dimensions": "{}"}
+            )
+            proxy = ProxyModel(ProxySource(OBS, source.id), ProxyTarget(OBS, None), {}, basis, None)
+            left = w.add(stored.proxy_model_node(proxy))
+            right = w.add(
+                stored.proxy_model_node(
+                    replace(proxy, basis=replace(basis, particulars=dict(basis.particulars) | {"record": "second"}))
+                )
+            )
+        before = {node.id: w.read_view.get(node.id).model_dump() for node in (left, right)}
+        minted = w.attest_coreference(attestation(endpoints=(left.id, right.id), grounds="the same referent"))
+        restored = stored.coreference_attestation_value(w.read_view.get(minted.id))
+        assert restored.endpoints == tuple(sorted((left.id, right.id)))
+        assert {ref: w.read_view.get(ref).model_dump() for ref in before} == before
 
     def test_add_supersede_and_revise_refuse_the_kind(self, writer):
         with pytest.raises(WriteRefused, match="attest_coreference"):
@@ -213,6 +247,8 @@ class TestTheKindIsGoverned:
             "composite",
             "assumptions-register",
             "procedure",
+            "referent-mapping",
+            "proxy-model",
             "classification-rule",
         )
 

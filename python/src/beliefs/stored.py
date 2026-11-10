@@ -248,6 +248,8 @@ COREFERENCE_ENDPOINT_KINDS: tuple[str, ...] = (
     "composite",
     "assumptions-register",
     "procedure",
+    "referent-mapping",
+    "proxy-model",
     "classification-rule",
 )
 """The kinds a coreference attestation may name as endpoints: the world kinds less the attestation itself, the two
