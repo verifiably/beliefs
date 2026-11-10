@@ -3,7 +3,7 @@ from hashlib import sha256
 import pytest
 from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as seed_pinned
-from durable_fixture import basis, route, slug
+from durable_fixture import slug
 from fixtures_cut4 import reopen
 from fixtures_cut15 import SNAKEFILE_CONSTANT_PRODUCTION, run_workflow
 from test_operation_port import durable_port
@@ -49,13 +49,6 @@ def two_producers(durable_root, durable_writer, tmp_path, *, second_input=INPUT_
     assert isinstance(first, RunMinted) and isinstance(second, RunMinted)
     minted = mint_dataset(first.run, existing_bases={})
     again = mint_dataset(second.run, existing_bases={minted.address: minted.basis})
-    durable_writer.add(
-        stored.dataset_node(
-            title="produced",
-            resources=[{"name": name, "digest": digest} for name, digest in first.run.result.outputs],
-            basis=basis(route(run_ref(first.run.address()), INPUT_A, [INPUT_A])),
-        )
-    )
     return first, second, minted, again, reopen(durable_root)
 
 
