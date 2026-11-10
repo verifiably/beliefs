@@ -1182,7 +1182,7 @@ def test_the_materialization_classification(observer, certified_work, tmp_path):
     assert list(scratch.iterdir()) == []
 
     # (4) a terminal session failure propagates and is never a stop
-    def closed(_root, _path, _content):
+    def closed(_root, _path, _content, _intent):
         raise SessionProtocolError("the invocation is no longer current")
 
     seam, _ = scripted_seam({"/a": ok(A)})
@@ -1197,7 +1197,7 @@ def test_the_materialization_classification(observer, certified_work, tmp_path):
     assert stored_kinds(writer).count("act-report") == reports
 
     # (5) negative: an unexpected engine failure propagates and reads unfinished, never a stop
-    def internal(_root, _path, _content):
+    def internal(_root, _path, _content, _intent):
         raise ExecutionError("internal", index=None, applied=None) from RuntimeError("boom")
 
     seam, _ = scripted_seam({"/a": ok(A)})

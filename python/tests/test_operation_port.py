@@ -308,7 +308,7 @@ def test_oversized_postimage_refuses_before_any_write(certified_work) -> None:
 def test_non_port_writes_are_unaffected_by_the_ceiling(certified_work) -> None:
     init_store_root(certified_work, authority=FULL)
     big = b"x" * (RECORD_CEILING + 1)
-    outcome = science_root._store_write(certified_work, "payload.bin", big)
+    outcome = science_root._store_write(certified_work, "payload.bin", big, "f" * 64)
     assert (certified_work / "payload.bin").read_bytes() == big
     assert outcome.txid
 

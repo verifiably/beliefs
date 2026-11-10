@@ -431,13 +431,13 @@ class FakeSeam:
             self._touch("read_path")
             return PathObservedView(STATE)
 
-        def store_write(_root, path, _bytes):
+        def store_write(_root, path, _bytes, _intent):
             self._touch("store_write")
-            return StoreOutcomeView("tx", ((path, STATE),))
+            return StoreOutcomeView("tx", ((path, STATE),), "e" * 64)
 
-        def store_create(_root, path, _bytes):
+        def store_create(_root, path, _bytes, _intent):
             self._touch("store_create")
-            return StoreOutcomeView("tx", ((path, STATE),))
+            return StoreOutcomeView("tx", ((path, STATE),), "e" * 64)
 
         def store_genesis(_root):
             self._touch("store_genesis")
@@ -528,11 +528,11 @@ def test_a_holdings_write_ledgers_an_act_naming_the_observation(tmp_path):
 def test_ledgered_seam_guards_store_create(tmp_path):
     seam = FakeSeam(tmp_path / "corpus")
     session, _writer, ctx, _ = _holdings(tmp_path, seam)
-    ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x")
+    ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x", "f" * 64)
     assert seam.reached == ["store_create"]
     session.close_invocation("A", {"done": []})
     with pytest.raises(SessionProtocolError):
-        ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x")
+        ctx.seam.store_create(tmp_path / "store", "objects/sha256/aa/aa", b"x", "f" * 64)
     assert seam.reached == ["store_create"]
 
 

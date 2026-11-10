@@ -256,13 +256,13 @@ def holdings_context(tmp_path):
         append_intent=append,
         publish_fulfilling=publish,
         read_path=lambda *_: PathObservedView(state),
-        store_write=lambda _root, path, _bytes: StoreOutcomeView("tx", ((path, state),)),
-        store_delete=lambda *_: StoreOutcomeView("unused", ()),
-        store_move=lambda *_: StoreOutcomeView("unused", ()),
+        store_write=lambda _root, path, _bytes, _intent: StoreOutcomeView("tx", ((path, state),), "e" * 64),
+        store_delete=lambda *_: StoreOutcomeView("unused", (), "e" * 64),
+        store_move=lambda *_: StoreOutcomeView("unused", (), "e" * 64),
         store_genesis=lambda _: b'{"domain":"science.store-root.v1","store_id":"11111111111111111111111111111111"}',
         # This fake never raises `ExecutionError`, so the predicate is never reached.
         store_refusal=lambda _caught: False,
-        store_create=lambda *_: StoreOutcomeView("unused", ()),
+        store_create=lambda *_: StoreOutcomeView("unused", (), "e" * 64),
     )
     ctx = ActContext(tmp_path / "corpus", tmp_path / "store", "o", "i", FULL, seam, WITH_BIOLOGY)
     return ctx, intents, published
@@ -282,8 +282,8 @@ def test_holdings_pin_refusal_leaves_no_publication(tmp_path, holdings_context, 
     else:
         inner = ctx.seam.store_write
 
-        def store_write_then_rewrite(store_root, relative_path, content):
-            result = inner(store_root, relative_path, content)
+        def store_write_then_rewrite(store_root, relative_path, content, intent):
+            result = inner(store_root, relative_path, content, intent)
             _rewrite_biology_pin(ctx.observer_root)
             return result
 

@@ -553,11 +553,11 @@ def _killed_after_two_objects(ctx):
     created: list[str] = []
     original = ctx.seam.store_create
 
-    def interrupted(root, path, content):
+    def interrupted(root, path, content, intent):
         if len(created) == 2:
             raise RuntimeError("kill")
         created.append(path)
-        return original(root, path, content)
+        return original(root, path, content, intent)
 
     return replace(ctx, seam=replace(ctx.seam, store_create=interrupted)), created
 

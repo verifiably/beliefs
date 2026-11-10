@@ -288,7 +288,7 @@ def write(
     token, intent = _append(ctx, location, "write")
     _bind(ctx, location)
     try:
-        outcome = ctx.seam.store_write(ctx.store_root, location.relative_path, content)
+        outcome = ctx.seam.store_write(ctx.store_root, location.relative_path, content, intent)
     except ExecutionError as caught:
         if ctx.seam.store_refusal(caught):
             raise StoreWriteRefused(location.canonical(), str(caught)) from caught
@@ -315,7 +315,7 @@ def delete(
     ctx.authority.require("holdings", ("holdings-observation",))
     token, intent = _append(ctx, location, "delete")
     _bind(ctx, location)
-    state = _final(ctx.seam.store_delete(ctx.store_root, location.relative_path), location.relative_path)
+    state = _final(ctx.seam.store_delete(ctx.store_root, location.relative_path, intent), location.relative_path)
     if not isinstance(state, AbsentStateView):
         raise TypeError(f"store delete did not establish absence at {location.relative_path!r}")
     return _publish(ctx, location, Absent(), token, intent, standing)
@@ -334,7 +334,7 @@ def move(
     destination_token, destination_intent = _append(ctx, destination, "move-destination")
     _bind(ctx, source)
     _bind(ctx, destination)
-    outcome = ctx.seam.store_move(ctx.store_root, source.relative_path, destination.relative_path)
+    outcome = ctx.seam.store_move(ctx.store_root, source.relative_path, destination.relative_path, source_intent)
     source_state = _final(outcome, source.relative_path)
     destination_state = _final(outcome, destination.relative_path)
     if not isinstance(source_state, AbsentStateView) or not isinstance(destination_state, FileStateView):
@@ -364,6 +364,7 @@ def _place_object(
     digest: str,
     size: int,
     read_content: Callable[[], bytes],
+    intent: str,
 ) -> None:
     """Make `objects/sha256/..` hold `digest`: reuse a matching object, create an absent one.
 
@@ -383,7 +384,7 @@ def _place_object(
     if f"sha256:{sha256(content).hexdigest()}" != digest or len(content) != size:
         raise MalformedRecord(f"the bytes for {path} do not match their declared digest and size")
     try:
-        outcome = ctx.seam.store_create(ctx.store_root, path, content)
+        outcome = ctx.seam.store_create(ctx.store_root, path, content, intent)
     except ExecutionError as caught:
         if not ctx.seam.store_refusal(caught):
             raise
@@ -419,9 +420,9 @@ def tree_write(
     _bind(ctx, location)
     for member in tree.members:
         source = members[member.path]
-        _place_object(ctx, location, member.digest, member.size, source.read_bytes)
+        _place_object(ctx, location, member.digest, member.size, source.read_bytes, intent)
     file_bytes = tree_file_bytes(tree)
-    _place_object(ctx, location, f"sha256:{location.tree}", len(file_bytes), lambda: file_bytes)
+    _place_object(ctx, location, f"sha256:{location.tree}", len(file_bytes), lambda: file_bytes, intent)
     return _publish(ctx, location, Found(location.digest()), token, intent, standing, expected=location.digest())
 
 

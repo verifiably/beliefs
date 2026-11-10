@@ -55,6 +55,8 @@ PathReadView = PathObservedView | ReadNotAttemptedView | ReadUnestablishedView
 class StoreOutcomeView:
     txid: str
     final_states: tuple[tuple[str, PathStateView], ...]
+    entry: str
+    """The store registration entry's digest, as the engine returned it."""
 
 
 @dataclass(frozen=True)
@@ -63,13 +65,13 @@ class StoreActSeam:
     append_intent: Callable[[Path, bytes], str]
     publish_fulfilling: Callable[[Path, WritePlan, str], str]
     read_path: Callable[[Path, str], PathReadView]
-    store_write: Callable[[Path, str, bytes], StoreOutcomeView]
-    store_delete: Callable[[Path, str], StoreOutcomeView]
-    store_move: Callable[[Path, str, str], StoreOutcomeView]
+    store_write: Callable[[Path, str, bytes, str], StoreOutcomeView]
+    store_delete: Callable[[Path, str, str], StoreOutcomeView]
+    store_move: Callable[[Path, str, str, str], StoreOutcomeView]
     store_genesis: Callable[[Path], bytes]
     store_refusal: Callable[[Exception], bool]
     """`True` for a routine engine refusal of `store_write` — the predicate
     lives in the composition root, which alone may name the engine's own
     exception types."""
-    store_create: Callable[[Path, str, bytes], StoreOutcomeView]
+    store_create: Callable[[Path, str, bytes, str], StoreOutcomeView]
     """Create-only write of a content-addressed object under `objects/sha256/`."""
