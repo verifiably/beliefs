@@ -16,7 +16,7 @@ grammar (``ts/src/patterns.ts``) and are held to one agreement oracle,
     classitem := classatom ( "-" classatom )?
     classatom := "\\" one of  \\ ] - ^   | any code point except  \\ [ ] - ^
                  (and no doubled & ~ | inside a class: engines read them as set operations)
-    digits    := [0-9]+, at most 65535
+    digits    := [0-9]{1,5}, at most 65535
 
 Engine options are fixed, never authored: ``re.DOTALL`` with ``fullmatch`` here,
 the ``s`` and ``u`` flags with ``^(?:...)$`` in TypeScript. Terms are matched
@@ -37,6 +37,7 @@ _QUANTIFIERS = frozenset("*+?")
 _DIGITS = frozenset("0123456789")
 _DOUBLED = frozenset("&~|")
 _MAX_BOUND = 65535
+_MAX_BOUND_DIGITS = 5
 
 
 class _Walk:
@@ -118,6 +119,10 @@ class _Walk:
             self.i += 1
         if start == self.i:
             raise self.refuse("has a malformed '{...}' quantifier")
+        # Refused by length before conversion: `int()` raises `ValueError` past
+        # the interpreter's digit limit, outside the refusal family.
+        if self.i - start > _MAX_BOUND_DIGITS:
+            raise self.refuse("has a repetition bound of more than five digits")
         value = int("".join(self.cps[start : self.i]))
         if value > _MAX_BOUND:
             raise self.refuse(f"has a repetition bound above {_MAX_BOUND}")

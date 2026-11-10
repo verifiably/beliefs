@@ -711,6 +711,24 @@ class TestTheAuthoringBoundaryRefusesRetiredVocabulary:
         with pytest.raises(WithdrawnFromAuthoring, match="the operator is retired"):
             build_claim(profile, operator=AFFECTS, roles=cause_effect, polarity="positive", layer="causal")
 
+    def test_a_bridge_over_a_retired_template_is_withdrawn_but_decodable(self, retire, cause_effect):
+        # R7 reaches a bridge through its template: retiring `affects` withdraws
+        # `promotes` from authoring, as it withdraws the bridge's composite
+        # membership, and decode still types a historical claim through it.
+        profile = retire("templates", "affects")
+        with pytest.raises(WithdrawnFromAuthoring, match="template 'testing/affects' is retired"):
+            build_claim(profile, operator=PROMOTES, roles=cause_effect, polarity="positive", layer="causal")
+        claim = Claim._checked(
+            profile,
+            operator=PROMOTES,
+            roles=cause_effect,
+            qualifiers={},
+            form="polar",
+            polarity="positive",
+            layer="causal",
+        )
+        assert claim.operator == PROMOTES
+
     def test_a_retired_referent_sort_cannot_be_authored(self, retire, cause_effect):
         profile = retire("sorts", "outcome")
         with pytest.raises(WithdrawnFromAuthoring, match="testing/outcome"):

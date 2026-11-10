@@ -875,6 +875,14 @@ class TestRetirementReachesThroughSorts:
     def test_retiring_the_template_itself_still_withdraws_it(self, retire):
         assert "testing/affects" not in retire(("templates", "affects")).authorable_operators()
 
+    def test_retiring_a_template_withdraws_its_bridges(self, retire):
+        profile = retire(("templates", "affects"))
+        assert "testing/promotes" not in profile.authorable_operators()
+        with pytest.raises(WithdrawnFromAuthoring, match="template 'testing/affects' is retired"):
+            profile.authorable_dimensions("testing/promotes")
+        # Withdrawn, not removed: the bridge stays resolvable for decode.
+        assert profile.operator("testing/promotes").retired is False
+
     def test_a_withdrawn_operator_offers_no_dimensions_at_all(self, retire):
         # Not an empty tuple: `measured-by` legitimately returns one, so an empty
         # answer here would make "withdrawn" and "permits none" the same fact.

@@ -20,18 +20,33 @@ These rules bind anyone who writes a contract document. That includes authors of
 domain contracts kept outside this repository, such as the corpus-local contract
 documents `science` loads, as well as the packs beliefs ships. The Python parser
 in `beliefs.contract` checks each rule below when it loads a document. The
-TypeScript mirror in `ts/` is narrower. It reads base contracts and the domain
-grammar described below with the same refusals, and it compiles a profile with the
-same compile refusals, but it computes no content identity and runs no succession
-check. So it reads only a genesis domain contract: a `lineage` naming a predecessor,
-and a `retired` field on any declaration, are refused with `UncheckableContract`. It
+TypeScript mirror in `ts/` is narrower. It reads a document under the same schema
+and the same reading refusals (see [Documents](#documents)), and it checks base
+contracts, the domain grammar described below and profile compilation against the
+same rules, with two known differences: the emptiness check on a `definition`
+strips JavaScript's whitespace set rather than Python's, so a value of only U+FEFF,
+or only U+0085 or U+001C–U+001F, is refused by one side and accepted by the other;
+and on a document with several faults the two sides can report different ones
+first. It computes no content identity and runs no succession check. So it reads
+only a genesis domain contract: a `lineage` naming a predecessor, and a `retired`
+field on any declaration, are refused with `UncheckableContract`. It
 also refuses `description` at a domain contract's top level and on a sort or a
 dimension, as an unknown field.
 
 ## Documents
 
-- A contract is YAML. Every mapping key is a string, and a duplicate key at any
-  depth is refused, never resolved in favour of the last occurrence.
+- A contract is YAML, read under the YAML 1.2 core schema in both languages. A
+  plain `null`, `Null`, `NULL`, `~` or empty scalar is null; `true` and `false`
+  (also capitalized or upper case) are booleans; a decimal integer (a leading zero
+  stays decimal, so `010` is 10), `0o` octal or `0x` hex is an integer; every other
+  plain scalar is a string, `yes`, `on`, `0b11`, `1_000`, `12:30`, `2026-01-01` and
+  `<<` included (there are no merge keys). Refused: a float (`24.0`, `1e3`, `.inf`),
+  since no field carries one; an integer outside ±(2^53 − 1); an explicit tag
+  (`!!str`, `!` and every other); a `%YAML` or `%TAG` directive; more than one
+  document; a mapping key that is not a string; a duplicate key at any depth, never
+  resolved in favour of the last occurrence; and an anchor name defined twice.
+  `fixtures/document-reading-v1.json` is the oracle both readers are tested
+  against.
 - Unknown fields are refused, never ignored, and missing required fields are
   refused. An identifier matches `[a-z][a-z0-9-]*`.
 - A contract's content identity is the `science.identity.v1` digest of the whole
@@ -127,7 +142,7 @@ and a list of them may not repeat a value.
   pattern text begins with it and that it contains none of `\ . [ ] ( ) { } | * + ? ^ $`,
   not that every admitted term carries it. The subset is literals, `.`,
   character classes with ranges and `^` negation, `(?:...)`, `|`, the quantifiers `*`, `+`,
-  `?`, `{m}` and `{m,n}` (bounds up to 65535), and backslash escapes of the metacharacters; anything else, a
+  `?`, `{m}` and `{m,n}` (bounds of at most five digits and up to 65535), and backslash escapes of the metacharacters; anything else, a
   non-NFC pattern, an unescaped `[` in a class and a doubled `&&`, `~~` or `||` in a class included, is refused as a malformed contract. Terms are normalized to NFC
   and matched whole, with `.` and negated classes matching any code point including line
   terminators: Python uses `re.DOTALL` with `fullmatch`, TypeScript uses
@@ -258,13 +273,15 @@ authoring excludes retired declarations and decode does not. Estimand declaratio
 are keyed by the compiled typed address of their target and looked up for an
 admitting set. A claim may carry a dimension only when it is claim-side and its
 `applies_to` names the claim's operator. An operator is offered for authoring only
-when it is not retired and some live route (a live instantiation, or the live
-bridge) lists a live sort for every role that must be filled.
+when it is not retired, its template is not retired (a bridge over a retired
+template is withdrawn with it), and some live route (a live instantiation, or the
+live bridge) lists a live sort for every role that must be filled.
 
 The profile's compiled identity is taken over every table keyed by term (estimand
 declarations by typed address), so activation order cannot move it; it changes
-when a meaning-bearing field or a retirement changes, and stays the same after a
-description or definition edit. A corpus manifest pins the base contract and every
+when a field the compiled tables carry or a retirement changes. It stays the same
+after a `description`, `definition` or `external` edit, since the compiled tables
+carry none of the three; succession compares `external`. A corpus manifest pins the base contract and every
 activated contract by content identity. A writer whose profile disagrees with
 those pins is refused.
 

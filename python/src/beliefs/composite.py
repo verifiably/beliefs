@@ -37,6 +37,7 @@ from beliefs.stored import COMPOSES
 from beliefs.stored import composite_value as stored_composite_value
 
 _MANY = "many"
+_POLAR = "polar"
 
 COMPOSITE_DOMAIN = "science.composite.v1"
 EMPTY_SNAPSHOT = build_snapshot()
@@ -191,7 +192,9 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
     `ProfileSpec.template_of`: a template's own, or a bridge's template's (R8).
     Under `dag` a member forms an edge only when both edge roles are `one`; a
     `many` edge role is `composite-edge-role-many` until a process-network
-    shape exists (beliefs-d6060a)."""
+    shape exists (beliefs-d6060a). Only a `polar` member forms an edge: a
+    `"null"`-form claim asserts no effect, and refuses as
+    `composite-member-not-polar`."""
     if facet.shape not in profile.composite_grammar.shapes:
         raise CompositeError(
             "composite-shape",
@@ -228,6 +231,12 @@ def classify(profile: ProfileSpec, facet: CompositeFacet, claims: Mapping[str, C
             raise CompositeError(
                 "composite-member-layer",
                 f"member {member}: layer {claim.layer!r} forms no edge in a dag; the inhabited fragment is the causal layer",
+            )
+        if claim.form != _POLAR:
+            raise CompositeError(
+                "composite-member-not-polar",
+                f"member {member}: a {claim.form!r}-form claim asserts the effect is absent, so it is no arrow of "
+                "a dag; only a `polar` claim forms an edge",
             )
         # Every role referent must be a declared node, not only the two the edge
         # reads: a third role is part of the claim the composite asserts over

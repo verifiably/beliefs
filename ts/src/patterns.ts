@@ -15,7 +15,7 @@
  *     classitem := classatom ( "-" classatom )?
  *     classatom := "\" one of  \ ] - ^   | any code point except  \ [ ] - ^
  *                  (and no doubled & ~ | inside a class: engines read them as set operations)
- *     digits    := [0-9]+, at most 65535
+ *     digits    := [0-9]{1,5}, at most 65535
  */
 
 import { MalformedContract } from "./errors.js";
@@ -24,6 +24,7 @@ const SPECIAL = new Set(Array.from("\\.[](){}|*+?^$"));
 const CLASS_SPECIAL = new Set(Array.from("\\]-^"));
 const DOUBLED = new Set(Array.from("&~|"));
 const MAX_BOUND = 65535;
+const MAX_BOUND_DIGITS = 5;
 const QUANTIFIERS = new Set(Array.from("*+?"));
 
 class Walk {
@@ -114,6 +115,8 @@ class Walk {
     const start = this.i;
     for (let c = this.peek(); c !== undefined && c >= "0" && c <= "9"; c = this.peek()) this.i += 1;
     if (start === this.i) throw this.refuse("has a malformed '{...}' quantifier");
+    // Refused by length before conversion, as Python must before `int()`.
+    if (this.i - start > MAX_BOUND_DIGITS) throw this.refuse("has a repetition bound of more than five digits");
     const value = Number(this.cps.slice(start, this.i).join(""));
     if (value > MAX_BOUND) throw this.refuse(`has a repetition bound above ${MAX_BOUND}`);
     return value;

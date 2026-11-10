@@ -33,7 +33,9 @@ world kinds and three prose kinds. A world kind is either governed, meaning the
 contract names an identity domain for it, or ungoverned (only
 `instrument-certification`). A kind's required facet is present on every record of
 that kind. Two governed kinds, `procedure` and `classification-rule`, declare no
-facet yet, and every door that mints a record refuses them (`KindNotMintedHere`).
+facet yet, and every write door that mints a new record refuses them
+(`KindNotMintedHere`). Publication's staging copies records already minted in the
+source corpus byte for byte and does not repeat that check.
 
 | Kind | Required facet | Enters through |
 |---|---|---|
@@ -237,7 +239,7 @@ order, each refused with its own error:
    narrowing of them (`InadmissibleLayer`).
 
 Authoring a claim (`build_claim`) also refuses, with `WithdrawnFromAuthoring`, a
-retired operator, a referent of a retired sort, a claim that only retired
+retired operator, a bridge whose template is retired, a referent of a retired sort, a claim that only retired
 instantiations admit, and a qualifier on a retired dimension or with a restriction
 of a retired sort. Typing a stored claim refuses none of them.
 
@@ -532,7 +534,9 @@ per member. A member's edge is its template's `edge` role pair, from the cause r
 referent to the effect role's; a bridge has its template's edge. Each member must
 be a causal-layer claim whose template declares an edge and is not retired (nor is
 the bridge), both of whose edge roles are `one` (a `many` edge role is refused as
-`composite-edge-role-many`), and every referent of its roles, except the
+`composite-edge-role-many`), and whose form is `polar` (a `"null"`-form claim
+asserts the effect is absent, so it is no edge, and is refused as
+`composite-member-not-polar`). Every referent of its roles, except the
 `within-model` referent, must be a declared node. A cycle is refused, whatever the
 signs of its edges. An assessment cannot assess a composite.
 
@@ -574,8 +578,11 @@ profile's activated domain contracts; none of these refuses a write:
   `bridge:<operator>`. An entry for an instantiation or template of the same name does
   not count.
 
-A namespace whose manifest pin disagrees with the profile is judged for none of
-these; `profile-mismatch` reports it.
+A namespace whose manifest pin disagrees with the profile (`profile-mismatch`
+reports it) has no pin to compare against, so it gets no `register-missing` or
+`register-stale` finding and no declaration check of its registers' keys. The
+kind-tag half of `register-entry-unknown` and `bridging-register-uncited` do not
+read the pin and still run for it.
 
 An `act-report` carries only its `act-report` facet and its identity stamp, and has
 no relations. The facet's fields are `operation` (one of the operation kinds in

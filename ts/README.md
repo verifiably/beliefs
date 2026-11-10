@@ -43,4 +43,7 @@ From the repository root, `just setup` runs `npm ci`, and focused runs are descr
 [docs/development.md](../docs/development.md#gates-and-focused-runs).
 
 The parity suite reads `../fixtures/claim-identity-v2.json` and the contracts
-under `../contracts/` and `../fixtures/contracts/`. It never writes them.
+under `../contracts/` and `../fixtures/contracts/`. The document-reading and
+identifier-pattern suites read `../fixtures/document-reading-v1.json` and
+`../fixtures/identifier-patterns-v1.json`, the oracles the Python suite reads too. No
+test writes them.

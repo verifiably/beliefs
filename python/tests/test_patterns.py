@@ -35,3 +35,10 @@ def test_identifier_class_prefix_is_literal() -> None:
         IdentifierClass("HGNC", "[H]GNC:1")
     with pytest.raises(MalformedContract):
         IdentifierClass("H.", "H.:1")
+
+
+def test_a_bound_past_the_interpreters_digit_limit_is_malformed_not_value_error() -> None:
+    # `int()` refuses a run past 4300 digits with `ValueError`; the digit run
+    # is refused for its length first, inside the refusal family.
+    with pytest.raises(MalformedContract, match="more than five digits"):
+        check_portable_pattern("a{" + "9" * 5000 + "}", where="test")

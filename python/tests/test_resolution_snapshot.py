@@ -222,3 +222,14 @@ def test_snapshot_projection_is_injective_across_arms():
 
 def _readable(terms: list[str]) -> dict[str, object]:
     return {"state": "readable", "terms": terms, "absent": []}
+
+
+def test_the_snapshot_identity_is_taken_under_its_v2_domain():
+    """v2: every binding projects with its arm's `kind` tag, so every non-empty
+    snapshot changed shape, and a new shape takes a new domain."""
+    from beliefs.identity import v1
+    from beliefs.resolution import SNAPSHOT_DOMAIN
+
+    assert SNAPSHOT_DOMAIN == "science.snapshot.v2"
+    for snapshot in (build_snapshot(), build_snapshot(readable={EX: []}), build_snapshot(kinds={"procedure": []})):
+        assert snapshot.identity == v1.digest("science.snapshot.v2", snapshot.projection())

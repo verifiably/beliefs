@@ -656,6 +656,10 @@ class ProfileSpec:
         at decode would corrupt exactly the history retirement exists to
         preserve. So this filter governs authoring only.
 
+        **Retirement reaches a bridge through its template.** A bridge has its
+        template's roles, forms and edge, so a retired template withdraws its
+        bridges with it, as a composite refuses them as members.
+
         **Retirement reaches an operator through its routes.** A claim's roles
         are filled with sorts some live declaration admits: an instantiation of
         the template, or the bridge itself. An operator none of whose routes is
@@ -671,7 +675,7 @@ class ProfileSpec:
         return tuple(sorted(operator.term for operator in operators if self._is_authorable(operator)))
 
     def _is_authorable(self, operator: CompiledOperator) -> bool:
-        return not operator.retired and self._has_live_route(operator)
+        return not operator.retired and not self.template_of(operator).retired and self._has_live_route(operator)
 
     def _has_live_route(self, operator: CompiledOperator) -> bool:
         template = self.template_of(operator)
@@ -723,6 +727,9 @@ class ProfileSpec:
     def _withdrawal_reason(self, operator: CompiledOperator) -> str:
         if operator.retired:
             return "the operator is retired"
+        template = self.template_of(operator)
+        if template.retired:
+            return f"its template {template.term!r} is retired"
         return (
             "no live route admits it: every instantiation of it (or, for a bridge, the bridge itself) is retired "
             "or lists only retired sorts for a role that must be filled"

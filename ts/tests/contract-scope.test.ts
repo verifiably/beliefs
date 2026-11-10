@@ -524,10 +524,16 @@ describe("the domain grammar's refusals, mirrored from the Python parser", () =>
     expect(["promotes" in contract.instantiations, "promotes" in contract.bridges]).toEqual([true, true]);
   });
 
-  it.each([true, 1.5, null, ["hours"], { x: 1 }])("refuses the duration-convention field %j", (value) => {
+  it.each([true, null, ["hours"], { x: 1 }])("refuses the duration-convention field %j", (value) => {
     refuses((document) => {
       document.duration_conventions.day.length = value;
     }, /string or an integer/);
+  });
+
+  it("refuses a float duration-convention field at the document reader, as Python does", () => {
+    refuses((document) => {
+      document.duration_conventions.day.length = 1.5;
+    }, /the float 1\.5 is refused/);
   });
 
   it.each(["templates", "instantiations", "bridges", "estimands", "duration_conventions"])(

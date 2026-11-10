@@ -1,0 +1,684 @@
+{
+ "domain": "beliefs.document-reading.v1",
+ "rows": [
+  {
+   "name": "decimal",
+   "text": "x: 24\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": 24
+     }
+    }
+   }
+  },
+  {
+   "name": "leading-zero-is-decimal",
+   "text": "x: 010\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": 10
+     }
+    }
+   }
+  },
+  {
+   "name": "signed-leading-zero",
+   "text": "x: +010\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": 10
+     }
+    }
+   }
+  },
+  {
+   "name": "negative-leading-zero",
+   "text": "x: -010\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": -10
+     }
+    }
+   }
+  },
+  {
+   "name": "double-zero",
+   "text": "x: 00\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": 0
+     }
+    }
+   }
+  },
+  {
+   "name": "octal",
+   "text": "x: 0o10\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": 8
+     }
+    }
+   }
+  },
+  {
+   "name": "hex",
+   "text": "x: 0x10\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": 16
+     }
+    }
+   }
+  },
+  {
+   "name": "largest-safe-integer",
+   "text": "x: 9007199254740991\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": 9007199254740991
+     }
+    }
+   }
+  },
+  {
+   "name": "negative-largest-safe-integer",
+   "text": "x: -9007199254740991\n",
+   "value": {
+    "map": {
+     "x": {
+      "int": -9007199254740991
+     }
+    }
+   }
+  },
+  {
+   "name": "hex-upper-prefix-is-a-string",
+   "text": "x: 0X10\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "0X10"
+     }
+    }
+   }
+  },
+  {
+   "name": "octal-bad-digit-is-a-string",
+   "text": "x: 0o19\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "0o19"
+     }
+    }
+   }
+  },
+  {
+   "name": "binary-is-a-string",
+   "text": "x: 0b11\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "0b11"
+     }
+    }
+   }
+  },
+  {
+   "name": "underscored-is-a-string",
+   "text": "x: 1_000\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "1_000"
+     }
+    }
+   }
+  },
+  {
+   "name": "sexagesimal-is-a-string",
+   "text": "x: 12:30\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "12:30"
+     }
+    }
+   }
+  },
+  {
+   "name": "date-is-a-string",
+   "text": "x: 2026-01-01\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "2026-01-01"
+     }
+    }
+   }
+  },
+  {
+   "name": "yes-is-a-string",
+   "text": "x: yes\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "yes"
+     }
+    }
+   }
+  },
+  {
+   "name": "no-is-a-string",
+   "text": "x: no\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "no"
+     }
+    }
+   }
+  },
+  {
+   "name": "on-is-a-string",
+   "text": "x: on\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "on"
+     }
+    }
+   }
+  },
+  {
+   "name": "off-is-a-string",
+   "text": "x: off\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "off"
+     }
+    }
+   }
+  },
+  {
+   "name": "y-is-a-string",
+   "text": "x: y\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "y"
+     }
+    }
+   }
+  },
+  {
+   "name": "n-is-a-string",
+   "text": "x: n\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "n"
+     }
+    }
+   }
+  },
+  {
+   "name": "Yes-is-a-string",
+   "text": "x: Yes\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "Yes"
+     }
+    }
+   }
+  },
+  {
+   "name": "ON-is-a-string",
+   "text": "x: ON\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "ON"
+     }
+    }
+   }
+  },
+  {
+   "name": "mixed-case-true-is-a-string",
+   "text": "x: tRue\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "tRue"
+     }
+    }
+   }
+  },
+  {
+   "name": "value-indicator-is-a-string",
+   "text": "x: =\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "="
+     }
+    }
+   }
+  },
+  {
+   "name": "true-is-true",
+   "text": "x: true\n",
+   "value": {
+    "map": {
+     "x": {
+      "bool": true
+     }
+    }
+   }
+  },
+  {
+   "name": "True-is-true",
+   "text": "x: True\n",
+   "value": {
+    "map": {
+     "x": {
+      "bool": true
+     }
+    }
+   }
+  },
+  {
+   "name": "TRUE-is-true",
+   "text": "x: TRUE\n",
+   "value": {
+    "map": {
+     "x": {
+      "bool": true
+     }
+    }
+   }
+  },
+  {
+   "name": "false-is-false",
+   "text": "x: false\n",
+   "value": {
+    "map": {
+     "x": {
+      "bool": false
+     }
+    }
+   }
+  },
+  {
+   "name": "False-is-false",
+   "text": "x: False\n",
+   "value": {
+    "map": {
+     "x": {
+      "bool": false
+     }
+    }
+   }
+  },
+  {
+   "name": "FALSE-is-false",
+   "text": "x: FALSE\n",
+   "value": {
+    "map": {
+     "x": {
+      "bool": false
+     }
+    }
+   }
+  },
+  {
+   "name": "null-is-null",
+   "text": "x: null\n",
+   "value": {
+    "map": {
+     "x": {
+      "null": true
+     }
+    }
+   }
+  },
+  {
+   "name": "Null-is-null",
+   "text": "x: Null\n",
+   "value": {
+    "map": {
+     "x": {
+      "null": true
+     }
+    }
+   }
+  },
+  {
+   "name": "NULL-is-null",
+   "text": "x: NULL\n",
+   "value": {
+    "map": {
+     "x": {
+      "null": true
+     }
+    }
+   }
+  },
+  {
+   "name": "tilde-is-null",
+   "text": "x: ~\n",
+   "value": {
+    "map": {
+     "x": {
+      "null": true
+     }
+    }
+   }
+  },
+  {
+   "name": "empty-is-null",
+   "text": "x:\n",
+   "value": {
+    "map": {
+     "x": {
+      "null": true
+     }
+    }
+   }
+  },
+  {
+   "name": "single-quoted-leading-zero",
+   "text": "x: '010'\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "010"
+     }
+    }
+   }
+  },
+  {
+   "name": "double-quoted-true",
+   "text": "x: \"true\"\n",
+   "value": {
+    "map": {
+     "x": {
+      "str": "true"
+     }
+    }
+   }
+  },
+  {
+   "name": "merge-key-is-a-string-key",
+   "text": "x: {<<: {a: 1}}\n",
+   "value": {
+    "map": {
+     "x": {
+      "map": {
+       "<<": {
+        "map": {
+         "a": {
+          "int": 1
+         }
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "quoted-numeric-key",
+   "text": "\"1\": a\n",
+   "value": {
+    "map": {
+     "1": {
+      "str": "a"
+     }
+    }
+   }
+  },
+  {
+   "name": "empty-string-key",
+   "text": "\"\": a\n",
+   "value": {
+    "map": {
+     "": {
+      "str": "a"
+     }
+    }
+   }
+  },
+  {
+   "name": "alias",
+   "text": "a: &v 010\nb: *v\n",
+   "value": {
+    "map": {
+     "a": {
+      "int": 10
+     },
+     "b": {
+      "int": 10
+     }
+    }
+   }
+  },
+  {
+   "name": "sequence",
+   "text": "x: [010, yes, true]\n",
+   "value": {
+    "map": {
+     "x": {
+      "seq": [
+       {
+        "int": 10
+       },
+       {
+        "str": "yes"
+       },
+       {
+        "bool": true
+       }
+      ]
+     }
+    }
+   }
+  },
+  {
+   "name": "float-refused",
+   "text": "x: 24.0\n",
+   "refused": true
+  },
+  {
+   "name": "float-trailing-dot-refused",
+   "text": "x: 24.\n",
+   "refused": true
+  },
+  {
+   "name": "float-leading-dot-refused",
+   "text": "x: .5\n",
+   "refused": true
+  },
+  {
+   "name": "float-exponent-refused",
+   "text": "x: 1e3\n",
+   "refused": true
+  },
+  {
+   "name": "float-signed-exponent-refused",
+   "text": "x: 1.0e+3\n",
+   "refused": true
+  },
+  {
+   "name": "infinity-refused",
+   "text": "x: .inf\n",
+   "refused": true
+  },
+  {
+   "name": "negative-infinity-refused",
+   "text": "x: -.Inf\n",
+   "refused": true
+  },
+  {
+   "name": "not-a-number-refused",
+   "text": "x: .nan\n",
+   "refused": true
+  },
+  {
+   "name": "integer-past-safe-range-refused",
+   "text": "x: 9007199254740992\n",
+   "refused": true
+  },
+  {
+   "name": "negative-integer-past-safe-range-refused",
+   "text": "x: -9007199254740992\n",
+   "refused": true
+  },
+  {
+   "name": "hex-past-safe-range-refused",
+   "text": "x: 0x20000000000000\n",
+   "refused": true
+  },
+  {
+   "name": "integer-key-refused",
+   "text": "1: a\n",
+   "refused": true
+  },
+  {
+   "name": "leading-zero-key-refused",
+   "text": "010: a\n",
+   "refused": true
+  },
+  {
+   "name": "bool-key-refused",
+   "text": "true: a\n",
+   "refused": true
+  },
+  {
+   "name": "null-key-refused",
+   "text": "null: a\n",
+   "refused": true
+  },
+  {
+   "name": "empty-key-refused",
+   "text": ": a\n",
+   "refused": true
+  },
+  {
+   "name": "sequence-key-refused",
+   "text": "? [a]\n: b\n",
+   "refused": true
+  },
+  {
+   "name": "mapping-key-refused",
+   "text": "? {a: 1}\n: b\n",
+   "refused": true
+  },
+  {
+   "name": "nested-integer-key-refused",
+   "text": "x:\n  1: a\n",
+   "refused": true
+  },
+  {
+   "name": "duplicate-key-refused",
+   "text": "a: 1\na: 2\n",
+   "refused": true
+  },
+  {
+   "name": "nested-duplicate-key-refused",
+   "text": "x:\n  a: 1\n  a: 2\n",
+   "refused": true
+  },
+  {
+   "name": "duplicate-anchor-refused",
+   "text": "a: &v 1\nb: &v 2\nc: *v\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-str-tag-refused",
+   "text": "x: !!str 10\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-int-tag-refused",
+   "text": "x: !!int 10\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-float-tag-refused",
+   "text": "x: !!float 1\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-bool-tag-refused",
+   "text": "x: !!bool yes\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-binary-tag-refused",
+   "text": "x: !!binary aGk=\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-timestamp-tag-refused",
+   "text": "x: !!timestamp 2026-01-01\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-set-tag-refused",
+   "text": "x: !!set {a}\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-non-specific-tag-refused",
+   "text": "x: ! 10\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-local-tag-refused",
+   "text": "x: !custom x\n",
+   "refused": true
+  },
+  {
+   "name": "explicit-tag-on-a-key-refused",
+   "text": "!!str 1: a\n",
+   "refused": true
+  },
+  {
+   "name": "yaml-1.1-directive-refused",
+   "text": "%YAML 1.1\n---\nx: 010\n",
+   "refused": true
+  },
+  {
+   "name": "yaml-1.2-directive-refused",
+   "text": "%YAML 1.2\n---\nx: 1\n",
+   "refused": true
+  },
+  {
+   "name": "tag-directive-refused",
+   "text": "%TAG !e! tag:example.com,2026:\n---\nx: 1\n",
+   "refused": true
+  },
+  {
+   "name": "two-documents-refused",
+   "text": "a: 1\n---\nb: 2\n",
+   "refused": true
+  },
+  {
+   "name": "unclosed-flow-sequence-refused",
+   "text": "a: [\n",
+   "refused": true
+  }
+ ]
+}

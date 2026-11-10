@@ -2270,7 +2270,9 @@ def _register_findings(
     register's raw entry keys are scanned for a kind tag outside `ENTRY_KINDS`,
     which its reader refuses before any typed value exists. A namespace in
     `disagreeing` has no single pin to compare against (`profile-mismatch`
-    reports it), so it is judged for nothing here."""
+    reports it), so it gets no `register-stale`, no `register-missing` and no
+    declaration check of entry keys; the kind-tag scan and the bridging check
+    read no pin and still run for it."""
     pins = {
         namespace: identity for namespace, identity in _domain_pins(profile).items() if namespace not in disagreeing
     }

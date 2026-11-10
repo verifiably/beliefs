@@ -442,6 +442,18 @@
   {
    "name": "bound-low-above-cap",
    "pattern": "a{65536}"
+  },
+  {
+   "name": "bound-six-digits",
+   "pattern": "a{123456}"
+  },
+  {
+   "name": "bound-six-digits-small-value",
+   "pattern": "a{000001}"
+  },
+  {
+   "name": "bound-six-digits-upper",
+   "pattern": "a{1,000002}"
   }
  ]
 }

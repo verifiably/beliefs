@@ -1044,7 +1044,9 @@ class CompositeError(RecordError):
     member's template declares no edge), `composite-member-retired`,
     `composite-edge-role-many` (an edge role of the member's template is a `many`
     role, which forms no `dag` edge), `composite-member-layer`,
-    `composite-member-outside-nodes` and `composite-cyclic`."""
+    `composite-member-not-polar` (a `"null"`-form member, which asserts no
+    effect and so is no edge), `composite-member-outside-nodes` and
+    `composite-cyclic`."""
 
     def __init__(self, code: str, message: str) -> None:
         super().__init__(f"{code}: {message}")

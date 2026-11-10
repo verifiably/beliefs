@@ -192,6 +192,23 @@ class TestConstruction:
             )
         assert caught.value.code == "composite-member-layer"
 
+    def test_a_null_form_causal_member_refuses_and_forms_no_edge(self, tmp_path):
+        # `affects` admits both forms and declares an edge; a `"null"` claim
+        # asserts the effect is absent, so it is no arrow of the graph.
+        member = build_claim(
+            PROFILE,
+            operator="testing/affects",
+            roles={"cause": Referent(ENTITY, "EX:a"), "effect": Referent(OUTCOME, "EX:y")},
+            layer="causal",
+            form="null",
+        )
+        view = _corpus(tmp_path, _proposition("m", member))
+        with pytest.raises(CompositeError) as caught:
+            build_composite(
+                PROFILE, view, shape="dag", nodes=[A, C], members=["proposition:m"], snapshot=CONSULTED, slug="x"
+            )
+        assert caught.value.code == "composite-member-not-polar"
+
     def test_an_isolated_node_with_an_undeclared_sort_refuses_in_shared_classification(self, tmp_path):
         from beliefs.composite import CompositeFacet, classify
         from beliefs.contract.base import COMPOSITE_GRAMMAR

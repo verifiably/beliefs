@@ -299,6 +299,14 @@ class Claim:
                 "declaration."
             )
         template = profile.template_of(declaration)
+        # Retirement reaches a bridge through its template (R7): a bridge has its
+        # template's roles, forms and edge, so it is withdrawn with them.
+        if authoring and template is not declaration and template.retired:
+            raise WithdrawnFromAuthoring(
+                f"operator {operator!r} is withdrawn from authoring — its template {template.term!r} is retired. "
+                "It stays resolvable for decode, import and restore, which type a historical claim against the "
+                "frozen declaration."
+            )
 
         # (2) The roles present.
         if not isinstance(roles, Mapping):

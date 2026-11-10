@@ -32,7 +32,7 @@
  * after it is read.
  */
 
-import { parse as parseYaml } from "yaml";
+import { readDocument } from "./document.js";
 import { MalformedContract, SubclassRefused, UncheckableContract, UnparsedContract } from "./errors.js";
 import { IdentifierClass } from "./patterns.js";
 
@@ -558,7 +558,7 @@ export function parseFacetDeclarations(
 }
 
 export function parseBaseContract(text: string, source: string): BaseContract {
-  const document = mapping(parseYaml(text), source);
+  const document = mapping(readDocument(text, source), source);
   exactFields(
     document,
     ["contract", "version", "claim_grammar", "estimand_grammar", "composite_grammar", "kinds", "relations", "facets"],
@@ -1191,7 +1191,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
         "layers are checked against the base contract and against nothing else afterwards.",
     );
   }
-  const document = mapping(parseYaml(text), source);
+  const document = mapping(readDocument(text, source), source);
   for (const section of ["kinds", "relations"]) {
     if (section in document)
       throw new MalformedContract(`${source}: a domain contract declares no ${section}; refused`);

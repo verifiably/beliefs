@@ -73,7 +73,9 @@ __all__ = [
     "build_snapshot",
 ]
 
-SNAPSHOT_DOMAIN = "science.snapshot.v1"
+SNAPSHOT_DOMAIN = "science.snapshot.v2"
+"""v2: every binding projects with its arm's `kind` tag, so every non-empty
+snapshot's projection changed shape; the empty snapshot moves with the domain."""
 RECEIPT_DOMAIN = "science.receipt.v2"
 """v2: the position vocabulary is roles by name (`role:<name>`, `role:<name>[<i>]`),
 not argument slots; a receipt's identity is taken over its position labels."""

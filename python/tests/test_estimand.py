@@ -244,6 +244,30 @@ def test_existential_admission_two_declarations(profile, claim, unconsulted):
         build(profile, claim, unconsulted, measure=Measure(quantity=Referent(O, "EX:tpm"), scale="additive"))
 
 
+def test_a_null_form_claim_is_admitted_like_its_polar_twin(profile, claim, unconsulted):
+    # A `"null"` claim asserts the effect is absent within a margin; the
+    # estimand says what that effect is, so admission reads the same admitting
+    # set and the same declarations as for the polar claim, and pairs the
+    # estimand with the null claim's own identity, never the twin's.
+    null = build_claim(
+        profile,
+        operator="testing/affects",
+        roles={"cause": GENE_X, "effect": PHENO_Y},
+        layer="causal",
+        form="null",
+    )
+    assert claim_identity(null) != claim_identity(claim)
+    assert profile.admitting("testing/affects", null.assignment(), authoring=True) == profile.admitting(
+        "testing/affects", claim.assignment(), authoring=True
+    )
+    estimand = build(profile, null, unconsulted)
+    assert estimand.claim == claim_identity(null)
+    assert admit_estimand(profile, estimand, null, authoring=True) == frozenset({"testing"})
+    assert admit_estimand(profile, estimand, null, authoring=False) == frozenset({"testing"})
+    with pytest.raises(EstimandNotAdmitted, match="answers claim"):
+        admit_estimand(profile, estimand, claim, authoring=True)
+
+
 def test_admission_is_order_independent(base_contract, testing_document, crossing_document, unconsulted):
     # `crossing` also instantiates `affects` over `testing`'s own sorts, with the
     # declaration `affects-entity-outcome` carries: one claim, a fully admitting
