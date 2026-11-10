@@ -315,8 +315,10 @@ The value forms are `{sort, term}`, `{unit, low?, high?, low_closed, high_closed
 form. Numeric bounds are exact decimal strings on projection and `Fraction`s in
 memory. At least one bound is required; equal bounds require both ends closed.
 Authored bounds must have a finite decimal representation, and parsed mantissas
-and exponent magnitudes are limited to 4096. Time intervals use the reservation
-assignment's whole-second UTC timestamps or `open` at one end and are half-open.
+and exponent magnitudes are limited to 4096. Projection uses compact exact exponent
+spelling when fixed-point text would exceed that budget; direct construction also
+refuses a bound without an admitted exact projection. Time intervals use the
+reservation assignment's whole-second UTC timestamps or `open` at one end and are half-open.
 Rule classes are non-empty, sorted and distinct.
 
 `co_scope` compares two restriction maps dimension by dimension: `equal`,

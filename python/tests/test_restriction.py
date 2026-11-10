@@ -341,7 +341,7 @@ def test_decimal_projection_avoids_the_interpreter_integer_digit_limit():
     )
     projected = restriction_projection(value)
     assert isinstance(projected, dict)
-    assert projected["low"] == "1" * 4096 + "0" * 4096
+    assert restriction_from_projection(projected, form="interval") == value
 
 
 def test_union_normalization_is_symmetric_with_sparse_conversion_routes(profile):
@@ -352,3 +352,70 @@ def test_union_normalization_is_symmetric_with_sparse_conversion_routes(profile)
             a, b = scope(UnionRestriction(a_members)), scope(UnionRestriction(b_members))
             assert co_scope(a, b, profile) == "equal"
             assert co_scope(b, a, profile) == "equal"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1e4096",
+        "1e-4096",
+        "-1e4096",
+        "-1e-4096",
+        "1" * 4096 + "e4096",
+        "-" + "1" * 4096 + "e4096",
+        "1" * 4096 + "e-4096",
+        "-" + "1" * 4096 + "e-4096",
+        "0." + "0" * 4094 + "1e-4096",
+        "-0." + "0" * 4094 + "1e-4096",
+        "." + "0" * 4095 + "1e-4096",
+        "1." + "1" * 4095 + "e-4096",
+        "-1." + "1" * 4095 + "e-4096",
+    ],
+    ids=[
+        "large",
+        "tiny",
+        "negative-large",
+        "negative-tiny",
+        "large-mantissa-large-exponent",
+        "negative-large-mantissa-large-exponent",
+        "large-mantissa-tiny-exponent",
+        "negative-large-mantissa-tiny-exponent",
+        "combined-tiny",
+        "negative-combined-tiny",
+        "smallest-admitted",
+        "fractional-significand",
+        "negative-fractional-significand",
+    ],
+)
+def test_every_accepted_decimal_boundary_round_trips(text):
+    projected = {"unit": "testing/hour", "low": text, "low_closed": True, "high_closed": False}
+    parsed = restriction_from_projection(projected, form="interval")
+    emitted = restriction_projection(parsed)
+    assert restriction_from_projection(emitted, form="interval") == parsed
+    assert isinstance(parsed, IntervalRestriction)
+    assert parsed.low == Fraction(text)
+
+
+@pytest.mark.parametrize("bound", [Fraction(10**8191), Fraction(1, 10**8192), -Fraction(1, 10**8192)])
+def test_direct_constructor_admits_representable_decimal_extremes(bound):
+    value = IntervalRestriction("testing/hour", bound, None, True, False)
+    assert restriction_from_projection(restriction_projection(value), form="interval") == value
+
+
+@pytest.mark.parametrize(
+    "bound",
+    [
+        Fraction(10**8192),
+        Fraction(1, 10**8193),
+        Fraction(10**4097 - 1),
+        -Fraction(10**4097 - 1),
+        Fraction(1, 2**8193),
+        Fraction(1, 5**8193),
+    ],
+)
+@pytest.mark.parametrize("side", ["low", "high"])
+def test_direct_constructor_refuses_bounds_without_an_admitted_projection(bound, side):
+    with pytest.raises(MalformedRestriction):
+        IntervalRestriction(
+            "testing/hour", bound if side == "low" else None, bound if side == "high" else None, True, False
+        )

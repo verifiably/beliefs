@@ -35,6 +35,10 @@ __all__ = [
 _TERM = re.compile(r"[a-z][a-z0-9-]*/[a-z][a-z0-9-]*")
 _RULE = re.compile(r"classification-rule:[0-9a-f]{64}")
 _DECIMAL = re.compile(r"[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?")
+_MAX_DECIMAL_DIGITS = 4096
+_MAX_DECIMAL_EXPONENT = 4096
+_MAX_DECIMAL_PLACES = _MAX_DECIMAL_DIGITS + _MAX_DECIMAL_EXPONENT
+_MAX_BOUND_COMPONENT = 10**_MAX_DECIMAL_PLACES
 
 
 def _text(value: object, where: str) -> str:
@@ -56,9 +60,13 @@ def _decimal_places(value: Fraction) -> int:
     while denominator % 2 == 0:
         denominator //= 2
         twos += 1
+        if twos > _MAX_DECIMAL_PLACES:
+            raise MalformedRestriction("interval bound exceeds the representable decimal precision")
     while denominator % 5 == 0:
         denominator //= 5
         fives += 1
+        if fives > _MAX_DECIMAL_PLACES:
+            raise MalformedRestriction("interval bound exceeds the representable decimal precision")
     if denominator != 1:
         raise MalformedRestriction("an authored interval bound must have an exact finite decimal projection")
     return max(twos, fives)
@@ -95,7 +103,7 @@ class IntervalRestriction:
             if bound is not None:
                 if not isinstance(bound, Fraction):
                     raise MalformedRestriction("interval bounds must be Fractions")
-                _decimal_places(bound)
+                _decimal_text(bound)
         if self.low is None and self.high is None:
             raise MalformedRestriction("an interval needs at least one bound")
         if (
@@ -160,12 +168,42 @@ RestrictionMap: TypeAlias = Mapping[str, Restriction]
 CoScope: TypeAlias = Literal["equal", "narrower", "broader", "overlapping", "disjoint", "unknown"]
 
 
+def _within_decimal_budget(text: str) -> bool:
+    mantissa, _, exponent = text.lower().partition("e")
+    exponent_digits = exponent.lstrip("+-").lstrip("0") or "0"
+    limit = str(_MAX_DECIMAL_EXPONENT)
+    return len(mantissa.lstrip("+-").replace(".", "")) <= _MAX_DECIMAL_DIGITS and (
+        len(exponent_digits) < len(limit) or (len(exponent_digits) == len(limit) and exponent_digits <= limit)
+    )
+
+
 def _decimal_text(value: Fraction) -> str:
+    # Every admitted spelling bounds both components and decimal places by these limits.
+    if abs(value.numerator) >= _MAX_BOUND_COMPONENT or value.denominator > _MAX_BOUND_COMPONENT:
+        raise MalformedRestriction("interval bound has no projection within the decimal resource budget")
     places = _decimal_places(value)
     scaled = abs(value.numerator) * (10**places // value.denominator)
-    digits = str(Decimal(scaled)).zfill(places + 1)
-    text = digits if not places else digits[:-places] + "." + digits[-places:]
-    return ("-" if value < 0 else "") + text
+    digits = str(Decimal(scaled))
+    padded = digits.zfill(places + 1)
+    fixed = padded if not places else padded[:-places] + "." + padded[-places:]
+    sign = "-" if value < 0 else ""
+    if _within_decimal_budget(fixed):
+        return sign + fixed
+
+    significant = digits.rstrip("0")
+    exponent = len(digits) - len(significant) - places
+    wire_exponent = max(-_MAX_DECIMAL_EXPONENT, min(exponent, _MAX_DECIMAL_EXPONENT))
+    point = len(significant) + exponent - wire_exponent
+    if point <= 0:
+        coefficient = "." + "0" * -point + significant
+    elif point >= len(significant):
+        coefficient = significant + "0" * (point - len(significant))
+    else:
+        coefficient = significant[:point] + "." + significant[point:]
+    text = f"{sign}{coefficient}e{wire_exponent}"
+    if not _within_decimal_budget(text):
+        raise MalformedRestriction("interval bound has no projection within the decimal resource budget")
+    return text
 
 
 def restriction_projection(value: Restriction) -> dict[str, object] | list[dict[str, object]]:
@@ -201,13 +239,7 @@ def _bound(value: object) -> Fraction:
     if not isinstance(value, str) or _DECIMAL.fullmatch(value) is None:
         raise MalformedRestriction("interval bounds must be decimal strings")
     # Match the contract coefficient budget before allocating a rational.
-    mantissa, _, exponent = value.lower().partition("e")
-    exponent_digits = exponent.lstrip("+-").lstrip("0") or "0"
-    if (
-        len(mantissa.lstrip("+-").replace(".", "")) > 4096
-        or len(exponent_digits) > 4
-        or (len(exponent_digits) == 4 and exponent_digits > "4096")
-    ):
+    if not _within_decimal_budget(value):
         raise MalformedRestriction("interval bound exceeds the decimal digit or exponent budget (4096)")
     try:
         return Fraction(Decimal(value))
