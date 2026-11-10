@@ -3,9 +3,12 @@
 One test per typed-estimand guarantee,
 composed from the unit tests' own constructions rather
 than from a second set — the `corpora` fixture is `test_facet_acceptance.py`'s,
-re-pointed at the profile whose domain declares `testing/affects` and its
-`estimands:` entry, because a stored spec restores only under the profile that
-wrote it.
+re-pointed at the profile whose domain declares `testing/affects`, its
+instantiations and their `estimands:` entries, because a stored spec restores
+only under the profile that wrote it. Under base v2 a contrast names a role
+(and, for a `many` role, a member), and the declaration that admits an estimand
+is keyed by the typed address of an instantiation or bridge that admits the
+claim (R12).
 
 The reproduction test is the exception by design: the mm30 reproduction's re-run is the driver's,
 executed once against the corpus on the certified volume, and this row reads
@@ -39,21 +42,24 @@ from fixtures_cut4 import raw_write, reopen
 from profiles import pins_for
 from test_audit import assessment_closure
 from test_belief import scenario
-from test_estimand import E, I, L, M, O, parts
+from test_estimand import EV, PR, E, I, L, M, O, parts
 
 from beliefs import stored
 from beliefs.assess import AssessmentFinding, build_assessment
 from beliefs.audit import NO_EVIDENCE, audit_corpus
 from beliefs.belief import Belief, evaluate
-from beliefs.claim import Qualifier, Referent, build_claim
+from beliefs.claim import Member, Qualifier, Referent, build_claim
 from beliefs.contract import domain, parse_base_contract
 from beliefs.decode import applicability_from_stored, estimand_from_stored
 from beliefs.errors import (
     ContractDisagreement,
     ContrastRefused,
     ControlRefused,
+    DimensionNotApplicabilitySide,
+    DimensionNotClaimSide,
     EstimandError,
     EstimandFragmentRefused,
+    EstimandNotAdmitted,
     EstimandSortMismatch,
     ImportRefused,
     MalformedContract,
@@ -218,63 +224,80 @@ def test_the_estimands_structure_is_kernel_owned_and_closed(corpora):
 
 
 def test_estimands_is_domain_issued_operator_bound_and_succession_governed(corpora):
-    """The declaration is the domain's, keyed by an operator it declares,
-    and governed by the four succession rules the base contract already carries."""
+    """The declaration is the domain's, keyed by the typed address of an
+    instantiation or bridge it declares (P12), its level sorts keyed by that
+    operator's role names (P8), and governed by the succession rules the base
+    contract already carries."""
     writer = corpora()
     assert writer.read_view is not None
     contract = _parse_testing(_testing_document())
-    assert set(contract.estimands) == {"affects", "correlates-with"}
-    assert TESTING_PROFILE.estimand("testing/affects").level_sorts == {"0": "testing/level"}
+    assert set(contract.estimands) == {
+        "instantiation:affects-entity-outcome",
+        "instantiation:affects-entity-entity",
+        "instantiation:correlates-event-product",
+        "bridge:promotes",
+        "instantiation:promotes",
+    }
+    declared = TESTING_PROFILE.estimands["instantiation:testing/affects-entity-outcome"]
+    assert declared.level_sorts == {"cause": "testing/level"}
 
     undeclared = _testing_document()
-    undeclared["estimands"]["regulates"] = undeclared["estimands"]["affects"]
+    undeclared["estimands"]["instantiation:regulates"] = undeclared["estimands"]["instantiation:affects-entity-outcome"]
     with pytest.raises(MalformedContract, match="regulates"):
         _parse_testing(undeclared)
+    # A template is not a target: only an instantiation or a bridge admits a claim.
+    untyped = _testing_document()
+    untyped["estimands"]["template:affects"] = untyped["estimands"]["instantiation:affects-entity-outcome"]
+    with pytest.raises(MalformedContract, match="not a typed target"):
+        _parse_testing(untyped)
 
     outside = _testing_document()
-    outside["estimands"]["affects"]["level_sorts"] = {"2": "level"}
-    with pytest.raises(MalformedContract, match="Fin"):
-        _parse_testing(outside)
+    outside["estimands"]["instantiation:affects-entity-outcome"]["level_sorts"] = {"dose": "level"}
+    with pytest.raises(ProfileError, match="'dose'"):
+        compile_profile(shipped_base_contract(), [_parse_testing(outside)])
 
-    not_a_slot = _testing_document()
-    not_a_slot["estimands"]["affects"]["level_sorts"] = {"first": "level"}
-    with pytest.raises(MalformedContract, match="slot index"):
-        _parse_testing(not_a_slot)
+    not_a_role = _testing_document()
+    not_a_role["estimands"]["instantiation:affects-entity-outcome"]["level_sorts"] = {"0": "level"}
+    with pytest.raises(MalformedContract, match="level_sorts"):
+        _parse_testing(not_a_role)
 
-    nullary = _testing_document()
-    nullary["operators"]["holds"] = {
-        "arity": 0,
-        "arg_sorts": [],
-        "sign_apt": False,
-        "layers": ["structural"],
-        "dimensions": [],
-    }
-    nullary["estimands"]["holds"] = {
+    # A roleless template compiles, and its estimand declaration with it, but an
+    # estimand over its claim has no role to contrast and is never built.
+    roleless = _testing_document()
+    roleless["templates"]["holds"] = {"roles": {}, "sign_apt": False, "layers": ["structural"], "forms": ["polar"]}
+    roleless["instantiations"]["holds-nothing"] = {"template": "holds", "roles": {}}
+    roleless["estimands"]["instantiation:holds-nothing"] = {
         "level_sorts": {},
         "measure_sort": "measure",
         "identification_sort": "identification",
         "conditioning_sort": "entity",
     }
-    with pytest.raises(MalformedContract, match="arity 0"):
-        _parse_testing(nullary)
+    roleless_profile = compile_profile(shipped_base_contract(), [_parse_testing(roleless)])
+    holds = build_claim(roleless_profile, operator="testing/holds", roles={}, layer="structural")
+    with pytest.raises(ContrastRefused, match="role 'cause'"):
+        _built(holds, profile=roleless_profile)
 
     unresolved = _testing_document()
-    unresolved["estimands"]["affects"]["measure_sort"] = "biology/assay"
+    unresolved["estimands"]["instantiation:affects-entity-outcome"]["measure_sort"] = "biology/assay"
     with pytest.raises(MalformedContract, match="namespace 'biology'"):
         compile_profile(shipped_base_contract(), [_parse_testing(unresolved)])
 
-    # Succession: adding an entry for an operator that had none is accepted,
-    # and the operator's own projection does not move (base contract unamended).
+    def successor_of(predecessor):
+        document = _testing_document()
+        document["lineage"] = {"successor": predecessor.content_identity}
+        document["version"] = predecessor.version + 1
+        return document
+
+    # Succession: adding an entry for an instantiation that had none is accepted,
+    # and the instantiation's own projection does not move (base contract unamended).
     prior_document = _testing_document()
-    del prior_document["estimands"]["correlates-with"]
+    del prior_document["estimands"]["instantiation:correlates-event-product"]
     prior = _parse_testing(prior_document)
-    successor_document = _testing_document()
-    successor_document["lineage"] = {"successor": prior.content_identity}
-    successor = _parse_testing(successor_document, predecessor=prior)
-    assert "correlates-with" in successor.estimands
+    successor = _parse_testing(successor_of(prior), predecessor=prior)
+    assert "instantiation:correlates-event-product" in successor.estimands
     assert (
-        successor.operators["correlates-with"].schema_projection()
-        == prior.operators["correlates-with"].schema_projection()
+        successor.instantiations["correlates-event-product"].schema_projection()
+        == prior.instantiations["correlates-event-product"].schema_projection()
     )
 
     settled = _parse_testing(_testing_document())
@@ -284,81 +307,96 @@ def test_estimands_is_domain_issued_operator_bound_and_succession_governed(corpo
         ("identification_sort", "entity"),
         ("conditioning_sort", "outcome"),
     ):
-        changed = _testing_document()
-        changed["lineage"] = {"successor": settled.content_identity}
-        changed["estimands"]["affects"][member] = value
-        with pytest.raises(SuccessionViolation, match="estimand:affects"):
+        changed = successor_of(settled)
+        changed["estimands"]["instantiation:affects-entity-outcome"][member] = value
+        with pytest.raises(SuccessionViolation, match="estimand:instantiation:affects-entity-outcome"):
             _parse_testing(changed, predecessor=settled)
 
-    dropped = _testing_document()
-    dropped["lineage"] = {"successor": settled.content_identity}
-    del dropped["estimands"]["affects"]
-    with pytest.raises(SuccessionViolation, match="estimand:affects"):
+    dropped = successor_of(settled)
+    del dropped["estimands"]["instantiation:affects-entity-outcome"]
+    with pytest.raises(SuccessionViolation, match="estimand:instantiation:affects-entity-outcome"):
         _parse_testing(dropped, predecessor=settled)
 
-    retired = _testing_document()
-    retired["lineage"] = {"successor": settled.content_identity}
-    retired["operators"]["affects"]["retired"] = True
-    assert "affects" in _parse_testing(retired, predecessor=settled).estimands
+    retired = successor_of(settled)
+    retired["instantiations"]["affects-entity-outcome"]["retired"] = True
+    assert "instantiation:affects-entity-outcome" in _parse_testing(retired, predecessor=settled).estimands
 
     # Negative: key order is inert in both the projection and the identity.
-    two_slots = _testing_document()
-    two_slots["estimands"]["affects"]["level_sorts"] = {"1": "level", "0": "level"}
-    reordered = copy.deepcopy(two_slots)
-    reordered["estimands"]["affects"]["level_sorts"] = {"0": "level", "1": "level"}
+    two_roles = _testing_document()
+    two_roles["estimands"]["bridge:promotes"]["level_sorts"] = {"effect": "outcome", "cause": "level"}
+    reordered = copy.deepcopy(two_roles)
+    reordered["estimands"]["bridge:promotes"]["level_sorts"] = {"cause": "level", "effect": "outcome"}
     assert (
-        _parse_testing(two_slots).estimands["affects"].schema_projection()
-        == _parse_testing(reordered).estimands["affects"].schema_projection()
+        _parse_testing(two_roles).estimands["bridge:promotes"].schema_projection()
+        == _parse_testing(reordered).estimands["bridge:promotes"].schema_projection()
     )
-    assert _parse_testing(two_slots).content_identity == _parse_testing(reordered).content_identity
+    assert _parse_testing(two_roles).content_identity == _parse_testing(reordered).content_identity
 
 
 def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(corpora):
     """Every claim-grammar refusal names its position, the fragment refuses rather
-    than flattens, and `claim` and `operator` come from the `Claim` handed in."""
+    than flattens, and `claim` and `operator` come from the `Claim` handed in.
+    Under R12 a field no admitting declaration types is `EstimandNotAdmitted`,
+    naming the position; a field whose own shape is wrong keeps its refusal."""
     writer = corpora()
     other_claim = build_claim(
         TESTING_PROFILE,
         operator="testing/affects",
-        args=(Referent(E, "EX:gene-z"), Referent(O, "EX:pheno-y")),
+        roles={"cause": Referent(E, "EX:gene-z"), "effect": Referent(O, "EX:pheno-y")},
         layer="causal",
         polarity="positive",
     )
 
     for make, error, position in (
         (
-            lambda: {"contrast": LevelsContrast(slot=2, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))},
+            lambda: {
+                "contrast": LevelsContrast(
+                    role="dose", member=None, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b")
+                )
+            },
             ContrastRefused,
-            "slot 2",
+            "role 'dose'",
         ),
         (
-            lambda: {"contrast": LevelsContrast(slot=1, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b"))},
-            ContrastRefused,
-            "no level sort",
-        ),
-        (
-            lambda: {"contrast": LevelsContrast(slot=0, baseline=Referent(E, "EX:a"), comparison=Referent(L, "EX:b"))},
-            EstimandSortMismatch,
+            lambda: {
+                "contrast": LevelsContrast(
+                    role="effect", member=None, baseline=Referent(L, "EX:a"), comparison=Referent(L, "EX:b")
+                )
+            },
+            EstimandNotAdmitted,
             "contrast.baseline",
         ),
         (
-            lambda: {"contrast": ContinuousContrast(slot=0, quantity=Referent(E, "EX:q"), increment=Decimal(1))},
+            lambda: {
+                "contrast": LevelsContrast(
+                    role="cause", member=None, baseline=Referent(E, "EX:a"), comparison=Referent(L, "EX:b")
+                )
+            },
             EstimandSortMismatch,
+            "share a sort",
+        ),
+        (
+            lambda: {
+                "contrast": ContinuousContrast(
+                    role="cause", member=None, quantity=Referent(E, "EX:q"), increment=Decimal(1)
+                )
+            },
+            EstimandNotAdmitted,
             "contrast.quantity",
         ),
         (
             lambda: {"measure": Measure(quantity=Referent(E, "EX:tpm"), scale="additive")},
-            EstimandSortMismatch,
+            EstimandNotAdmitted,
             "measure.quantity",
         ),
         (
             lambda: {"control": Control(identification=Referent(E, "EX:obs"), conditioning=())},
-            EstimandSortMismatch,
+            EstimandNotAdmitted,
             "control.identification",
         ),
         (
             lambda: {"control": Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(O, "EX:c"),))},
-            EstimandSortMismatch,
+            EstimandNotAdmitted,
             "control.conditioning[0]",
         ),
     ):
@@ -366,9 +404,13 @@ def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(
             _build_with(make())
         assert position in str(caught.value)
 
-    # A slot the operator declares no level sort for admits only a continuous
+    # A role no admitting declaration gives a level sort admits only a continuous
     # contrast; the continuous one there builds.
-    assert _built(contrast=ContinuousContrast(slot=1, quantity=Referent(M, "EX:log2-tpm"), increment=Decimal(1)))
+    assert _built(
+        contrast=ContinuousContrast(
+            role="effect", member=None, quantity=Referent(M, "EX:log2-tpm"), increment=Decimal(1)
+        )
+    )
 
     with pytest.raises(ControlRefused, match="duplicate"):
         _built(
@@ -377,35 +419,47 @@ def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(
             )
         )
     with pytest.raises(ContrastRefused, match="increment"):
-        _built(contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(0)))
+        _built(
+            contrast=ContinuousContrast(role="cause", member=None, quantity=Referent(M, "EX:q"), increment=Decimal(0))
+        )
     with pytest.raises(ContrastRefused, match="increment"):
-        _built(contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=Decimal(-1)))
+        _built(
+            contrast=ContinuousContrast(role="cause", member=None, quantity=Referent(M, "EX:q"), increment=Decimal(-1))
+        )
     with pytest.raises(ContrastRefused, match="Decimal"):
-        _built(contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:q"), increment=1.0))  # type: ignore[arg-type]
+        _built(
+            contrast=ContinuousContrast(role="cause", member=None, quantity=Referent(M, "EX:q"), increment=1.0)  # type: ignore[arg-type]
+        )
     with pytest.raises(ReferenceRefused, match="Decimal"):
         _built(reference=0.0)  # type: ignore[arg-type]
     with pytest.raises(ReferenceRefused, match="multiplicative"):
         _built(measure=Measure(quantity=Referent(M, "EX:hr"), scale="multiplicative"), reference=Decimal(0))
-    with pytest.raises(ProfileError, match="declares no estimand"):
+    # `measured-by-entity-method` admits this claim and declares no estimand.
+    with pytest.raises(EstimandNotAdmitted, match="declares an estimand"):
         _built(
             build_claim(
                 TESTING_PROFILE,
-                operator="testing/subtype-of",
-                args=(Referent(E, "EX:a"), Referent(E, "EX:b")),
-                layer="structural",
-            )
+                operator="testing/measured-by",
+                roles={"subject": Referent(E, "EX:a"), "instrument": Referent("testing/method", "EX:b")},
+                layer="methodological",
+            ),
+            contrast=LevelsContrast(
+                role="subject", member=None, baseline=Referent(L, "EX:ndmm"), comparison=Referent(L, "EX:pd")
+            ),
         )
 
     # The five outcomes stay distinct: `not-member` refuses, `not-consulted`
     # mints with a receipt, and the minted value is the same either way.
-    binding = TESTING_PROFILE.sorts[L].vocabulary
+    binding = TESTING_PROFILE.sorts[L].binding
     readable = build_snapshot(readable={binding: ["EX:ndmm", "EX:pd", "EX:tpm", "EX:observational"]})
     member_estimand, receipt = build_estimand(TESTING_PROFILE, TESTING_CLAIM, snapshot=readable, **parts())
     assert receipt.outcomes["estimand:contrast.baseline"] is TermOutcome.MEMBER
     with pytest.raises(UnboundReferent, match="estimand:contrast.comparison"):
         _built(
             snapshot=readable,
-            contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:ndmm"), comparison=Referent(L, "EX:mgus")),
+            contrast=LevelsContrast(
+                role="cause", member=None, baseline=Referent(L, "EX:ndmm"), comparison=Referent(L, "EX:mgus")
+            ),
         )
     unconsulted, unconsulted_receipt = build_estimand(TESTING_PROFILE, TESTING_CLAIM, snapshot=UNCONSULTED, **parts())
     assert all(outcome is TermOutcome.NOT_CONSULTED for outcome in unconsulted_receipt.outcomes.values())
@@ -442,10 +496,13 @@ def test_an_estimand_is_unconstructible_outside_its_claims_operator_declaration(
 
 def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(corpora):
     """The map is the claim grammar's flat fragment over the operator's own
-    dimensions, comparable in both directions, and read by no P row."""
+    applicability-side dimensions, comparable in both directions, and read by no
+    P row. Under base v2 a dimension is placed on one side: a claim-side
+    dimension is no applicability restriction, and the converse, so an
+    applicability map and a claim's qualifiers never share a dimension."""
     writer = corpora()
     assert writer.read_view is not None
-    adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+    six_months = typed_applicability({"testing/follow-up": Qualifier("generic", Referent(L, "EX:six-months"))})
     everyone = typed_applicability()
 
     with pytest.raises(UndeclaredDimension):
@@ -459,12 +516,19 @@ def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(c
         build_applicability(
             TESTING_PROFILE,
             TESTING_CLAIM,
-            {"testing/population": Qualifier("generic", Referent(E, "EX:x"))},
+            {"testing/follow-up": Qualifier("generic", Referent(E, "EX:x"))},
+            snapshot=UNCONSULTED,
+        )
+    with pytest.raises(DimensionNotApplicabilitySide, match="testing/population"):
+        build_applicability(
+            TESTING_PROFILE,
+            TESTING_CLAIM,
+            {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))},
             snapshot=UNCONSULTED,
         )
     with pytest.raises(UndeclaredDimension):
         applicability_from_stored(
-            {"testing/regime": applicability_projection(adults)["testing/population"]},
+            {"testing/regime": applicability_projection(six_months)["testing/follow-up"]},
             profile=TESTING_PROFILE,
             operator="testing/affects",
         )
@@ -472,32 +536,41 @@ def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(c
     # dimension, and the stored form refuses anything but one qualifier body.
     with pytest.raises(MalformedWireEstimand):
         applicability_from_stored(
-            {"testing/population": [applicability_projection(adults)["testing/population"]] * 2},
+            {"testing/follow-up": [applicability_projection(six_months)["testing/follow-up"]] * 2},
             profile=TESTING_PROFILE,
             operator="testing/affects",
         )
-    cohort = TESTING_PROFILE.sorts["testing/cohort"].vocabulary
+    level = TESTING_PROFILE.sorts[L].binding
     with pytest.raises(UnboundReferent, match="restriction"):
         build_applicability(
             TESTING_PROFILE,
             TESTING_CLAIM,
-            {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:absent"))},
-            snapshot=build_snapshot(readable={cohort: ["EX:adults"]}),
+            {"testing/follow-up": Qualifier("generic", Referent(L, "EX:absent"))},
+            snapshot=build_snapshot(readable={level: ["EX:six-months"]}),
         )
 
     assert applicability_projection(everyone) == {}
-    assert co_scoped(adults, adults) and not co_scoped(adults, everyone)
-    assert not co_scoped(everyone, adults)  # decidable in both directions
+    assert co_scoped(six_months, six_months) and not co_scoped(six_months, everyone)
+    assert not co_scoped(everyone, six_months)  # decidable in both directions
     qualified = build_claim(
         TESTING_PROFILE,
         operator="testing/affects",
-        args=TESTING_CLAIM.args,
+        roles=TESTING_CLAIM.roles,
         qualifiers={"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))},
         layer="causal",
         polarity="positive",
     )
-    assert co_scoped(adults, qualified.qualifiers)
-    assert not co_scoped(everyone, qualified.qualifiers)
+    with pytest.raises(DimensionNotClaimSide, match="testing/follow-up"):
+        build_claim(
+            TESTING_PROFILE,
+            operator="testing/affects",
+            roles=TESTING_CLAIM.roles,
+            qualifiers={"testing/follow-up": Qualifier("generic", Referent(L, "EX:six-months"))},
+            layer="causal",
+            polarity="positive",
+        )
+    assert co_scoped(everyone, TESTING_CLAIM.qualifiers)
+    assert not co_scoped(six_months, qualified.qualifiers) and not co_scoped(everyone, qualified.qualifiers)
 
     # Change only `applicability` and the belief value stands
     # while the digest moves — and no mismatch finding exists to be emitted.
@@ -509,7 +582,7 @@ def test_applicability_is_a_qualifier_map_over_the_target_operators_dimensions(c
     kwargs = scenario()
     first, second = kwargs["records"].assessments
     moved = evaluate(
-        **scenario(records=replace(kwargs["records"], assessments=(replace(first, applicability=adults), second)))
+        **scenario(records=replace(kwargs["records"], assessments=(replace(first, applicability=six_months), second)))
     )
     assert isinstance(base, Belief) and isinstance(moved, Belief)
     assert moved.value == base.value
@@ -640,7 +713,7 @@ def test_structural_match_is_checked_at_the_write_boundary_and_under_audit(corpo
     other_claim = build_claim(
         TESTING_PROFILE,
         operator="testing/affects",
-        args=(Referent(E, "EX:gene-z"), Referent(O, "EX:pheno-y")),
+        roles={"cause": Referent(E, "EX:gene-z"), "effect": Referent(O, "EX:pheno-y")},
         layer="causal",
         polarity="positive",
     )
@@ -667,11 +740,13 @@ def test_structural_match_is_checked_at_the_write_boundary_and_under_audit(corpo
         )
 
     # The inconsistent stored pair: the target's true claim identity beside a
-    # different declared operator, everything else correctly typed under it.
+    # different declared operator, everything else correctly typed under it
+    # (`correlates-event-product` is the `correlates-with` instantiation that
+    # declares an estimand).
     correlates = build_claim(
         TESTING_PROFILE,
         operator="testing/correlates-with",
-        args=(Referent(E, "EX:gene-x"), Referent(O, "EX:pheno-y")),
+        roles={"parties": [Member(Referent(EV, "EX:e-1")), Member(Referent(PR, "EX:p-1"))]},
         layer="statistical",
         polarity="positive",
     )
@@ -679,7 +754,7 @@ def test_structural_match_is_checked_at_the_write_boundary_and_under_audit(corpo
         TESTING_PROFILE,
         correlates,
         snapshot=UNCONSULTED,
-        contrast=ContinuousContrast(0, Referent(M, "EX:tpm"), Decimal(1)),
+        contrast=ContinuousContrast("parties", Referent(EV, "EX:e-1"), Referent(M, "EX:tpm"), Decimal(1)),
         measure=Measure(Referent(M, "EX:tpm"), "additive"),
         reference=Decimal(0),
         control=Control(Referent(I, "EX:observational"), ()),
@@ -772,8 +847,14 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
             freeze(spec_draft(estimand=typed_estimand(**overrides)), held_rules=spec_rules()).identity != base_identity
         )
 
-    assert moved(contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm")))
-    assert moved(contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:tpm"), increment=Decimal(1)))
+    assert moved(
+        contrast=LevelsContrast(
+            role="cause", member=None, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm")
+        )
+    )
+    assert moved(
+        contrast=ContinuousContrast(role="cause", member=None, quantity=Referent(M, "EX:tpm"), increment=Decimal(1))
+    )
     assert moved(measure=Measure(quantity=Referent(M, "EX:other"), scale="additive"))
     assert moved(measure=Measure(quantity=Referent(M, "EX:tpm"), scale="multiplicative"), reference=Decimal(1))
     assert moved(reference=Decimal("0.5"))
@@ -784,7 +865,7 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
     other_claim = build_claim(
         TESTING_PROFILE,
         operator="testing/affects",
-        args=(Referent(E, "EX:gene-z"), Referent(O, "EX:pheno-y")),
+        roles={"cause": Referent(E, "EX:gene-z"), "effect": Referent(O, "EX:pheno-y")},
         layer="causal",
         polarity="positive",
     )
@@ -796,7 +877,9 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
         return freeze(
             spec_draft(
                 estimand=typed_estimand(
-                    contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:tpm"), increment=increment)
+                    contrast=ContinuousContrast(
+                        role="cause", member=None, quantity=Referent(M, "EX:tpm"), increment=increment
+                    )
                 )
             ),
             held_rules=spec_rules(),
@@ -806,8 +889,8 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
     assert continuous(Decimal(1)) == continuous(Decimal("1.0"))
 
     # `applicability` is a member; conditioning order is not.
-    adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
-    assert freeze(spec_draft(applicability=adults), held_rules=spec_rules()).identity != base_identity
+    six_months = typed_applicability({"testing/follow-up": Qualifier("generic", Referent(L, "EX:six-months"))})
+    assert freeze(spec_draft(applicability=six_months), held_rules=spec_rules()).identity != base_identity
     forwards = typed_estimand(
         control=Control(identification=Referent(I, "EX:obs"), conditioning=(Referent(E, "EX:c1"), Referent(E, "EX:c2")))
     )
@@ -847,7 +930,7 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
 
     reference = assessment()
     assert reference.facet_digest() != assessment(estimand=typed_estimand(reference=Decimal(1))).facet_digest()
-    assert reference.facet_digest() != assessment(applicability=adults).facet_digest()
+    assert reference.facet_digest() != assessment(applicability=six_months).facet_digest()
     assert reference.facet_digest() != assessment(estimate=Decimal("0.4")).facet_digest()
     assert (
         reference.facet_digest()
@@ -859,7 +942,7 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
     first, second = kwargs["records"].assessments
     for override in (
         {"estimand": typed_estimand(reference=Decimal(1))},
-        {"applicability": adults},
+        {"applicability": six_months},
         {"estimate": Decimal("0.4")},
         {"estimate": Decimal("0.4"), "uncertainty": StandardError(Decimal("0.1"))},
     ):
@@ -877,8 +960,9 @@ def test_every_member_enters_identity_and_only_members_do(corpora):
     editorial_claim = build_claim(
         editorial_profile,
         operator="testing/affects",
-        args=TESTING_CLAIM.args,
+        roles=TESTING_CLAIM.roles,
         layer="causal",
+        form="polar",
         polarity="positive",
     )
     assert claim_identity(editorial_claim) == claim_identity(TESTING_CLAIM)
@@ -899,12 +983,12 @@ def test_the_estimands_contracts_are_consulted(corpora):
         predecessor=None,
     )
     document = _testing_document()
-    document["estimands"]["affects"]["measure_sort"] = "measures/assay"
+    document["estimands"]["instantiation:affects-entity-outcome"]["measure_sort"] = "measures/assay"
     measured = compile_profile(shipped_base_contract(), [_parse_testing(document), measures])
     claim = build_claim(
         measured,
         operator="testing/affects",
-        args=TESTING_CLAIM.args,
+        roles=TESTING_CLAIM.roles,
         qualifiers={},
         polarity="positive",
         layer="causal",
@@ -913,7 +997,7 @@ def test_the_estimands_contracts_are_consulted(corpora):
         measured,
         claim,
         snapshot=UNCONSULTED,
-        contrast=LevelsContrast(0, Referent(L, "EX:a"), Referent(L, "EX:b")),
+        contrast=LevelsContrast("cause", None, Referent(L, "EX:a"), Referent(L, "EX:b")),
         measure=Measure(Referent("measures/assay", "EX:m"), "additive"),
         reference=Decimal(0),
         control=Control(Referent(I, "EX:obs"), ()),
@@ -924,7 +1008,7 @@ def test_the_estimands_contracts_are_consulted(corpora):
     )
     with_estimand = consulted_contracts(
         claims={"p": claim},
-        estimands={"a1": estimand},
+        estimands={"a1": ("p", estimand)},
         profile=measured,
         node_corpus={},
         pins={"c1": pins},
@@ -941,7 +1025,7 @@ def test_the_estimands_contracts_are_consulted(corpora):
     with pytest.raises(ContractDisagreement, match="'measures' is consulted but pinned by no corpus"):
         consulted_contracts(
             claims={"p": claim},
-            estimands={"a1": estimand},
+            estimands={"a1": ("p", estimand)},
             profile=measured,
             node_corpus={},
             pins={"c1": unpinned},
@@ -962,7 +1046,7 @@ def test_commensuration_is_total_decidable_and_unread_by_v1(corpora):
     other_claim = build_claim(
         TESTING_PROFILE,
         operator="testing/affects",
-        args=(Referent(E, "EX:gene-z"), Referent(O, "EX:pheno-y")),
+        roles={"cause": Referent(E, "EX:gene-z"), "effect": Referent(O, "EX:pheno-y")},
         layer="causal",
         polarity="positive",
     )
@@ -972,7 +1056,11 @@ def test_commensuration_is_total_decidable_and_unread_by_v1(corpora):
     assert commensurable(here, identification) is True
 
     for other in (
-        _built(contrast=LevelsContrast(slot=0, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm"))),
+        _built(
+            contrast=LevelsContrast(
+                role="cause", member=None, baseline=Referent(L, "EX:pd"), comparison=Referent(L, "EX:ndmm")
+            )
+        ),
         _built(measure=Measure(quantity=Referent(M, "EX:other"), scale="additive")),
         _built(reference=Decimal("0.5")),
         _built(control=Control(identification=Referent(I, "EX:observational"), conditioning=(Referent(E, "EX:c"),))),
@@ -980,14 +1068,18 @@ def test_commensuration_is_total_decidable_and_unread_by_v1(corpora):
     ):
         assert commensurable(here, other) is False
 
-    per_unit = _built(contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:tpm"), increment=Decimal(1)))
-    per_ten = _built(contrast=ContinuousContrast(slot=0, quantity=Referent(M, "EX:tpm"), increment=Decimal(10)))
+    per_unit = _built(
+        contrast=ContinuousContrast(role="cause", member=None, quantity=Referent(M, "EX:tpm"), increment=Decimal(1))
+    )
+    per_ten = _built(
+        contrast=ContinuousContrast(role="cause", member=None, quantity=Referent(M, "EX:tpm"), increment=Decimal(10))
+    )
     assert commensurable(per_unit, per_ten) is False
     assert commensurable(per_unit, per_unit) is True
 
-    adults = typed_applicability({"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))})
+    six_months = typed_applicability({"testing/follow-up": Qualifier("generic", Referent(L, "EX:six-months"))})
     everyone = typed_applicability()
-    assert commensurable(_built(), _built()) is True and co_scoped(adults, everyone) is False
+    assert commensurable(_built(), _built()) is True and co_scoped(six_months, everyone) is False
 
     # Both are exposed from `beliefs.estimand`, both are total, and neither is
     # named anywhere v1 reads.

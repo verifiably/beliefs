@@ -14,7 +14,7 @@ from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as seed_pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
 from durable_fixture import pinned
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
@@ -545,12 +545,13 @@ def test_the_five_outcomes_are_produced_and_kept_apart_durably(chain):
     corpus_id = view.corpus_of(dataset_ref("d1"))
     assert corpus_id is not None and corpus_id == b
     readable = build_snapshot(readable={EX: [GENE]})
+    entity = TESTING_PROFILE.sorts["testing/entity"]  # bound by release to `EX`
     assert {
-        readable.resolve(EX, GENE),
-        readable.resolve(EX, "EX:other"),
-        build_snapshot().resolve(EX, GENE),
-        build_snapshot(unreadable=[EX]).resolve(EX, GENE),
-        build_snapshot(not_present={EX: corpus_id}).resolve(EX, GENE),
+        readable.resolve(entity, GENE),
+        readable.resolve(entity, "EX:other"),
+        build_snapshot().resolve(entity, GENE),
+        build_snapshot(unreadable=[EX]).resolve(entity, GENE),
+        build_snapshot(not_present={EX: corpus_id}).resolve(entity, GENE),
     } == set(TermOutcome)
     assert (
         len(

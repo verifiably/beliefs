@@ -49,7 +49,7 @@ from atoms.coordinator.commands import inspect_chain_detached
 from atoms.fs.linux import LinuxBackend
 from authority import FULL
 from domain_facet_fixtures import over_kwargs
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, carry_registers, typed_applicability, typed_estimand
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
@@ -63,8 +63,10 @@ from test_deletion_rows import ANCESTOR as BASIS_ANCESTOR
 from test_deletion_rows import (
     ASSESSMENTS,
     CHILDREN,
+    COHORT,
     CONFLICT_ROUTES,
     DERIVED,
+    ENTITY,
     LIFECYCLE_ROWS,
     M5_VARIANTS,
     ORDER_A,
@@ -326,6 +328,7 @@ def test_lifecycle_walk_over_durable_records(durable_writer):
                 assert reloaded.belief().value == row.belief, row.label
 
         raw = _scenario(extra[-1])
+        carry_registers(raw.writer)  # so the two checks below have no register-missing warning to report
         failing = _verification(raw, "v-1-fail", scope="clean-environment", verdict="failed")
         invalidated = _reloaded(raw)
         assert invalidated.lifecycle(ASSESSMENTS[0]) == INVALIDATED
@@ -362,6 +365,8 @@ def test_raw_removal_refutes_and_managed_delete_validates(work_directory, durabl
     with _durable_corpora(work_directory, "g8-managed", corpus_id=raw_writer.corpus_id) as (managed_writer,):
         raw = _scenario(raw_writer)
         managed = _scenario(managed_writer)
+        for scenario in (raw, managed):
+            carry_registers(scenario.writer)  # so `corpus_check` has no register-missing warning to report
         failing = {
             label: _verification(scenario, "v-1-fail", scope="clean-environment", verdict="failed")
             for label, scenario in (("raw", raw), ("managed", managed))
@@ -810,7 +815,7 @@ def test_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(
     script = textwrap.dedent(f"""
         from pathlib import Path
         from beliefs.contract import load_base_contract, load_domain_contract
-        from beliefs.contract.domain import VocabularyBinding
+        from beliefs.contract.domain import DatasetBinding, ReleaseBinding
         from beliefs.corpus import ReadView
         from beliefs.decode import claim_from_stored
         from beliefs.profile import compile_profile
@@ -820,8 +825,8 @@ def test_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(
         base = load_base_contract(Path({str(BASE_CONTRACT)!r}))
         testing = load_domain_contract(Path({str(TESTING_CONTRACT)!r}), base=base, predecessor=None)
         profile = compile_profile(base, [testing])
-        EX = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
-        COHORT = VocabularyBinding(namespace=None, release=None, dataset_identity={"0" * 64!r})
+        EX = ReleaseBinding(namespace="EX", release="2026-01-01")
+        COHORT = DatasetBinding(dataset={"dataset:" + "0" * 64!r})
         snapshot = build_snapshot(readable={{EX: [{GENE!r}, {OTHER_GENE!r}, {OUTCOME!r}], COHORT: [{ADULTS!r}]}})
         node = ReadView.opened_at(Path({str(writer.root)!r})).get({node.id!r})
         decoded, emitted = claim_from_stored(node, profile=profile, snapshot=snapshot)
@@ -840,7 +845,7 @@ def test_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(
     mutations = (
         {key: value for key, value in facet.items() if key != "polarity"},
         {**facet, "extra": "x"},
-        {**facet, "args": "not-a-list"},
+        {**facet, "roles": "not-a-mapping"},
         {**facet, "qualifiers": {"dim": {"quantifier": "all"}}},
     )
     before = _files(writer.root)
@@ -876,6 +881,7 @@ def test_import_validation_and_transition_b_durably(durable_writer):
         derived = _two_runs(_adopted(durable_writer), mount=True, agreeing=True)
         assert derived.verification.verdict == "passed"
         writer = derived.writer
+        carry_registers(writer)  # so a clean check has no register-missing warning to report
 
         forged = stored.verification_node(
             "forged-resolvable",
@@ -907,6 +913,7 @@ def test_import_validation_and_transition_b_durably(durable_writer):
         unmounted = _two_runs(unmounted_writer, mount=False, agreeing=False)
         assert unmounted.verification.verdict == "failed"
         w = unmounted.writer
+        carry_registers(w)  # so a clean audit has no register-missing warning to report
         identity = unmounted.assessment_identity
         transition_forgery = stored.verification_node(
             "forged",
@@ -976,6 +983,7 @@ def test_import_recomputation_and_audit_durably(durable_writer):
     is not refused, not detected on read, and caught **only** under audit."""
     writer = _adopted(durable_writer)
     derived = _two_runs(writer, mount=True, agreeing=True)
+    carry_registers(writer)  # so the corpus check has no register-missing warning to report
     genuine = build_assessment(
         derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
     )
@@ -1056,6 +1064,7 @@ def test_audit_classification_and_admission_order_durably(work_directory):
         first,
         second,
     ):
+        carry_registers(cyclic)  # so every finding is the cyclic pair's, at error severity
         raw_cyclic_retraction_pair(cyclic)
 
         with pytest.MonkeyPatch.context() as patch:
@@ -1118,8 +1127,8 @@ def test_qualification_identity_durably(durable_writer):
     assert len(set(stamps.values())) == len(M5_VARIANTS), "each qualification difference moves the stored identity"
     assert len(set(identities.values())) == len(M5_VARIANTS), "and moves I_claim"
 
-    population = {"quantifier": "generic", "restriction": ADULTS}
-    setting = {"quantifier": "generic", "restriction": SETTING}
+    population = {"quantifier": "generic", "restriction": {"sort": COHORT, "term": ADULTS}}
+    setting = {"quantifier": "generic", "restriction": {"sort": ENTITY, "term": SETTING}}
     order_variants = {
         "forward": {
             **CLAIM_FACET,
@@ -1128,8 +1137,8 @@ def test_qualification_identity_durably(durable_writer):
         "reversed": {
             **CLAIM_FACET,
             "qualifiers": {
-                "testing/setting": {"restriction": SETTING, "quantifier": "generic"},
-                "testing/population": {"restriction": ADULTS, "quantifier": "generic"},
+                "testing/setting": {"restriction": {"term": SETTING, "sort": ENTITY}, "quantifier": "generic"},
+                "testing/population": {"restriction": {"term": ADULTS, "sort": COHORT}, "quantifier": "generic"},
             },
         },
     }

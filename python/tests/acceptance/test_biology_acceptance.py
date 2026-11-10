@@ -1,4 +1,8 @@
-"""The durable biology facet test and TypeScript contract-scope half."""
+"""The durable biology facet test and TypeScript contract-scope half.
+
+No biology pack ships under base v2: the facet half runs under the `biology`
+test fixture beside the `testing` contract, and the TypeScript half reads the
+v2 `testing` document."""
 
 from __future__ import annotations
 
@@ -8,9 +12,8 @@ from pathlib import Path
 
 import pytest
 from authority import FULL
-from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
+from domain_facet_fixtures import BIOLOGY_CLAIM, PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
 from profiles import pins_for
-from test_evaluation import GENE, OTHER_GENE
 from test_session_acceptance import adopted
 
 from beliefs.belief import Belief, Refused
@@ -19,13 +22,6 @@ from beliefs.evaluation import evaluate_over, gather
 from beliefs.root import open_corpus
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-BIOLOGY_CLAIM = {
-    "operator": "biology/affects",
-    "args": [GENE, OTHER_GENE],
-    "qualifiers": {},
-    "polarity": "positive",
-    "layer": "causal",
-}
 
 
 def test_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_directory):

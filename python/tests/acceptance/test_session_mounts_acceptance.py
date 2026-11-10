@@ -1,7 +1,8 @@
 """The multi-corpus session over real roots on the certified volume.
 Corpus A (the
 write root) pins base, the fixture `biology` and coordination v2; B pins base,
-the shipped `biology` and coordination v2; C pins the fixture `biology` alone,
+the fixture's second variant (another `biology` identity, since no pack ships
+under base v2) and coordination v2; C pins the fixture `biology` alone,
 the mm30 shape; D shares A's profile as a read mount. Every mount is compiled
 from its own manifest, and each case's directory is removed at teardown."""
 
@@ -30,23 +31,17 @@ from beliefs.corpus import CoordinationResolver
 from beliefs.errors import ContractMismatch, CoordinationUnavailable, SessionRefused
 from beliefs.mount import compile_mount_profile
 from beliefs.permit import RequiredCapabilities
-from beliefs.profile import (
-    ProfileSpec,
-    compile_profile,
-    shipped_base_contract,
-    shipped_coordination,
-    shipped_domain_contract,
-)
+from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract, shipped_coordination
 from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
 from beliefs.session import open_attended_session, open_ledger_reader, reconcile_sessions
 from beliefs.session.ledger import ledger_path
 from beliefs.world import WorldConfig
 
 V2_LOCAL = compile_profile(shipped_base_contract(), [biology("fixture")], coordination=shipped_coordination(2))
-V2_SHIPPED = compile_profile(
-    shipped_base_contract(), [shipped_domain_contract("biology")], coordination=shipped_coordination(2)
+V2_OTHER = compile_profile(
+    shipped_base_contract(), [biology("fixture, second variant")], coordination=shipped_coordination(2)
 )
-AVAILABLE = (biology("fixture"),)
+AVAILABLE = (biology("fixture"), biology("fixture, second variant"))
 
 
 def _adopt(base: Path, name: str, profile) -> Path:
@@ -66,7 +61,7 @@ def corpora(work_directory):
         yield SimpleNamespace(
             base=base,
             a=_adopt(base, "a", V2_LOCAL),
-            b=_adopt(base, "b", V2_SHIPPED),
+            b=_adopt(base, "b", V2_OTHER),
             c=_adopt(base, "c", WITH_BIOLOGY),
             d=_adopt(base, "d", V2_LOCAL),  # a read mount with A's profile: the mount a profile change would affect
         )
@@ -153,9 +148,9 @@ def test_a_mount_set_other_than_the_configured_roots_refuses_durably(corpora, ca
     elif case == "unadopted":
         bare = s.base / f"bare-{secrets.token_hex(4)}"
         init_corpus_root(bare, authority=FULL)
-        refused_without_directory(s, (s.a, bare), s.a, profile=V2_LOCAL, mounts={s.a: compiled[s.a], bare: V2_SHIPPED})
+        refused_without_directory(s, (s.a, bare), s.a, profile=V2_LOCAL, mounts={s.a: compiled[s.a], bare: V2_OTHER})
     else:
-        refused_without_directory(s, (s.a, s.b), s.a, ContractMismatch, profile=V2_SHIPPED, mounts=compiled)
+        refused_without_directory(s, (s.a, s.b), s.a, ContractMismatch, profile=V2_OTHER, mounts=compiled)
 
 
 @pytest.mark.parametrize("case", ["a", "d", "one-root"])
@@ -192,7 +187,7 @@ def test_coordination_resolves_over_every_mount_durably(corpora):
     A; its revision lands in A and resolves; a second tip in B makes it divergent;
     without mounts, coordination is unavailable."""
     s = corpora
-    library = library_on(s.b, V2_SHIPPED)
+    library = library_on(s.b, V2_OTHER)
     project = library.mint_coordination("project", content=content_for("project", name="in-b"))
     address = coordination_revision(project).address.unpinned()
     session, _, ops = open_over(s, (s.a, s.b), s.a, project=address)
@@ -207,7 +202,7 @@ def test_coordination_resolves_over_every_mount_durably(corpora):
     resolved = resolver.resolve(address)
     assert isinstance(resolved, Node) and resolved.uid == revised.uid
     assert set(resolver.standing("project")) == {address}
-    sibling = library_on(s.b, V2_SHIPPED).revise_coordination(
+    sibling = library_on(s.b, V2_OTHER).revise_coordination(
         "project", address, predecessors=[project.uid], content=content_for("project", name="revised-in-b")
     )
     divergent = resolver.resolve(address)
@@ -226,7 +221,7 @@ def test_a_session_never_writes_a_read_mount_durably(corpora):
     """An ordinary write, a coordination mint and a revision of a read-mount
     predecessor leave every read mount byte-identical, and reconciliation finds nothing."""
     s = corpora
-    project = library_on(s.b, V2_SHIPPED).mint_coordination("project", content=content_for("project", name="in-b"))
+    project = library_on(s.b, V2_OTHER).mint_coordination("project", content=content_for("project", name="in-b"))
     address = coordination_revision(project).address.unpinned()
     before = {root: state(root) for root in (s.b, s.c, s.d)}
     session, config, ops = open_over(s, (s.a, s.b, s.c, s.d), s.a)

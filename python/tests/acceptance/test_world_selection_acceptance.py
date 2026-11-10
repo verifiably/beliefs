@@ -326,7 +326,12 @@ def test_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuse
     qualified = stored.proposition_node(
         "p-q",
         title="q",
-        claim={**CLAIM_FACET, "qualifiers": {"tissue": {"quantifier": "some", "restriction": "EX:liver"}}},
+        claim={
+            **CLAIM_FACET,
+            "qualifiers": {
+                "tissue": {"quantifier": "some", "restriction": {"sort": "testing/cohort", "term": "EX:liver"}}
+            },
+        },
     )
     selection, _ = result(topic([{"references-term": "EX:liver"}], beta_extra=(qualified,)))
     assert selection.selected == ("proposition:p-q",)
@@ -334,7 +339,7 @@ def test_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuse
     assert selection.selected == ()
     selection, _ = result(topic([{"references-term": GENE.lower()}]))
     assert selection.selected == ()
-    broken = stored.proposition_node("p-x", title="x", claim={**CLAIM_FACET, "args": "bad"})
+    broken = stored.proposition_node("p-x", title="x", claim={**CLAIM_FACET, "roles": "bad"})
     world, roots, published, a, _b = topic([{"references-term": GENE}], beta_extra=(broken,))
     with pytest.raises(SelectionRefused) as caught:
         evaluate_query(open_world_view(world, published), resolved_query(roots, a))
@@ -343,7 +348,10 @@ def test_terms_in_arguments_and_restrictions_select_and_a_malformed_facet_refuse
 
 def test_stale_edit_that_removed_the_term_refuses_durably(topic):
     stale = stored.proposition_node("p-s", title="s", claim=CLAIM_FACET)
-    stale.facets["proposition"]["args"] = ["EX:other", PHENO]
+    stale.facets["proposition"]["roles"] = {
+        "cause": {"sort": "testing/entity", "term": "EX:other"},
+        "effect": {"sort": "testing/outcome", "term": PHENO},
+    }
     world, roots, published, a, _b = topic([{"references-term": GENE}], beta_raw=(stale,), without=("proposition:p-b",))
     with pytest.raises(SemanticHashStale):
         evaluate_query(open_world_view(world, published), resolved_query(roots, a))

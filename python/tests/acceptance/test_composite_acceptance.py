@@ -4,9 +4,10 @@ One test per composite-claim guarantee, composed from the unit tests' own
 constructions rather
 than from a second set — `test_composite.py`'s builders, `test_composite_
 boundary.py`'s writer and claim helpers, `test_composite_reading.py`'s argument
-bundle, `test_audit.py`'s composite block and `test_domain_contract.py`'s `TestEdges`
-— re-pointed at corpora the composition root registered on the certified
-volume.
+bundle, `test_audit.py`'s composite block and `test_domain_contract.py`'s template
+`edge` cases — re-pointed at corpora the composition root registered on the
+certified volume. Under base v2 a member's edge is its template's `edge` role
+pair; there is no separate `edges:` table.
 
 The shipped base contract is read through `importlib.resources`, i.e. from the
 **package** copy, because that is the copy a package-patching test would mutate; the
@@ -39,6 +40,7 @@ import pytest
 import yaml
 from authority import FULL
 from domain_facet_fixtures import over_kwargs
+from fixtures_cut3 import carry_registers
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.relations import Relation
 from profiles import FIXTURE, WITH_BIOLOGY, biology, pins_for
@@ -50,7 +52,7 @@ from beliefs import audit as audit_module
 from beliefs import stored
 from beliefs.audit import NO_EVIDENCE, audit_corpus, check_composite, check_supersedes_kinds
 from beliefs.belief import Belief, NoBelief, NotReached
-from beliefs.claim import Referent, build_claim
+from beliefs.claim import Member, Referent, build_claim
 from beliefs.composite import CompositeError, CompositeNode, build_composite, read_composite
 from beliefs.contract import parse_base_contract, parse_domain_contract
 from beliefs.contract.document import load_document
@@ -95,7 +97,7 @@ def _shipped_document() -> dict[str, Any]:
 @pytest.fixture()
 def corpora(work_directory):
     """Registered corpus roots on the certified volume, under the profile whose
-    domain declares the `edges:` row every composite here is classified by."""
+    `affects` template declares the `edge` every composite here is classified by."""
     roots: list[Path] = []
 
     def make(*, profile=WITH_BIOLOGY, authority=FULL):
@@ -123,25 +125,25 @@ def _seeded(writer):
 
 def _testing_profile():
     """The `testing` fixture contract: its `correlates-with` is a statistical
-    operator with no `edges:` row, which is the undeclared-operator row."""
+    template declaring no `edge`, which is the undeclared-operator row."""
     from fixtures_cut3 import TESTING_PROFILE
 
     return TESTING_PROFILE
 
 
 def _widened_profile():
-    """The biology fixture with `affects` admitting the statistical layer too.
+    """The biology fixture with its `affects` template admitting the statistical
+    layer too.
 
-    The `edges:` row is unchanged, so `affects` still forms an edge — which is
-    what makes `classify`'s layer refusal reachable at all. No shipped fixture
-    operator both declares an edge and admits a second layer (`correlates-with`
-    declares no edge, and `_parse_edge` refuses one for it), so the layer row
-    needs a contract of its own rather than a second operator.
+    The template's `edge` is unchanged, so `affects` still forms an edge — which
+    is what makes `classify`'s layer refusal reachable over the biology corpus
+    these rows seed. The fixture's `affects` admits the causal layer only, so the
+    layer row needs a contract of its own rather than a second operator.
     """
     document = load_document(FIXTURE, source=str(FIXTURE))
     assert isinstance(document, dict)
     document["description"] = "fixture, layers widened"
-    document["operators"]["affects"]["layers"] = ["causal", "statistical"]
+    document["templates"]["affects"]["layers"] = ["causal", "statistical"]
     base = shipped_base_contract()
     return compile_profile(base, [parse_domain_contract(document, source="<widened>", base=base, predecessor=None)])
 
@@ -154,7 +156,10 @@ def _estimand_with(claim, identification: str):
         claim,
         snapshot=UNCONSULTED,
         contrast=LevelsContrast(
-            slot=0, baseline=Referent("biology/level", "EX:lo"), comparison=Referent("biology/level", "EX:hi")
+            role="cause",
+            member=None,
+            baseline=Referent("biology/level", "EX:lo"),
+            comparison=Referent("biology/level", "EX:hi"),
         ),
         measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
         reference=Decimal(0),
@@ -241,7 +246,9 @@ def test_grammar_kind_and_relations(corpora):
     assert kind.role == "world" and kind.domain == "science.composite.v1"
     assert kind.facets["composite"].required and kind.facets["composite"].covered
     assert not kind.facets["display"].covered
-    assert len([k for k in base.kinds.values() if k.role == "world"]) == 16
+    # Base v2 adds `procedure`, `classification-rule` and `assumptions-register` to the sixteen.
+    assert len([k for k in base.kinds.values() if k.role == "world"]) == 19
+    assert {"procedure", "classification-rule", "assumptions-register"} <= set(base.kinds)
     composes = base.relations["composes"]
     assert (composes.group, composes.sources, composes.targets, composes.same_kind) == (
         "world",
@@ -296,75 +303,85 @@ def test_grammar_kind_and_relations(corpora):
 
 
 def test_edges_declared_and_never_redefined(corpora, base_contract, testing_document):
-    """`test_domain_contract.TestEdges`, plus the compiled keying and the
-    durable corpus's own pinned profile."""
+    """`test_domain_contract.TestTemplates`' and `TestSuccession`'s edge cases,
+    plus the compiled keying and the durable corpus's own pinned profile. Under
+    base v2 the edge is a causal template's `(cause role, effect role)` pair."""
 
     def parse(document, predecessor=None):
         return parse_domain_contract(document, source="<t>", base=base_contract, predecessor=predecessor)
 
+    def successor(predecessor):
+        document = copy.deepcopy(testing_document)
+        document["lineage"] = {"successor": predecessor.content_identity}
+        document["version"] = predecessor.version + 1
+        return document
+
     genesis = parse(copy.deepcopy(testing_document))
-    assert set(genesis.edges) == {"affects"}
-    assert (genesis.edges["affects"].cause, genesis.edges["affects"].effect) == (0, 1)
-    assert ("edge:affects", genesis.edges["affects"]) in genesis._declarations()
-    assert genesis.claim_vocabulary()["edge:affects"] == {"cause": 0, "effect": 1}
+    assert {name for name, template in genesis.templates.items() if template.edge is not None} == {
+        "affects",
+        "transforms",
+    }
+    assert genesis.templates["affects"].edge == ("cause", "effect")
+    assert ("template:affects", genesis.templates["affects"]) in genesis._declarations()
+    assert genesis.claim_vocabulary()["template:affects"]["edge"] == {"cause": "cause", "effect": "effect"}
 
     profile = compile_profile(base_contract, [genesis])
-    edge = profile.edges["testing/affects"]
-    assert (edge.operator, edge.cause, edge.effect, edge.retired, edge.contract) == (
+    template = profile.templates["testing/affects"]
+    assert (template.term, template.edge, template.retired, template.contract) == (
         "testing/affects",
-        0,
-        1,
+        ("cause", "effect"),
         False,
         "testing",
     )
-    assert "testing/correlates-with" not in profile.edges
-    assert "affects" not in profile.edges  # keyed by namespaced operator, never the bare name
+    assert profile.templates["testing/correlates-with"].edge is None
+    assert "affects" not in profile.templates  # keyed by namespaced operator, never the bare name
     writer = corpora()
-    assert writer.profile.edges["biology/affects"].cause == 0
+    assert writer.profile.templates["biology/affects"].edge == ("cause", "effect")
 
     without = copy.deepcopy(testing_document)
-    del without["edges"]
-    assert parse(without).edges == {}
+    del without["templates"]["affects"]["edge"]
+    assert parse(without).templates["affects"].edge is None
 
+    # An edge lives on a template and nowhere else: a v1 `edges:` table, and an
+    # `edge` on an instantiation or a bridge, are unknown fields.
     undeclared = copy.deepcopy(testing_document)
-    undeclared["edges"]["regulates"] = {"cause": 0, "effect": 1}
-    with pytest.raises(MalformedContract, match="regulates"):
+    undeclared["edges"] = {"regulates": {"cause": 0, "effect": 1}}
+    with pytest.raises(MalformedContract, match="edges"):
         parse(undeclared)
-    foreign = copy.deepcopy(testing_document)
-    foreign["edges"]["biology/affects-molecular-entity-molecular-entity"] = {"cause": 0, "effect": 1}
-    with pytest.raises(MalformedContract, match="own"):
-        parse(foreign)
+    for table, name in (("instantiations", "affects-entity-outcome"), ("bridges", "promotes")):
+        foreign = copy.deepcopy(testing_document)
+        foreign[table][name]["edge"] = {"cause": "cause", "effect": "effect"}
+        with pytest.raises(MalformedContract, match="unknown field"):
+            parse(foreign)
     non_causal = copy.deepcopy(testing_document)
-    non_causal["edges"]["correlates-with"] = {"cause": 0, "effect": 1}
+    non_causal["templates"]["measured-by"]["edge"] = {"cause": "subject", "effect": "instrument"}
     with pytest.raises(MalformedContract, match="causal"):
         parse(non_causal)
     for body in (
-        {"cause": 0, "effect": 0},
-        {"cause": 0, "effect": 2},
-        {"cause": -1, "effect": 1},
-        {"cause": True, "effect": 1},
-        {"cause": 0},
-        {"cause": 0, "effect": 1, "sign": "+"},
+        {"cause": "cause", "effect": "cause"},
+        {"cause": "cause", "effect": "outcome"},
+        {"cause": "agent", "effect": "effect"},
+        {"cause": True, "effect": "effect"},
+        {"cause": 0, "effect": 1},
+        {"cause": "cause"},
+        {"cause": "cause", "effect": "effect", "sign": "+"},
     ):
         malformed = copy.deepcopy(testing_document)
-        malformed["edges"]["affects"] = body
+        malformed["templates"]["affects"]["edge"] = body
         with pytest.raises(MalformedContract):
             parse(malformed)
 
-    redefining = copy.deepcopy(testing_document)
-    redefining["lineage"] = {"successor": genesis.content_identity}
-    redefining["edges"]["affects"] = {"cause": 1, "effect": 0}
-    with pytest.raises(SuccessionViolation, match="edge:affects"):
+    redefining = successor(genesis)
+    redefining["templates"]["affects"]["edge"] = {"cause": "effect", "effect": "cause"}
+    with pytest.raises(SuccessionViolation, match="template:affects"):
         parse(redefining, predecessor=genesis)
-    dropping = copy.deepcopy(testing_document)
-    dropping["lineage"] = {"successor": genesis.content_identity}
-    del dropping["edges"]
-    with pytest.raises(SuccessionViolation, match="edge:affects"):
+    dropping = successor(genesis)
+    del dropping["templates"]["affects"]["edge"]
+    with pytest.raises(SuccessionViolation, match="template:affects"):
         parse(dropping, predecessor=genesis)
-    retiring = copy.deepcopy(testing_document)
-    retiring["lineage"] = {"successor": genesis.content_identity}
-    retiring["edges"]["affects"]["retired"] = True
-    assert "edge:affects" in parse(retiring, predecessor=genesis).retired_identifiers()
+    retiring = successor(genesis)
+    retiring["templates"]["affects"]["retired"] = True
+    assert "template:affects" in parse(retiring, predecessor=genesis).retired_identifiers()
 
 
 def _hand_built(writer, members, refs, *, nodes=(A, B, C), slug="x"):
@@ -465,20 +482,20 @@ def test_form_classification_and_vocabulary_checks(corpora):
         with pytest.raises(MalformedRecord, match=defect):
             writer.add(record)
 
-    # --- an undeclared operator: `correlates-with` declares no `edges:` row --
+    # --- an undeclared operator: `correlates-with`'s template declares no `edge`
     testing = corpora(profile=_testing_profile())
     entity, outcome = CompositeNode("testing/entity", "EX:a"), CompositeNode("testing/outcome", "EX:y")
     stat = build_claim(
         testing.profile,
         operator="testing/correlates-with",
-        args=(Referent("testing/entity", "EX:a"), Referent("testing/outcome", "EX:y")),
+        roles={"parties": [Member(Referent("testing/entity", "EX:a")), Member(Referent("testing/outcome", "EX:y"))]},
         layer="statistical",
         polarity="positive",
     )
     declared = build_claim(
         testing.profile,
         operator="testing/affects",
-        args=(Referent("testing/entity", "EX:a"), Referent("testing/outcome", "EX:y")),
+        roles={"cause": Referent("testing/entity", "EX:a"), "effect": Referent("testing/outcome", "EX:y")},
         layer="causal",
         polarity="positive",
     )
@@ -520,7 +537,7 @@ def test_form_classification_and_vocabulary_checks(corpora):
     at_layer = build_claim(
         widened.profile,
         operator="biology/affects",
-        args=(Referent(GENE, "EX:a"), Referent(GENE, "EX:b")),
+        roles={"cause": Referent(GENE, "EX:a"), "effect": Referent(GENE, "EX:b")},
         layer="statistical",
         polarity="positive",
     )
@@ -744,7 +761,7 @@ def test_boundary_resolution_and_identity(corpora):
 def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
     """The four composite codes and `supersedes-cross-kind`, as
     contradictions rather than malformedness, with the record read again."""
-    writer = _seeded(corpora())
+    writer = carry_registers(_seeded(corpora()))  # so a clean audit has no register-missing warning to report
     minted = writer.add(stored.composite_node(_build(writer, ["proposition:ab", "proposition:bc"]), title="g"))
 
     def codes():
@@ -790,7 +807,7 @@ def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
     assert not any(code in audit_module.MALFORMEDNESS_CODES for code, _ in findings)
 
     # "No longer classifies": retire the
-    # `edges:` row by successor and audit. `check_composite` is called directly
+    # `affects` template, whose `edge` the members form, by successor and audit. `check_composite` is called directly
     # because the corpus pins the predecessor contract, and `audit_corpus` under
     # the successor would report `profile-mismatch` and stop before the check this
     # row is about — the classification, not the pins.
@@ -803,7 +820,8 @@ def test_composite_audit_codes_are_contradictions_not_malformedness(corpora):
     successor = copy.deepcopy(document)
     successor["description"] = "fixture"
     successor["lineage"] = {"successor": biology("fixture").content_identity}
-    successor["edges"]["affects"]["retired"] = True
+    successor["version"] = biology("fixture").version + 1
+    successor["templates"]["affects"]["retired"] = True
     base = shipped_base_contract()
     retired = compile_profile(
         base, [parse_domain_contract(successor, source="<retired>", base=base, predecessor=biology("fixture"))]
