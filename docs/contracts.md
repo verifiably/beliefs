@@ -21,13 +21,16 @@ domain contracts kept outside this repository, such as the corpus-local contract
 documents `science` loads, as well as the packs beliefs ships. The Python parser
 in `beliefs.contract` checks each rule below when it loads a document. The
 TypeScript mirror in `ts/` is narrower. It reads a document under the same schema
-and the same reading refusals (see [Documents](#documents)), and it checks base
-contracts, the domain grammar described below and profile compilation against the
-same rules, with two known differences: the emptiness check on a `definition`
-strips JavaScript's whitespace set rather than Python's, so a value of only U+FEFF,
-or only U+0085 or U+001C–U+001F, is refused by one side and accepted by the other;
-and on a document with several faults the two sides can report different ones
-first. It computes no content identity and runs no succession check. So it reads
+(see [Documents](#documents)): a document both readers accept reads to the same
+value in both. Four kinds of document are refused by one reader only: a `%TAG`
+directive that restates the default `!!` handle and a tab after a mapping colon
+(Python refuses them), and an alias used as a mapping key and a reserved directive
+such as `%FOO` (TypeScript refuses them). It checks base contracts, the domain
+grammar described below and profile compilation against the same rules, with two
+known differences: the emptiness check on a `definition` strips JavaScript's
+whitespace set rather than Python's, so a value of only U+FEFF, or only U+0085 or
+U+001C–U+001F, is refused by one side and accepted by the other; and on a document
+with several faults the two sides can report different ones first. It computes no content identity and runs no succession check. So it reads
 only a genesis domain contract: a `lineage` naming a predecessor, and a `retired`
 field on any declaration, are refused with `UncheckableContract`. It
 also refuses `description` at a domain contract's top level and on a sort or a
@@ -41,8 +44,10 @@ dimension, as an unknown field.
   stays decimal, so `010` is 10), `0o` octal or `0x` hex is an integer; every other
   plain scalar is a string, `yes`, `on`, `0b11`, `1_000`, `12:30`, `2026-01-01` and
   `<<` included (there are no merge keys). Refused: a float (`24.0`, `1e3`, `.inf`),
-  since no field carries one; an integer outside ±(2^53 − 1); an explicit tag
-  (`!!str`, `!` and every other); a `%YAML` or `%TAG` directive; more than one
+  since no field carries one; an integer outside ±(2^53 − 1), or whose digit run
+  (after any sign or `0o`/`0x` prefix, leading zeros included) is longer than 16
+  characters; an explicit tag (`!!str`, `!` and every other); a `%YAML` or `%TAG`
+  directive (one exception is named under [Scope](#scope)); more than one
   document; a mapping key that is not a string; a duplicate key at any depth, never
   resolved in favour of the last occurrence; and an anchor name defined twice.
   `fixtures/document-reading-v1.json` is the oracle both readers are tested

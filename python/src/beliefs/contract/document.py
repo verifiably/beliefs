@@ -17,7 +17,9 @@ Some readings the two languages cannot share are refused in both:
 
 - a float (`24.0`, `1e3`, `.inf`): no contract field carries one, and
   JavaScript reads `24.0` as the integer 24;
-- an integer outside ±(2^53 - 1), which a JavaScript number cannot hold exactly;
+- an integer outside ±(2^53 - 1), which a JavaScript number cannot hold exactly,
+  and one whose digit run (after any sign or `0o`/`0x` prefix) is longer than 16
+  characters, leading zeros included, which is refused before it is converted;
 - an explicit tag (`!!str 10`, `!!binary ...`, `! x`), whose sets differ;
 - a `%YAML` or `%TAG` directive, which would switch the TypeScript reader's
   schema;
@@ -46,6 +48,7 @@ _INT = "tag:yaml.org,2002:int"
 _FLOAT = "tag:yaml.org,2002:float"
 _MAX_SAFE_INTEGER = 2**53 - 1
 _PREFIXED_RADIX = {"0o": 8, "0x": 16}
+_MAX_DIGIT_RUN = 16
 
 
 class _Refused(yaml.YAMLError):
@@ -94,7 +97,12 @@ class _CoreLoader(yaml.SafeLoader):
         text = str(self.construct_scalar(node))
         # Not `int(text, 0)`: under the core schema a leading zero is decimal.
         radix = _PREFIXED_RADIX.get(text[:2])
-        value = int(text, 10) if radix is None else int(text[2:], radix)
+        digits = text.lstrip("+-") if radix is None else text[2:]
+        # Bounded by length before conversion: `int()` raises `ValueError` past
+        # the interpreter's digit limit, outside the refusal family.
+        if len(digits) > _MAX_DIGIT_RUN:
+            raise _Refused(f"the integer {text[:24]}… has a digit run longer than {_MAX_DIGIT_RUN} characters")
+        value = int(text, 10) if radix is None else int(digits, radix)
         if abs(value) > _MAX_SAFE_INTEGER:
             raise _Refused(f"the integer {text} is outside ±(2^53 - 1), which both readers hold exactly")
         return value
