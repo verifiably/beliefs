@@ -595,6 +595,55 @@ no relations. The facet's fields are `operation` (one of the operation kinds in
 act's subject and outcome; the `acquisition-set` entry's outcome is described under
 [Acquisition logs](#acquisition-logs). An act report never feeds a belief.
 
+### Measurement record values
+
+The `procedure`, `referent_mapping`, `proxy_model` and `classification_rule`
+modules provide frozen record values, canonical facet projections and stored-node
+readers. Their addresses are `<kind>:<64 lowercase hex>`, derived from the complete
+facet under `science.procedure.v1`, `science.referent-mapping.v1`,
+`science.proxy-model.v1` and `science.classification-rule.v1`, respectively. Readers
+check the exact field set, recompute the canonical facet and verify its address.
+Optional fields are absent when unset. These value APIs are available independently
+of the corpus write doors; the kinds and minting routes above still describe what
+the shipped base admits.
+
+A procedure includes its kind term, name, normative definition, distinct sorted
+complete observables in `yields`, validation restrictions, compatible procedure ids,
+assessment evidence ids and parameters. It can carry a pinned implementation,
+dataset/code inputs and an external definition mapping (`exact`, `narrower`,
+`broader` or `contextual`). Its optional scale is either a range with low < high and
+an orientation (`higher-is-more` or `higher-is-less`), making it an authority, or
+`same_as`, naming another procedure's authority. Scale bounds and crosswalk
+coefficients have exact finite decimal string projections under the shared
+4096-digit and exponent budget; values with no exact supported projection refuse.
+Validation restrictions retain their optional duration convention.
+
+`measurement.check_measure_procedure` requires the measure's complete observable
+in the procedure's yields, including its aspect. If the measure names a scale,
+it must be the procedure's own authority or its `same_as` authority, and the
+supplied authority record must resolve that address and declare a range. Failures
+are `ProcedureYieldMismatch` and `ScaleAuthorityMismatch`.
+
+A referent mapping names source and target sorts, a string-valued reference,
+cardinality, and optional aggregation term and members digest. Its `joins` check
+accepts either direction. A classification rule names a classes sort, input
+observables, a normative definition and optional external mapping, implementation
+and annotator.
+
+A proxy model binds a source observable and procedure to either a target observable
+or a procedure's scale. It carries validity restrictions and either an assumption
+instance or a calibration with its calibrated observable, assessment ids and
+permanent interpretation-rule identity strings. A calibration transfer assumption
+is required exactly when the calibrated and target observables differ; resolving
+a scale target's observable belongs to the write door. A crosswalk is required
+exactly for scale targets: it includes a linking population, conversion and error.
+An affine conversion projects `scale` and `offset`; a multiplicative conversion
+projects `factor`. All coefficients and error values are decimal strings.
+
+`assumptions.AssumptionInstance` holds a declared assumption-kind term and canonical
+string-valued particulars. `check_instance` requires each key the compiled kind
+declares and permits additional keys, including a crosswalk's error.
+
 ## Exposure events and reservation assignments
 
 Two world kinds record what has been seen of a question and how its data is held

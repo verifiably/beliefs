@@ -244,3 +244,46 @@ def test_refusals_share_the_measurement_family():
     assert all(
         issubclass(error, MeasurementError) for error in (AspectNotAdmitted, UndeclaredQuantityKind, MalformedMeasure)
     )
+
+
+def test_check_measure_procedure():
+    from fractions import Fraction
+
+    from test_procedure import OBS, procedure
+
+    from beliefs.errors import ProcedureYieldMismatch, ScaleAuthorityMismatch
+    from beliefs.measurement import check_measure_procedure
+    from beliefs.procedure import SameAs, Scale, procedure_identity
+
+    authority = procedure(scale=Scale(Fraction(0), Fraction(52), "higher-is-less"))
+    authority_id = procedure_identity(authority)
+    value = measure(observable=OBS, unit=None, scale=authority_id, procedure=authority_id)
+    check_measure_procedure(value, authority, authority)
+    with pytest.raises(ProcedureYieldMismatch):
+        check_measure_procedure(replace(value, observable=replace(OBS, aspect=None)), authority, authority)
+    sharing = procedure(name="Other instrument", scale=SameAs(authority_id))
+    check_measure_procedure(replace(value, procedure=procedure_identity(sharing)), sharing, authority)
+    with pytest.raises(ProcedureYieldMismatch):
+        check_measure_procedure(replace(value, observable=replace(OBS, aspect=None)), sharing, authority)
+    for wrong in (None, sharing, procedure(scale=Scale(Fraction(0), Fraction(1), "higher-is-more"))):
+        with pytest.raises(ScaleAuthorityMismatch):
+            check_measure_procedure(value, authority, wrong)
+    with pytest.raises(ScaleAuthorityMismatch):
+        check_measure_procedure(replace(value, scale=SCALE), authority, authority)
+    with pytest.raises(ScaleAuthorityMismatch):
+        check_measure_procedure(value, procedure(), authority)
+    check_measure_procedure(measure(observable=OBS), procedure(), None)
+
+
+def test_procedure_yield_check_compares_exact_observable_values():
+    from test_procedure import OBS, procedure
+
+    from beliefs.errors import ProcedureYieldMismatch
+    from beliefs.measurement import check_measure_procedure
+
+    canonical = replace(OBS, aspect=Aspect("testing/energy-aspect", "é"))
+    instrument = procedure(yields=(canonical,))
+    check_measure_procedure(measure(observable=canonical), instrument, None)
+    decomposed = replace(canonical, aspect=Aspect("testing/energy-aspect", "e\u0301"))
+    with pytest.raises(ProcedureYieldMismatch):
+        check_measure_procedure(measure(observable=decomposed), instrument, None)

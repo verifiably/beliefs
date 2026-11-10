@@ -40,6 +40,14 @@ class MalformedMeasure(MeasurementError):
     """An observable or measure has an invalid shape or coordinate typing."""
 
 
+class ProcedureYieldMismatch(MeasurementError):
+    """A procedure does not yield the measure's complete observable."""
+
+
+class ScaleAuthorityMismatch(MeasurementError):
+    """A measure's scale does not resolve to its procedure's scale authority."""
+
+
 class MalformedRestriction(MeasurementError):
     """A restriction has an invalid shape or dimension typing."""
 

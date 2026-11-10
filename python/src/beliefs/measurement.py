@@ -5,10 +5,14 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from beliefs.contract.base import SUPPORTED_LEVELS_OF_MEASUREMENT, SUPPORTED_VALUE_TYPES
 from beliefs.errors import AspectNotAdmitted, MalformedMeasure, UndeclaredQuantityKind
 from beliefs.profile import ProfileSpec
+
+if TYPE_CHECKING:
+    from beliefs.procedure import Procedure
 
 __all__ = [
     "Aspect",
@@ -16,6 +20,7 @@ __all__ = [
     "Measure",
     "Observable",
     "check_measure",
+    "check_measure_procedure",
     "check_observable",
     "measure_from_projection",
     "measure_projection",
@@ -213,3 +218,26 @@ def check_measure(profile: ProfileSpec, measure: Measure) -> None:
         raise MalformedMeasure(f"undeclared transformation {measure.transformation!r}")
     if transformation.kind == "logarithm" and measure.level == "ratio":
         raise MalformedMeasure("a logarithm refuses ratio-level values")
+
+
+def check_measure_procedure(measure: Measure, procedure: Procedure, authority: Procedure | None) -> None:
+    """Check the complete yield before resolving the measurement's scale authority."""
+    from beliefs.errors import ProcedureYieldMismatch, ScaleAuthorityMismatch
+    from beliefs.procedure import SameAs, procedure_identity
+
+    if measure.observable not in procedure.yields:
+        raise ProcedureYieldMismatch("the procedure does not yield this complete observable")
+    if measure.scale is None:
+        return
+    expected = (
+        procedure_identity(procedure)
+        if procedure.is_authority
+        else (procedure.scale.authority if isinstance(procedure.scale, SameAs) else None)
+    )
+    if (
+        measure.scale != expected
+        or authority is None
+        or not authority.is_authority
+        or procedure_identity(authority) != expected
+    ):
+        raise ScaleAuthorityMismatch("the measure's scale does not match its procedure's held authority")

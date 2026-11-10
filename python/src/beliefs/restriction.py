@@ -27,6 +27,8 @@ __all__ = [
     "UnionRestriction",
     "co_scope",
     "co_scope_by_dimension",
+    "decimal_from_projection",
+    "decimal_projection",
     "restriction_from_projection",
     "restriction_projection",
     "type_restriction_map",
@@ -245,6 +247,18 @@ def _bound(value: object) -> Fraction:
         return Fraction(Decimal(value))
     except (ArithmeticError, ValueError) as exc:
         raise MalformedRestriction("interval bound cannot be represented exactly") from exc
+
+
+def decimal_projection(value: Fraction) -> str:
+    """An exact finite decimal spelling within the shared coefficient budget."""
+    if not isinstance(value, Fraction):
+        raise MalformedRestriction("an exact decimal value must be a Fraction")
+    return _decimal_text(value)
+
+
+def decimal_from_projection(value: object) -> Fraction:
+    """Read a decimal string under the same budget as its exact projection."""
+    return _bound(value)
 
 
 def _form(value: Mapping[str, object]) -> str:
