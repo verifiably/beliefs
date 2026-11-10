@@ -446,13 +446,14 @@ def test_retrieval_resolves_or_refuses(corpora, acquisition_report):
 def test_every_builder_facet_is_declared(corpora, acquisition_report):
     from closure_fixtures import make_closure
     from coordination_fixtures import content_for
-    from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
+    from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules, typed_applicability, typed_estimand
     from profiles import WITH_BIOLOGY
     from test_holdings_records import observation
     from test_reservation import _assignment, _sun_knowledge_event
 
     from beliefs.composite import CompositeNode, build_composite
     from beliefs.corpus import CoordinationResolver
+    from beliefs.register import AssumptionsRegister, RegisterEntry
     from beliefs.resolution import build_snapshot
     from beliefs.runrecord import projection_text
     from beliefs.spec import freeze
@@ -525,6 +526,14 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
         ),
         "exposure_event_node": stored.exposure_event_node(_sun_knowledge_event(), title="t"),
         "reservation_assignment_node": stored.reservation_assignment_node(_assignment(), title="t"),
+        # A one-entry register over the `testing` contract, as `test_register.py` builds one.
+        "assumptions_register_node": stored.assumptions_register_node(
+            AssumptionsRegister(
+                describes="testing:" + TESTING_PROFILE.activated_contracts["testing"],
+                previous=None,
+                entries={"sort:testing/population": RegisterEntry("c", "l", "n")},
+            )
+        ),
     }
     assert set(builders) == {
         name

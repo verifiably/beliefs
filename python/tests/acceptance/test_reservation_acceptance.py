@@ -25,7 +25,7 @@ from itertools import pairwise
 from pathlib import Path
 
 import pytest
-from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE
+from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, carry_registers
 from fixtures_cut4 import path_for, reopen
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.node import Node
@@ -614,7 +614,7 @@ def test_a_snapshot_near_the_size_estimate_round_trips(durable_root):
 
 
 def test_corpus_check_is_clean_after_the_chain(durable_root):
-    writer = _writer(durable_root)
+    writer = carry_registers(_writer(durable_root))  # as `test_reservation_audit.py`'s writer: no register-missing
     _, section, _ = _mm_chain(writer)
     view = reopen(durable_root)
     assert assignment_head(view, "mm-roster") == section

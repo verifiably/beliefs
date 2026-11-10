@@ -19,7 +19,7 @@ from coordination_fixtures import pins_for
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed_nodes
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand
 from profiles import biology
 from test_session_acceptance import fresh
 from test_session_mounts_acceptance import library_on, state
@@ -211,6 +211,7 @@ def test_held_mount_refuses_build_contended_durably(corpora):
 def test_the_session_corpus_check_warns_not_errs_durably(corpora):
     s = corpora
     d, p = seeded(s)
+    carry_registers(library_on(s.w, W_PROFILE))  # so the check's one warning is the citation's, not register-missing
     session = open_session(s, (s.w, s.m))
     w = fresh(session, "A", CITING)
     w.add(assessment("a", run_then(w, d), p.id))
@@ -272,6 +273,7 @@ def _eligibility(audit, corpus_id):
 
 def test_the_world_audit_supports_the_split_durably(corpora):
     s = corpora
+    carry_registers(library_on(s.w, W_PROFILE))  # so W's own findings are its manifest's alone, no register-missing
     world, roots, published = _split_seed(s)
     w_id, m_id = ReadView.opened_at(s.w).corpus_id, ReadView.opened_at(s.m).corpus_id
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=TYPED)
