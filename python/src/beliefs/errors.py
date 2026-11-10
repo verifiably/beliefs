@@ -44,6 +44,10 @@ class DependencyNotHeld(MeasurementError):
     """A normative measurement dependency is not held."""
 
 
+class AmbiguousCrosswalk(MeasurementError):
+    """More than one held direct crosswalk joins a pair of scale authorities."""
+
+
 class DependencyCycle(MeasurementError):
     """Normative measurement references contain a cycle."""
 

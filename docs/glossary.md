@@ -57,6 +57,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   refused (`BuildContended`), and so is a writer that arrives during a capture
   (`BuildHold`). Epoch builds, live queries and a session's read mounts read
   under it. ([writes](writes.md#citations-across-mounts))
+- <a id="certificate"></a>**Certificate** — A functional's qualitative declaration
+  of which coordinate-map shapes and response directions it admits.
+  ([records](records.md#coordinate-convertibility))
 - <a id="certified-host"></a>**Certified host** — A host whose kernel and volume form a
   configuration `atoms` certifies. Writes anywhere else fail with
   `CapabilityUnavailable`. ([development](development.md#the-certified-host))
@@ -80,9 +83,15 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="composite"></a>**Composite** — A record of a structure over claims: a node set
   and member propositions read as directed edges, with no cycle. It never enters a
   belief. ([records](records.md#other-world-records))
+- <a id="composed-map"></a>**Composed map** — The map from side A's transformed
+  coordinates into side B's, classified from transformations and the raw conversion.
+  ([records](records.md#coordinate-convertibility))
 - <a id="content-address"></a>**Content address** — An id derived from a record's
   content, as for datasets, sources, specs, act reports and retractions.
   ([records](records.md#identity))
+- <a id="convertibility"></a>**Convertibility** — Whether a declared coordinate map
+  is admitted by a functional's certificate and current dependency eligibility.
+  It does not establish synthesis permission. ([records](records.md#coordinate-convertibility))
 - <a id="coordination-contract"></a>**Coordination contract** — The contract that
   declares view and coordination kinds (`project`, `task`, `publication` and
   others). ([contracts](contracts.md#coordination-contract))

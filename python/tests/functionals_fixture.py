@@ -1,0 +1,145 @@
+"""The nine qualitative certificates of measurement design section 5.3."""
+
+from beliefs.comparability import FunctionalProperties, OutputTyping, ParameterTyping
+
+DIFFERENCE_OF_MEANS = FunctionalProperties(
+    "contrast",
+    "two",
+    "equivariant-affine",
+    "negate",
+    "negate",
+    "not-applicable",
+    "not-applicable",
+    "response-difference",
+    "real",
+    "zero",
+    "linear",
+    "exact",
+    None,
+)
+RATIO_OF_MEANS = FunctionalProperties(
+    "contrast",
+    "two",
+    "invariant-positive-scaling",
+    "reciprocal",
+    "not-applicable",
+    "not-applicable",
+    "not-applicable",
+    "dimensionless",
+    "positive",
+    "one",
+    "none",
+    "exact",
+    None,
+)
+PROBABILITY_OF_SUPERIORITY = FunctionalProperties(
+    "contrast",
+    "two",
+    "invariant-strictly-increasing",
+    "complement",
+    "complement",
+    "not-applicable",
+    "midrank",
+    "dimensionless",
+    "unit-interval",
+    "half",
+    "none",
+    "exact",
+    None,
+)
+HODGES_LEHMANN_SHIFT = FunctionalProperties(
+    "contrast",
+    "two",
+    "equivariant-positive-affine",
+    "negate",
+    "not-applicable",
+    "not-applicable",
+    "midrank",
+    "response-difference",
+    "real",
+    "zero",
+    "none",
+    "exact",
+    None,
+)
+LOG_ODDS_RATIO = FunctionalProperties(
+    "contrast",
+    "two",
+    "fixed",
+    "negate",
+    "not-applicable",
+    "not-applicable",
+    "not-applicable",
+    "dimensionless",
+    "real",
+    "zero",
+    "none",
+    "exact",
+    None,
+)
+SPEARMAN_CORRELATION = FunctionalProperties(
+    "association",
+    "two",
+    "invariant-strictly-increasing",
+    "not-applicable",
+    "negate",
+    "symmetric",
+    "midrank",
+    "dimensionless",
+    "signed-unit-interval",
+    "zero",
+    "not-applicable",
+    "recompute",
+    None,
+)
+TRANSFER_ENTROPY = FunctionalProperties(
+    "association",
+    "two",
+    "invariant-strictly-increasing",
+    "not-applicable",
+    "invariant",
+    "directed",
+    "undefined",
+    "dimensionless",
+    "nonnegative",
+    "zero",
+    "not-applicable",
+    "none",
+    None,
+)
+PEAK_POWER_FRACTION = FunctionalProperties(
+    "quantity",
+    "one",
+    "none",
+    "not-applicable",
+    "not-applicable",
+    "not-applicable",
+    "not-applicable",
+    "dimensionless",
+    "unit-interval",
+    "none",
+    "not-applicable",
+    "none",
+    None,
+)
+ARRHENIUS = FunctionalProperties(
+    "law-parameters",
+    "not-applicable",
+    "by-parameters",
+    "not-applicable",
+    "not-applicable",
+    "not-applicable",
+    "not-applicable",
+    "declared",
+    "not-applicable",
+    "none",
+    "not-applicable",
+    "exact",
+    {"Ea": ParameterTyping("independent", "real"), "lnA": ParameterTyping("response-log-level", "real")},
+)
+
+
+def OUTPUT_OF(functional):
+    if functional.output == "declared":
+        raise ValueError("select a declared parameter's typing")
+    return OutputTyping(functional.output, functional.domain)

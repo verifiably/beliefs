@@ -756,6 +756,35 @@ failed traversal. A later snapshot's retraction can change eligibility while the
 frozen ids and terms remain unchanged. These helpers do not alter the interim
 assessment and belief path.
 
+#### Coordinate convertibility
+
+`comparability.convert` classifies a map from side A's coordinates into side B's
+and checks its admission by a `FunctionalProperties` certificate. It uses only
+declared direct unit conversions, transformations and held scale crosswalks;
+constant-mediated entries can join different quantity kinds. Affine coefficients
+and inverse conversions are exact fractions; logarithms use a fixed 34-digit
+Decimal context. Evaluated logarithmic coefficients stay Decimal even when the
+result happens to be rational; structural zero and one remain exact fractions.
+A ratio refuses an offset; a difference drops it.
+
+Shape admission precedes the separate response-direction action. Independent
+variable bindings admit identity alone. Monotone maps under positive raw scaling
+use the coordinates' shared admissible raw domain, without asserting unprovided
+sample values. Offset or negative raw maps need provable domain containment;
+a logarithm against an affine transformation always needs that proof. Where the
+declarations cannot determine a map, the result is `Unknown`.
+
+`ComparabilitySnapshot` reads strict content-addressed records and consumes an
+aggregate `ClosureEligibility` callback for each authority and crosswalk. Its
+`reads` retains both direct and closure reads on acceptance and refusal. Distinct
+crosswalk ids for a pair raise `AmbiguousCrosswalk`, even if their numerical maps
+agree: callers must supply an unambiguous direct-crosswalk set. This helper does
+not rank evidence. A crosswalk contributes a checked `proxy-validity` assumption
+with its declared error; validity is `unknown` with its declared dimensions unless
+empty (universal, hence `equal`). Coordinate convertibility is not synthesis
+permission. This stage returns the map and assumptions with empty estimate steps;
+it does not apply an estimate or uncertainty transformation.
+
 ## Exposure events and reservation assignments
 
 Two world kinds record what has been seen of a question and how its data is held
