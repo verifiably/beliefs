@@ -20,9 +20,13 @@ These rules bind anyone who writes a contract document. That includes authors of
 domain contracts kept outside this repository, such as the corpus-local contract
 documents `science` loads, as well as the packs beliefs ships. The Python parser
 in `beliefs.contract` checks each rule below when it loads a document. The
-TypeScript mirror in `ts/` is narrower. It reads base contracts, and its
-domain-contract reader still implements the base-v1 domain grammar (`operators`
-and `edges`), so it reads none of the domain contracts described below.
+TypeScript mirror in `ts/` is narrower. It reads base contracts and the domain
+grammar described below with the same refusals, and it compiles a profile with the
+same compile refusals, but it computes no content identity and runs no succession
+check. So it reads only a genesis domain contract: a `lineage` naming a predecessor,
+and a `retired` field on any declaration, are refused with `UncheckableContract`. It
+also refuses `description` at a domain contract's top level and on a sort or a
+dimension, as an unknown field.
 
 ## Documents
 

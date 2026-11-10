@@ -2,7 +2,16 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
-import { compileProfile } from "../src/profile.js";
+import { ProfileError } from "../src/errors.js";
+import {
+  admitting,
+  claimDimensions,
+  compileProfile,
+  declarationAt,
+  estimandDeclarations,
+  resolveOperator,
+  templateOf,
+} from "../src/profile.js";
 
 const REPO_ROOT = new URL("../../", import.meta.url);
 const SHIPPED = readFileSync(new URL("contracts/science/CONTRACT.yaml", REPO_ROOT), "utf-8");
@@ -215,20 +224,366 @@ describe("a domain contract's facets", () => {
     expect(() => parseDomainContract(`${TESTING}\nkinds: {}\n`, "<bad>", base)).toThrow(/declares no kinds/);
     expect(() => parseDomainContract(`${TESTING}\nrelations: {}\n`, "<bad>", base)).toThrow(/declares no relations/);
   });
-  it("parses the edges table and refuses an undeclared or non-causal operator", () => {
+  it("carries an edge on a causal template, by role, and compiles it there", () => {
     const domain = parseDomainContract(TESTING, "fixtures/contracts/testing.yaml", base);
-    expect(domain.edges.affects).toEqual({ operator: "affects", cause: 0, effect: 1 });
+    expect(domain.templates.affects.edge).toEqual({ cause: "cause", effect: "effect" });
+    const line = "edge: { cause: cause, effect: effect }";
+    expect(TESTING).toContain(line);
     expect(() =>
-      parseDomainContract(TESTING.replace("edges:\n  affects:", "edges:\n  regulates:"), "<bad>", base),
-    ).toThrow(/regulates/);
-    expect(() =>
-      parseDomainContract(TESTING.replace("edges:\n  affects:", "edges:\n  correlates-with:"), "<bad>", base),
-    ).toThrow(/causal/);
-    expect(() =>
-      parseDomainContract(TESTING.replace("{ cause: 0, effect: 1 }", "{ cause: 0, effect: 0 }"), "<bad>", base),
+      parseDomainContract(TESTING.replace(line, "edge: { cause: cause, effect: cause }"), "<bad>", base),
     ).toThrow(/distinct/);
+    expect(() =>
+      parseDomainContract(TESTING.replace(line, "edge: { cause: agent, effect: effect }"), "<bad>", base),
+    ).toThrow(/agent/);
     const profile = compileProfile(base, [domain]);
-    expect(profile.edges["testing/affects"]).toEqual({ operator: "testing/affects", cause: 0, effect: 1 });
+    expect(profile.templates["testing/affects"].edge).toEqual({ cause: "cause", effect: "effect" });
+    expect(profile.templates["testing/correlates-with"].edge).toBeNull();
+  });
+});
+
+describe("compileProfile resolves the v2 declarations", () => {
+  const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
+  const TESTING = readFileSync(new URL("fixtures/contracts/testing.yaml", REPO_ROOT), "utf-8");
+  const CROSSING = readFileSync(new URL("fixtures/contracts/crossing.yaml", REPO_ROOT), "utf-8");
+  const OTHER = TESTING.replace("contract: testing", "contract: elsewhere");
+  const testing = parseDomainContract(TESTING, "<testing>", base);
+  const crossing = parseDomainContract(CROSSING, "<crossing>", base);
+  const other = parseDomainContract(OTHER, "<elsewhere>", base);
+  const compiled = compileProfile(base, [testing]);
+  const ENTITY = new Set(["testing/entity"]);
+  const OUTCOME = new Set(["testing/outcome"]);
+  const assign = (roles: Record<string, ReadonlySet<string>>) => new Map(Object.entries(roles));
+
+  // biome-ignore lint/suspicious/noExplicitAny: a YAML document mutated by path, as the Python tests mutate a dict
+  const compileMutated = (edit: (document: Record<string, any>) => void) => {
+    const document = parse(TESTING);
+    edit(document);
+    return () => compileProfile(base, [parseDomainContract(stringify(document), "<bad>", base)]);
+  };
+
+  it("resolves local names to term identifiers", () => {
+    expect(compiled.instantiations["testing/affects-entity-entity"]).toEqual({
+      term: "testing/affects-entity-entity",
+      template: "testing/affects",
+      roles: { cause: ["testing/entity"], effect: ["testing/entity", "testing/outcome"] },
+    });
+    const bridge = compiled.bridges["testing/promotes"];
+    expect([bridge.template, bridge.mapping, bridge.layers]).toEqual(["testing/affects", "narrower", ["causal"]]);
+    expect(bridge.roles).toEqual({ cause: ["testing/entity"], effect: ["testing/outcome"] });
+    expect(compiled.dimensions["testing/population"]).toEqual({
+      term: "testing/population",
+      restrictionSort: "testing/cohort",
+      placement: "claim",
+      appliesTo: ["testing/affects", "testing/correlates-with", "testing/promotes"],
+    });
+    const entity = compiled.sorts["testing/entity"];
+    expect(entity.binding).toEqual({ kind: "release", namespace: "EX", release: "2026-01-01" });
+    expect(entity.identifierClass?.pattern).toBe("EX:[a-z0-9\\-]+");
+    expect(entity.categories).toEqual(["set"]);
+    expect(compiled.sorts["testing/procedure-spec"].identifierClass).toBeNull();
+    expect(compiled.durationConventions["testing/day"]).toEqual({
+      term: "testing/day",
+      fields: { unit: "hours", length: 24 },
+    });
+  });
+
+  it("compiles a template with its roles and omits its external reference", () => {
+    const transforms = compiled.templates["testing/transforms"];
+    expect(transforms.roles.inputs).toEqual({
+      name: "inputs",
+      arity: "many",
+      min: 1,
+      max: null,
+      coefficients: true,
+      constraint: [],
+    });
+    expect([transforms.signApt, transforms.layers, transforms.forms]).toEqual([
+      false,
+      ["structural", "causal"],
+      ["polar"],
+    ]);
+    const withExternal = compileMutated((document) => {
+      document.templates.affects.external = { reference: "RO:0002410", mapping: "contextual" };
+    })();
+    expect("external" in withExternal.templates["testing/affects"]).toBe(false);
+  });
+
+  it("keys every table by term, and the estimands by compiled typed address", () => {
+    expect(Object.keys(compiled.estimands).sort()).toEqual([
+      "bridge:testing/promotes",
+      "instantiation:testing/affects-entity-entity",
+      "instantiation:testing/affects-entity-outcome",
+      "instantiation:testing/correlates-event-product",
+      "instantiation:testing/promotes",
+    ]);
+    expect(compiled.estimands["bridge:testing/promotes"].levelSorts).toEqual({ cause: "testing/level" });
+    expect(Object.keys(compiled.templates).sort()).toEqual([
+      "testing/affects",
+      "testing/correlates-with",
+      "testing/measured-by",
+      "testing/transforms",
+    ]);
+  });
+
+  it("resolves an operator to a template or a bridge, and a bridge to its template", () => {
+    const template = resolveOperator(compiled, "testing/affects");
+    const bridge = resolveOperator(compiled, "testing/promotes");
+    expect(template.kind).toBe("template");
+    expect(bridge.kind).toBe("bridge");
+    expect(templateOf(compiled, template)).toBe(template);
+    expect(templateOf(compiled, bridge)).toBe(template);
+    expect(() => resolveOperator(compiled, "testing/nowhere")).toThrow(ProfileError);
+    // An instantiation is not an operator.
+    expect(() => resolveOperator(compiled, "testing/affects-entity-outcome")).toThrow(/no operator/);
+  });
+
+  it("indexes overlapping instantiations by template", () => {
+    expect(compiled.admission["testing/affects"]).toEqual([
+      "instantiation:testing/affects-entity-entity",
+      "instantiation:testing/affects-entity-outcome",
+    ]);
+    expect(compiled.admission["testing/measured-by"]).toEqual([
+      "instantiation:testing/measured-by-entity-method",
+      "instantiation:testing/promotes",
+    ]);
+    expect(compileProfile(base, [testing, crossing]).admission["testing/affects"]).toEqual([
+      "instantiation:crossing/affects-local-entity",
+      "instantiation:testing/affects-entity-entity",
+      "instantiation:testing/affects-entity-outcome",
+    ]);
+  });
+
+  it("returns both admitting instantiations over testing/affects, sorted, in either activation order", () => {
+    const assignment = assign({ cause: ENTITY, effect: OUTCOME });
+    const expected = ["instantiation:testing/affects-entity-entity", "instantiation:testing/affects-entity-outcome"];
+    expect(admitting(compiled, "testing/affects", assignment)).toEqual(expected);
+    expect(admitting(compileProfile(base, [testing, crossing]), "testing/affects", assignment)).toEqual(expected);
+    expect(admitting(compileProfile(base, [crossing, testing]), "testing/affects", assignment)).toEqual(expected);
+  });
+
+  it("reads every role, each member sort of a many role, and skips the reserved role", () => {
+    const profile = compileProfile(base, [testing, crossing]);
+    expect(admitting(profile, "testing/affects", assign({ cause: ENTITY, effect: ENTITY }))).toEqual([
+      "instantiation:testing/affects-entity-entity",
+    ]);
+    expect(
+      admitting(profile, "testing/affects", assign({ cause: ENTITY, effect: new Set(["crossing/local-entity"]) })),
+    ).toEqual(["instantiation:crossing/affects-local-entity"]);
+    expect(admitting(profile, "testing/affects", assign({ cause: OUTCOME, effect: OUTCOME }))).toEqual([]);
+    const parties = (...sorts: string[]) => assign({ parties: new Set(sorts) });
+    expect(admitting(compiled, "testing/correlates-with", parties("testing/entity", "testing/outcome"))).toEqual([
+      "instantiation:testing/correlates-entity-outcome",
+    ]);
+    expect(admitting(compiled, "testing/correlates-with", parties("testing/event", "testing/product"))).toEqual([
+      "instantiation:testing/correlates-event-product",
+    ]);
+    expect(admitting(compiled, "testing/correlates-with", parties("testing/entity", "testing/product"))).toEqual([]);
+    const withinModel = assign({ cause: ENTITY, effect: OUTCOME, "within-model": new Set(["testing/procedure-spec"]) });
+    expect(admitting(compiled, "testing/affects", withinModel)).toHaveLength(2);
+    expect(() => admitting(compiled, "testing/affects", assign({ cause: ENTITY, agent: ENTITY }))).toThrow(/agent/);
+  });
+
+  it("finds the estimand declarations of the admitting set, in the order given", () => {
+    const profile = compileProfile(base, [testing, crossing]);
+    const admits = admitting(profile, "testing/affects", assign({ cause: ENTITY, effect: OUTCOME }));
+    const declarations = estimandDeclarations(profile, "testing/affects", admits);
+    expect(declarations.map((decl) => decl.target)).toEqual(admits);
+    expect(declarations.map((decl) => decl.measureSort)).toEqual(["testing/outcome", "testing/measure"]);
+    const reversed = [...admits].reverse();
+    expect(estimandDeclarations(profile, "testing/affects", reversed).map((decl) => decl.target)).toEqual(reversed);
+    const correlates = admitting(
+      compiled,
+      "testing/correlates-with",
+      assign({ parties: new Set(["testing/entity", "testing/outcome"]) }),
+    );
+    expect(estimandDeclarations(compiled, "testing/correlates-with", correlates)).toEqual([]);
+    expect(() => estimandDeclarations(compiled, "testing/affects", ["instantiation:testing/promotes"])).toThrow(
+      /testing\/measured-by/,
+    );
+    expect(() => estimandDeclarations(compiled, "testing/affects", ["bridge:testing/promotes"])).toThrow(ProfileError);
+  });
+
+  it("distinguishes the same-name instantiation and bridge promotes", () => {
+    const bridgeAdmitting = admitting(compiled, "testing/promotes", assign({ cause: ENTITY, effect: OUTCOME }));
+    expect(bridgeAdmitting).toEqual(["bridge:testing/promotes"]);
+    const [bridgeDecl, ...noBridgeRest] = estimandDeclarations(compiled, "testing/promotes", bridgeAdmitting);
+    expect(noBridgeRest).toEqual([]);
+    expect(bridgeDecl.target).toBe("bridge:testing/promotes");
+    expect(bridgeDecl.levelSorts).toEqual({ cause: "testing/level" });
+    expect(bridgeDecl.measureSort).toBe("testing/measure");
+
+    const instAdmitting = admitting(
+      compiled,
+      "testing/measured-by",
+      assign({ subject: new Set(["testing/product"]), instrument: new Set(["testing/method"]) }),
+    );
+    expect(instAdmitting).toEqual(["instantiation:testing/promotes"]);
+    const [instDecl, ...noInstRest] = estimandDeclarations(compiled, "testing/measured-by", instAdmitting);
+    expect(noInstRest).toEqual([]);
+    expect(instDecl.target).toBe("instantiation:testing/promotes");
+    expect(instDecl.levelSorts).toEqual({ subject: "testing/level" });
+    expect(instDecl.measureSort).toBe("testing/outcome");
+  });
+
+  it("dereferences typed addresses and refuses every other spelling", () => {
+    const instantiation = declarationAt(compiled, "instantiation:testing/promotes");
+    const bridge = declarationAt(compiled, "bridge:testing/promotes");
+    expect(instantiation.template).toBe("testing/measured-by");
+    expect(bridge.template).toBe("testing/affects");
+    expect(bridge).toBe(compiled.bridges["testing/promotes"]);
+    for (const address of [
+      "template:testing/affects",
+      "instantiation:testing/nowhere",
+      "testing/promotes",
+      "bridge:",
+    ]) {
+      expect(() => declarationAt(compiled, address)).toThrow(ProfileError);
+    }
+  });
+
+  it("lists a claim's dimensions by applies_to, claim side only", () => {
+    expect(claimDimensions(compiled, "testing/affects")).toEqual(["testing/population", "testing/setting"]);
+    expect(claimDimensions(compiled, "testing/correlates-with")).toEqual(["testing/population"]);
+    expect(claimDimensions(compiled, "testing/promotes")).toEqual(["testing/population"]);
+    expect(claimDimensions(compiled, "testing/measured-by")).toEqual([]);
+    expect(compiled.dimensions["testing/follow-up"].appliesTo).toEqual(["testing/affects"]);
+    expect(() => claimDimensions(compiled, "testing/nowhere")).toThrow(/no operator/);
+  });
+
+  it("resolves applies_to locally first, and a qualified name in its own contract", () => {
+    const profile = compileProfile(base, [testing, other, crossing]);
+    expect(profile.dimensions["testing/population"].appliesTo).toEqual([
+      "testing/affects",
+      "testing/correlates-with",
+      "testing/promotes",
+    ]);
+    expect(profile.dimensions["elsewhere/population"].appliesTo).toEqual([
+      "elsewhere/affects",
+      "elsewhere/correlates-with",
+      "elsewhere/promotes",
+    ]);
+    expect(claimDimensions(profile, "testing/affects")).toEqual([
+      "crossing/scope",
+      "testing/population",
+      "testing/setting",
+    ]);
+    expect(claimDimensions(profile, "elsewhere/affects")).toEqual(["elsewhere/population", "elsewhere/setting"]);
+  });
+
+  it.each(["nowhere", "other/affects", "affects-entity-entity", "promotes"])(
+    "refuses an instantiation of the undeclared template %s",
+    (template) => {
+      const run = compileMutated((document) => {
+        document.instantiations["affects-entity-outcome"].template = template;
+      });
+      expect(run).toThrow(ProfileError);
+      expect(run).toThrow(/template/);
+    },
+  );
+
+  it("refuses a bridge of an undeclared template", () => {
+    const run = compileMutated((document) => {
+      document.bridges.promotes.template = "other/affects";
+    });
+    expect(run).toThrow(ProfileError);
+    expect(run).toThrow(/template/);
+  });
+
+  it("refuses a listed sort missing a role constraint's category", () => {
+    const run = compileMutated((document) => {
+      document.templates.affects.roles.effect.constraint = ["set"];
+    });
+    expect(run).toThrow(ProfileError);
+    expect(run).toThrow(/testing\/outcome/);
+  });
+
+  it("compiles a constraint every listed sort satisfies", () => {
+    const profile = compileMutated((document) => {
+      document.templates.transforms.roles.inputs.constraint = ["set"];
+    })();
+    expect(profile.templates["testing/transforms"].roles.inputs.constraint).toEqual(["set"]);
+  });
+
+  it.each([
+    ["instantiations", "affects-entity-outcome"],
+    ["bridges", "promotes"],
+  ])("refuses a role the template lacks in %s", (table, name) => {
+    const run = compileMutated((document) => {
+      document[table][name].roles.agent = ["entity"];
+    });
+    expect(run).toThrow(ProfileError);
+    expect(run).toThrow(/agent/);
+  });
+
+  it.each([
+    ["instantiations", "affects-entity-outcome"],
+    ["bridges", "promotes"],
+  ])("refuses an omitted role in %s", (table, name) => {
+    const run = compileMutated((document) => {
+      Reflect.deleteProperty(document[table][name].roles, "effect");
+    });
+    expect(run).toThrow(ProfileError);
+    expect(run).toThrow(/effect/);
+  });
+
+  it("refuses a within-model role on an instantiation", () => {
+    const run = compileMutated((document) => {
+      document.instantiations["affects-entity-outcome"].roles["within-model"] = ["procedure-spec"];
+    });
+    expect(run).toThrow(ProfileError);
+    expect(run).toThrow(/within-model/);
+  });
+
+  it.each(["nowhere", "other/affects", "affects-entity-outcome", "day"])(
+    "refuses applies_to naming %s, no active operator",
+    (operator) => {
+      const run = compileMutated((document) => {
+        document.dimensions.setting.applies_to = ["affects", operator];
+      });
+      expect(run).toThrow(ProfileError);
+      expect(run).toThrow(/applies_to/);
+    },
+  );
+
+  it("refuses a bridge's layers outside its template's, and inherits them when it declares none", () => {
+    const run = compileMutated((document) => {
+      document.bridges.promotes.layers = ["causal", "methodological"];
+    });
+    expect(run).toThrow(ProfileError);
+    expect(run).toThrow(/methodological/);
+    const inherited = compileMutated((document) => {
+      Reflect.deleteProperty(document.bridges.promotes, "layers");
+    })();
+    expect(inherited.bridges["testing/promotes"].layers).toEqual(["causal", "statistical"]);
+  });
+
+  it("refuses an estimand level sort naming no role of the template", () => {
+    const run = compileMutated((document) => {
+      document.estimands["bridge:promotes"].level_sorts = { subject: "level" };
+    });
+    expect(run).toThrow(ProfileError);
+    expect(run).toThrow(/subject/);
+  });
+
+  it("holds the v2 tables frozen, nested arrays included", () => {
+    for (const value of [
+      compiled.sorts,
+      compiled.sorts["testing/entity"],
+      compiled.sorts["testing/entity"].categories,
+      compiled.dimensions["testing/population"].appliesTo,
+      compiled.templates,
+      compiled.templates["testing/affects"].roles,
+      compiled.templates["testing/affects"].roles.cause.constraint,
+      compiled.templates["testing/affects"].layers,
+      compiled.instantiations["testing/affects-entity-entity"].roles.effect,
+      compiled.bridges["testing/promotes"].layers,
+      compiled.estimands["bridge:testing/promotes"].levelSorts,
+      compiled.durationConventions["testing/day"].fields,
+      compiled.admission,
+      compiled.admission["testing/affects"],
+    ]) {
+      expect(Object.isFrozen(value)).toBe(true);
+    }
   });
 });
 

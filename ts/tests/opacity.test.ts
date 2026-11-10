@@ -48,9 +48,9 @@ import {
 } from "../src/errors.js";
 import {
   type CompiledDimension,
-  type CompiledEdge,
   type CompiledEstimandDecl,
   type CompiledOperator,
+  type CompiledTemplate,
   ProfileSpec,
   compileProfile,
 } from "../src/profile.js";
@@ -219,20 +219,24 @@ describe("a profile that did not come from the contracts is not a profile", () =
     claimGrammar: FORGED_GRAMMAR,
     estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
     compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
-    operators: {
+    templates: {
       "forged/op": {
+        kind: "template",
         term: "forged/op",
-        arity: 1,
-        argSorts: ["forged/sort"],
+        roles: {},
         signApt: true,
         layers: ["made-up"],
-        dimensions: [],
-      } satisfies CompiledOperator,
+        forms: ["polar"],
+        edge: null,
+      } satisfies CompiledTemplate,
     },
+    instantiations: {},
+    bridges: {},
     estimands: {} as Record<string, CompiledEstimandDecl>,
-    edges: {} as Record<string, CompiledEdge>,
     dimensions: {} as Record<string, CompiledDimension>,
-    sorts: ["forged/sort"],
+    sorts: {},
+    durationConventions: {},
+    admission: { "forged/op": [] },
   };
 
   const parts: ClaimParts = {
@@ -294,10 +298,19 @@ describe("a contract that nobody authored cannot be compiled", () => {
   const forgedDomain = {
     namespace: "forged",
     version: 1,
-    sorts: { sort: { name: "sort" } },
+    sorts: {},
     dimensions: {},
-    operators: {
-      op: { name: "op", arity: 1, argSorts: ["sort"], signApt: true, layers: ["made-up"], dimensions: [] },
+    templates: {
+      op: {
+        name: "op",
+        roles: {},
+        signApt: true,
+        layers: ["made-up"],
+        forms: ["polar"],
+        edge: null,
+        definition: null,
+        external: null,
+      },
     },
   };
 
@@ -344,10 +357,12 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           sorts: {},
           dimensions: {},
-          operators: {},
-          edges: {},
-          facets: {},
+          templates: {},
+          instantiations: {},
+          bridges: {},
           estimands: {},
+          durationConventions: {},
+          facets: {},
           base,
         }),
     ).toThrow(UnparsedContract);
@@ -372,10 +387,12 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           sorts: {},
           dimensions: {},
-          operators: {},
-          edges: {},
-          facets: {},
+          templates: {},
+          instantiations: {},
+          bridges: {},
           estimands: {},
+          durationConventions: {},
+          facets: {},
           base,
         }),
     ).toThrow(SubclassRefused);
@@ -477,13 +494,13 @@ describe("neither a compiled profile nor its source contract can be edited after
     const contract = parseDomainContract(testingText, "testing", base);
     const compiled = compileProfile(base, [contract]);
     expect(() => {
-      (contract.operators as Record<string, unknown>).smuggled = { name: "smuggled" };
+      (contract.templates as Record<string, unknown>).smuggled = { name: "smuggled" };
     }).toThrow(TypeError);
-    expect(Object.keys(compiled.operators)).not.toContain("testing/smuggled");
+    expect(Object.keys(compiled.templates)).not.toContain("testing/smuggled");
   });
 
   it("holds its tables in frozen null-prototype records", () => {
-    for (const table of [profile.operators, profile.dimensions]) {
+    for (const table of [profile.templates, profile.bridges, profile.dimensions, profile.sorts]) {
       expect(Object.isFrozen(table)).toBe(true);
       expect(Object.getPrototypeOf(table)).toBe(null);
     }
@@ -509,11 +526,14 @@ describe("two genuine contracts that were not typed against each other", () => {
     "layers: [causal, structural, statistical, methodological, speculative]",
   );
   const wideBase = parseBaseContract(wideText, "wide");
-  const speculativeText = testingText.replace("layers: [causal]", "layers: [causal, speculative]");
+  const speculativeText = testingText.replace(
+    "layers: [causal, statistical]",
+    "layers: [causal, statistical, speculative]",
+  );
 
   it("is refused at compilation", () => {
     const underWide = parseDomainContract(speculativeText, "testing", wideBase);
-    expect(underWide.operators.affects.layers).toContain("speculative");
+    expect(underWide.templates.affects.layers).toContain("speculative");
     expect(() => compileProfile(base, [underWide])).toThrow(ContractMismatch);
   });
 

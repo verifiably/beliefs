@@ -34,6 +34,7 @@
 
 import { parse as parseYaml } from "yaml";
 import { MalformedContract, SubclassRefused, UncheckableContract, UnparsedContract } from "./errors.js";
+import { IdentifierClass } from "./patterns.js";
 
 const TAG_ENCODING = "science.identity.v1";
 const NAME = /^[a-z][a-z0-9-]*$/;
@@ -228,43 +229,111 @@ export class BaseContract {
   }
 }
 
+/**
+ * What a sort's terms are checked against: **exactly one of six arms**, named by
+ * `kind`, each carrying exactly its own fields. The arms are the base contract's
+ * `binding_kinds`; a binding carrying another arm's field is refused, never read
+ * as one of them. Every field is canonical (NFC) text, and the record-id fields
+ * are `<kind>:` followed by 64 lowercase hex characters (ruling P4).
+ */
+export type SortBinding =
+  | { readonly kind: "release"; readonly namespace: string; readonly release: string }
+  | { readonly kind: "dataset"; readonly dataset: string }
+  | { readonly kind: "scheme"; readonly scheme: string; readonly version: string }
+  | {
+      readonly kind: "selection";
+      readonly dataset: string;
+      readonly rule: string;
+      readonly selected: string;
+      readonly annotator: string;
+    }
+  | { readonly kind: "run-output"; readonly run: string; readonly dataset: string }
+  | { readonly kind: "world-kind"; readonly worldKind: string };
+
 export interface SortDecl {
   readonly name: string;
-}
-
-export interface DimensionDecl {
-  readonly name: string;
-  readonly restrictionSort: string;
-}
-
-export interface OperatorDecl {
-  readonly name: string;
-  readonly arity: number;
-  readonly argSorts: readonly string[];
-  readonly signApt: boolean;
-  readonly layers: readonly string[];
-  readonly dimensions: readonly string[];
+  readonly binding: SortBinding;
+  /** `null` exactly when the binding is `world-kind`, whose class is the kernel's record-id grammar. */
+  readonly identifierClass: IdentifierClass | null;
+  readonly categories: readonly string[];
 }
 
 /**
- * Which sorts fill the kernel's estimand structure at one operator.
+ * A dimension, on exactly one side (`placement` is `claim` or `applicability`).
+ * `appliesTo` lists operators, local or `<namespace>/<name>`, resolved at compile.
+ */
+export interface DimensionDecl {
+  readonly name: string;
+  readonly restrictionSort: string;
+  readonly placement: string;
+  readonly appliesTo: readonly string[];
+}
+
+/**
+ * One role of a template. A `one` role holds one referent: its `min` and `max`
+ * are both 1 and it admits no coefficient. A `many` role holds a multiset whose
+ * size lies in `[min, max]` (`max` `null` is unbounded).
+ */
+export interface RoleDecl {
+  readonly name: string;
+  readonly arity: "one" | "many";
+  readonly min: number;
+  readonly max: number | null;
+  readonly coefficients: boolean;
+  readonly constraint: readonly string[];
+}
+
+/** A relation template: an operator issued as `<namespace>/<name>`. */
+export interface TemplateDecl {
+  readonly name: string;
+  readonly roles: DeclarationTable<RoleDecl>;
+  readonly signApt: boolean;
+  readonly layers: readonly string[];
+  readonly forms: readonly string[];
+  /** The roles a composite reads as cause and effect, or `null` for a template forming no edge. */
+  readonly edge: { readonly cause: string; readonly effect: string } | null;
+  readonly definition: string | null;
+  readonly external: { readonly reference: string; readonly mapping: string } | null;
+}
+
+/** Which sorts may fill each role of a template. Its name is bookkeeping and never enters claim identity. */
+export interface InstantiationDecl {
+  readonly name: string;
+  readonly template: string;
+  readonly roles: Readonly<Record<string, readonly string[]>>;
+}
+
+/**
+ * A bridging relation: an operator of its own, mapping (`narrower` or
+ * `contextual`) to a template whose roles it inherits. `layers` `null` inherits
+ * the template's.
+ */
+export interface BridgeDecl {
+  readonly name: string;
+  readonly template: string;
+  readonly mapping: string;
+  readonly roles: Readonly<Record<string, readonly string[]>>;
+  readonly layers: readonly string[] | null;
+}
+
+/**
+ * Which sorts fill the kernel's estimand structure for one instantiation or
+ * bridge, keyed by the typed local address of its target, `instantiation:<name>`
+ * or `bridge:<name>` (ruling P12): the two tables are separate namespaces and may
+ * share a name. `levelSorts` is keyed by role name.
  */
 export interface EstimandDecl {
-  readonly operator: string;
+  readonly target: string;
   readonly levelSorts: Readonly<Record<string, string>>;
   readonly measureSort: string;
   readonly identificationSort: string;
   readonly conditioningSort: string;
 }
 
-/**
- * Which slot of an operator is the cause and which the effect.
- * An operator with no row forms no edge.
- */
-export interface EdgeDecl {
-  readonly operator: string;
-  readonly cause: number;
-  readonly effect: number;
+/** A duration convention: scalar fields, each a string or an integer, none validated yet (ruling P3). */
+export interface DurationConventionDecl {
+  readonly name: string;
+  readonly fields: Readonly<Record<string, string | number>>;
 }
 
 export class DomainContract {
@@ -273,10 +342,13 @@ export class DomainContract {
   readonly version: number;
   readonly sorts: DeclarationTable<SortDecl>;
   readonly dimensions: DeclarationTable<DimensionDecl>;
-  readonly operators: DeclarationTable<OperatorDecl>;
-  readonly edges: DeclarationTable<EdgeDecl>;
-  readonly facets: DeclarationTable<FacetDecl>;
+  readonly templates: DeclarationTable<TemplateDecl>;
+  readonly instantiations: DeclarationTable<InstantiationDecl>;
+  readonly bridges: DeclarationTable<BridgeDecl>;
+  /** Keyed by typed local target, `instantiation:<name>` or `bridge:<name>`. */
   readonly estimands: DeclarationTable<EstimandDecl>;
+  readonly durationConventions: DeclarationTable<DurationConventionDecl>;
+  readonly facets: DeclarationTable<FacetDecl>;
 
   /**
    * The base contract this domain was **typed against**.
@@ -305,10 +377,12 @@ export class DomainContract {
       version: number;
       sorts: DeclarationTable<SortDecl>;
       dimensions: DeclarationTable<DimensionDecl>;
-      operators: DeclarationTable<OperatorDecl>;
-      edges: DeclarationTable<EdgeDecl>;
-      facets: DeclarationTable<FacetDecl>;
+      templates: DeclarationTable<TemplateDecl>;
+      instantiations: DeclarationTable<InstantiationDecl>;
+      bridges: DeclarationTable<BridgeDecl>;
       estimands: DeclarationTable<EstimandDecl>;
+      durationConventions: DeclarationTable<DurationConventionDecl>;
+      facets: DeclarationTable<FacetDecl>;
       base: BaseContract;
     },
   ) {
@@ -325,10 +399,12 @@ export class DomainContract {
     this.version = parts.version;
     this.sorts = parts.sorts;
     this.dimensions = parts.dimensions;
-    this.operators = parts.operators;
-    this.edges = parts.edges;
-    this.facets = parts.facets;
+    this.templates = parts.templates;
+    this.instantiations = parts.instantiations;
+    this.bridges = parts.bridges;
     this.estimands = parts.estimands;
+    this.durationConventions = parts.durationConventions;
+    this.facets = parts.facets;
     this.base = parts.base;
     Object.freeze(this);
   }
@@ -368,38 +444,6 @@ function positiveInt(value: unknown, where: string): number {
 function tag(value: unknown, where: string): string {
   if (typeof value !== "string" || !NAME.test(value)) {
     throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not a tag; expected \`[a-z][a-z0-9-]*\``);
-  }
-  return value;
-}
-
-function sortReference(
-  value: unknown,
-  where: string,
-  namespace: string,
-  baseName: string,
-  sorts: DeclarationTable<SortDecl>,
-): string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not a sort reference`);
-  }
-  if (!value.includes("/")) {
-    tag(value, where);
-    if (!(value in sorts)) throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not a declared sort`);
-    return value;
-  }
-  const [foreign, local, ...rest] = value.split("/");
-  if (rest.length > 0 || !NAME.test(foreign) || !NAME.test(local)) {
-    throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not a sort reference`);
-  }
-  if (foreign === namespace) {
-    throw new MalformedContract(
-      `${where}: ${JSON.stringify(value)} names this contract's own namespace; a local sort is spelled by its local name ${JSON.stringify(local)} and nothing else`,
-    );
-  }
-  if (foreign === baseName) {
-    throw new MalformedContract(
-      `${where}: ${JSON.stringify(value)} names the base contract, which declares no claim vocabulary; a slot sort is a domain's`,
-    );
   }
   return value;
 }
@@ -707,6 +751,33 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   });
 }
 
+// --- domain contracts -------------------------------------------------------------
+//
+// Mirrored from the Python parser (`beliefs.contract.domain`), refusal for
+// refusal: both implementations read one document, and a case one refuses and
+// the other reads is the divergence the parity obligation exists to prevent.
+// The two places this side is narrower are named where they act: `refuseRetired`
+// and the genesis-only lineage.
+
+/** The v1 grammar's top-level tables, refused by name under base v2. */
+const V1_FIELDS = ["operators", "edges"];
+const ARITIES = ["one", "many"];
+/** The form a sign-inapt template may not declare: a null claim asserts an effect absent, which only a signed relation has. */
+const NULL_FORM = "null";
+const BRIDGE_REFUSED_MAPPINGS = ["exact", "broader"];
+const ESTIMAND_TARGET_KINDS = ["instantiation", "bridge"];
+const ROLE_OPTIONAL = ["min", "max", "coefficients", "constraint"];
+
+/** Each binding arm's fields, by their document spelling. */
+const BINDING_ARMS: Readonly<Record<string, readonly string[]>> = Object.freeze({
+  release: ["namespace", "release"],
+  dataset: ["dataset"],
+  scheme: ["scheme", "version"],
+  selection: ["dataset", "rule", "selected", "annotator"],
+  "run-output": ["run", "dataset"],
+  "world-kind": ["world_kind"],
+});
+
 function refuseRetired(body: Record<string, unknown>, where: string): void {
   if ("retired" in body) {
     throw new UncheckableContract(
@@ -716,15 +787,402 @@ function refuseRetired(body: Record<string, unknown>, where: string): void {
 }
 
 function declarations(value: unknown, where: string): Record<string, unknown> {
-  return value === undefined ? {} : mapping(value, where);
+  const table = value === undefined ? {} : mapping(value, where);
+  for (const name of Object.keys(table)) tag(name, `${where}: ${name}`);
+  return table;
+}
+
+function shown(value: unknown): string {
+  return value === undefined ? "undefined" : JSON.stringify(value);
+}
+
+/** Canonical identifier text: a non-empty string in NFC, as the Python side's `not_a_canonical_identifier`. */
+function canonicalText(value: unknown, where: string): string {
+  if (typeof value !== "string") {
+    throw new MalformedContract(
+      `${where}: ${shown(value)} is a ${value === null ? "null" : typeof value}, not a string.`,
+    );
+  }
+  if (value === "") throw new MalformedContract(`${where}: the empty string is not an identifier.`);
+  if (value.normalize("NFC") !== value) {
+    throw new MalformedContract(`${where}: ${JSON.stringify(value)} is not in NFC; normalize it where it enters.`);
+  }
+  return value;
+}
+
+function recordId(value: string, kind: string, where: string): string {
+  if (!new RegExp(`^${kind}:[0-9a-f]{64}$`).test(value)) {
+    throw new MalformedContract(
+      `${where}: ${JSON.stringify(value)} is not a ${kind} record id, \`${kind}:\` followed by 64 lowercase hex characters`,
+    );
+  }
+  return value;
+}
+
+function bool(value: unknown, where: string): boolean {
+  if (typeof value !== "boolean")
+    throw new MalformedContract(`${where}: expected true or false, found ${shown(value)}`);
+  return value;
+}
+
+function count(value: unknown, where: string, floor: number): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < floor) {
+    throw new MalformedContract(`${where}: expected an integer of at least ${floor}, found ${shown(value)}`);
+  }
+  return value;
+}
+
+function noDuplicates(values: readonly string[], where: string): void {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) throw new MalformedContract(`${where}: ${JSON.stringify(value)} appears twice`);
+    seen.add(value);
+  }
+}
+
+/** A list drawn from one of the base contract's closed sets, without repeats. */
+function closedList(
+  value: unknown,
+  allowed: readonly string[],
+  where: string,
+  what: string,
+  empty: boolean,
+): readonly string[] {
+  if (!Array.isArray(value) || (!empty && value.length === 0)) {
+    throw new MalformedContract(
+      `${where}: expected a ${empty ? "" : "non-empty "}list of ${what}s, found ${shown(value)}`,
+    );
+  }
+  value.forEach((item, index) => {
+    if (typeof item !== "string" || !allowed.includes(item)) {
+      throw new MalformedContract(
+        `${where}[${index}]: ${shown(item)} is not a ${what} the base contract declares ${JSON.stringify(allowed)}. A domain selects from the base vocabulary and may not extend it.`,
+      );
+    }
+  });
+  noDuplicates(value, where);
+  return Object.freeze([...value]);
+}
+
+/** A local name, or `<namespace>/<name>` naming another contract's declaration, deferred to compile. */
+function reference(value: unknown, where: string, namespace: string, baseName: string, what: string): string {
+  if (typeof value !== "string" || value.length === 0) {
+    throw new MalformedContract(`${where}: ${shown(value)} is not a ${what} reference`);
+  }
+  if (!value.includes("/")) return tag(value, where);
+  const [foreign, ...rest] = value.split("/");
+  const local = rest.join("/");
+  tag(foreign, `${where}: namespace`);
+  tag(local, `${where}: ${what}`);
+  if (foreign === namespace) {
+    throw new MalformedContract(
+      `${where}: ${JSON.stringify(value)} names this contract's own namespace; a local ${what} is spelled by its local name ${JSON.stringify(local)} and nothing else`,
+    );
+  }
+  if (foreign === baseName) {
+    throw new MalformedContract(
+      `${where}: ${JSON.stringify(value)} names the base contract, which declares no claim vocabulary; a ${what} is a domain's`,
+    );
+  }
+  return value;
+}
+
+function requireBaseKind(kind: string, base: BaseContract, where: string): void {
+  if (!Object.hasOwn(base.kinds, kind)) {
+    throw new MalformedContract(
+      `${where}: names ${JSON.stringify(kind)} records, a kind the base contract does not declare`,
+    );
+  }
+}
+
+/** One sort's `binding`: a mapping naming its arm by `kind` and carrying exactly that arm's fields. */
+function parseBinding(value: unknown, where: string, base: BaseContract): SortBinding {
+  const body = mapping(value, where);
+  if (!("kind" in body)) throw new MalformedContract(`${where}: missing field "kind"; a binding names its arm`);
+  const kind = body.kind;
+  if (
+    typeof kind !== "string" ||
+    !base.claimGrammar.bindingKinds.includes(kind) ||
+    !Object.hasOwn(BINDING_ARMS, kind)
+  ) {
+    throw new MalformedContract(
+      `${where}: binding kind ${shown(kind)} is not one of the base contract's binding_kinds ${JSON.stringify(base.claimGrammar.bindingKinds)}`,
+    );
+  }
+  const names = BINDING_ARMS[kind];
+  // A field of another arm is an unknown field here: a binding carrying two
+  // arms' fields is refused, never read as one of them.
+  exactFields(body, ["kind", ...names], [], where);
+  const text: Record<string, string> = Object.create(null);
+  for (const name of names) text[name] = canonicalText(body[name], `${where}.${name}`);
+  if (kind === "selection") requireBaseKind("classification-rule", base, `${where}.rule`);
+  if (kind === "run-output") requireBaseKind("run", base, `${where}.run`);
+  let binding: SortBinding;
+  switch (kind) {
+    case "release":
+      binding = { kind, namespace: text.namespace, release: text.release };
+      break;
+    case "dataset":
+      binding = { kind, dataset: recordId(text.dataset, "dataset", `${where}.dataset`) };
+      break;
+    case "scheme":
+      binding = { kind, scheme: text.scheme, version: text.version };
+      break;
+    case "selection":
+      binding = {
+        kind,
+        dataset: recordId(text.dataset, "dataset", `${where}.dataset`),
+        rule: recordId(text.rule, "classification-rule", `${where}.rule`),
+        selected: recordId(text.selected, "dataset", `${where}.selected`),
+        annotator: text.annotator,
+      };
+      break;
+    case "run-output":
+      binding = {
+        kind,
+        run: recordId(text.run, "run", `${where}.run`),
+        dataset: recordId(text.dataset, "dataset", `${where}.dataset`),
+      };
+      break;
+    default: {
+      const worldKind = text.world_kind;
+      const declared = NAME.test(worldKind) && Object.hasOwn(base.kinds, worldKind) ? base.kinds[worldKind] : undefined;
+      if (declared === undefined || declared.role !== "world") {
+        throw new MalformedContract(
+          `${where}: world_kind ${JSON.stringify(worldKind)} is not a world kind the base contract declares`,
+        );
+      }
+      binding = { kind: "world-kind", worldKind };
+    }
+  }
+  return Object.freeze(binding);
+}
+
+function parseIdentifierClass(value: unknown, where: string): IdentifierClass {
+  const body = mapping(value, where);
+  exactFields(body, ["prefix", "pattern"], [], where);
+  const { prefix, pattern } = body;
+  if (typeof prefix !== "string" || typeof pattern !== "string") {
+    throw new MalformedContract(
+      `${where}: prefix and pattern are strings, found ${shown(prefix)} and ${shown(pattern)}`,
+    );
+  }
+  try {
+    const identifierClass = new IdentifierClass(prefix, pattern);
+    Object.freeze(identifierClass);
+    return identifierClass;
+  } catch (error) {
+    if (error instanceof MalformedContract) throw new MalformedContract(`${where}: ${error.message}`);
+    throw error;
+  }
+}
+
+function parseSort(name: string, value: unknown, where: string, base: BaseContract): SortDecl {
+  const body = mapping(value, where);
+  exactFields(body, ["binding"], ["identifier_class", "categories", "retired"], where);
+  refuseRetired(body, where);
+  const binding = parseBinding(body.binding, `${where}.binding`, base);
+  let identifierClass: IdentifierClass | null = null;
+  if (binding.kind === "world-kind") {
+    if ("identifier_class" in body) {
+      throw new MalformedContract(
+        `${where}: identifier_class is refused on a world-kind sort; its class is the kernel's record-id grammar, \`<kind>:\` followed by 64 lowercase hex`,
+      );
+    }
+  } else {
+    if (!("identifier_class" in body)) {
+      throw new MalformedContract(
+        `${where}: identifier_class is required on a ${JSON.stringify(binding.kind)} binding; it is what a term is checked against at claim construction`,
+      );
+    }
+    identifierClass = parseIdentifierClass(body.identifier_class, `${where}.identifier_class`);
+  }
+  const categories = closedList(
+    "categories" in body ? body.categories : [],
+    base.claimGrammar.roleCategories,
+    `${where}.categories`,
+    "role category",
+    true,
+  );
+  return Object.freeze({ name, binding, identifierClass, categories });
+}
+
+function parseRole(name: string, value: unknown, where: string, base: BaseContract): RoleDecl {
+  const body = mapping(value, where);
+  exactFields(body, ["arity"], ROLE_OPTIONAL, where);
+  const arity = body.arity;
+  if (arity !== "one" && arity !== "many") {
+    throw new MalformedContract(`${where}: arity is \`one\` or \`many\`, found ${shown(arity)}`);
+  }
+  let min = 1;
+  let max: number | null = 1;
+  if (arity === "one") {
+    for (const field of ["min", "max", "coefficients"]) {
+      if (field in body) {
+        throw new MalformedContract(
+          `${where}: \`${field}\` is declared on a \`one\` role; min, max and coefficients apply to a \`many\` role only`,
+        );
+      }
+    }
+  } else {
+    min = count("min" in body ? body.min : 1, `${where}.min`, 0);
+    max = "max" in body ? count(body.max, `${where}.max`, Math.max(min, 1)) : null;
+  }
+  return Object.freeze({
+    name,
+    arity,
+    min,
+    max,
+    coefficients: bool("coefficients" in body ? body.coefficients : false, `${where}.coefficients`),
+    constraint: closedList(
+      "constraint" in body ? body.constraint : [],
+      base.claimGrammar.roleCategories,
+      `${where}.constraint`,
+      "role category",
+      true,
+    ),
+  });
+}
+
+function parseEdge(
+  value: unknown,
+  where: string,
+  roles: DeclarationTable<RoleDecl>,
+  layers: readonly string[],
+): { readonly cause: string; readonly effect: string } {
+  const body = mapping(value, where);
+  exactFields(body, ["cause", "effect"], [], where);
+  if (!layers.includes("causal")) {
+    throw new MalformedContract(`${where}: the template admits no causal layer, so it forms no edge`);
+  }
+  const { cause, effect } = body;
+  for (const [position, role] of [
+    ["cause", cause],
+    ["effect", effect],
+  ] as const) {
+    if (typeof role !== "string" || !Object.hasOwn(roles, role)) {
+      throw new MalformedContract(`${where}: ${position} ${shown(role)} is not a role this template declares`);
+    }
+  }
+  if (cause === effect) {
+    throw new MalformedContract(`${where}: cause and effect must be distinct roles, both are ${JSON.stringify(cause)}`);
+  }
+  return Object.freeze({ cause: cause as string, effect: effect as string });
+}
+
+function parseTemplate(name: string, value: unknown, where: string, base: BaseContract): TemplateDecl {
+  const body = mapping(value, where);
+  exactFields(
+    body,
+    ["roles", "sign_apt", "layers", "forms"],
+    ["edge", "definition", "external", "description", "retired"],
+    where,
+  );
+  refuseRetired(body, where);
+  const grammar = base.claimGrammar;
+
+  const roleEntries: [string, RoleDecl][] = [];
+  for (const [roleName, roleBody] of Object.entries(mapping(body.roles, `${where}.roles`))) {
+    const roleWhere = `${where}.roles.${roleName}`;
+    tag(roleName, roleWhere);
+    if (Object.hasOwn(grammar.reservedRoles, roleName)) {
+      throw new MalformedContract(
+        `${roleWhere}: ${JSON.stringify(roleName)} is a role the base contract reserves on every operator; no template may declare it`,
+      );
+    }
+    roleEntries.push([roleName, parseRole(roleName, roleBody, roleWhere, base)]);
+  }
+  const roles = frozenTable(roleEntries);
+
+  const signApt = bool(body.sign_apt, `${where}.sign_apt`);
+  const layers = closedList(body.layers, grammar.layers, `${where}.layers`, "layer", false);
+  const forms = closedList(body.forms, grammar.forms, `${where}.forms`, "form", false);
+  if (forms.includes(NULL_FORM) && !signApt) {
+    throw new MalformedContract(
+      `${where}: forms includes "${NULL_FORM}" on a sign-inapt template. A null claim asserts an effect absent, which only a signed relation has.`,
+    );
+  }
+
+  const edge = "edge" in body ? parseEdge(body.edge, `${where}.edge`, roles, layers) : null;
+
+  let definition: string | null = null;
+  if ("definition" in body) {
+    if (typeof body.definition !== "string" || body.definition.trim() === "") {
+      throw new MalformedContract(`${where}: definition is prose, found ${shown(body.definition)}`);
+    }
+    definition = body.definition;
+  }
+
+  let external: TemplateDecl["external"] = null;
+  if ("external" in body) {
+    const externalWhere = `${where}.external`;
+    const reference = mapping(body.external, externalWhere);
+    exactFields(reference, ["reference", "mapping"], [], externalWhere);
+    const mappingType = reference.mapping;
+    if (typeof mappingType !== "string" || !grammar.mappingTypes.includes(mappingType)) {
+      throw new MalformedContract(
+        `${externalWhere}: mapping ${shown(mappingType)} is not one of the base contract's mapping_types ${JSON.stringify(grammar.mappingTypes)}`,
+      );
+    }
+    external = Object.freeze({
+      reference: canonicalText(reference.reference, `${externalWhere}.reference`),
+      mapping: mappingType,
+    });
+  }
+
+  return Object.freeze({ name, roles, signApt, layers, forms, edge, definition, external });
+}
+
+function parseRoleSorts(
+  value: unknown,
+  where: string,
+  resolve: (value: unknown, where: string) => string,
+): Readonly<Record<string, readonly string[]>> {
+  const entries: [string, readonly string[]][] = [];
+  for (const [role, sorts] of Object.entries(mapping(value, where))) {
+    const roleWhere = `${where}.${role}`;
+    tag(role, roleWhere);
+    if (!Array.isArray(sorts) || sorts.length === 0) {
+      throw new MalformedContract(`${roleWhere}: expected a non-empty list of sorts, found ${shown(sorts)}`);
+    }
+    const listed = sorts.map((sort, index) => resolve(sort, `${roleWhere}[${index}]`));
+    noDuplicates(listed, roleWhere);
+    entries.push([role, Object.freeze(listed)]);
+  }
+  return frozenTable(entries);
+}
+
+function parseEstimandTarget(
+  key: string,
+  where: string,
+  instantiations: DeclarationTable<InstantiationDecl>,
+  bridges: DeclarationTable<BridgeDecl>,
+): string {
+  const separator = key.indexOf(":");
+  const kind = separator < 0 ? "" : key.slice(0, separator);
+  if (separator < 0 || !ESTIMAND_TARGET_KINDS.includes(kind)) {
+    throw new MalformedContract(
+      `${where}: ${JSON.stringify(key)} is not a typed target. An estimand declaration is keyed \`instantiation:<name>\` or \`bridge:<name>\`: the two tables are separate namespaces, and an untyped key cannot say which it names.`,
+    );
+  }
+  const name = tag(key.slice(separator + 1), `${where}: ${kind} name`);
+  const declared = kind === "instantiation" ? instantiations : bridges;
+  if (!Object.hasOwn(declared, name)) {
+    throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not a ${kind} this contract declares`);
+  }
+  return key;
 }
 
 /**
  * The base contract is **authenticated**, not merely accepted.
  *
  * A parser that takes another parser's output and trusts it by shape has the
- * hole its own callers were closed against, one level in: the layer check below
- * is worth exactly what the base contract handed to it is worth.
+ * hole its own callers were closed against, one level in: the closed-set checks
+ * below are worth exactly what the base contract handed to them is worth.
+ *
+ * References to another contract's declarations (`<namespace>/<name>`) are
+ * checked for form here and resolved at compile, which is where the other
+ * contract is.
  */
 export function parseDomainContract(text: string, source: string, base: BaseContract): DomainContract {
   if (!BaseContract.is(base)) {
@@ -738,10 +1196,16 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     if (section in document)
       throw new MalformedContract(`${source}: a domain contract declares no ${section}; refused`);
   }
+  const v1Fields = V1_FIELDS.filter((section) => section in document);
+  if (v1Fields.length > 0) {
+    throw new MalformedContract(
+      `${source}: unknown field(s) ${v1Fields.join(", ")}; the v1 grammar's operators and edges are replaced by templates, instantiations and bridges under base v2, so a v1 document cannot parse by accident — refused, never ignored`,
+    );
+  }
   exactFields(
     document,
-    ["contract", "version", "lineage"],
-    ["sorts", "dimensions", "operators", "facets", "estimands", "edges"],
+    ["contract", "version", "lineage", "sorts", "dimensions"],
+    ["templates", "instantiations", "bridges", "duration_conventions", "estimands", "facets"],
     source,
   );
 
@@ -751,115 +1215,127 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     );
   }
   const namespace = tag(document.contract, `${source}.contract`);
-  const facets = parseFacetDeclarations("facets" in document ? document.facets : {}, `${source}.facets`, namespace);
-
-  const sortEntries: [string, SortDecl][] = [];
-  for (const [name, body] of Object.entries(declarations(document.sorts, `${source}.sorts`))) {
-    const where = `${source}.sorts.${name}`;
-    const sortBody = mapping(body, where);
-    exactFields(sortBody, ["vocabulary"], ["retired"], where);
-    refuseRetired(sortBody, where);
-    sortEntries.push([tag(name, where), Object.freeze({ name })]);
+  if (namespace === "coordination") {
+    throw new MalformedContract(`${source}: "coordination" is reserved for the coordination contract`);
   }
-  const sorts = frozenTable(sortEntries);
+  if (namespace === base.name) {
+    throw new MalformedContract(
+      `${source}: ${JSON.stringify(namespace)} is the base contract's namespace. Operators are domain-issued without exception, and a base-issued operator would sit outside the closure walk every other operator goes through.`,
+    );
+  }
+  const version = positiveInt(document.version, `${source}.version`);
+  const grammar = base.claimGrammar;
+
+  const sorts = frozenTable(
+    Object.entries(declarations(document.sorts, `${source}.sorts`)).map(
+      ([name, body]) => [name, parseSort(name, body, `${source}.sorts.${name}`, base)] as const,
+    ),
+  );
+
+  const resolve = (value: unknown, where: string): string => {
+    const resolved = reference(value, where, namespace, base.name, "sort");
+    if (!resolved.includes("/") && !Object.hasOwn(sorts, resolved)) {
+      throw new MalformedContract(`${where}: ${JSON.stringify(resolved)} is not a sort this contract declares`);
+    }
+    return resolved;
+  };
 
   const dimensionEntries: [string, DimensionDecl][] = [];
   for (const [name, body] of Object.entries(declarations(document.dimensions, `${source}.dimensions`))) {
     const where = `${source}.dimensions.${name}`;
-    const dimensionBody = mapping(body, where);
-    exactFields(dimensionBody, ["restriction_sort"], ["retired"], where);
-    refuseRetired(dimensionBody, where);
-    const restrictionSort = sortReference(
-      dimensionBody.restriction_sort,
-      `${where}.restriction_sort`,
-      namespace,
-      base.name,
-      sorts,
+    const decl = mapping(body, where);
+    exactFields(decl, ["restriction_sort", "placement", "applies_to"], ["retired"], where);
+    refuseRetired(decl, where);
+    const placement = decl.placement;
+    if (typeof placement !== "string" || !grammar.placements.includes(placement)) {
+      throw new MalformedContract(
+        `${where}: placement ${shown(placement)} is not one of the base contract's placements ${JSON.stringify(grammar.placements)}`,
+      );
+    }
+    if (!Array.isArray(decl.applies_to)) {
+      throw new MalformedContract(`${where}: applies_to must be a list of operators, found ${shown(decl.applies_to)}`);
+    }
+    const appliesTo = decl.applies_to.map((item, index) =>
+      reference(item, `${where}.applies_to[${index}]`, namespace, base.name, "operator"),
     );
-    dimensionEntries.push([tag(name, where), Object.freeze({ name, restrictionSort })]);
-  }
-  const dimensions = frozenTable(dimensionEntries);
-
-  const operatorEntries: [string, OperatorDecl][] = [];
-  for (const [name, body] of Object.entries(declarations(document.operators, `${source}.operators`))) {
-    const where = `${source}.operators.${name}`;
-    const operatorBody = mapping(body, where);
-    exactFields(
-      operatorBody,
-      ["arity", "arg_sorts", "sign_apt", "layers", "dimensions"],
-      ["description", "retired"],
-      where,
-    );
-    refuseRetired(operatorBody, where);
-    const arity = positiveInt(operatorBody.arity, `${where}.arity`);
-    if (!Array.isArray(operatorBody.arg_sorts) || operatorBody.arg_sorts.length !== arity) {
-      // Every slot of Fin(arity(op)) is filled, and no slot twice.
-      throw new MalformedContract(`${where}.arg_sorts: expected exactly ${arity} sorts, one per slot`);
-    }
-    const argSorts = operatorBody.arg_sorts.map((entry, index) =>
-      sortReference(entry, `${where}.arg_sorts[${index}]`, namespace, base.name, sorts),
-    );
-    if (typeof operatorBody.sign_apt !== "boolean") {
-      throw new MalformedContract(`${where}.sign_apt: expected true or false`);
-    }
-    const layers = closedSet(operatorBody.layers, `${where}.layers`);
-    for (const layer of layers) {
-      if (!base.claimGrammar.layers.includes(layer)) {
-        throw new MalformedContract(
-          `${where}.layers: ${JSON.stringify(layer)} is not a layer the base contract declares`,
-        );
-      }
-    }
-    if (!Array.isArray(operatorBody.dimensions)) throw new MalformedContract(`${where}.dimensions: expected a list`);
-    const permitted = operatorBody.dimensions.map((entry, index) => tag(entry, `${where}.dimensions[${index}]`));
-    for (const dimension of permitted) {
-      if (!(dimension in dimensions)) {
-        throw new MalformedContract(`${where}.dimensions: ${JSON.stringify(dimension)} is not a declared dimension`);
-      }
-    }
-    operatorEntries.push([
-      tag(name, where),
+    noDuplicates(appliesTo, `${where}.applies_to`);
+    dimensionEntries.push([
+      name,
       Object.freeze({
         name,
-        arity,
-        argSorts: Object.freeze(argSorts),
-        signApt: operatorBody.sign_apt,
-        layers: Object.freeze(layers),
-        dimensions: Object.freeze(permitted),
+        restrictionSort: resolve(decl.restriction_sort, `${where}.restriction_sort`),
+        placement,
+        appliesTo: Object.freeze(appliesTo),
       }),
     ]);
   }
+  const dimensions = frozenTable(dimensionEntries);
 
-  const operators = frozenTable(operatorEntries);
+  const templates = frozenTable(
+    Object.entries(declarations(document.templates, `${source}.templates`)).map(
+      ([name, body]) => [name, parseTemplate(name, body, `${source}.templates.${name}`, base)] as const,
+    ),
+  );
 
-  const edgeEntries: [string, EdgeDecl][] = [];
-  for (const [name, body] of Object.entries(
-    declarations("edges" in document ? document.edges : {}, `${source}.edges`),
-  )) {
-    const where = `${source}.edges.${name}`;
-    const edgeBody = mapping(body, where);
-    exactFields(edgeBody, ["cause", "effect"], ["description", "retired"], where);
-    refuseRetired(edgeBody, where);
-    const operator = operators[name];
-    if (operator === undefined)
-      throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not an operator this contract declares`);
-    if (!operator.layers.includes("causal"))
-      throw new MalformedContract(`${where}: ${JSON.stringify(name)} admits no causal layer`);
-    const slot = (value: unknown, label: string): number => {
-      if (typeof value !== "number" || !Number.isInteger(value) || value < 0 || value >= operator.arity)
-        throw new MalformedContract(`${where}.${label}: a slot is an integer in Fin(${operator.arity})`);
-      return value;
-    };
-    const cause = slot(edgeBody.cause, "cause");
-    const effect = slot(edgeBody.effect, "effect");
-    if (cause === effect) throw new MalformedContract(`${where}: cause and effect must be distinct slots`);
-    edgeEntries.push([name, Object.freeze({ operator: name, cause, effect })]);
+  const instantiationEntries: [string, InstantiationDecl][] = [];
+  for (const [name, body] of Object.entries(declarations(document.instantiations, `${source}.instantiations`))) {
+    const where = `${source}.instantiations.${name}`;
+    const decl = mapping(body, where);
+    exactFields(decl, ["template", "roles"], ["description", "retired"], where);
+    refuseRetired(decl, where);
+    instantiationEntries.push([
+      name,
+      Object.freeze({
+        name,
+        template: reference(decl.template, `${where}.template`, namespace, base.name, "template"),
+        roles: parseRoleSorts(decl.roles, `${where}.roles`, resolve),
+      }),
+    ]);
   }
-  const edges = frozenTable(edgeEntries);
+  const instantiations = frozenTable(instantiationEntries);
+
+  const bridgeEntries: [string, BridgeDecl][] = [];
+  for (const [name, body] of Object.entries(declarations(document.bridges, `${source}.bridges`))) {
+    const where = `${source}.bridges.${name}`;
+    const decl = mapping(body, where);
+    exactFields(decl, ["template", "mapping", "roles"], ["layers", "description", "retired"], where);
+    refuseRetired(decl, where);
+    if (Object.hasOwn(templates, name)) {
+      throw new MalformedContract(
+        `${where}: ${JSON.stringify(name)} is also a template of this contract. Templates and bridges are both operators, identified only as \`${namespace}/${name}\`, so the two would collide on one operator identifier.`,
+      );
+    }
+    const mappingType = decl.mapping;
+    if (typeof mappingType !== "string" || !grammar.mappingTypes.includes(mappingType)) {
+      throw new MalformedContract(
+        `${where}: mapping ${shown(mappingType)} is not one of the base contract's mapping_types ${JSON.stringify(grammar.mappingTypes)}`,
+      );
+    }
+    if (BRIDGE_REFUSED_MAPPINGS.includes(mappingType)) {
+      throw new MalformedContract(
+        `${where}: mapping ${JSON.stringify(mappingType)} is refused on a bridge: an exact bridge is its template, and a broader one commits to less than the evidence form it bridges to. A bridge is narrower or contextual.`,
+      );
+    }
+    bridgeEntries.push([
+      name,
+      Object.freeze({
+        name,
+        template: reference(decl.template, `${where}.template`, namespace, base.name, "template"),
+        mapping: mappingType,
+        roles: parseRoleSorts(decl.roles, `${where}.roles`, resolve),
+        layers: "layers" in decl ? closedList(decl.layers, grammar.layers, `${where}.layers`, "layer", false) : null,
+      }),
+    ]);
+  }
+  const bridges = frozenTable(bridgeEntries);
+
+  const facets = parseFacetDeclarations("facets" in document ? document.facets : {}, `${source}.facets`, namespace);
 
   const estimandEntries: [string, EstimandDecl][] = [];
-  for (const [name, body] of Object.entries(declarations(document.estimands, `${source}.estimands`))) {
-    const where = `${source}.estimands.${name}`;
+  const estimandTable = "estimands" in document ? mapping(document.estimands, `${source}.estimands`) : {};
+  for (const [key, body] of Object.entries(estimandTable)) {
+    const where = `${source}.estimands.${key}`;
+    const target = parseEstimandTarget(key, where, instantiations, bridges);
     const decl = mapping(body, where);
     exactFields(
       decl,
@@ -867,53 +1343,51 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
       ["description"],
       where,
     );
-    const operator = operators[name];
-    if (operator === undefined)
-      throw new MalformedContract(`${where}: ${JSON.stringify(name)} is not a declared operator`);
-    if (operator.arity === 0)
-      throw new MalformedContract(`${where}: ${JSON.stringify(name)} has arity 0 and admits no estimand`);
     const levelSorts: Record<string, string> = Object.create(null);
-    for (const [slot, sort] of Object.entries(mapping(decl.level_sorts, `${where}.level_sorts`))) {
-      if (!/^(0|[1-9][0-9]*)$/.test(slot))
-        throw new MalformedContract(`${where}.level_sorts: ${JSON.stringify(slot)} is not a slot index`);
-      if (Number(slot) >= operator.arity)
-        throw new MalformedContract(`${where}.level_sorts: slot ${slot} is outside Fin(${operator.arity})`);
-      levelSorts[slot] = sortReference(sort, `${where}.level_sorts[${slot}]`, namespace, base.name, sorts);
+    for (const [role, sort] of Object.entries(mapping(decl.level_sorts, `${where}.level_sorts`))) {
+      tag(role, `${where}.level_sorts key`);
+      levelSorts[role] = resolve(sort, `${where}.level_sorts.${role}`);
     }
     estimandEntries.push([
-      name,
+      target,
       Object.freeze({
-        operator: name,
+        target,
         levelSorts: Object.freeze(levelSorts),
-        measureSort: sortReference(decl.measure_sort, `${where}.measure_sort`, namespace, base.name, sorts),
-        identificationSort: sortReference(
-          decl.identification_sort,
-          `${where}.identification_sort`,
-          namespace,
-          base.name,
-          sorts,
-        ),
-        conditioningSort: sortReference(
-          decl.conditioning_sort,
-          `${where}.conditioning_sort`,
-          namespace,
-          base.name,
-          sorts,
-        ),
+        measureSort: resolve(decl.measure_sort, `${where}.measure_sort`),
+        identificationSort: resolve(decl.identification_sort, `${where}.identification_sort`),
+        conditioningSort: resolve(decl.conditioning_sort, `${where}.conditioning_sort`),
       }),
     ]);
   }
   const estimands = frozenTable(estimandEntries);
 
+  const conventionEntries: [string, DurationConventionDecl][] = [];
+  for (const [name, body] of Object.entries(
+    declarations(document.duration_conventions, `${source}.duration_conventions`),
+  )) {
+    const where = `${source}.duration_conventions.${name}`;
+    const fields: Record<string, string | number> = Object.create(null);
+    for (const [field, scalar] of Object.entries(mapping(body, where))) {
+      if (typeof scalar !== "string" && !(typeof scalar === "number" && Number.isInteger(scalar))) {
+        throw new MalformedContract(`${where}: ${field} is a string or an integer, found ${shown(scalar)}`);
+      }
+      fields[field] = scalar;
+    }
+    conventionEntries.push([name, Object.freeze({ name, fields: Object.freeze(fields) })]);
+  }
+  const durationConventions = frozenTable(conventionEntries);
+
   return new DomainContract(MINT, {
     namespace,
-    version: positiveInt(document.version, `${source}.version`),
+    version,
     sorts,
     dimensions,
-    operators,
-    edges,
-    facets,
+    templates,
+    instantiations,
+    bridges,
     estimands,
+    durationConventions,
+    facets,
     base,
   });
 }
