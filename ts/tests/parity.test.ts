@@ -86,6 +86,7 @@ const profile = compileProfile(
   fixture.domain_contracts.map((path) => parseDomainContract(read(path), path, base)),
 );
 
+const CAFE_NFD_TERM = "EX:cafe\u0301-cohort";
 const BETA_TERM = "EX:\u03b2-catenin";
 const SAME_CLAIM = ["correlates-with-written-forward", "correlates-with-written-reversed"] as const;
 
@@ -267,12 +268,30 @@ describe("the hard cases are present", () => {
     expect(terms).toContain(BETA_TERM);
   });
 
+  it("the decomposed restriction is encoded composed", () => {
+    // The projection holds the decomposed form; the canonical bytes hold the
+    // composed one. An implementation that normalized at parse time, or not at
+    // all, fails exactly one of the two comparisons.
+    const row = byName("affects-decomposed-restriction");
+    expect(row).toBeDefined();
+    const restriction = row.projection.qualifiers["testing/population"].restriction.term;
+    expect(restriction).toBe(CAFE_NFD_TERM);
+    expect(restriction.normalize("NFC")).not.toBe(restriction);
+    expect(row.claim.qualifiers["testing/population"].restriction.term).toBe(CAFE_NFD_TERM);
+    expect(row.canonical_bytes).not.toContain(restriction);
+    expect(row.canonical_bytes).toContain(restriction.normalize("NFC"));
+  });
+
   it("the astral and BMP pair project in code point order", () => {
     const row = byName("correlates-event-product-astral-bmp");
     const written = (row.claim.roles.parties as FixtureMember[]).map((member) => member.term);
     const projected = (row.projection.roles.parties as FixtureMember[]).map((member) => member.term);
     expect(written).toEqual(["EX:\u{1f600}", "EX:\uff21"]);
     expect(projected).toEqual(["EX:\uff21", "EX:\u{1f600}"]);
+    // UTF-16 code-unit order is the reverse, so an implementation comparing
+    // with `<` on UTF-16 strings projects this row wrongly.
+    const utf16 = [...projected].sort();
+    expect(utf16).toEqual(["EX:\u{1f600}", "EX:\uff21"]);
   });
 });
 
