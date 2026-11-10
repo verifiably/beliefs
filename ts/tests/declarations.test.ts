@@ -304,6 +304,7 @@ describe("compileProfile resolves the v2 declarations", () => {
     expect(compiled.dimensions["testing/population"]).toEqual({
       term: "testing/population",
       restrictionSort: "testing/cohort",
+      restriction: null,
       placement: "claim",
       appliesTo: ["testing/affects", "testing/correlates-with", "testing/promotes"],
     });

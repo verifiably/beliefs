@@ -75,6 +75,13 @@ sorts:
     binding: { kind: release, namespace: EX, release: "2026-01-01" }
     identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
 
+  energy-aspect:
+    binding: { kind: scheme, scheme: EX, version: "1" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
+  stage:
+    binding: { kind: release, namespace: EX, release: "2026-01-01" }
+    identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
+
 dimensions:
   population:
     restriction_sort: cohort
@@ -85,7 +92,24 @@ dimensions:
     placement: claim
     applies_to: [affects]
   follow-up:
+    restriction: { form: interval, quantity_kind: duration }
     restriction_sort: level
+    placement: applicability
+    applies_to: [affects]
+
+  stage:
+    restriction_sort: stage
+    restriction: { form: term, sort: stage }
+    placement: applicability
+    applies_to: [affects]
+  epoch:
+    restriction_sort: level
+    restriction: { form: time-interval }
+    placement: applicability
+    applies_to: [affects]
+  case-status:
+    restriction_sort: level
+    restriction: { form: rule, classes: level }
     placement: applicability
     applies_to: [affects]
 
@@ -251,3 +275,34 @@ facets:
       note:  { type: string,  required: true }
       count: { type: integer, required: false }
       final: { type: boolean, required: false }
+
+procedure_kinds:
+  assay: { fills_within_model: false }
+  instrument: { fills_within_model: false }
+  questionnaire: { fills_within_model: false }
+  estimator: { fills_within_model: false }
+  model-specification: { fills_within_model: true }
+aggregation_rules:
+  sum: {}
+  mean: {}
+assumption_kinds:
+  transport-exchangeability:
+    collapses: Transport across the declared dimensions and co-scope.
+    particulars: [dimensions, co_scope]
+  proxy-validity:
+    collapses: The proxy's validity within the declared scope.
+    particulars: [record, co_scope, dimensions]
+  procedure-validity:
+    collapses: The procedure's validity within the declared scope.
+    particulars: [record, co_scope, dimensions]
+  calibration-transfer:
+    collapses: Transfer from the calibrated observable to the target observable.
+    particulars: [proxy, calibrated_observable, target_observable]
+measurements:
+  entity: [abundance, count]
+  outcome: [score, duration]
+  product: [abundance]
+  event: [energy, rate, temperature]
+  cohort: []
+aspects:
+  energy: [energy-aspect]

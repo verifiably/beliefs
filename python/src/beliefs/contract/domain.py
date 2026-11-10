@@ -49,6 +49,9 @@ from beliefs.patterns import IdentifierClass
 from beliefs.sealed import sealed
 
 __all__ = [
+    "AggregationRuleDecl",
+    "AspectsDecl",
+    "AssumptionKindDecl",
     "BridgeDecl",
     "ConstantDecl",
     "ConversionDecl",
@@ -59,9 +62,12 @@ __all__ = [
     "EstimandDecl",
     "ExternalRef",
     "InstantiationDecl",
+    "MeasurementsDecl",
+    "ProcedureKindDecl",
     "QuantityDimension",
     "QuantityKindDecl",
     "ReleaseBinding",
+    "RestrictionForm",
     "RoleDecl",
     "RunOutputBinding",
     "SchemeBinding",
@@ -97,6 +103,11 @@ _CONTRACT_OPTIONAL = frozenset(
         "duration_conventions",
         "estimands",
         "facets",
+        "procedure_kinds",
+        "aggregation_rules",
+        "assumption_kinds",
+        "measurements",
+        "aspects",
         "quantity_kinds",
         "units",
         "constants",
@@ -364,6 +375,74 @@ class SortDecl:
 
 
 @dataclass(frozen=True)
+class RestrictionForm:
+    form: Literal["term", "interval", "union", "time-interval", "rule"]
+    sort: str | None = None
+    quantity_kind: str | None = None
+    classes: str | None = None
+    of: RestrictionForm | None = None
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {"form": self.form}
+        for key in ("sort", "quantity_kind", "classes"):
+            if (value := getattr(self, key)) is not None:
+                projection[key] = value
+        if self.of is not None:
+            projection["of"] = self.of.schema_projection()
+        return projection
+
+
+@dataclass(frozen=True)
+class ProcedureKindDecl:
+    name: str
+    fills_within_model: bool
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"fills_within_model": self.fills_within_model}
+
+
+@dataclass(frozen=True)
+class AggregationRuleDecl:
+    name: str
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {}
+
+
+@dataclass(frozen=True)
+class AssumptionKindDecl:
+    name: str
+    collapses: str
+    particulars: tuple[str, ...]
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"collapses": self.collapses, "particulars": sorted(self.particulars)}
+
+
+@dataclass(frozen=True)
+class MeasurementsDecl:
+    sort: str
+    quantity_kinds: tuple[str, ...]
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"quantity_kinds": sorted(self.quantity_kinds)}
+
+
+@dataclass(frozen=True)
+class AspectsDecl:
+    quantity_kind: str
+    aspect_sorts: tuple[str, ...]
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"aspect_sorts": sorted(self.aspect_sorts)}
+
+
+@dataclass(frozen=True)
 class DimensionDecl:
     """A dimension, on exactly one side: ``placement`` is ``claim`` or
     ``applicability``. ``applies_to`` lists the operators (local, or
@@ -373,14 +452,18 @@ class DimensionDecl:
     restriction_sort: str
     placement: str
     applies_to: tuple[str, ...]
+    restriction: RestrictionForm | None
     retired: bool = False
 
     def schema_projection(self) -> dict[str, object]:
-        return {
+        projection: dict[str, object] = {
             "restriction_sort": self.restriction_sort,
             "placement": self.placement,
             "applies_to": sorted(self.applies_to),
         }
+        if self.restriction is not None:
+            projection["restriction"] = self.restriction.schema_projection()
+        return projection
 
 
 @dataclass(frozen=True)
@@ -644,6 +727,11 @@ _Declaration = (
     | BridgeDecl
     | EstimandDecl
     | DurationConventionDecl
+    | ProcedureKindDecl
+    | AggregationRuleDecl
+    | AssumptionKindDecl
+    | MeasurementsDecl
+    | AspectsDecl
     | QuantityKindDecl
     | UnitDecl
     | ConstantDecl
@@ -687,6 +775,11 @@ class DomainContract:
     estimands: Mapping[str, EstimandDecl]
     """Keyed by typed local target, ``instantiation:<name>`` or ``bridge:<name>``."""
     duration_conventions: Mapping[str, DurationConventionDecl]
+    procedure_kinds: Mapping[str, ProcedureKindDecl]
+    aggregation_rules: Mapping[str, AggregationRuleDecl]
+    assumption_kinds: Mapping[str, AssumptionKindDecl]
+    measurements: Mapping[str, MeasurementsDecl]
+    aspects: Mapping[str, AspectsDecl]
     quantity_kinds: Mapping[str, QuantityKindDecl]
     units: Mapping[str, UnitDecl]
     constants: Mapping[str, ConstantDecl]
@@ -735,6 +828,11 @@ class DomainContract:
         bridges: dict[str, BridgeDecl],
         estimands: dict[str, EstimandDecl],
         duration_conventions: dict[str, DurationConventionDecl],
+        procedure_kinds: dict[str, ProcedureKindDecl],
+        aggregation_rules: dict[str, AggregationRuleDecl],
+        assumption_kinds: dict[str, AssumptionKindDecl],
+        measurements: dict[str, MeasurementsDecl],
+        aspects: dict[str, AspectsDecl],
         quantity_kinds: dict[str, QuantityKindDecl],
         units: dict[str, UnitDecl],
         constants: dict[str, ConstantDecl],
@@ -762,6 +860,11 @@ class DomainContract:
             ("bridges", MappingProxyType(dict(bridges))),
             ("estimands", MappingProxyType(dict(estimands))),
             ("duration_conventions", MappingProxyType(dict(duration_conventions))),
+            ("procedure_kinds", MappingProxyType(dict(procedure_kinds))),
+            ("aggregation_rules", MappingProxyType(dict(aggregation_rules))),
+            ("assumption_kinds", MappingProxyType(dict(assumption_kinds))),
+            ("measurements", MappingProxyType(dict(measurements))),
+            ("aspects", MappingProxyType(dict(aspects))),
             ("quantity_kinds", MappingProxyType(dict(quantity_kinds))),
             ("units", MappingProxyType(dict(units))),
             ("constants", MappingProxyType(dict(constants))),
@@ -811,6 +914,11 @@ class DomainContract:
             *((f"bridge:{name}", decl) for name, decl in self.bridges.items()),
             *((f"estimand:{target}", decl) for target, decl in self.estimands.items()),
             *((f"duration-convention:{name}", decl) for name, decl in self.duration_conventions.items()),
+            *((f"procedure-kind:{name}", decl) for name, decl in self.procedure_kinds.items()),
+            *((f"aggregation-rule:{name}", decl) for name, decl in self.aggregation_rules.items()),
+            *((f"assumption-kind:{name}", decl) for name, decl in self.assumption_kinds.items()),
+            *((f"measurement:{name}", decl) for name, decl in self.measurements.items()),
+            *((f"aspect:{name}", decl) for name, decl in self.aspects.items()),
             *((f"quantity-kind:{name}", decl) for name, decl in self.quantity_kinds.items()),
             *((f"unit:{name}", decl) for name, decl in self.units.items()),
             *((f"constant:{name}", decl) for name, decl in self.constants.items()),
@@ -1052,6 +1160,45 @@ def _sort_reference(value: object, where: str, *, namespace: str, base_name: str
     if "/" not in reference and reference not in sorts:
         raise MalformedContract(f"{where}: {reference!r} is not a sort this contract declares")
     return reference
+
+
+def _field_name(value: object, where: str) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[a-z][a-z0-9_]*", value) is None:
+        raise MalformedContract(f"{where}: expected a field name")
+    return value
+
+
+def _parse_restriction(value: object, where: str, reference: Callable[[object, str], str]) -> RestrictionForm:
+    body = _mapping(value, where)
+    form = body.get("form")
+    fields = {"term": "sort", "interval": "quantity_kind", "rule": "classes", "union": "of", "time-interval": None}
+    if not isinstance(form, str) or form not in fields:
+        raise MalformedContract(f"{where}: unknown restriction form {form!r}")
+    field = fields[form]
+    _fields(body, frozenset({"form", field} if field else {"form"}), frozenset(), where)
+    kind = cast(Literal["term", "interval", "union", "time-interval", "rule"], form)
+    if form == "union":
+        child = _mapping(body["of"], f"{where}: of")
+        if child.get("form") == "union":
+            raise MalformedContract(f"{where}: union of union is refused")
+        return RestrictionForm(kind, of=_parse_restriction(child, f"{where}: of", reference))
+    if field is None:
+        return RestrictionForm(kind)
+    resolved = reference(body[field], f"{where}: {field}")
+    return RestrictionForm(
+        kind,
+        sort=resolved if field == "sort" else None,
+        quantity_kind=resolved if field == "quantity_kind" else None,
+        classes=resolved if field == "classes" else None,
+    )
+
+
+def _reference_list(value: object, where: str, reference: Callable[[object, str], str]) -> tuple[str, ...]:
+    if not isinstance(value, list):
+        raise MalformedContract(f"{where}: expected a list")
+    result = tuple(reference(item, f"{where}[{i}]") for i, item in enumerate(value))
+    _no_duplicates(result, where)
+    return result
 
 
 def _declarations(value: object, where: str) -> dict[str, object]:
@@ -1362,7 +1509,7 @@ def parse_domain_contract(
     for name, body in _declarations(root["dimensions"], f"{source}: dimensions").items():
         where = f"{source}: dimensions.{name}"
         decl = _mapping(body, where)
-        _fields(decl, _DIMENSION_FIELDS, _EDITORIAL, where)
+        _fields(decl, _DIMENSION_FIELDS, _EDITORIAL | {"restriction"}, where)
         placement = decl["placement"]
         if not isinstance(placement, str) or placement not in grammar.placements:
             raise MalformedContract(
@@ -1374,9 +1521,20 @@ def parse_domain_contract(
             raise MalformedContract(f"{where}: applies_to must be a list of operators, found {raw_applies!r}")
         applies_to = tuple(operator(item, f"{where}: applies_to[{i}]") for i, item in enumerate(raw_applies))
         _no_duplicates(applies_to, f"{where}: applies_to")
+        restriction = None
+        if placement == "applicability":
+            if "restriction" not in decl:
+                raise MalformedContract(f"{where}: applicability dimension requires restriction")
+            restriction = _parse_restriction(decl["restriction"], f"{where}: restriction", operator)
+            leaf = restriction.of if restriction.form == "union" else restriction
+            if leaf is not None and leaf.form == "term" and leaf.sort != decl["restriction_sort"]:
+                raise MalformedContract(f"{where}: term restriction sort must match restriction_sort")
+        elif "restriction" in decl:
+            raise MalformedContract(f"{where}: claim dimension refuses restriction")
         dimensions[name] = DimensionDecl(
             name=name,
             restriction_sort=resolve(decl["restriction_sort"], f"{where}: restriction_sort"),
+            restriction=restriction,
             placement=placement,
             applies_to=applies_to,
             retired=_bool(decl.get("retired", False), f"{where}: retired"),
@@ -1491,6 +1649,41 @@ def parse_domain_contract(
         for name, body in _declarations(root.get("transformations", {}), f"{source}: transformations").items()
     }
 
+    procedure_kinds: dict[str, ProcedureKindDecl] = {}
+    aggregation_rules: dict[str, AggregationRuleDecl] = {}
+    assumption_kinds: dict[str, AssumptionKindDecl] = {}
+    for table, required in (
+        ("procedure_kinds", {"fills_within_model"}),
+        ("aggregation_rules", set()),
+        ("assumption_kinds", {"collapses", "particulars"}),
+    ):
+        for name, value in _declarations(root.get(table, {}), f"{source}: {table}").items():
+            where = f"{source}: {table}.{name}"
+            body = _measurement_fields(value, frozenset(required), frozenset(), where)
+            if table == "procedure_kinds":
+                procedure_kinds[name] = ProcedureKindDecl(name, _bool(body["fills_within_model"], where))
+            elif table == "aggregation_rules":
+                aggregation_rules[name] = AggregationRuleDecl(name)
+            else:
+                particulars = _reference_list(body["particulars"], f"{where}: particulars", _field_name)
+                if not particulars:
+                    raise MalformedContract(f"{where}: particulars must be non-empty")
+                assumption_kinds[name] = AssumptionKindDecl(
+                    name, _require_text(body["collapses"], f"{where}: collapses"), particulars
+                )
+    measurements: dict[str, MeasurementsDecl] = {}
+    for key, value in _mapping(root.get("measurements", {}), f"{source}: measurements").items():
+        sort = measurement_reference(key, f"{source}: measurements key")
+        measurements[key] = MeasurementsDecl(
+            sort, _reference_list(value, f"{source}: measurements.{key}", measurement_reference)
+        )
+    aspects: dict[str, AspectsDecl] = {}
+    for key, value in _mapping(root.get("aspects", {}), f"{source}: aspects").items():
+        quantity_kind = measurement_reference(key, f"{source}: aspects key")
+        aspects[key] = AspectsDecl(
+            quantity_kind, _reference_list(value, f"{source}: aspects.{key}", measurement_reference)
+        )
+
     contract = DomainContract._parsed(
         _MINT,
         namespace=namespace,
@@ -1503,6 +1696,11 @@ def parse_domain_contract(
         bridges=bridges,
         estimands=estimands,
         duration_conventions=duration_conventions,
+        procedure_kinds=procedure_kinds,
+        aggregation_rules=aggregation_rules,
+        assumption_kinds=assumption_kinds,
+        measurements=measurements,
+        aspects=aspects,
         quantity_kinds=quantity_kinds,
         units=units,
         constants=constants,

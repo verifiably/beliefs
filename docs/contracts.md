@@ -128,7 +128,8 @@ A writer accepts only the base contract the runtime ships.
 A domain contract requires `contract` (its namespace), `version` (a positive
 integer), `lineage`, `sorts` and `dimensions`. It may add `description`,
 `templates`, `instantiations`, `bridges`, `estimands`, `duration_conventions`,
-`quantity_kinds`, `units`, `constants`, `conversions`, `transformations` and
+`quantity_kinds`, `units`, `constants`, `conversions`, `transformations`,
+`procedure_kinds`, `aggregation_rules`, `assumption_kinds`, `measurements`, `aspects` and
 `facets`. Any other top-level field is refused, `kinds` and `relations` included,
 and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
 base v2. Its namespace may be neither `science` nor `coordination`. Each table is
@@ -177,7 +178,13 @@ and a list of them may not repeat a value.
   reads `\-` as an escape YAML does not define, and the document is refused.
 - **Dimensions.** A dimension requires `restriction_sort`, `placement` (`claim` or
   `applicability`) and `applies_to`, a list of operators (templates or bridges) a
-  claim over which may carry it.
+  claim over which may carry it. An applicability-side dimension also requires
+  `restriction`; a claim-side dimension refuses that field. Its closed forms are
+  `{form: term, sort: <sort>}`, `{form: interval, quantity_kind: <quantity-kind>}`,
+  `{form: time-interval}`, `{form: rule, classes: <sort>}`, and
+  `{form: union, of: <one non-union restriction>}`. References resolve at compile.
+  A `term` restriction's sort must match `restriction_sort`, which remains required
+  for the interim estimand chain. Every form refuses fields belonging to another.
 - **Templates.** A template requires `roles`, `sign_apt`, `layers` and `forms`, and
   may add `edge`, `definition`, `external`, `description` and `retired`.
   - Each role requires `arity`, `one` or `many`, and may add `constraint` (role
@@ -241,11 +248,31 @@ and a list of them may not repeat a value.
   requires `direction` (`increasing` or `decreasing`) and boolean `fixed`, which
   distinguishes a declared map from one depending on the sample. Each kind refuses
   fields belonging only to another kind.
+- **Procedure kinds.** Each `procedure_kinds` row requires boolean
+  `fills_within_model`, stating whether the kind fills a within-model role.
+- **Aggregation rules.** An `aggregation_rules` row declares a named rule and
+  carries no required fields.
+- **Assumption kinds.** Each `assumption_kinds` row requires non-empty NFC prose
+  `collapses` and non-empty `particulars`, a list of distinct field names matching
+  `[a-z][a-z0-9_]*`. Particulars are compared as a set in schema projections.
+  These three vocabulary tables accept optional `definition` and `description`;
+  neither enters schema or compiled identity, while document identity covers both.
+- **Measurements.** A `measurements` row maps a sort reference to a list of
+  distinct quantity-kind references. An empty list explicitly declares that the
+  sort bears none. References resolve at compile, including the row key. The
+  profile folds all activated packs by set union; `admits_measurement` returns
+  false for an undeclared sort or an unlisted quantity kind.
+- **Aspects.** An `aspects` row maps a quantity-kind reference to a list of distinct
+  aspect-sort references, all resolved at compile. `aspect_sorts` returns the
+  union across activated packs, or an empty set when none is declared. Compiled
+  pack rows retain the declaring contract as well as their resolved references;
+  their projection keys combine that contract and the qualified target, preserving
+  every contribution independently of activation order.
 - **Facets.** A domain facet declares `attaches_to` (world kinds) and `fields`. Its
   key in a profile is `<namespace>/<name>`.
 
-Estimand declarations, duration conventions and the five measurement tables carry
-no `retired`.
+Estimand declarations, duration conventions, the five numerical measurement tables,
+the three vocabulary tables and the two pack tables carry no `retired`.
 
 The five measurement tables may be declared by any domain namespace. Their
 references are local names or terms from other activated contracts, resolved in
@@ -293,13 +320,16 @@ any of the following holds:
 - the successor changes the schema projection of a claim-vocabulary declaration;
 - the successor un-retires a claim-vocabulary declaration.
 
-The claim vocabulary is seven tables: sorts, dimensions, templates,
-instantiations, bridges, estimand declarations and duration conventions. Each
+The claim vocabulary includes sorts, dimensions, templates, instantiations,
+bridges, estimand declarations, duration conventions, the five numerical
+measurement tables, the three vocabulary tables and the two pack tables. Each
 declaration is keyed by its typed address, `sort:<name>`, `dimension:<name>`,
 `template:<name>`, `instantiation:<name>`, `bridge:<name>`,
 `estimand:instantiation:<name>` or `estimand:bridge:<name>`, and
-`duration-convention:<name>`, so declarations sharing a local name in two tables
-are compared separately. Sets (layers, forms, categories, constraints, `applies_to`,
+`duration-convention:<name>`, plus `quantity-kind:`, `unit:`, `constant:`,
+`conversion:`, `transformation:`, `procedure-kind:`, `aggregation-rule:`,
+`assumption-kind:`, `measurement:` and `aspect:` followed by the row's key.
+Declarations sharing a local name in two tables are compared separately. Sets (layers, forms, categories, constraints, `applies_to`,
 the sorts a role lists) are compared as sets. Facets are not compared under
 succession. `description`, `definition` and `retired` are outside the comparison. A retired identifier can
 still be decoded, so stored claims stay readable, but it can no longer be used to

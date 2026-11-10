@@ -68,9 +68,10 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     and again when the exposure and reservation kinds entered it,
     and again when base v2's claim tables (templates, instantiations, bridges,
     duration conventions) replaced the operator and edge tables,
-    and again when the measurement grammar and its five declaration tables entered the projection."""
+    and again when the measurement grammar and its five declaration tables entered the projection,
+    and again when the vocabulary, pack and typed dimension tables entered it."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "69e700053f4f9d50b1e3bc3ade84e22c8e5cfed095b47e141588df7c52a0b480"
+    assert before.compiled_identity == "cba48ffad79807b41d6300e2425a38bce3cf711a8b2458524665a1b8d75fb5a6"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -296,6 +297,8 @@ class TestSemanticEditsRecompileAndEditorialOnesDoNot:
         # Not reachable within a lineage — succession refuses it — so this is a
         # parallel genesis, which is the open escape hatch.
         testing_document[section][name][field] = value
+        if section == "dimensions" and field == "placement" and value == "applicability":
+            testing_document[section][name]["restriction"] = {"form": "term", "sort": "cohort"}
         assert compile_profile(base_contract, [parse(testing_document)]).compiled_identity != compiled.compiled_identity
 
     @pytest.mark.parametrize(
@@ -1097,6 +1100,11 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 bridges={},
                 estimands={},
                 duration_conventions={},
+                procedure_kinds={},
+                aggregation_rules={},
+                assumption_kinds={},
+                measurements={},
+                aspects={},
                 quantity_kinds={},
                 units={},
                 constants={},

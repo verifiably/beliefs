@@ -100,8 +100,17 @@ describe("the v2 testing document", () => {
       "product",
       "procedure-spec",
       "population",
+      "energy-aspect",
+      "stage",
     ]);
-    expect(Object.keys(contract.dimensions)).toEqual(["population", "setting", "follow-up"]);
+    expect(Object.keys(contract.dimensions)).toEqual([
+      "population",
+      "setting",
+      "follow-up",
+      "stage",
+      "epoch",
+      "case-status",
+    ]);
     expect(Object.keys(contract.templates)).toEqual(["affects", "correlates-with", "transforms", "measured-by"]);
     expect(Object.keys(contract.instantiations)).toEqual([
       "affects-entity-outcome",
@@ -162,6 +171,7 @@ describe("the v2 testing document", () => {
     expect(contract.dimensions.population).toEqual({
       name: "population",
       restrictionSort: "cohort",
+      restriction: null,
       placement: "claim",
       appliesTo: ["affects", "correlates-with", "promotes"],
     });

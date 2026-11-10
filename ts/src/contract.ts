@@ -326,9 +326,37 @@ export interface SortDecl {
  * A dimension, on exactly one side (`placement` is `claim` or `applicability`).
  * `appliesTo` lists operators, local or `<namespace>/<name>`, resolved at compile.
  */
+export type RestrictionForm =
+  | { readonly form: "term"; readonly sort: string }
+  | { readonly form: "interval"; readonly quantityKind: string }
+  | { readonly form: "rule"; readonly classes: string }
+  | { readonly form: "time-interval" }
+  | { readonly form: "union"; readonly of: Exclude<RestrictionForm, { form: "union" }> };
+export interface ProcedureKindDecl {
+  readonly name: string;
+  readonly fillsWithinModel: boolean;
+}
+export interface AggregationRuleDecl {
+  readonly name: string;
+}
+export interface AssumptionKindDecl {
+  readonly name: string;
+  readonly collapses: string;
+  readonly particulars: readonly string[];
+}
+export interface MeasurementsDecl {
+  readonly sort: string;
+  readonly quantityKinds: readonly string[];
+}
+export interface AspectsDecl {
+  readonly quantityKind: string;
+  readonly aspectSorts: readonly string[];
+}
+
 export interface DimensionDecl {
   readonly name: string;
   readonly restrictionSort: string;
+  readonly restriction: RestrictionForm | null;
   readonly placement: string;
   readonly appliesTo: readonly string[];
 }
@@ -464,6 +492,11 @@ export class DomainContract {
   /** Keyed by typed local target, `instantiation:<name>` or `bridge:<name>`. */
   readonly estimands: DeclarationTable<EstimandDecl>;
   readonly durationConventions: DeclarationTable<DurationConventionDecl>;
+  readonly procedureKinds: DeclarationTable<ProcedureKindDecl>;
+  readonly aggregationRules: DeclarationTable<AggregationRuleDecl>;
+  readonly assumptionKinds: DeclarationTable<AssumptionKindDecl>;
+  readonly measurements: DeclarationTable<MeasurementsDecl>;
+  readonly aspects: DeclarationTable<AspectsDecl>;
   readonly quantityKinds: DeclarationTable<QuantityKindDecl>;
   readonly units: DeclarationTable<UnitDecl>;
   readonly constants: DeclarationTable<ConstantDecl>;
@@ -503,6 +536,11 @@ export class DomainContract {
       bridges: DeclarationTable<BridgeDecl>;
       estimands: DeclarationTable<EstimandDecl>;
       durationConventions: DeclarationTable<DurationConventionDecl>;
+      procedureKinds: DeclarationTable<ProcedureKindDecl>;
+      aggregationRules: DeclarationTable<AggregationRuleDecl>;
+      assumptionKinds: DeclarationTable<AssumptionKindDecl>;
+      measurements: DeclarationTable<MeasurementsDecl>;
+      aspects: DeclarationTable<AspectsDecl>;
       quantityKinds: DeclarationTable<QuantityKindDecl>;
       units: DeclarationTable<UnitDecl>;
       constants: DeclarationTable<ConstantDecl>;
@@ -530,6 +568,11 @@ export class DomainContract {
     this.bridges = parts.bridges;
     this.estimands = parts.estimands;
     this.durationConventions = parts.durationConventions;
+    this.procedureKinds = parts.procedureKinds;
+    this.aggregationRules = parts.aggregationRules;
+    this.assumptionKinds = parts.assumptionKinds;
+    this.measurements = parts.measurements;
+    this.aspects = parts.aspects;
     this.quantityKinds = parts.quantityKinds;
     this.units = parts.units;
     this.constants = parts.constants;
@@ -1588,6 +1631,48 @@ function parseEstimandTarget(
  * checked for form here and resolved at compile, which is where the other
  * contract is.
  */
+function referenceList(
+  value: unknown,
+  where: string,
+  reference: (value: unknown, where: string) => string,
+): readonly string[] {
+  if (!Array.isArray(value)) throw new MalformedContract(`${where}: expected a list`);
+  const values = value.map((item, index) => reference(item, `${where}[${index}]`));
+  noDuplicates(values, where);
+  return Object.freeze(values);
+}
+function parseRestriction(
+  value: unknown,
+  where: string,
+  reference: (value: unknown, where: string) => string,
+): RestrictionForm {
+  const body = mapping(value, where);
+  switch (body.form) {
+    case "term":
+      exactFields(body, ["form", "sort"], [], where);
+      return Object.freeze({ form: "term", sort: reference(body.sort, where) });
+    case "interval":
+      exactFields(body, ["form", "quantity_kind"], [], where);
+      return Object.freeze({ form: "interval", quantityKind: reference(body.quantity_kind, where) });
+    case "rule":
+      exactFields(body, ["form", "classes"], [], where);
+      return Object.freeze({ form: "rule", classes: reference(body.classes, where) });
+    case "time-interval":
+      exactFields(body, ["form"], [], where);
+      return Object.freeze({ form: "time-interval" });
+    case "union": {
+      exactFields(body, ["form", "of"], [], where);
+      if (mapping(body.of, `${where}.of`).form === "union")
+        throw new MalformedContract(`${where}: union of union is refused`);
+      const of = parseRestriction(body.of, `${where}.of`, reference);
+      if (of.form === "union") throw new MalformedContract(`${where}: union of union is refused`);
+      return Object.freeze({ form: "union", of });
+    }
+    default:
+      throw new MalformedContract(`${where}: unknown restriction form`);
+  }
+}
+
 export function parseDomainContract(text: string, source: string, base: BaseContract): DomainContract {
   if (!BaseContract.is(base)) {
     throw new UnparsedContract(
@@ -1616,6 +1701,11 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
       "duration_conventions",
       "estimands",
       "facets",
+      "procedure_kinds",
+      "aggregation_rules",
+      "assumption_kinds",
+      "measurements",
+      "aspects",
       "quantity_kinds",
       "units",
       "constants",
@@ -1660,7 +1750,7 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
   for (const [name, body] of Object.entries(declarations(document.dimensions, `${source}.dimensions`))) {
     const where = `${source}.dimensions.${name}`;
     const decl = mapping(body, where);
-    exactFields(decl, ["restriction_sort", "placement", "applies_to"], ["retired"], where);
+    exactFields(decl, ["restriction_sort", "placement", "applies_to"], ["retired", "restriction"], where);
     refuseRetired(decl, where);
     const placement = decl.placement;
     if (typeof placement !== "string" || !grammar.placements.includes(placement)) {
@@ -1675,11 +1765,23 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
       reference(item, `${where}.applies_to[${index}]`, namespace, base.name, "operator"),
     );
     noDuplicates(appliesTo, `${where}.applies_to`);
+    let restriction: RestrictionForm | null = null;
+    if (placement === "applicability") {
+      if (!("restriction" in decl))
+        throw new MalformedContract(`${where}: applicability dimension requires restriction`);
+      restriction = parseRestriction(decl.restriction, `${where}.restriction`, (value, at) =>
+        reference(value, at, namespace, base.name, "restriction reference"),
+      );
+      const leaf = restriction.form === "union" ? restriction.of : restriction;
+      if (leaf.form === "term" && leaf.sort !== decl.restriction_sort)
+        throw new MalformedContract(`${where}: term restriction sort must match restriction_sort`);
+    } else if ("restriction" in decl) throw new MalformedContract(`${where}: claim dimension refuses restriction`);
     dimensionEntries.push([
       name,
       Object.freeze({
         name,
         restrictionSort: resolve(decl.restriction_sort, `${where}.restriction_sort`),
+        restriction,
         placement,
         appliesTo: Object.freeze(appliesTo),
       }),
@@ -1826,6 +1928,59 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     ]),
   );
 
+  const procedureKinds = frozenTable(
+    Object.entries(declarations(document.procedure_kinds, `${source}.procedure_kinds`)).map(([name, value]) => {
+      const where = `${source}.procedure_kinds.${name}`;
+      const body = measurementFields(value, ["fills_within_model"], [], where);
+      return [name, Object.freeze({ name, fillsWithinModel: bool(body.fills_within_model, where) })] as const;
+    }),
+  );
+  const aggregationRules = frozenTable(
+    Object.entries(declarations(document.aggregation_rules, `${source}.aggregation_rules`)).map(([name, value]) => {
+      measurementFields(value, [], [], `${source}.aggregation_rules.${name}`);
+      return [name, Object.freeze({ name })] as const;
+    }),
+  );
+  const assumptionKinds = frozenTable(
+    Object.entries(declarations(document.assumption_kinds, `${source}.assumption_kinds`)).map(([name, value]) => {
+      const where = `${source}.assumption_kinds.${name}`;
+      const body = measurementFields(value, ["collapses", "particulars"], [], where);
+      const particulars = referenceList(body.particulars, `${where}.particulars`, (item, at) => {
+        if (typeof item !== "string" || !/^[a-z][a-z0-9_]*$/.test(item))
+          throw new MalformedContract(`${at}: expected a field name`);
+        return item;
+      });
+      if (particulars.length === 0) throw new MalformedContract(`${where}: particulars must be non-empty`);
+      return [name, Object.freeze({ name, collapses: canonicalText(body.collapses, where), particulars })] as const;
+    }),
+  );
+  const measurements = frozenTable(
+    Object.entries(
+      document.measurements === undefined ? {} : mapping(document.measurements, `${source}.measurements`),
+    ).map(
+      ([key, value]) =>
+        [
+          key,
+          Object.freeze({
+            sort: measurementRef(key, `${source}.measurements key`),
+            quantityKinds: referenceList(value, `${source}.measurements.${key}`, measurementRef),
+          }),
+        ] as const,
+    ),
+  );
+  const aspects = frozenTable(
+    Object.entries(document.aspects === undefined ? {} : mapping(document.aspects, `${source}.aspects`)).map(
+      ([key, value]) =>
+        [
+          key,
+          Object.freeze({
+            quantityKind: measurementRef(key, `${source}.aspects key`),
+            aspectSorts: referenceList(value, `${source}.aspects.${key}`, measurementRef),
+          }),
+        ] as const,
+    ),
+  );
+
   return new DomainContract(MINT, {
     namespace,
     version,
@@ -1836,6 +1991,11 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     bridges,
     estimands,
     durationConventions,
+    procedureKinds,
+    aggregationRules,
+    assumptionKinds,
+    measurements,
+    aspects,
     quantityKinds,
     units,
     constants,

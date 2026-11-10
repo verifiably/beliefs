@@ -48,9 +48,11 @@ __all__ = [
 REGISTER_DOMAIN = "science.assumptions-register.v1"
 REGISTER_KIND = "assumptions-register"
 REGISTER_FACET = "assumptions-register"
-ENTRY_KINDS = ("sort", "template", "instantiation", "bridge", "dimension")
+ENTRY_KINDS = ("sort", "template", "instantiation", "bridge", "dimension", "measurement", "aspect")
 
-_ENTRY_KEY = re.compile(r"(sort|template|instantiation|bridge|dimension):[a-z][a-z0-9-]*/[a-z][a-z0-9-]*")
+_ENTRY_KEY = re.compile(
+    r"(sort|template|instantiation|bridge|dimension|measurement|aspect):[a-z][a-z0-9-]*/[a-z][a-z0-9-]*"
+)
 _DESCRIBES = re.compile(r"[a-z][a-z0-9-]*:[0-9a-f]{64}")
 _REGISTER_ID = re.compile(r"assumptions-register:[0-9a-f]{64}")
 _ENTRY_FIELDS = frozenset({"collapses", "licenses", "not_established"})

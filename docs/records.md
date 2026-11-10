@@ -548,9 +548,13 @@ contract it describes as `<namespace>:<content identity>` (64 lowercase hex), an
 optional `previous`, the `assumptions-register:` id of the revision it supersedes,
 and `entries`. Each entry is keyed by the typed address of a declaration,
 `<kind>:<namespace>/<name>` with the kind one of `sort`, `template`, `instantiation`,
-`bridge` and `dimension`, and has exactly three non-empty strings: `collapses`,
+`bridge`, `dimension`, `measurement` and `aspect`, and has exactly three non-empty strings: `collapses`,
 `licenses` and `not_established`. The kind is part of the key, so a sort and a
-dimension that share a local name have separate entries. A register's id is
+dimension that share a local name have separate entries. A `measurement` entry
+names a sort declared as a key in the described contract's measurement table,
+including a key whose list is empty. An `aspect` entry names a sort listed in
+that contract's aspects table. A declaration contributed only by another activated
+pack does not qualify. A register's id is
 `assumptions-register:` followed by the digest of its facet under
 `science.assumptions-register.v1`, so a revision is a new record. The facet must be
 exactly the canonical form of the register it decodes to and the id must recompute

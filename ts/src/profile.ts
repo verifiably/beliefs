@@ -46,6 +46,7 @@ import {
   type QuantityDimension,
   type QuantityKindDecl,
   type RelationDecl,
+  type RestrictionForm,
   type SortBinding,
   type TransformationDecl,
   type UnitDecl,
@@ -61,9 +62,37 @@ export interface CompiledSort {
   readonly categories: readonly string[];
 }
 
+export type CompiledRestrictionForm = RestrictionForm;
+export interface CompiledProcedureKind {
+  readonly term: string;
+  readonly fillsWithinModel: boolean;
+  readonly contract: string;
+}
+export interface CompiledAggregationRule {
+  readonly term: string;
+  readonly contract: string;
+}
+export interface CompiledAssumptionKind {
+  readonly term: string;
+  readonly collapses: string;
+  readonly particulars: readonly string[];
+  readonly contract: string;
+}
+export interface CompiledMeasurements {
+  readonly sort: string;
+  readonly quantityKinds: readonly string[];
+  readonly contract: string;
+}
+export interface CompiledAspects {
+  readonly quantityKind: string;
+  readonly aspectSorts: readonly string[];
+  readonly contract: string;
+}
+
 export interface CompiledDimension {
   readonly term: string;
   readonly restrictionSort: string;
+  readonly restriction: CompiledRestrictionForm | null;
   readonly placement: string;
   /** The operator terms (templates and bridges) a claim over which may carry this dimension, sorted. */
   readonly appliesTo: readonly string[];
@@ -172,6 +201,12 @@ export class ProfileSpec {
   /** Keyed by the compiled typed address of each declaration's target. */
   readonly estimands: ResolutionTable<CompiledEstimandDecl>;
   readonly durationConventions: ResolutionTable<CompiledDurationConvention>;
+  readonly procedureKinds: ResolutionTable<CompiledProcedureKind>;
+  readonly aggregationRules: ResolutionTable<CompiledAggregationRule>;
+  readonly assumptionKinds: ResolutionTable<CompiledAssumptionKind>;
+  readonly measurements: ResolutionTable<readonly string[]>;
+  readonly measurementDeclarations: readonly CompiledMeasurements[];
+  readonly aspectDeclarations: readonly CompiledAspects[];
   readonly quantityKinds: ResolutionTable<CompiledQuantityKind>;
   readonly units: ResolutionTable<CompiledUnit>;
   readonly constants: ResolutionTable<CompiledConstant>;
@@ -201,6 +236,12 @@ export class ProfileSpec {
       bridges: ResolutionTable<CompiledBridge>;
       estimands: ResolutionTable<CompiledEstimandDecl>;
       durationConventions: ResolutionTable<CompiledDurationConvention>;
+      procedureKinds: ResolutionTable<CompiledProcedureKind>;
+      aggregationRules: ResolutionTable<CompiledAggregationRule>;
+      assumptionKinds: ResolutionTable<CompiledAssumptionKind>;
+      measurements: ResolutionTable<readonly string[]>;
+      measurementDeclarations: readonly CompiledMeasurements[];
+      aspectDeclarations: readonly CompiledAspects[];
       quantityKinds: ResolutionTable<CompiledQuantityKind>;
       units: ResolutionTable<CompiledUnit>;
       constants: ResolutionTable<CompiledConstant>;
@@ -238,6 +279,12 @@ export class ProfileSpec {
     this.bridges = frozenTable(Object.entries(parts.bridges));
     this.estimands = frozenTable(Object.entries(parts.estimands));
     this.durationConventions = frozenTable(Object.entries(parts.durationConventions));
+    this.procedureKinds = frozenTable(Object.entries(parts.procedureKinds));
+    this.aggregationRules = frozenTable(Object.entries(parts.aggregationRules));
+    this.assumptionKinds = frozenTable(Object.entries(parts.assumptionKinds));
+    this.measurements = frozenTable(Object.entries(parts.measurements));
+    this.measurementDeclarations = Object.freeze([...parts.measurementDeclarations]);
+    this.aspectDeclarations = Object.freeze([...parts.aspectDeclarations]);
     this.quantityKinds = frozenTable(Object.entries(parts.quantityKinds));
     this.units = frozenTable(Object.entries(parts.units));
     this.constants = frozenTable(Object.entries(parts.constants));
@@ -247,6 +294,16 @@ export class ProfileSpec {
     Object.freeze(this);
   }
 
+  admitsMeasurement(sort: string, quantityKind: string): boolean {
+    return this.measurements[sort]?.includes(quantityKind) ?? false;
+  }
+  aspectSorts(quantityKind: string): readonly string[] {
+    return sorted(
+      new Set(
+        this.aspectDeclarations.filter((row) => row.quantityKind === quantityKind).flatMap((row) => row.aspectSorts),
+      ),
+    );
+  }
   /** The one declared route joining a unit pair, in either authored direction. */
   conversionBetween(aUnit: string, bUnit: string): CompiledConversion | null {
     return (
@@ -406,6 +463,84 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       });
     }
   }
+  const procedureKinds: Record<string, CompiledProcedureKind> = Object.create(null);
+  const aggregationRules: Record<string, CompiledAggregationRule> = Object.create(null);
+  const assumptionKinds: Record<string, CompiledAssumptionKind> = Object.create(null);
+  const measurementDeclarations: CompiledMeasurements[] = [];
+  const aspectDeclarations: CompiledAspects[] = [];
+  for (const contract of contracts) {
+    for (const [name, decl] of Object.entries(contract.procedureKinds)) {
+      const resolved = term(contract.namespace, name);
+      procedureKinds[resolved] = Object.freeze({
+        term: resolved,
+        fillsWithinModel: decl.fillsWithinModel,
+        contract: contract.namespace,
+      });
+    }
+    for (const name of Object.keys(contract.aggregationRules)) {
+      const resolved = term(contract.namespace, name);
+      aggregationRules[resolved] = Object.freeze({ term: resolved, contract: contract.namespace });
+    }
+    for (const [name, decl] of Object.entries(contract.assumptionKinds)) {
+      const resolved = term(contract.namespace, name);
+      assumptionKinds[resolved] = Object.freeze({
+        term: resolved,
+        collapses: decl.collapses,
+        particulars: decl.particulars,
+        contract: contract.namespace,
+      });
+    }
+    for (const decl of Object.values(contract.measurements))
+      measurementDeclarations.push(
+        Object.freeze({
+          sort: resolveMeasurement(contract, decl.sort, sorts, "measurements sort"),
+          quantityKinds: sorted(
+            decl.quantityKinds.map((ref) =>
+              resolveMeasurement(contract, ref, quantityKinds, "measurements quantity kind"),
+            ),
+          ),
+          contract: contract.namespace,
+        }),
+      );
+    for (const decl of Object.values(contract.aspects))
+      aspectDeclarations.push(
+        Object.freeze({
+          quantityKind: resolveMeasurement(contract, decl.quantityKind, quantityKinds, "aspects quantity kind"),
+          aspectSorts: sorted(decl.aspectSorts.map((ref) => resolveMeasurement(contract, ref, sorts, "aspects sort"))),
+          contract: contract.namespace,
+        }),
+      );
+  }
+  const measurements: Record<string, readonly string[]> = Object.create(null);
+  for (const row of measurementDeclarations)
+    measurements[row.sort] = sorted(new Set([...(measurements[row.sort] ?? []), ...row.quantityKinds]));
+  const compileRestriction = (contract: DomainContract, decl: RestrictionForm): CompiledRestrictionForm => {
+    switch (decl.form) {
+      case "term":
+        return Object.freeze({
+          form: "term",
+          sort: resolveMeasurement(contract, decl.sort, sorts, "restriction sort"),
+        });
+      case "interval":
+        return Object.freeze({
+          form: "interval",
+          quantityKind: resolveMeasurement(contract, decl.quantityKind, quantityKinds, "restriction quantity kind"),
+        });
+      case "rule":
+        return Object.freeze({
+          form: "rule",
+          classes: resolveMeasurement(contract, decl.classes, sorts, "restriction classes"),
+        });
+      case "time-interval":
+        return Object.freeze({ form: "time-interval" });
+      case "union": {
+        const of = compileRestriction(contract, decl.of);
+        if (of.form === "union") throw new ProfileError("nested union restriction");
+        return Object.freeze({ form: "union", of });
+      }
+    }
+  };
+
   for (const contract of contracts) {
     for (const [name, decl] of Object.entries(contract.units)) {
       units[term(contract.namespace, name)] = Object.freeze({
@@ -584,6 +719,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       dimensions[term(contract.namespace, name)] = Object.freeze({
         term: term(contract.namespace, name),
         restrictionSort,
+        restriction: decl.restriction ? compileRestriction(contract, decl.restriction) : null,
         placement: decl.placement,
         appliesTo: sorted(new Set(appliesTo)),
       });
@@ -657,6 +793,12 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     bridges,
     estimands,
     durationConventions,
+    procedureKinds,
+    aggregationRules,
+    assumptionKinds,
+    measurements,
+    measurementDeclarations,
+    aspectDeclarations,
     quantityKinds,
     units,
     constants,

@@ -58,6 +58,7 @@ from beliefs.contract.domain import (
     EstimandDecl,
     InstantiationDecl,
     QuantityDimension,
+    RestrictionForm,
     SortBinding,
     TemplateDecl,
     _name,
@@ -76,6 +77,9 @@ from beliefs.patterns import IdentifierClass
 from beliefs.sealed import sealed
 
 __all__ = [
+    "CompiledAggregationRule",
+    "CompiledAspects",
+    "CompiledAssumptionKind",
     "CompiledBridge",
     "CompiledConstant",
     "CompiledConversion",
@@ -86,8 +90,11 @@ __all__ = [
     "CompiledFacet",
     "CompiledInstantiation",
     "CompiledKind",
+    "CompiledMeasurements",
     "CompiledOperator",
+    "CompiledProcedureKind",
     "CompiledQuantityKind",
+    "CompiledRestrictionForm",
     "CompiledRole",
     "CompiledSort",
     "CompiledTemplate",
@@ -213,9 +220,64 @@ class CompiledSort:
 
 
 @dataclass(frozen=True)
+class CompiledProcedureKind:
+    term: str
+    fills_within_model: bool
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"fills_within_model": self.fills_within_model}
+
+
+@dataclass(frozen=True)
+class CompiledAggregationRule:
+    term: str
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {}
+
+
+@dataclass(frozen=True)
+class CompiledAssumptionKind:
+    term: str
+    collapses: str
+    particulars: tuple[str, ...]
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"collapses": self.collapses, "particulars": sorted(self.particulars)}
+
+
+@dataclass(frozen=True)
+class CompiledMeasurements:
+    sort: str
+    quantity_kinds: frozenset[str]
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"quantity_kinds": sorted(self.quantity_kinds)}
+
+
+@dataclass(frozen=True)
+class CompiledAspects:
+    quantity_kind: str
+    aspect_sorts: frozenset[str]
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"aspect_sorts": sorted(self.aspect_sorts)}
+
+
+CompiledRestrictionForm = RestrictionForm
+"""A restriction form whose references are resolved term identifiers."""
+
+
+@dataclass(frozen=True)
 class CompiledDimension:
     term: str
     restriction_sort: str
+    restriction: CompiledRestrictionForm | None
     placement: str
     applies_to: frozenset[str]
     """The operator terms (templates and bridges) a claim over which may carry
@@ -224,12 +286,15 @@ class CompiledDimension:
     contract: str
 
     def schema_projection(self) -> dict[str, object]:
-        return {
+        projection: dict[str, object] = {
             "restriction_sort": self.restriction_sort,
             "placement": self.placement,
             "applies_to": sorted(self.applies_to),
             "retired": self.retired,
         }
+        if self.restriction is not None:
+            projection["restriction"] = self.restriction.schema_projection()
+        return projection
 
 
 @dataclass(frozen=True)
@@ -528,11 +593,17 @@ class ProfileSpec:
     """Keyed by the compiled typed address of each declaration's target,
     ``instantiation:<namespace>/<name>`` or ``bridge:<namespace>/<name>``."""
     duration_conventions: Mapping[str, CompiledDurationConvention]
+    procedure_kinds: Mapping[str, CompiledProcedureKind]
+    aggregation_rules: Mapping[str, CompiledAggregationRule]
+    assumption_kinds: Mapping[str, CompiledAssumptionKind]
+    _measurement_declarations: tuple[CompiledMeasurements, ...]
+    _aspect_declarations: tuple[CompiledAspects, ...]
     quantity_kinds: Mapping[str, CompiledQuantityKind]
     units: Mapping[str, CompiledUnit]
     constants: Mapping[str, CompiledConstant]
     conversions: Mapping[str, CompiledConversion]
     transformations: Mapping[str, CompiledTransformation]
+    measurements: Mapping[str, frozenset[str]]
     admission: Mapping[str, tuple[str, ...]]
     """The admission index: template term → the typed addresses
     ``instantiation:<namespace>/<name>`` of every instantiation of it across the
@@ -620,6 +691,11 @@ class ProfileSpec:
                 bridges=self.bridges,
                 estimands=self.estimands,
                 duration_conventions=self.duration_conventions,
+                procedure_kinds=self.procedure_kinds,
+                aggregation_rules=self.aggregation_rules,
+                assumption_kinds=self.assumption_kinds,
+                _measurement_declarations=self._measurement_declarations,
+                _aspect_declarations=self._aspect_declarations,
                 quantity_kinds=self.quantity_kinds,
                 units=self.units,
                 constants=self.constants,
@@ -630,6 +706,14 @@ class ProfileSpec:
             facets=self.facets,
             relations=self.relations,
             coordination=coordination,
+        )
+
+    def admits_measurement(self, sort: str, quantity_kind: str) -> bool:
+        return quantity_kind in self.measurements.get(sort, frozenset())
+
+    def aspect_sorts(self, quantity_kind: str) -> frozenset[str]:
+        return frozenset(
+            sort for row in self._aspect_declarations if row.quantity_kind == quantity_kind for sort in row.aspect_sorts
         )
 
     def conversion_between(self, a_unit: str, b_unit: str) -> CompiledConversion | None:
@@ -1029,6 +1113,48 @@ def compile_profile(
             raise ProfileError(f"{contract.namespace}: {where} names {term!r}, which no activated contract declares")
         return term
 
+    procedure_kinds = {
+        contract.term(name): CompiledProcedureKind(contract.term(name), decl.fills_within_model, contract.namespace)
+        for contract in contracts
+        for name, decl in contract.procedure_kinds.items()
+    }
+    aggregation_rules = {
+        contract.term(name): CompiledAggregationRule(contract.term(name), contract.namespace)
+        for contract in contracts
+        for name in contract.aggregation_rules
+    }
+    assumption_kinds = {
+        contract.term(name): CompiledAssumptionKind(
+            contract.term(name), decl.collapses, decl.particulars, contract.namespace
+        )
+        for contract in contracts
+        for name, decl in contract.assumption_kinds.items()
+    }
+    _measurement_declarations = tuple(
+        CompiledMeasurements(
+            resolve_measurement(contract, decl.sort, sorts, "measurements sort"),
+            frozenset(
+                resolve_measurement(contract, ref, quantity_kinds, "measurements quantity kind")
+                for ref in decl.quantity_kinds
+            ),
+            contract.namespace,
+        )
+        for contract in contracts
+        for decl in contract.measurements.values()
+    )
+    _aspect_declarations = tuple(
+        CompiledAspects(
+            resolve_measurement(contract, decl.quantity_kind, quantity_kinds, "aspects quantity kind"),
+            frozenset(resolve_measurement(contract, ref, sorts, "aspects sort") for ref in decl.aspect_sorts),
+            contract.namespace,
+        )
+        for contract in contracts
+        for decl in contract.aspects.values()
+    )
+    measurements: dict[str, frozenset[str]] = {}
+    for row in _measurement_declarations:
+        measurements[row.sort] = measurements.get(row.sort, frozenset()) | row.quantity_kinds
+
     units = {
         contract.term(name): CompiledUnit(
             contract.term(name),
@@ -1126,7 +1252,7 @@ def compile_profile(
         for name, decl in contract.bridges.items()
     }
     dimensions = {
-        contract.term(name): _compile_dimension(contract, decl, sorts, templates, bridges)
+        contract.term(name): _compile_dimension(contract, decl, sorts, quantity_kinds, templates, bridges)
         for contract in contracts
         for name, decl in contract.dimensions.items()
     }
@@ -1168,6 +1294,11 @@ def compile_profile(
         bridges=MappingProxyType(dict(bridges)),
         estimands=MappingProxyType(dict(estimands)),
         duration_conventions=MappingProxyType(dict(duration_conventions)),
+        procedure_kinds=MappingProxyType(dict(procedure_kinds)),
+        aggregation_rules=MappingProxyType(dict(aggregation_rules)),
+        assumption_kinds=MappingProxyType(dict(assumption_kinds)),
+        _measurement_declarations=_measurement_declarations,
+        _aspect_declarations=_aspect_declarations,
         quantity_kinds=MappingProxyType(dict(quantity_kinds)),
         units=MappingProxyType(dict(units)),
         constants=MappingProxyType(dict(constants)),
@@ -1208,11 +1339,17 @@ def compile_profile(
         bridges=tables.bridges,
         estimands=tables.estimands,
         duration_conventions=tables.duration_conventions,
+        procedure_kinds=tables.procedure_kinds,
+        aggregation_rules=tables.aggregation_rules,
+        assumption_kinds=tables.assumption_kinds,
+        _measurement_declarations=tables._measurement_declarations,
+        _aspect_declarations=tables._aspect_declarations,
         quantity_kinds=tables.quantity_kinds,
         units=tables.units,
         constants=tables.constants,
         conversions=tables.conversions,
         transformations=tables.transformations,
+        measurements=MappingProxyType(measurements),
         admission=MappingProxyType(admission),
         coordination_kinds=MappingProxyType(dict(coordination_kinds)),
         coordination_address_root=(coordination.address_root if coordination is not None else None),
@@ -1255,6 +1392,11 @@ class _ClaimTables:
     bridges: Mapping[str, CompiledBridge]
     estimands: Mapping[str, CompiledEstimandDecl]
     duration_conventions: Mapping[str, CompiledDurationConvention]
+    procedure_kinds: Mapping[str, CompiledProcedureKind]
+    aggregation_rules: Mapping[str, CompiledAggregationRule]
+    assumption_kinds: Mapping[str, CompiledAssumptionKind]
+    _measurement_declarations: tuple[CompiledMeasurements, ...]
+    _aspect_declarations: tuple[CompiledAspects, ...]
     quantity_kinds: Mapping[str, CompiledQuantityKind]
     units: Mapping[str, CompiledUnit]
     constants: Mapping[str, CompiledConstant]
@@ -1307,6 +1449,15 @@ def _projection(
         "bridges": {term: decl.schema_projection() for term, decl in tables.bridges.items()},
         "estimands": {address: decl.schema_projection() for address, decl in tables.estimands.items()},
         "duration_conventions": {term: decl.schema_projection() for term, decl in tables.duration_conventions.items()},
+        "procedure_kinds": {term: decl.schema_projection() for term, decl in tables.procedure_kinds.items()},
+        "aggregation_rules": {term: decl.schema_projection() for term, decl in tables.aggregation_rules.items()},
+        "assumption_kinds": {term: decl.schema_projection() for term, decl in tables.assumption_kinds.items()},
+        "measurements": {
+            f"{row.contract}:{row.sort}": row.schema_projection() for row in tables._measurement_declarations
+        },
+        "aspects": {
+            f"{row.contract}:{row.quantity_kind}": row.schema_projection() for row in tables._aspect_declarations
+        },
         "quantity_kinds": {term: decl.schema_projection() for term, decl in tables.quantity_kinds.items()},
         "units": {term: decl.schema_projection() for term, decl in tables.units.items()},
         "constants": {term: decl.schema_projection() for term, decl in tables.constants.items()},
@@ -1468,10 +1619,36 @@ def _compile_bridge(
     )
 
 
+def _compile_restriction(
+    contract: DomainContract,
+    decl: RestrictionForm,
+    sorts: Mapping[str, CompiledSort],
+    quantity_kinds: Mapping[str, CompiledQuantityKind],
+) -> CompiledRestrictionForm:
+    def resolve(reference: str | None, table: Mapping[str, object]) -> str | None:
+        if reference is None:
+            return None
+        term = _local_term(contract, reference)
+        if term not in table:
+            raise ProfileError(
+                f"{contract.namespace}: restriction names {term!r}, which no activated contract declares"
+            )
+        return term
+
+    return CompiledRestrictionForm(
+        decl.form,
+        sort=resolve(decl.sort, sorts),
+        quantity_kind=resolve(decl.quantity_kind, quantity_kinds),
+        classes=resolve(decl.classes, sorts),
+        of=_compile_restriction(contract, decl.of, sorts, quantity_kinds) if decl.of else None,
+    )
+
+
 def _compile_dimension(
     contract: DomainContract,
     decl: DimensionDecl,
     sorts: Mapping[str, CompiledSort],
+    quantity_kinds: Mapping[str, CompiledQuantityKind],
     templates: Mapping[str, CompiledTemplate],
     bridges: Mapping[str, CompiledBridge],
 ) -> CompiledDimension:
@@ -1491,6 +1668,9 @@ def _compile_dimension(
     return CompiledDimension(
         term=contract.term(decl.name),
         restriction_sort=restriction_sort,
+        restriction=_compile_restriction(contract, decl.restriction, sorts, quantity_kinds)
+        if decl.restriction
+        else None,
         placement=decl.placement,
         applies_to=frozenset(applies_to),
         retired=decl.retired,

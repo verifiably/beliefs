@@ -39,7 +39,7 @@ def register(entries=None, *, describes=TESTING_PIN, previous=None) -> Assumptio
 
 def test_the_exact_values():
     assert REGISTER_DOMAIN == "science.assumptions-register.v1"
-    assert ENTRY_KINDS == ("sort", "template", "instantiation", "bridge", "dimension")
+    assert ENTRY_KINDS == ("sort", "template", "instantiation", "bridge", "dimension", "measurement", "aspect")
 
 
 def test_identity_is_content_addressed():
@@ -127,3 +127,18 @@ def test_the_reader_refuses_a_facet_that_is_not_the_canonical_projection():
     node.facets["assumptions-register"] = register_projection(register({}))
     with pytest.raises(MalformedRecord, match="does not recompute"):
         register_from_stored(node)
+
+
+@pytest.mark.parametrize(
+    "key", ["measurement:testing/entity", "measurement:testing/cohort", "aspect:testing/energy-aspect"]
+)
+def test_pack_entries_are_declared(tmp_path, key):
+    writer = _testing_writer(tmp_path / "corpus")
+    writer.add(stored.assumptions_register_node(register({key: ENTRY})))
+    assert not [f for f in corpus_check(reopen(writer.root), TESTING_PROFILE) if f.code == "register-entry-unknown"]
+
+
+def test_an_aspect_sort_not_declared_in_the_pack_is_unknown(tmp_path):
+    writer = _testing_writer(tmp_path / "corpus")
+    writer.add(stored.assumptions_register_node(register({"aspect:testing/level": ENTRY})))
+    assert any(f.code == "register-entry-unknown" for f in corpus_check(reopen(writer.root), TESTING_PROFILE))

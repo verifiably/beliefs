@@ -2383,8 +2383,18 @@ def _registers_report(
             continue  # the contract its keys name is not this profile's: `register-stale` alone
         for key in register.entries:
             kind, _, term = key.partition(":")
-            table: Mapping[str, object] = getattr(profile, _DECLARATION_TABLES[kind])
-            if term.partition("/")[0] != namespace or term not in table:
+            if kind == "measurement":
+                declared = any(
+                    row.contract == namespace and row.sort == term for row in profile._measurement_declarations
+                )
+            elif kind == "aspect":
+                declared = any(
+                    row.contract == namespace and term in row.aspect_sorts for row in profile._aspect_declarations
+                )
+            else:
+                table: Mapping[str, object] = getattr(profile, _DECLARATION_TABLES[kind])
+                declared = term.partition("/")[0] == namespace and term in table
+            if not declared:
                 findings.append(
                     Finding(
                         "error",

@@ -56,8 +56,10 @@ class TestTheTestingContract:
             "product",
             "procedure-spec",
             "population",
+            "energy-aspect",
+            "stage",
         }
-        assert set(contract.dimensions) == {"population", "setting", "follow-up"}
+        assert set(contract.dimensions) == {"population", "setting", "follow-up", "stage", "epoch", "case-status"}
         assert set(contract.templates) == {"affects", "correlates-with", "transforms", "measured-by"}
         assert set(contract.instantiations) == {
             "affects-entity-outcome",
@@ -837,6 +839,8 @@ class TestSuccession:
     ):
         document = successor_document(testing_document, genesis)
         document[section][name][field] = value
+        if section == "dimensions" and field == "placement" and value == "applicability":
+            document[section][name]["restriction"] = {"form": "term", "sort": "cohort"}
         with pytest.raises(SuccessionViolation, match=f"{tag} has a different canonical schema projection"):
             parse(document, predecessor=genesis)
 
@@ -889,6 +893,11 @@ class TestSuccession:
             "constant",
             "conversion",
             "transformation",
+            "procedure-kind",
+            "aggregation-rule",
+            "assumption-kind",
+            "measurement",
+            "aspect",
         }
         keys = set(genesis.claim_vocabulary())
         # The same local name in two tables is two keys.
