@@ -1232,10 +1232,25 @@ def _refuse_object_path(path: str) -> None:
         raise StoreWriteRefused(path, OBJECTS_REFUSAL)
 
 
+def _require_writable_store(root: Path, path: str) -> None:
+    """Refuse a store root that does not grant writability before anything is submitted."""
+    try:
+        state = read_lifecycle_state(root)
+    except CapabilityUnavailable:
+        return
+    except Exception as caught:
+        raise ExecutionError(
+            f"lifecycle read failed before store write: {caught}", index=None, applied=None
+        ) from caught
+    if state is not LifecycleState.WRITABLE:
+        raise StoreWriteRefused(path, f"root lifecycle state {state.value} does not grant writability")
+
+
 def _store_write(root: Path, path: str, content: bytes, intent: str) -> StoreOutcomeView:
     root = Path(root)
     _require_store_path("path", path)
     _refuse_object_path(path)
+    _require_writable_store(root, path)
     initial: dict[str, PathState] = {}
     final: dict[str, PathState] = {}
     effects: list[Effect] = []

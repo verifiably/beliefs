@@ -433,9 +433,10 @@ under the same actor, and `pending_publishes` lists the unfinished ones.
 
 **Sessions.** A failed ledger append makes the session terminal
 (`SessionLedgerFailed`). So does a store call through a session that raises
-anything other than `StoreWriteRefused` for its arguments (a malformed path, an
-`objects/` path, a create outside `objects/sha256/`), which is refused before
-anything reaches the engine and leaves the session live. The engine registers a
+anything other than `StoreWriteRefused` before submission (a malformed path, an
+`objects/` path, a create outside `objects/sha256/`, or a `write` whose store
+root does not grant writability), which is refused before anything reaches the
+engine and leaves the session live. The engine registers a
 store transaction before it applies its effects, and an effect that meets drift
 rolls back, settles the registration as not committed and raises a routine refusal.
 A refusal therefore does not prove that nothing registered, and no `act` line can

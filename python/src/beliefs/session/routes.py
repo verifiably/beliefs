@@ -125,11 +125,12 @@ def ledgered_seam(session: WriterSession, invocation: str, inner: StoreActSeam) 
     between them. Holdings takes the observer root's operation lock only around an
     intent append or a publication, never around a store call, so a writer holds
     one operation lock at a time. A store call that raises anything but
-    `StoreWriteRefused` (the composition root's refusal of its arguments, before
-    anything reaches the engine) marks the ledger failed before the exception
-    propagates: the engine registers before it applies effects, so even a routine
-    refusal does not prove that nothing registered, and no `act` line can describe
-    a registration that rolled back."""
+    `StoreWriteRefused` (the composition root's pre-submission refusal of its
+    arguments or of a non-writable store root, before anything reaches the engine)
+    marks the ledger failed before the exception propagates: the engine registers
+    before it applies effects, so even a routine refusal does not prove that
+    nothing registered, and no `act` line can describe a registration that rolled
+    back."""
 
     def guarded(member: Callable[..., Any]) -> Callable[..., Any]:
         def call(*args: Any) -> Any:
