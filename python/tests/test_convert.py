@@ -430,6 +430,32 @@ def compile_testing(base_contract, document):
     )
 
 
+@pytest.mark.parametrize("side", ["source", "target"])
+@pytest.mark.parametrize("binding", ["certified", "independent"])
+def test_composition_refuses_a_noninvertible_transformation(base_contract, testing_document, side, binding):
+    testing_document["transformations"]["log2-plus-one"]["invertible"] = False
+    snap = snapshot(profile=compile_testing(base_contract, testing_document))
+    a, b = coords(transformation="log2-plus-one"), coords()
+    if side == "target":
+        a, b = b, a
+    assert result(a, b, binding=binding, snap=snap) == NotConvertible(
+        "transformation", (a.transformation, b.transformation)
+    )
+
+
+@pytest.mark.parametrize("fixed", [True, False])
+def test_a_noninvertible_coordinate_has_identity_only_when_fixed(base_contract, testing_document, fixed):
+    declaration = testing_document["transformations"]["log2-plus-one"]
+    declaration.update(fixed=fixed, invertible=False)
+    snap = snapshot(profile=compile_testing(base_contract, testing_document))
+    coordinate = coords(transformation="log2-plus-one")
+    answer = result(coordinate, coordinate, snap=snap)
+    if fixed:
+        assert isinstance(answer, Convertible) and answer.map.cls == "identity" and answer.steps == ()
+    else:
+        assert answer == NotConvertible("transformation", (coordinate.transformation, coordinate.transformation))
+
+
 @pytest.mark.parametrize("side", ["a", "b"])
 @pytest.mark.parametrize("base", ["2", "0.5"])
 def test_logarithm_against_affine_needs_a_whole_domain_proof(base_contract, testing_document, side, base):
@@ -904,14 +930,19 @@ def test_evaluated_rational_logarithms_remain_undecidable(base_contract, testing
 
 
 @pytest.mark.parametrize("value_type", ["level", "difference", "ratio"])
-def test_independent_output_is_its_raw_level_map_without_response_transformations(value_type):
+def test_independent_output_is_its_raw_level_map_without_response_transformations(
+    base_contract, testing_document, value_type
+):
     from beliefs import comparability as c
 
+    testing_document["transformations"]["log2"]["invertible"] = False
+    testing_document["transformations"]["negate"]["invertible"] = False
     answer = result(
         coords("kelvin", "log2", value_type),
         coords("celsius", "negate", value_type),
         ARRHENIUS,
         output=OutputTyping("independent", "real"),
+        snap=snapshot(profile=compile_testing(base_contract, testing_document)),
     )
     assert isinstance(answer, Convertible)
     assert (answer.map.cls, answer.map.scale, answer.map.offset, answer.flip) == (

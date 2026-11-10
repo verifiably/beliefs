@@ -558,13 +558,16 @@ def _contains_image(source: str, target: str, factor: Fraction, offset: Fraction
     return False
 
 
-def _compose(a: CompiledTransformation, b: CompiledTransformation, raw: RawMap) -> ComposedMap | Unknown:
+def _compose(
+    a: CompiledTransformation, b: CompiledTransformation, raw: RawMap
+) -> ComposedMap | NotConvertible | Unknown:
     concerns = (a.term, b.term)
     raw_identity = raw.factor == 1 and raw.offset == 0
-    decreasing = _sign(a) * (1 if raw.factor > 0 else -1) * _sign(b) < 0
+    if a.term == b.term and raw_identity and a.fixed:
+        return _affine_map(Fraction(1), Fraction(0))
+    if not (a.invertible and b.invertible):
+        return NotConvertible("transformation", concerns)
     if a.term == b.term and raw_identity:
-        if a.fixed:
-            return _affine_map(Fraction(1), Fraction(0))
         return ComposedMap("strictly-increasing", None, None, False)
     affine_a, affine_b = a.kind in {"identity", "affine"}, b.kind in {"identity", "affine"}
     if affine_a and affine_b:
@@ -597,6 +600,7 @@ def _compose(a: CompiledTransformation, b: CompiledTransformation, raw: RawMap) 
         or (b.kind == "monotone" and not _contains_image(a.domain, b.domain, raw.factor, raw.offset))
     ):
         return Unknown("domain", concerns)
+    decreasing = _sign(a) * (1 if raw.factor > 0 else -1) * _sign(b) < 0
     return ComposedMap("strictly-decreasing" if decreasing else "strictly-increasing", None, None, decreasing)
 
 
@@ -685,7 +689,7 @@ def convert(
     a_transformation = snapshot.profile.transformations[a.transformation]
     b_transformation = snapshot.profile.transformations[b.transformation]
     map = _affine_map(raw.factor, raw.offset) if own_output else _compose(a_transformation, b_transformation, effective)
-    if isinstance(map, Unknown):
+    if isinstance(map, (NotConvertible, Unknown)):
         return map
     concerns = (a.transformation, b.transformation)
     if binding == "independent":

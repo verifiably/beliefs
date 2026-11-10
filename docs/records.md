@@ -804,6 +804,10 @@ rounding, and inverse raw factors use the negated logarithm of their exact
 finite reciprocal. Rounded Decimal coefficients never prove an identity map.
 A ratio refuses an offset; a difference drops it.
 
+Response and independent-variable composition refuse with `transformation` when
+either declaration has `invertible: false`. The same fixed transformation on
+both sides under an identity raw map still gives identity directly.
+
 Shape admission precedes the separate response-direction action. Independent
 variable bindings admit identity alone. `output.typing="independent"` selects an
 output parameter's own level coordinates, rather than a response-binding map:
