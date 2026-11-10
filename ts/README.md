@@ -42,5 +42,5 @@ npm run check   # biome
 From the repository root, `just setup` runs `npm ci`, and focused runs are described in
 [docs/development.md](../docs/development.md#gates-and-focused-runs).
 
-The parity suite reads `../fixtures/claim-identity-v1.json` and the contracts
+The parity suite reads `../fixtures/claim-identity-v2.json` and the contracts
 under `../contracts/` and `../fixtures/contracts/`. It never writes them.
