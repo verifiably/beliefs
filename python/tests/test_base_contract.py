@@ -198,7 +198,7 @@ def test_explicit_null_kind_facets_are_not_an_empty_deferred_declaration(documen
 
 def test_genuinely_empty_deferred_declarations_remain_accepted(document):
     contract = parse(document)
-    for kind in ("instrument-certification", "procedure", "classification-rule"):
+    for kind in ("instrument-certification",):
         assert not contract.kinds[kind].facets
 
 
@@ -320,11 +320,11 @@ class TestClaimGrammarV2:
         assert dict(register.facets) == {"assumptions-register": base.FacetUse(required=True, covered=True)}
         facet = base_contract.facets["assumptions-register"]
         assert facet.shape == "reader"
-        for name in ("procedure", "classification-rule"):
+        for name in ("procedure", "referent-mapping", "proxy-model", "classification-rule"):
             kind = base_contract.kinds[name]
             assert kind.role == "world"
             assert kind.domain == f"science.{name}.v1"
-            assert dict(kind.facets) == {}
+            assert dict(kind.facets) == {name: base.FacetUse(required=True, covered=True)}
 
 
 class TestEstimandGrammar:

@@ -1311,9 +1311,12 @@ class PredecessorMismatch(WriteRefused):
     """A predecessor stands but belongs to another kind or coordination address."""
 
 
+class MeasurementRecordRefused(WriteRefused):
+    """A measurement record fails its profile or held-dependency write checks."""
+
+
 class KindNotMintedHere(WriteRefused):
-    """A kind the ordinary coordination doors never mint: `publication` and
-    `publication-binding` are minted only by the publish doors."""
+    """A kind belongs to another minting door, or declares no governed facet."""
 
 
 class PublicationRefused(WriteRefused):

@@ -28,14 +28,13 @@ to an equal node, and one that does not is refused.
 
 ## Record kinds
 
-The Science base contract (`contracts/science/CONTRACT.yaml`) declares nineteen
+The Science base contract (`contracts/science/CONTRACT.yaml`) declares twenty-one
 world kinds and three prose kinds. A world kind is either governed, meaning the
 contract names an identity domain for it, or ungoverned (only
 `instrument-certification`). A kind's required facet is present on every record of
-that kind. Two governed kinds, `procedure` and `classification-rule`, declare no
-facet yet, and every write door that mints a new record refuses them
-(`KindNotMintedHere`). Publication's staging copies records already minted in the
-source corpus byte for byte and does not repeat that check.
+that kind. A governed kind declaring no facet cannot mint a record through either
+an ordinary door or publication staging (`KindNotMintedHere`). The four
+measurement kinds each require their own covered facet.
 
 | Kind | Required facet | Enters through |
 |---|---|---|
@@ -56,8 +55,10 @@ source corpus byte for byte and does not repeat that check.
 | `exposure-event` | `exposure-event` | `add`, `revise` |
 | `reservation-assignment` | `reservation-assignment` | `add` (a chain root), `supersede`, `revise` |
 | `assumptions-register` | `assumptions-register` | `add` |
-| `procedure` | none declared yet | not minted |
-| `classification-rule` | none declared yet | not minted |
+| `procedure` | `procedure` | `add` |
+| `referent-mapping` | `referent-mapping` | `add` |
+| `proxy-model` | `proxy-model` | `add` |
+| `classification-rule` | `classification-rule` | `add` |
 
 The base contract names a reader for each kernel facet, but that name is not
 resolved or called: the code checks each facet where it is used. At the write
@@ -65,7 +66,8 @@ boundary, `add` checks that a record's kind and facets are in the compiled profi
 checks every schema-shaped facet (`empirical-observation` and domain facets)
 against its fields, and decodes the `display`, `analysis-spec`, `verification`,
 `dataset`, `source`, `composite`, `run-closure`, `exposure-event`,
-`reservation-assignment` and `assumptions-register` facets. `retract` and
+`reservation-assignment`, `assumptions-register`, `procedure`, `referent-mapping`,
+`proxy-model` and `classification-rule` facets. `retract` and
 `attest_coreference` decode their own records, and import decodes act reports. A
 proposition's claim, an assessment's facet, a `lineage-basis` and a run without a
 closure are checked only when read. A `source-assertion` record must carry its
@@ -94,7 +96,7 @@ each predicate's signature:
 | `composes` | composite | proposition |
 | `grounded-in` | retraction | retraction, verification, source |
 | `supersedes` | proposition, composite, reservation-assignment | a record of the same kind |
-| `retracts` | retraction | assessment, retraction, verification |
+| `retracts` | retraction | assessment, retraction, verification, procedure, referent-mapping, proxy-model, classification-rule, assumptions-register |
 | `succeeded-by` | retraction | retraction |
 | `anchored_in` | source-assertion | source |
 | `exposes` | exposure-event | dataset, source |
@@ -113,7 +115,8 @@ The write boundary enforces these signatures:
 - each `composes` target must be a proposition, with one edge per member;
 - a `verifies` target must be an assessment (when the verification carries a
   report and an assessment);
-- a `retracts` node target must be an assessment, a retraction or a verification;
+- a `retracts` node target must be an assessment, retraction, verification, procedure,
+  referent mapping, proxy model, classification rule or assumptions register;
 - the edges of an exposure event or a reservation assignment must equal those its
   facet names, and each one's target must resolve to a record of the kind the table
   gives (see [Exposure events and reservation
@@ -573,7 +576,7 @@ profile's activated domain contracts; none of these refuses a write:
   identity. A `previous` naming a register not held ends the chain there; registers
   on a cycle have no head, and each is compared to the pin.
 - `register-entry-unknown` (error, on the register): an entry key whose kind is not
-  one of the five (its reader refuses such a register too), or, for a register
+  one of the seven (its reader refuses such a register too), or, for a register
   describing the pinned identity, a key naming no declaration of that kind and name
   in that contract. A register describing another identity reports `register-stale`
   alone.
@@ -595,7 +598,7 @@ no relations. The facet's fields are `operation` (one of the operation kinds in
 act's subject and outcome; the `acquisition-set` entry's outcome is described under
 [Acquisition logs](#acquisition-logs). An act report never feeds a belief.
 
-### Measurement record values
+### Measurement records
 
 The `procedure`, `referent_mapping`, `proxy_model` and `classification_rule`
 modules provide frozen record values, canonical facet projections and stored-node
@@ -603,9 +606,15 @@ readers. Their addresses are `<kind>:<64 lowercase hex>`, derived from the compl
 facet under `science.procedure.v1`, `science.referent-mapping.v1`,
 `science.proxy-model.v1` and `science.classification-rule.v1`, respectively. Readers
 check the exact field set, recompute the canonical facet and verify its address.
-Optional fields are absent when unset. These value APIs are available independently
-of the corpus write doors; the kinds and minting routes above still describe what
-the shipped base admits.
+Optional fields are absent when unset. The four `stored` builders
+(`procedure_node`, `referent_mapping_node`, `proxy_model_node`,
+`classification_rule_node`) stamp the semantic identity and mint through `add`.
+Their readers are profile-free: they validate the canonical payload and id, while
+the write door checks declarations and held dependencies. A malformed payload
+raises `MalformedRecord` at the door and is reported by `corpus_check` as
+`facet-payload-malformed` with its facet key. Prose in `body` is outside identity.
+
+#### Procedure
 
 A procedure includes its kind term, name, normative definition, distinct sorted
 complete observables in `yields`, validation restrictions, compatible procedure ids,
@@ -616,7 +625,18 @@ an orientation (`higher-is-more` or `higher-is-less`), making it an authority, o
 `same_as`, naming another procedure's authority. Scale bounds and crosswalk
 coefficients have exact finite decimal string projections under the shared
 4096-digit and exponent budget; values with no exact supported projection refuse.
-Validation restrictions retain their optional duration convention.
+Validation restrictions retain their optional duration convention. The procedure
+kind must be declared, every yield observable must be admitted, and `inputs` must
+be present exactly when its kind declares `fills_within_model`. A `same_as` id
+must name a held procedure that declares its own scale range. Compatible-procedure
+and evidence ids are checked for shape, without requiring those records to be held.
+
+Validation and proxy-validity scopes must pass `type_restriction_map` under the
+writer's profile. Applicability dimensions need not apply to a particular operator.
+A local convention that resolves to a qualified term changes the facet projection,
+so the door refuses it as `MeasurementRecordRefused`: call `type_restriction_map`
+before constructing the value, then build the record from that resolved scope.
+The door never rewrites a covered facet or its id.
 
 `measurement.check_measure_procedure` requires the measure's complete observable
 in the procedure's yields, including its aspect. If the measure names a scale,
@@ -624,21 +644,36 @@ it must be the procedure's own authority or its `same_as` authority, and the
 supplied authority record must resolve that address and declare a range. Failures
 are `ProcedureYieldMismatch` and `ScaleAuthorityMismatch`.
 
+#### Referent mapping
+
 A referent mapping names source and target sorts, a string-valued reference,
 cardinality, and optional aggregation term and members digest. Its `joins` check
-accepts either direction. A classification rule names a classes sort, input
-observables, a normative definition and optional external mapping, implementation
-and annotator.
+accepts either direction. Both sorts and any aggregation rule must be declared
+in the writer's compiled profile.
+
+#### Classification rule
+
+A classification rule names a classes sort, input observables, a normative
+definition and optional external mapping, implementation and annotator. The door
+requires a declared classes sort and admitted input observables.
+
+#### Proxy model
 
 A proxy model binds a source observable and procedure to either a target observable
 or a procedure's scale. It carries validity restrictions and either an assumption
 instance or a calibration with its calibrated observable, assessment ids and
 permanent interpretation-rule identity strings. A calibration transfer assumption
-is required exactly when the calibrated and target observables differ; resolving
-a scale target's observable belongs to the write door. A crosswalk is required
+is required exactly when an observable target differs from the calibrated
+observable. A scale target instead names a held authority. A crosswalk is required
 exactly for scale targets: it includes a linking population, conversion and error.
 An affine conversion projects `scale` and `offset`; a multiplicative conversion
-projects `factor`. All coefficients and error values are decimal strings.
+projects `factor`. All coefficients and error values are decimal strings. The
+write door checks source and target observables, a held source procedure, a held
+authority for
+`scale_of`, typed validity restrictions, and the particulars of assumption bases
+and calibration transfers. These profile and held-record failures are
+`MeasurementRecordRefused` naming the record id and clause. Calibration assessment
+qualification and crosswalk sign are outside these checks.
 
 `assumptions.AssumptionInstance` holds a declared assumption-kind term and canonical
 string-valued particulars. `check_instance` requires each key the compiled kind

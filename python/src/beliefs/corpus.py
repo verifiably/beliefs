@@ -58,7 +58,10 @@ from beliefs import boundary as boundary_values
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
 from beliefs import stored
+from beliefs._measurement_record import scope_projection
 from beliefs.acquisition import ProducerView, ReportView, bearer_refusal, validity_refusal
+from beliefs.assumptions import check_instance
+from beliefs.classification_rule import RULE_FACET, RULE_KIND, rule_from_stored
 from beliefs.consulted import CorpusPins
 from beliefs.coordination import (
     COORDINATION_KINDS,
@@ -105,6 +108,7 @@ from beliefs.errors import (
     ManifestAlreadyPresent,
     ManifestMalformed,
     ManifestMissing,
+    MeasurementRecordRefused,
     OperationPortMissing,
     PlanRefused,
     PortMismatch,
@@ -148,9 +152,13 @@ from beliefs.lineage import (
     resolve_ancestor,
     retire,
 )
+from beliefs.measurement import check_observable
 from beliefs.permit import Authority
+from beliefs.procedure import PROCEDURE_FACET, PROCEDURE_KIND, Procedure, SameAs, procedure_from_stored
 from beliefs.profile import ProfileSpec, shipped_base
+from beliefs.proxy_model import PROXY_FACET, PROXY_KIND, Calibration, proxy_from_stored
 from beliefs.record import RunInput, RunValue
+from beliefs.referent_mapping import MAPPING_FACET, MAPPING_KIND, mapping_from_stored
 from beliefs.register import ENTRY_KINDS, REGISTER_FACET, REGISTER_KIND, AssumptionsRegister, register_from_stored
 from beliefs.report import OperationIntent
 from beliefs.reservation import (
@@ -159,6 +167,7 @@ from beliefs.reservation import (
     assignment_succession_refusal,
     exposure_event_refusal,
 )
+from beliefs.restriction import type_restriction_map
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
@@ -196,7 +205,16 @@ __all__ = [
 ]
 
 DIRECTIONS = ("inbound", "outbound")
-ELIGIBLE_RETRACTION_TARGET_KINDS = ("assessment", "retraction", "verification")
+ELIGIBLE_RETRACTION_TARGET_KINDS = (
+    "assessment",
+    "retraction",
+    "verification",
+    "procedure",
+    "referent-mapping",
+    "proxy-model",
+    "classification-rule",
+    "assumptions-register",
+)
 APPEND_ONLY_KINDS: tuple[str, ...] = ("exposure-event", "reservation-assignment")
 """The world kinds minted once and never mutated in place: `delete` refuses them
 (`_refuse_excluded_kind`) and `revise` admits prose changes only. Unlike
@@ -2014,6 +2032,10 @@ _WHOLE_READERS: Mapping[str, tuple[str, Callable[[Node], object]]] = MappingProx
         "exposure-event": (stored.EXPOSURE_EVENT_FACET, stored.exposure_event_value),
         "reservation-assignment": (stored.RESERVATION_ASSIGNMENT_FACET, stored.reservation_assignment_value),
         REGISTER_KIND: (REGISTER_FACET, register_from_stored),
+        PROCEDURE_KIND: (PROCEDURE_FACET, procedure_from_stored),
+        MAPPING_KIND: (MAPPING_FACET, mapping_from_stored),
+        PROXY_KIND: (PROXY_FACET, proxy_from_stored),
+        RULE_KIND: (RULE_FACET, rule_from_stored),
     }
 )
 """The reader-shaped facets `validate_payload` skips, read whole by `corpus_check` instead: a facet
@@ -3150,6 +3172,7 @@ class CorpusWriter:
             self._require_pins_agree()
             if node.kind not in stored.WORLD_KINDS:
                 raise ValidationRefused(f"{node.id}: a staged record is a world record")
+            self._refuse_facetless_world_kind(node)
             self._refuse_invalid(node)
             self._refuse_facet_shapes(node)  # the staging profile's registry and facet payloads (finding 3)
             if stored.display_facet_malformed(node):
@@ -4301,6 +4324,7 @@ class CorpusWriter:
         if not document_validated:
             self._refuse_invalid(node)
         self._refuse_facets(node, view=view, provenance=provenance)
+        self._refuse_measurement_record(node, view=view)
         if node.kind == "verification":
             self._refuse_verification(node, view=self._view if view is None else view)
         if node.kind == "analysis-spec":
@@ -4318,18 +4342,86 @@ class CorpusWriter:
         self._refuse_rendering(node)
         self._refuse_collision(node)
 
-    def _refuse_facetless_world_kind(self, node: Node) -> None:
-        """A governed world kind the base names with no facet is not mintable yet.
+    def _refuse_measurement_record(self, node: Node, *, view: ReadView | _ImportView | MountCitations) -> None:
+        """Profile checks and held procedures, after the canonical facet reader."""
 
-        Base v2 names `procedure` and `classification-rule` ahead of the measurement
-        model, which adds their facets and readers (design §8.1, R4). A record of
-        such a kind would carry nothing but a stamp over nothing, so every write
-        door through here refuses it rather than mint an empty claimant."""
+        def refuse(clause: str, detail: str) -> None:
+            raise MeasurementRecordRefused(f"{node.id}: {clause}: {detail}")
+
+        def checked(clause: str, check: Callable[[], object]) -> None:
+            try:
+                check()
+            except ScienceError as exc:
+                refuse(clause, str(exc))
+
+        def held_procedure(address: str, clause: str, *, authority: bool = False) -> Procedure:
+            if view.resolve(address) != address:
+                refuse(clause, f"procedure {address!r} is not held")
+            try:
+                value = procedure_from_stored(view.get(address))
+            except ScienceError as exc:
+                raise MeasurementRecordRefused(f"{node.id}: {clause}: {exc}") from exc
+            if authority and not value.is_authority:
+                refuse(clause, f"procedure {address!r} is not a scale authority")
+            return value
+
+        def scope(clause: str, raw: Mapping[str, object]) -> None:
+            try:
+                typed = type_restriction_map(self._profile, raw)
+            except ScienceError as exc:
+                raise MeasurementRecordRefused(f"{node.id}: {clause}: {exc}") from exc
+            if scope_projection(typed) != raw:
+                refuse(clause, "resolve authoring references with type_restriction_map before building the record")
+
+        if node.kind == PROCEDURE_KIND:
+            procedure = procedure_from_stored(node)
+            declaration = self._profile.procedure_kinds.get(procedure.kind)
+            if declaration is None:
+                refuse("kind", f"undeclared procedure kind {procedure.kind!r}")
+            assert declaration is not None
+            for observable in procedure.yields:
+                checked("yields", lambda observable=observable: check_observable(self._profile, observable))
+            scope("validated_in", scope_projection(procedure.validated_in))
+            if isinstance(procedure.scale, SameAs):
+                held_procedure(procedure.scale.authority, "scale.same_as", authority=True)
+            if (procedure.inputs is not None) != declaration.fills_within_model:
+                refuse("inputs", "inputs are present exactly for a kind that fills_within_model")
+        elif node.kind == MAPPING_KIND:
+            mapping = mapping_from_stored(node)
+            for clause, sort in (("source_sort", mapping.source_sort), ("target_sort", mapping.target_sort)):
+                if sort not in self._profile.sorts:
+                    refuse(clause, f"undeclared sort {sort!r}")
+            if mapping.aggregation is not None and mapping.aggregation not in self._profile.aggregation_rules:
+                refuse("aggregation", f"undeclared aggregation rule {mapping.aggregation!r}")
+        elif node.kind == RULE_KIND:
+            rule = rule_from_stored(node)
+            if rule.classes not in self._profile.sorts:
+                refuse("classes", f"undeclared sort {rule.classes!r}")
+            for observable in rule.reads:
+                checked("reads", lambda observable=observable: check_observable(self._profile, observable))
+        elif node.kind == PROXY_KIND:
+            proxy = proxy_from_stored(node)
+            checked("source.observable", lambda: check_observable(self._profile, proxy.source.observable))
+            held_procedure(proxy.source.procedure, "source.procedure")
+            target_observable = proxy.target.observable
+            if target_observable is not None:
+                checked("target.observable", lambda: check_observable(self._profile, target_observable))
+            if proxy.target.scale_of is not None:
+                held_procedure(proxy.target.scale_of, "target.scale_of", authority=True)
+            scope("validity", scope_projection(proxy.validity))
+            basis = proxy.basis
+            if isinstance(basis, Calibration):
+                transfer = basis.transfer
+                if transfer is not None:
+                    checked("basis.calibration.transfer", lambda: check_instance(self._profile, transfer))
+            else:
+                checked("basis.assumption", lambda: check_instance(self._profile, basis))
+
+    def _refuse_facetless_world_kind(self, node: Node) -> None:
+        """A governed world kind without a facet cannot mint an empty claimant."""
         kind = self._profile.kinds.get(node.kind)
         if kind is not None and kind.role == "world" and kind.domain is not None and not kind.facets:
-            raise KindNotMintedHere(
-                f"{node.kind!r} declares no facet yet, so nothing mints it; the measurement model adds its facets"
-            )
+            raise KindNotMintedHere(f"{node.kind!r} declares no facet, so nothing mints it")
 
     def _refuse_facet_shapes(self, node: Node) -> None:
         """The view-free half: registry membership and every facet payload's shape."""
@@ -4351,6 +4443,14 @@ class CorpusWriter:
             stored.reservation_assignment_value(node)
         elif node.kind == REGISTER_KIND:
             register_from_stored(node)
+        elif node.kind == PROCEDURE_KIND:
+            procedure_from_stored(node)
+        elif node.kind == MAPPING_KIND:
+            mapping_from_stored(node)
+        elif node.kind == PROXY_KIND:
+            proxy_from_stored(node)
+        elif node.kind == RULE_KIND:
+            rule_from_stored(node)
 
     def _refuse_facets(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None, provenance: bool = False

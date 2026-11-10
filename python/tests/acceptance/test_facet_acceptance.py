@@ -449,6 +449,7 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
     from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules, typed_applicability, typed_estimand
     from profiles import WITH_BIOLOGY
     from test_holdings_records import observation
+    from test_measurement_records import build, values
     from test_reservation import _assignment, _sun_knowledge_event
 
     from beliefs.composite import CompositeNode, build_composite
@@ -467,6 +468,12 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
     builders = {
         "governed_node": stored.governed_node("source", "g", "g", {"source": {"identifiers": {"doi": "x"}}}, ()),
         "act_report_node": stored.act_report_node(acquisition_report),
+        **{
+            kind.replace("-", "_") + "_node": build(kind, value)
+            for kind, value in zip(
+                ("procedure", "referent-mapping", "proxy-model", "classification-rule"), values(), strict=True
+            )
+        },
         "proposition_node": stored.proposition_node(
             "p", title="p", claim={"operator": "affects"}, display_statement="shown"
         ),

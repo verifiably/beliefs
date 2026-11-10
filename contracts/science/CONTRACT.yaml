@@ -136,10 +136,10 @@ kinds:
   assumptions-register:
     domain: science.assumptions-register.v1
     facets: { assumptions-register: { required: true, covered: true } }
-  # Named now, with no facet yet: the measurement model adds their facets,
-  # readers and relations. Until then `add` refuses to mint either.
-  procedure: { domain: science.procedure.v1, facets: {} }
-  classification-rule: { domain: science.classification-rule.v1, facets: {} }
+  procedure: { domain: science.procedure.v1, facets: { procedure: { required: true, covered: true } } }
+  referent-mapping: { domain: science.referent-mapping.v1, facets: { referent-mapping: { required: true, covered: true } } }
+  proxy-model: { domain: science.proxy-model.v1, facets: { proxy-model: { required: true, covered: true } } }
+  classification-rule: { domain: science.classification-rule.v1, facets: { classification-rule: { required: true, covered: true } } }
   interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
   discussion: { role: prose, facets: { display: { required: false, covered: false } } }
   story: { role: prose, facets: { display: { required: false, covered: false } } }
@@ -166,7 +166,7 @@ relations:
   reports: { group: world, sources: [reservation-assignment], targets: [run] }
   applies: { group: world, sources: [reservation-assignment], targets: [reservation-assignment] }
   supersedes: { group: lifecycle, sources: [proposition, composite, reservation-assignment], targets: [proposition, composite, reservation-assignment], same_kind: true }
-  retracts: { group: lifecycle, sources: [retraction], targets: [assessment, retraction, verification] }
+  retracts: { group: lifecycle, sources: [retraction], targets: [assessment, retraction, verification, procedure, referent-mapping, proxy-model, classification-rule, assumptions-register] }
   succeeded-by: { group: lifecycle, sources: [retraction], targets: [retraction] }
   anchored_in: { group: lifecycle, sources: [source-assertion], targets: [source] }
 
@@ -191,6 +191,10 @@ facets:
   exposure-event: { shape: reader, reader: stored.exposure_event_value }
   reservation-assignment: { shape: reader, reader: stored.reservation_assignment_value }
   assumptions-register: { shape: reader, reader: register.register_from_stored }
+  procedure: { shape: reader, reader: procedure.procedure_from_stored }
+  referent-mapping: { shape: reader, reader: referent_mapping.mapping_from_stored }
+  proxy-model: { shape: reader, reader: proxy_model.proxy_from_stored }
+  classification-rule: { shape: reader, reader: classification_rule.rule_from_stored }
   empirical-observation:
     shape: schema
     description: The declared acquisition boundary (design §6). `locator` names the most upstream form outside the held boundary; `attested_by` is bound to the writer's actor at mint; `retrieval` is the boundary-minted acquisition report when one exists.

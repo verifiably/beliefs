@@ -246,8 +246,8 @@ def test_grammar_kind_and_relations(corpora):
     assert kind.role == "world" and kind.domain == "science.composite.v1"
     assert kind.facets["composite"].required and kind.facets["composite"].covered
     assert not kind.facets["display"].covered
-    # Base v2 adds `procedure`, `classification-rule` and `assumptions-register` to the sixteen.
-    assert len([k for k in base.kinds.values() if k.role == "world"]) == 19
+    # The base includes the four measurement kinds and assumptions register.
+    assert len([k for k in base.kinds.values() if k.role == "world"]) == 21
     assert {"procedure", "classification-rule", "assumptions-register"} <= set(base.kinds)
     composes = base.relations["composes"]
     assert (composes.group, composes.sources, composes.targets, composes.same_kind) == (

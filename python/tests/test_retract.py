@@ -337,7 +337,16 @@ def test_retract_errors_are_write_refusals():
 
 
 def test_retraction_target_kind_tuple_is_exact():
-    assert ELIGIBLE_RETRACTION_TARGET_KINDS == ("assessment", "retraction", "verification")
+    assert ELIGIBLE_RETRACTION_TARGET_KINDS == (
+        "assessment",
+        "retraction",
+        "verification",
+        "procedure",
+        "referent-mapping",
+        "proxy-model",
+        "classification-rule",
+        "assumptions-register",
+    )
 
 
 def test_retract_accepts_a_verification_target(writer):

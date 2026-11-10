@@ -69,9 +69,10 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     and again when base v2's claim tables (templates, instantiations, bridges,
     duration conventions) replaced the operator and edge tables,
     and again when the measurement grammar and its five declaration tables entered the projection,
-    and again when the vocabulary, pack and typed dimension tables entered it."""
+    and again when the vocabulary, pack and typed dimension tables entered it,
+    and again when the four measurement kinds gained their governed facets."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "cba48ffad79807b41d6300e2425a38bce3cf711a8b2458524665a1b8d75fb5a6"
+    assert before.compiled_identity == "276efa50277c592f37301afb424d4f3d432896e79c72f8bec6178aa1ed6b8bbc"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 

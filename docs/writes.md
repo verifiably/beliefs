@@ -66,6 +66,21 @@ ordinary writes. Each runs these steps in order, except `delete` (below):
 An `analysis-spec` is also refused unless every register it cites is a held
 `assumptions-register` describing an activated domain contract at its pinned
 identity (`RegisterNotCurrent`, [records.md](records.md#specs-runs-and-assessments)).
+`add` decodes each measurement record's canonical facet before applying its
+kind-specific checks. Procedures require a declared procedure kind, admitted
+`yields`, typed `validated_in`, an authoritative held `same_as` procedure when
+present, and `inputs` exactly for `fills_within_model` kinds. Referent mappings
+require declared source and target sorts and any aggregation rule. Classification
+rules require a declared classes sort and admitted `reads`. Proxy models require
+admitted source and target observables, a held source procedure, an authoritative
+held `scale_of` when present, typed validity, and valid assumption particulars for
+the basis and any calibration transfer. These refusals are `MeasurementRecordRefused`
+with the id and clause. Scope references must already be resolved: if
+`type_restriction_map` changes their projection, call it before building the record
+([measurement records](records.md#measurement-records)). Publication staging
+repeats facet and stamp checks and refuses governed kinds without facets; it does
+not repeat the held-dependency checks, since records stage in id order.
+
 A kind with its own door is refused through `add`. Holdings observations, act
 reports and publication records have no ordinary door at all. `delete` removes one
 record's file. It takes the lock, checks the pins and resolves its target first,

@@ -49,6 +49,8 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
         "reservation-assignment",
         "assumptions-register",
         "procedure",
+        "referent-mapping",
+        "proxy-model",
         "classification-rule",
     )
     assert stored.PROSE_KINDS == ("interpretation", "discussion", "story")
@@ -76,6 +78,8 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
     )
     assert stored.COVERED_FACETS["dataset"] == ("dataset", "empirical-observation", "lineage-basis")
     assert stored.COVERED_FACETS["run"] == ("run", "run-closure")
+    for kind in ("procedure", "referent-mapping", "proxy-model", "classification-rule"):
+        assert stored.COVERED_FACETS[kind] == (kind,)
     assert "instrument-certification" not in stored.SEMANTIC_DOMAINS
     assert "discussion" not in stored.SEMANTIC_DOMAINS
 

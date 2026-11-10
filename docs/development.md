@@ -225,20 +225,26 @@ World kinds are declared by the base contract, so a new kind is a new base
 contract. Every corpus pins the base it was made under, and a writer accepts only
 the base the runtime ships, so existing corpora must be recreated under the new one.
 
-1. Declare the kind in `contracts/science/CONTRACT.yaml`: its `role`, its identity
-   `domain` if it is governed, its facets with `required` and `covered`, each new
-   facet under `facets`, and any relations
-   ([contracts.md](contracts.md#base-contract)). Copy the file to
-   `python/src/beliefs/contracts/science/CONTRACT.yaml`.
-2. Add the kind to `KIND_ACTS` in `permit.py` with the act families that may mint
-   it (`test_permit.py` holds its keys equal to the world and coordination kinds),
-   and decide whether it joins `stored.COREFERENCE_ENDPOINT_KINDS`.
-3. Give it a way in. If `add` admits it, make the write boundary in `corpus.py`
-   decode its facets; if it needs its own door, that door joins the write-entry
-   inventory above.
-4. Update the tests that pin the inventory and the profile's compiled identity
-   (`test_shipped_base.py`, `test_profile.py`), run the TypeScript suite, which
-   parses the same contract, and update [records.md](records.md#record-kinds).
+1. Declare the kind in `contracts/science/CONTRACT.yaml`: its `role`, identity
+   `domain`, required and covered facets, reader declarations and any relation
+   signatures ([contracts.md](contracts.md#base-contract)). Keep
+   `python/src/beliefs/contracts/science/CONTRACT.yaml` byte-identical.
+2. Add its minting family to `KIND_ACTS` in `permit.py`; decide whether it is a
+   coreference endpoint and an eligible retraction target. Retraction eligibility
+   must agree with the contract's `retracts` signature.
+3. Add a content-addressed builder in `stored.py` and a canonical, profile-free
+   reader. Register whole-record readers in `_WHOLE_READERS` for `corpus_check`
+   and `_refuse_facet_shapes` for ordinary and staging doors. Keep profile and
+   held-dependency checks in the ordinary write door. A new write primitive or
+   caller requires the closed write-entry inventories above to be reconciled.
+4. Update every inventory pin in Python, TypeScript and acceptance tests. Regenerate
+   the claim identity fixture, then run focused parity and declaration tests in
+   both languages, affected behavior tests, the capability/permit/pin-recheck
+   inventories and required hygiene/type checks under the execution policy.
+5. Update [records.md](records.md#record-kinds), write-door documentation and the
+   glossary with the behavior the code now admits. For the four measurement kinds,
+   these steps cover the builders, readers, profile checks, staging guard and the
+   eight eligible retraction targets; they add no write primitive or caller.
 
 View and coordination kinds come from the coordination contract instead: add a
 successor version under `python/src/beliefs/contracts/coordination/v<n>/`

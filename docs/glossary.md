@@ -65,6 +65,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="claim-identity"></a>**Claim identity** — `I_claim`, the digest of the claim's
   canonical projection `π_claim`. Wording and contract releases never enter it.
   ([records](records.md#identity))
+- <a id="classification-rule"></a>**Classification rule** — A content-addressed
+  definition of how input observables produce classes of a declared sort.
+  ([records](records.md#classification-rule))
 - <a id="clean-environment"></a>**Clean environment** — The verification scope at which
   a passed verification admits an assessment. It is derived from the runs'
   receipts, never chosen. ([records](records.md#verifications))
@@ -169,11 +172,19 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#propositions-and-claims))
 - <a id="policy-binding"></a>**Policy binding** — The exact pair of a belief policy's
   rule identity and implementation identity. ([records](records.md#beliefs))
+- <a id="procedure"></a>**Procedure** — A content-addressed measurement definition
+  with complete yield observables, validation scope and optional scale or pinned
+  implementation. Its kind determines whether model inputs are required.
+  ([records](records.md#procedure))
 - <a id="profile"></a>**Profile** — The compiled combination of a base contract, domain
   contracts and optionally a coordination contract, against which every write is
   checked. ([contracts](contracts.md#profiles))
 - <a id="proposition"></a>**Proposition** — The record that carries a claim.
   ([records](records.md#propositions-and-claims))
+- <a id="proxy-model"></a>**Proxy model** — A content-addressed link from a source
+  observable and held procedure to a target observable or authority scale, with
+  validity scope and a calibration or assumption basis.
+  ([records](records.md#proxy-model))
 - <a id="publication"></a>**Publication** — A new corpus holding the records a view
   selected, with one `publication` marker; the source corpus keeps a
   `publication-binding`. ([writes](writes.md#publication))
@@ -181,6 +192,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   operator's dimensions, with a quantifier. ([records](records.md#propositions-and-claims))
 - <a id="read-mount"></a>**Read mount** — A corpus a writer session reads but does not
   write; records may cite records in it. ([writes](writes.md#citations-across-mounts))
+- <a id="referent-mapping"></a>**Referent mapping** — A content-addressed
+  correspondence between two declared bearer sorts, with cardinality and an
+  optional aggregation rule. ([records](records.md#referent-mapping))
 - <a id="registration"></a>**Registration** — Two senses. A root is registered with
   the engine once (`init_corpus_root`), and writes to an unregistered root are
   refused. Each transaction is registered as an entry in the root's log before it
@@ -211,6 +225,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([writes](writes.md#operations))
 - <a id="run"></a>**Run** — The record of one complete execution: recipe, outputs and
   the facts of the occurrence. ([records](records.md#specs-runs-and-assessments))
+- <a id="scale-authority"></a>**Scale authority** — A held procedure declaring its
+  own scale range and orientation. Another procedure can name it with `same_as`.
+  ([records](records.md#procedure))
 - <a id="scoped-writer"></a>**Scoped writer** — The writer a session hands one
   invocation, with exactly the permit that invocation needs.
   ([writes](writes.md#writer-sessions))

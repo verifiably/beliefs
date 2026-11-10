@@ -38,7 +38,6 @@ from beliefs.errors import (
     EligibilityUnmet,
     IdentifierMalformed,
     ImportRefused,
-    KindNotMintedHere,
     MalformedRecord,
     ManifestAlreadyPresent,
     ManifestMalformed,
@@ -1562,13 +1561,11 @@ def test_the_staging_doors_require_their_permits_first(tmp_path):
     assert not (writer.root / "run").exists() and not (writer.root / "publication").exists()
 
 
-@pytest.mark.parametrize("kind", ["procedure", "classification-rule"])
-def test_procedure_cannot_be_added(tmp_path, kind):
-    # Base v2 names these kinds with a domain and no facet (design §8.1, R4): the
-    # measurement model adds their facets and readers, and until it does `add`
-    # has nothing to mint. The node is correctly stamped, so the refusal is the
-    # kind's own and not a stale stamp, and it comes before any write.
-    node = stored.stamp_semantic_identity(Node(id=f"{kind}:{'a' * 64}", kind=kind, title="unminted"))
-    with pytest.raises(KindNotMintedHere, match=kind):
-        CorpusWriter(tmp_path, DefaultExecutor, authority=FULL, profile=BASE).add(node)
-    assert not (tmp_path / kind).exists()
+@pytest.mark.parametrize("kind,index", [("procedure", 0), ("classification-rule", 3)])
+def test_measurement_kind_mints_through_add(tmp_path, kind, index):
+    from test_measurement_records import build, values
+    from test_stored import _testing_writer
+
+    writer = _testing_writer(tmp_path)
+    node = build(kind, values()[index])
+    assert writer.add(node).id == node.id

@@ -25,8 +25,8 @@ describe("document load refuses duplicate keys", () => {
 
 describe("the base contract's declarations", () => {
   const base = parseBaseContract(SHIPPED, "contracts/science/CONTRACT.yaml");
-  it("declares nineteen world kinds and three prose kinds", () => {
-    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(19);
+  it("declares twenty-one world kinds and three prose kinds", () => {
+    expect(Object.values(base.kinds).filter((kind) => kind.role === "world")).toHaveLength(21);
     expect(Object.values(base.kinds).filter((kind) => kind.role === "prose")).toHaveLength(3);
     expect(base.kinds["instrument-certification"].domain).toBeNull();
     expect(base.kinds["coreference-attestation"].domain).toBe("science.coreference-attestation.v1");
@@ -90,7 +90,16 @@ describe("the base contract's declarations", () => {
   });
   it("declares the current retraction endpoint closure", () => {
     expect(base.relations.retracts.sources).toEqual(["retraction"]);
-    expect(base.relations.retracts.targets).toEqual(["assessment", "retraction", "verification"]);
+    expect(base.relations.retracts.targets).toEqual([
+      "assessment",
+      "retraction",
+      "verification",
+      "procedure",
+      "referent-mapping",
+      "proxy-model",
+      "classification-rule",
+      "assumptions-register",
+    ]);
   });
   it("matches Python's semantic-domain, description, and null-facet refusals", () => {
     expect(() =>
@@ -173,17 +182,18 @@ describe("the base contract's declarations", () => {
     expect(Object.isFrozen(grammar.reservedRoles)).toBe(true);
     expect(Object.isFrozen(grammar.reservedRoles["within-model"])).toBe(true);
   });
-  it("declares the three base-v2 world kinds", () => {
+  it("declares the register and four measurement world kinds", () => {
     expect(base.kinds["assumptions-register"].domain).toBe("science.assumptions-register.v1");
     expect(base.kinds["assumptions-register"].facets["assumptions-register"]).toEqual({
       required: true,
       covered: true,
     });
     expect(base.facets["assumptions-register"].shape).toBe("reader");
-    for (const name of ["procedure", "classification-rule"]) {
+    for (const name of ["procedure", "referent-mapping", "proxy-model", "classification-rule"]) {
       expect(base.kinds[name].role).toBe("world");
       expect(base.kinds[name].domain).toBe(`science.${name}.v1`);
-      expect(Object.keys(base.kinds[name].facets)).toEqual([]);
+      expect(base.kinds[name].facets).toEqual({ [name]: { required: true, covered: true } });
+      expect(base.facets[name].shape).toBe("reader");
     }
   });
   it("refuses a widened form set", () => {

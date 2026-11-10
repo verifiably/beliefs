@@ -61,6 +61,7 @@ from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
 from beliefs.claim import Qualifier
+from beliefs.classification_rule import ClassificationRule, rule_identity, rule_projection
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.decode import applicability_from_stored, estimand_from_stored
 from beliefs.errors import (
@@ -91,8 +92,11 @@ from beliefs.holdings.records import (
 )
 from beliefs.identity import v1
 from beliefs.permit import require_actor
+from beliefs.procedure import Procedure, procedure_identity, procedure_projection
 from beliefs.profile import ProfileSpec, shipped_base
+from beliefs.proxy_model import ProxyModel, proxy_identity, proxy_projection
 from beliefs.record import ASSESSMENT_DOMAIN, AssessmentValue
+from beliefs.referent_mapping import ReferentMapping, mapping_identity, mapping_projection
 from beliefs.register import REGISTER_FACET, AssumptionsRegister, register_identity, register_projection
 from beliefs.reservation import (
     ExposureEvent,
@@ -161,6 +165,7 @@ __all__ = [
     "assessment_reference",
     "assessment_value",
     "assumptions_register_node",
+    "classification_rule_node",
     "composite_node",
     "composite_value",
     "coreference_attestation_node",
@@ -181,8 +186,11 @@ __all__ = [
     "is_empirical_observation",
     "lineage_basis",
     "local_id",
+    "procedure_node",
+    "proxy_model_node",
     "recompute_semantic_hash",
     "reconcile_correction_histories",
+    "referent_mapping_node",
     "reservation_assignment_node",
     "reservation_assignment_relations",
     "reservation_assignment_value",
@@ -1189,6 +1197,62 @@ def proposition_node(slug: str, *, title: str, claim: Mapping[str, Any], display
     if display_statement is not None:
         facets[DISPLAY_FACET] = {"display_statement": display_statement}
     return _node("proposition", slug, title, facets, ())
+
+
+def procedure_node(procedure: Procedure, *, body: str = "") -> Node:
+    """A procedure at the content address of its canonical covered facet."""
+    if type(procedure) is not Procedure:
+        raise MalformedRecord("procedure_node requires a Procedure")
+    return _node(
+        "procedure",
+        procedure_identity(procedure).partition(":")[2],
+        procedure.name,
+        {"procedure": procedure_projection(procedure)},
+        (),
+        body=body,
+    )
+
+
+def referent_mapping_node(value: ReferentMapping, *, body: str = "") -> Node:
+    """A referent-mapping at the content address of its canonical covered facet."""
+    if type(value) is not ReferentMapping:
+        raise MalformedRecord("referent_mapping_node requires a ReferentMapping")
+    return _node(
+        "referent-mapping",
+        mapping_identity(value).partition(":")[2],
+        "Referent mapping",
+        {"referent-mapping": mapping_projection(value)},
+        (),
+        body=body,
+    )
+
+
+def proxy_model_node(value: ProxyModel, *, body: str = "") -> Node:
+    """A proxy-model at the content address of its canonical covered facet."""
+    if type(value) is not ProxyModel:
+        raise MalformedRecord("proxy_model_node requires a ProxyModel")
+    return _node(
+        "proxy-model",
+        proxy_identity(value).partition(":")[2],
+        "Proxy model",
+        {"proxy-model": proxy_projection(value)},
+        (),
+        body=body,
+    )
+
+
+def classification_rule_node(value: ClassificationRule, *, body: str = "") -> Node:
+    """A classification-rule at the content address of its canonical covered facet."""
+    if type(value) is not ClassificationRule:
+        raise MalformedRecord("classification_rule_node requires a ClassificationRule")
+    return _node(
+        "classification-rule",
+        rule_identity(value).partition(":")[2],
+        "Classification rule",
+        {"classification-rule": rule_projection(value)},
+        (),
+        body=body,
+    )
 
 
 def assumptions_register_node(register: AssumptionsRegister, *, body: str = "") -> Node:

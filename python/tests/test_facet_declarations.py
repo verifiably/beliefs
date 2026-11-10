@@ -15,7 +15,7 @@ def parse(document):
 
 
 class TestTheShippedDeclarations:
-    def test_the_nineteen_world_kinds_and_three_prose_kinds_are_declared(self, base_contract):
+    def test_the_twenty_one_world_kinds_and_three_prose_kinds_are_declared(self, base_contract):
         assert {n for n, k in base_contract.kinds.items() if k.role == "prose"} == {
             "interpretation",
             "discussion",
@@ -40,6 +40,8 @@ class TestTheShippedDeclarations:
             "reservation-assignment",
             "assumptions-register",
             "procedure",
+            "referent-mapping",
+            "proxy-model",
             "classification-rule",
         }
 
@@ -124,7 +126,16 @@ class TestTheShippedDeclarations:
         }
         assert lifecycle == {"supersedes", "retracts", "succeeded-by", "anchored_in"}
         assert base_contract.relations["retracts"].sources == ("retraction",)
-        assert base_contract.relations["retracts"].targets == ("assessment", "retraction", "verification")
+        assert base_contract.relations["retracts"].targets == (
+            "assessment",
+            "retraction",
+            "verification",
+            "procedure",
+            "referent-mapping",
+            "proxy-model",
+            "classification-rule",
+            "assumptions-register",
+        )
 
     def test_empirical_observation_is_the_one_schema_shaped_facet(self, base_contract):
         schema_shaped = [key for key, decl in base_contract.facets.items() if decl.shape == "schema"]
