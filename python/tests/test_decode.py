@@ -739,7 +739,7 @@ class TestTheWireTypeIsConfinedToTheDecodeModule:
 
 
 class TestDecodeInvertsTheProjection:
-    """decode ∘ π_claim = identity.
+    """decode ∘ π_claim = identity, over the frozen parity vector and a hand-built set.
 
     The completeness check the arm-by-arm tests above cannot give. Each of those
     fixes one behaviour; this one asserts that the boundary as a whole puts back
@@ -819,6 +819,77 @@ class TestDecodeInvertsTheProjection:
                 polarity="positive",
             ),
         ]
+
+    @pytest.fixture()
+    def fixture(self, parity_fixture_path):
+        import json
+
+        return json.loads(parity_fixture_path.read_text(encoding="utf-8"))
+
+    @pytest.fixture()
+    def every_term_readable(self, profile, fixture):
+        """A snapshot holding every term the frozen vector mentions, under the
+        binding its sort resolves through: a `selection` sort through its
+        `selected` dataset, a `run-output` sort through its dataset, a
+        `world-kind` sort through the kind inventory, and a `scheme` sort through
+        its identifier class (always performed, so nothing is held for it).
+
+        The terms are **canonicalized on the way in**, and one row makes that
+        load-bearing: `affects-decomposed-restriction` holds its restriction in
+        NFD deliberately, so that an implementation normalizing at parse time
+        fails the fixture. A vocabulary stores canonical members and `resolve`
+        normalizes what it is asked about.
+        """
+        from beliefs.contract.domain import RunOutputBinding, SchemeBinding, SelectionBinding, WorldKindBinding
+        from beliefs.identifiers import canonical
+
+        held: dict[Any, set[str]] = {}
+        kinds: dict[str, set[str]] = {}
+        for row in fixture["vector"]:
+            referents: list[dict[str, str]] = []
+            for value in row["projection"]["roles"].values():
+                referents.extend([value] if isinstance(value, dict) else value)
+            referents += [qualifier["restriction"] for qualifier in row["projection"]["qualifiers"].values()]
+            for referent in referents:
+                binding = profile.sorts[referent["sort"]].binding
+                term = canonical(referent["term"])
+                if isinstance(binding, SchemeBinding):
+                    continue
+                if isinstance(binding, WorldKindBinding):
+                    kinds.setdefault(binding.world_kind, set()).add(term)
+                    continue
+                if isinstance(binding, SelectionBinding):
+                    binding = DatasetBinding(dataset=binding.selected)
+                elif isinstance(binding, RunOutputBinding):
+                    binding = DatasetBinding(dataset=binding.dataset)
+                held.setdefault(binding, set()).add(term)
+        return build_snapshot(readable=held, kinds=kinds)
+
+    def test_every_frozen_row_decodes_back_to_its_own_identity(self, profile, fixture, every_term_readable):
+        """decode ∘ π_claim = identity over the frozen parity vector
+        (`fixtures/claim-identity-v2.json`), whose coverage of every closed
+        kernel tag and binding kind `test_parity_fixture.py` asserts. Nothing
+        here re-derives the expected digests; they are the frozen ones."""
+        assert fixture["claim_domain"] == "science.claim.v2"
+        for row in fixture["vector"]:
+            wire = WireClaim(**row["projection"])
+            claim, receipt = decode_claim(wire, profile=profile, snapshot=every_term_readable)
+            assert claim_identity(claim) == row["digest"], row["name"]
+            assert receipt.claim_identity == row["digest"], row["name"]
+            assert receipt.performed, row["name"]
+
+    def test_the_frozen_sign_inapt_rows_round_trip_without_an_asserted_sign(
+        self, profile, fixture, every_term_readable
+    ):
+        # Both routes to `inapt` on the wire: a sign-inapt template, and the
+        # `null` form on a sign-apt one. Inside, there is no polarity to supply.
+        rows = {row["name"]: row for row in fixture["vector"]}
+        for name in ("transforms-structural", "affects-null-statistical"):
+            row = rows[name]
+            assert row["projection"]["polarity"] == profile.claim_grammar.sign_inapt_tag
+            claim, _ = decode_claim(WireClaim(**row["projection"]), profile=profile, snapshot=every_term_readable)
+            assert claim.polarity == profile.claim_grammar.sign_inapt_tag
+            assert claim_identity(claim) == row["digest"]
 
     def test_decode_round_trips_projection(self, profile):
         for claim in self.claims(profile):

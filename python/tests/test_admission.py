@@ -6,10 +6,9 @@ reported as `not-present` (world-index territory) nor as `not-member` (a
 finding nobody's look supports).
 """
 
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
 
 from beliefs.admission import AdmissionRefused, Admitted, admit, vocabulary_availability
-from beliefs.contract.domain import VocabularyBinding
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.resolution import TermOutcome, build_snapshot
@@ -122,11 +121,11 @@ class TestTheGateReadsItsArguments:
 
 class TestNotAvailableIsDerived:
     def test_an_unheld_vocabulary_dataset_reads_not_available(self):
-        binding = VocabularyBinding(namespace="EX", release="2026-01-01", dataset_identity=None)
+        sort = TESTING_PROFILE.sorts["testing/entity"]
         readable, _members = vocabulary_availability(dataset(), (), members=("EX:term-1",))
         assert not readable
-        snapshot = build_snapshot(unreadable=[binding])
-        outcome = snapshot.resolve(binding, "EX:term-1")
+        snapshot = build_snapshot(unreadable=[sort.binding])
+        outcome = snapshot.resolve(sort, "EX:term-1")
         assert outcome is TermOutcome.NOT_AVAILABLE
         assert outcome is not TermOutcome.NOT_PRESENT
         # The named clause of the five-way arm: never reported as a membership

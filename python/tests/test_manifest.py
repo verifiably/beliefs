@@ -146,10 +146,13 @@ def test_corpus_check_distinguishes_malformed_from_absent_manifest(tmp_path):
         ("error", "profile-mismatch", "corpus.yaml"),
     ]
     assert findings[0].detail
-    assert (
-        corpus_check(
-            CorpusWriter(tmp_path / "absent", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view,
-            WITH_BIOLOGY,
-        )
-        == ()
+    absent = corpus_check(
+        CorpusWriter(tmp_path / "absent", DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY).read_view,
+        WITH_BIOLOGY,
     )
+    # No manifest finding at all. The one warning is the register hygiene
+    # report's: the empty corpus holds no assumptions register for the
+    # activated `biology` contract (design section 9.2).
+    assert [(finding.severity, finding.code, finding.detail) for finding in absent] == [
+        ("warning", "register-missing", "biology")
+    ]

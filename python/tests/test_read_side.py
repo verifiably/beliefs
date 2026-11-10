@@ -772,7 +772,10 @@ def test_namespaced_payload_judgments_require_agreeing_domain_pins(tmp_path, agr
     node.facets["biology/gene-axis"] = {}
     view = seed(tmp_path, stored.stamp_semantic_identity(node), pins=pins_for(WITH_BIOLOGY if agree else BASE))
     findings = corpus_check(view, WITH_BIOLOGY)
-    assert [f.code for f in findings] == (["facet-payload-malformed"] if agree else ["profile-mismatch"])
+    # Under agreeing pins the seeded corpus also owes `biology` an assumptions
+    # register (design section 9.2); under a disagreeing one nothing is judged.
+    expected = ["register-missing", "facet-payload-malformed"] if agree else ["profile-mismatch"]
+    assert [f.code for f in findings] == expected
 
 
 def test_missing_base_facet_is_reported_even_without_a_stamp(tmp_path):

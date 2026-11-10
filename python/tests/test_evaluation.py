@@ -19,6 +19,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR
+from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
 from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
@@ -29,9 +30,9 @@ from test_belief import PROFILE
 
 from beliefs import stored
 from beliefs.belief import Availability, Belief, NoBelief, Refused, SuppliedContext, evaluate
-from beliefs.contract.domain import ReleaseBinding
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
+from beliefs.estimand import Estimand
 from beliefs.evaluation import READ_KINDS, EvaluationInputs, evaluate_over, gather
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.projection import claim_identity, project_claim
@@ -39,25 +40,10 @@ from beliefs.record import AssessmentValue
 from beliefs.resolution import ResolutionSnapshot, build_snapshot
 
 # --- the claim the proposition node carries --------------------------------
-
-EX = ReleaseBinding(namespace="EX", release="2026-01-01")
-GENE = "EX:gene-x"
-PHENO = "EX:pheno-y"
-OTHER_GENE = "EX:gene-z"
-
-CLAIM_FACET: dict[str, Any] = {
-    "operator": "testing/affects",
-    "roles": {
-        "cause": {"sort": "testing/entity", "term": GENE},
-        "effect": {"sort": "testing/outcome", "term": PHENO},
-    },
-    "qualifiers": {},
-    "form": "polar",
-    "polarity": "positive",
-    "layer": "causal",
-}
-"""`test_belief.CLAIM`'s wire shape — the same operator, roles, form, polarity
-and layer, so the restored claim is that claim and `PROFILE` types it."""
+#
+# `EX`, `GENE`, `PHENO`, `OTHER_GENE` and `CLAIM_FACET` are
+# `domain_facet_fixtures`'; `CLAIM_FACET` is `test_belief.CLAIM`'s wire shape,
+# so the restored claim is that claim and `PROFILE` types it.
 
 OTHER_CLAIM_FACET: dict[str, Any] = {
     **CLAIM_FACET,
@@ -128,6 +114,7 @@ def _seed(
     *,
     reads: bool = False,
     assesses_target: str | None = None,
+    estimand: Estimand | None = None,
 ) -> tuple[ReadView, dict[str, AssessmentValue]]:
     """Seed the corpus and hand back a **fresh** view over what is on disk.
 
@@ -137,7 +124,11 @@ def _seed(
     root — mints the same records through `add` instead, so the durable test
     reads bytes the certified engine committed. The two paths must stay
     interchangeable, so the writer path is offered only where the fixture asks
-    for nothing a raw write alone can build."""
+    for nothing a raw write alone can build.
+
+    `estimand` replaces the two matched assessments' estimand (default
+    `typed_estimand()`, built for `CLAIM_FACET`'s claim)."""
+    matched_estimand = estimand if estimand is not None else typed_estimand()
     nodes: list[Node] = [
         stored.proposition_node("p", title="p", claim=CLAIM_FACET),
         stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET),
@@ -180,7 +171,7 @@ def _seed(
             proposition=proposition_ref,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
+            estimand=matched_estimand,
             applicability=typed_applicability(),
         ),
         stored.assessment_node(
@@ -191,7 +182,7 @@ def _seed(
             proposition=proposition_ref,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
+            estimand=matched_estimand,
             applicability=typed_applicability(),
         ),
         # The unrelated one: its own proposition, run, dataset and verification.
@@ -292,6 +283,7 @@ def _fixture(
     *,
     reads: bool = False,
     assesses_target: str | None = None,
+    estimand: Estimand | None = None,
 ) -> CorpusFixture:
     if isinstance(corpus, Path):
         corpus.mkdir(parents=True, exist_ok=True)
@@ -302,7 +294,7 @@ def _fixture(
         (corpus / "corpus.yaml").write_bytes(
             registry.manifest_bytes(registry.CorpusManifest(2, LOCAL_CORPUS_ID, pins_for(PROFILE)))
         )
-    view, values = _seed(corpus, proposition_ref, reads=reads, assesses_target=assesses_target)
+    view, values = _seed(corpus, proposition_ref, reads=reads, assesses_target=assesses_target, estimand=estimand)
     matched = (values["assessment:a-1"], values["assessment:a-2"])
     context = SuppliedContext(
         snapshot=lineage_snapshot(view, (_address("a"), _address("b"))),
@@ -481,6 +473,63 @@ def test_a_proposition_with_no_claim_record_still_reaches_its_assessments_estima
     )
     assert "proposition" not in {kind for kind, _ in inputs.read_trace}
     assert set(inputs.read_trace) <= inputs.declared_refs()
+
+
+def test_assessment_estimand_naming_another_claim_is_malformed(tmp_path):
+    """Round-9 review (ruling P5). Proposition `P` holds typed claim `C`; its
+    two matched assessments name `P` by their `assesses` edge and their
+    `proposition` field, and carry a shape-valid estimand built for another
+    claim, so its claimed identity is `D`, not `I(C)`. `gather` pairs each
+    estimand with the claim of its assessment's target itself, and admission
+    judges `D` against that claim: the read refuses with `MalformedRecord`,
+    never answering with a consulted set reduced to what `D` could reach."""
+    from decimal import Decimal
+
+    from domain_facet_fixtures import over_kwargs
+    from fixtures_cut3 import UNCONSULTED
+
+    from beliefs.claim import Referent, build_claim
+    from beliefs.errors import MalformedRecord
+    from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
+
+    other_claim = build_claim(
+        PROFILE,
+        operator="testing/affects",
+        roles={"cause": Referent("testing/entity", OTHER_GENE), "effect": Referent("testing/outcome", PHENO)},
+        layer="causal",
+        polarity="positive",
+    )
+    foreign, _receipt = build_estimand(
+        PROFILE,
+        other_claim,
+        contrast=LevelsContrast(
+            role="cause",
+            member=None,
+            baseline=Referent("testing/level", "EX:ndmm"),
+            comparison=Referent("testing/level", "EX:pd"),
+        ),
+        measure=Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
+        reference=Decimal(0),
+        control=Control(identification=Referent("testing/identification", "EX:observational"), conditioning=()),
+        snapshot=UNCONSULTED,
+    )
+    held_claim = claim_identity(EXPECTED_CLAIM)
+    assert project_claim(EXPECTED_CLAIM) == CLAIM_FACET
+    assert foreign.claim == claim_identity(other_claim) != held_claim
+
+    fixture = _fixture(tmp_path, PROPOSITION_REF, estimand=foreign)
+    # The stored records carry the pairing, and the test supplies none: each
+    # matched assessment names `P` both ways and holds the foreign estimand.
+    for value in fixture.assessments:
+        assert value.proposition == PROPOSITION_REF and value.estimand.claim == foreign.claim
+    for ref in ("assessment:a-1", "assessment:a-2"):
+        assert [r.target for r in fixture.view.get(ref).relations if r.predicate == stored.ASSESSES] == [
+            PROPOSITION_REF
+        ]
+
+    with pytest.raises(MalformedRecord, match="not admitted for the claim of the proposition it targets") as caught:
+        gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
+    assert "not this claim" in str(caught.value)
 
 
 def test_a_divergent_assesses_edge_is_selected_before_decode(divergent_fixture):

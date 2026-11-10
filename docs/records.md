@@ -815,8 +815,9 @@ both test suites read and neither writes:
 
 - `fixtures/identity-v1.json` holds encoding vectors (value, canonical bytes,
   digest);
-- `fixtures/claim-identity-v1.json` holds claims built from their components under
-  the base contract and `fixtures/contracts/testing.yaml`.
+- `fixtures/claim-identity-v2.json` holds claims built from their components under
+  the base contract and `fixtures/contracts/testing.yaml`, with their projections,
+  canonical bytes and `science.claim.v2` digests.
 
 The TypeScript side computes neither contract nor profile identity. It refuses any
 contract that declares a predecessor or a retired identifier.

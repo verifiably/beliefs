@@ -169,6 +169,7 @@ def test_spec_record_carries_a_fresh_semantic_stamp():
         equivalence_rule=spec_module.EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},
         nondeterminism=Deterministic(),
+        registers=(),
     )
     node = spec_module.spec_record(freeze(draft, held_rules=spec_module.held_rules()))
     assert node.kind == "analysis-spec"
@@ -278,91 +279,12 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
         close.evidence_for(reopen(writer.root), TESTING_PROFILE)
 
 
-# The held concept list's content address, measured 2026-09-15 over the
-# predecessor's 285 concept records. The earlier document's content identity is
-# taken over it, so the successor's declared predecessor moves with it; a
-# changed predecessor corpus fails this loudly rather than silently.
-HELD_CONCEPTS = "dataset:sha256:be3bf183a830c31d4f8acf46a309e01bd0476580d2d6db4079af3e3c7bd738d8"
-
-
-@pytest.fixture
-def held_vocabulary(monkeypatch):
-    """`state.json` as the driver leaves it after steps 1b and 1c: the four
-    addresses every sort of the successor contract binds. The three list
-    addresses are derived from the driver's own declaration, so only the
-    concept list — which lives in the predecessor corpus — is pinned."""
-    from hashlib import sha256
-
-    from reproduction import lists, vocabulary
-
-    cached = (vocabulary._document, vocabulary.contract, vocabulary.profile)
-    st = {"concepts_address": HELD_CONCEPTS}
-    for name, (_resource, terms) in lists.LISTS.items():
-        st[f"{name}_address"] = lists.list_node(name, "sha256:" + sha256(lists.list_lines(terms)).hexdigest()).id
-    monkeypatch.setattr(vocabulary.state, "load", lambda: st)
-    for entry in cached:
-        entry.cache_clear()
-    yield st
-    for entry in cached:
-        entry.cache_clear()
-
-
-def test_the_row_plan_maps_a_predicate_and_kind_pair(held_vocabulary):
-    from reproduction import vocabulary
-
-    plan = vocabulary.plan()
-    assert plan["operators"][("affects", "concept", "protein")] == "mm30/affects-concept-molecular-entity"
-    assert plan["operators"][("affects", "protein", "protein")] == "biology/affects-molecular-entity-molecular-entity"
-    assert plan["sorts"] == {"concept": "mm30/concept", "protein": "biology/molecular-entity"}
-    assert len(plan["operators"]) == 17
-
-
-def test_the_mm30_contract_binds_every_sort_to_its_held_list_and_succeeds_the_prior_document(held_vocabulary):
-    from reproduction import vocabulary
-
-    contract = vocabulary.contract()
-    for sort, key in (
-        ("concept", "concepts"),
-        ("stage-level", "levels"),
-        ("measure", "measures"),
-        ("identification", "identifications"),
-    ):
-        assert contract.sorts[sort].vocabulary.dataset_identity == held_vocabulary[f"{key}_address"].removeprefix(
-            "dataset:"
-        )
-    assert contract.operators["affects-concept-molecular-entity"].arg_sorts == ("concept", "biology/molecular-entity")
-    # Succession ran against the real predecessors, not authored stand-ins, and
-    # the whole chain is walked: first → second → current.
-    cut31 = vocabulary.contract(vocabulary.CUT31_DOCUMENT)
-    assert contract.predecessor == cut31.content_identity
-    assert cut31.predecessor == vocabulary.contract(vocabulary.CUT22_DOCUMENT).content_identity
-    assert vocabulary.contract(vocabulary.CUT22_DOCUMENT).predecessor is None
-    # The `edges:` table the composite-claims lane adds, and the operators it
-    # leaves without a row.
-    assert {name: (e.cause, e.effect) for name, e in contract.edges.items()} == {
-        "affects-concept-concept": (0, 1),
-        "affects-concept-molecular-entity": (0, 1),
-        "affects-molecular-entity-concept": (0, 1),
-        "regulates-concept-concept": (0, 1),
-        "regulates-concept-molecular-entity": (0, 1),
-        "regulates-molecular-entity-concept": (0, 1),
-        "induces-state-concept-concept": (0, 1),
-    }
-    assert not cut31.edges
-    declared = contract.estimands["affects-concept-molecular-entity"]
-    assert dict(declared.level_sorts) == {"0": "stage-level"}
-    assert (declared.measure_sort, declared.identification_sort, declared.conditioning_sort) == (
-        "measure",
-        "identification",
-        "concept",
-    )
-    compiled = vocabulary.profile().estimand("mm30/affects-concept-molecular-entity")
-    assert dict(compiled.level_sorts) == {"0": "mm30/stage-level"}
-    assert (compiled.measure_sort, compiled.identification_sort, compiled.conditioning_sort) == (
-        "mm30/measure",
-        "mm30/identification",
-        "mm30/concept",
-    )
+# Retired with the driver's contract layer (beliefs-d64969, ruling P11): the
+# row plan, the mm30 contract's held-list bindings and succession chain, and the
+# two held-list snapshot checks read the v1 mm30 documents or the v1
+# `VocabularyBinding`, neither of which exists under base v2. beliefs-709bd9's
+# recreate restores them against the biology v2 genesis and the mm30
+# corpus-local v2 contract.
 
 
 def test_concept_lines_are_canonical_sorted_and_terminated(tmp_path):
@@ -373,45 +295,6 @@ def test_concept_lines_are_canonical_sorted_and_terminated(tmp_path):
     (root / "b.md").write_text("---\nid: concept:b-thing\nkind: concept\n---\n")
     (root / "a.md").write_text("---\nid: concept:a-thing\nkind: concept\n---\n")
     assert concept_lines(tmp_path) == b"concept:a-thing\nconcept:b-thing\n"
-
-
-def test_the_snapshot_refuses_a_dataset_the_binding_does_not_name():
-    from hashlib import sha256
-
-    from reproduction.vocabulary import snapshot_over
-
-    from beliefs.contract.domain import VocabularyBinding
-    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
-
-    content = b"concept:a-thing\nconcept:b-thing\n"
-    digest = "sha256:" + sha256(content).hexdigest()
-    declared = DatasetDeclaration(resources=(ResourceDeclaration(name="mm30-concepts.txt", digest=digest),))
-    right = dataset_address(declared)
-    assert right is not None
-    bound_to_this = VocabularyBinding(namespace=None, release=None, dataset_identity=right.removeprefix("dataset:"))
-    bound_elsewhere = VocabularyBinding(namespace=None, release=None, dataset_identity="sha256:" + "f" * 64)
-    assert snapshot_over(declared, content, bound_to_this).resolve(bound_to_this, "concept:a-thing").value == "member"
-    with pytest.raises(RuntimeError, match="binds dataset:sha256:f"):
-        snapshot_over(declared, content, bound_elsewhere)
-
-
-def test_the_snapshot_refuses_a_copy_that_is_not_the_dataset():
-    from hashlib import sha256
-
-    from reproduction.vocabulary import snapshot_over
-
-    from beliefs.contract.domain import VocabularyBinding
-    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
-
-    content = b"concept:a-thing\n"
-    declared = DatasetDeclaration(
-        resources=(ResourceDeclaration(name="mm30-concepts.txt", digest="sha256:" + sha256(content).hexdigest()),)
-    )
-    address = dataset_address(declared)
-    assert address is not None
-    binding = VocabularyBinding(namespace=None, release=None, dataset_identity=address.removeprefix("dataset:"))
-    with pytest.raises(RuntimeError, match="does not hash"):
-        snapshot_over(declared, b"concept:a-thing\nconcept:smuggled\n", binding)
 
 
 def test_a_held_list_is_written_sorted_canonical_and_newline_terminated(tmp_path, monkeypatch):
@@ -455,10 +338,12 @@ def test_a_non_canonical_concept_id_refuses(tmp_path):
 
 
 # Re-pinned 2026-09-15: `estimand` and `applicability`
-# moved from prose to typed members, so the digest they enter into moved too —
-# the rule bindings this test actually guards are unchanged, per the assertion
-# above.
-PINNED_IDENTITY = "abb23abf21d3674428606df058bafc983be845d9b4e2fa918bf08bff7aae87d8"
+# moved from prose to typed members, so the digest they enter into moved too.
+# Re-pinned 2026-11-09 (beliefs-d64969): the spec is `science.spec.v2` with a
+# canonical `registers` field, and its estimand names a role of a
+# `science.claim.v2` claim. The rule bindings this test actually guards are
+# unchanged both times, per the assertion above.
+PINNED_IDENTITY = "e58bebf472ba4ee89e83d895e5c0fce1b4be34faaf05c2f96de5041c83812e0a"
 
 
 def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
@@ -486,6 +371,7 @@ def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
         equivalence_rule=spec_module.EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},
         nondeterminism=Deterministic(),
+        registers=(),
     )
     frozen = freeze(draft, held_rules=held)
     # The pairs the 2026-09-05 record digests, unchanged: identity-neutral by construction.
@@ -654,14 +540,14 @@ def _archived_state(root, *, pinned: bool):
     """A stand-in for a corpus state moved aside at recreation: a corpus, its
     manifest and the `state.json` beside it. `pinned=False` rewrites the base
     pin to one no runtime ships, which is the archived state's condition."""
-    from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE
+    from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, carry_registers
     from profiles import pins_for
     from test_stored import _testing_writer
 
     from beliefs import stored
     from beliefs.projection import project_claim
 
-    writer = _testing_writer(root / "corpus")
+    writer = carry_registers(_testing_writer(root / "corpus"))
     writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
     if not pinned:
         manifest = root / "corpus" / "corpus.yaml"

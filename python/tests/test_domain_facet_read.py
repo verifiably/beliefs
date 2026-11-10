@@ -6,9 +6,8 @@ from dataclasses import replace
 from unittest.mock import Mock
 
 import pytest
-from domain_facet_fixtures import PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
+from domain_facet_fixtures import BIOLOGY_CLAIM, PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
 from domain_facet_fixtures import testing_contract as _testing_contract
-from test_evaluation import GENE, OTHER_GENE
 
 from beliefs.belief import Belief, Records, Refused, evaluate
 from beliefs.closure import RetractionEnumeration
@@ -243,14 +242,6 @@ def test_isolated_case_holds_with_no_claim_record(tmp_path):
 
 # --- the dogfood shape: biology by both routes ----------------
 
-BIOLOGY_CLAIM = {
-    "operator": "biology/affects",
-    "args": [GENE, OTHER_GENE],
-    "qualifiers": {},
-    "polarity": "positive",
-    "layer": "causal",
-}
-
 
 def test_dogfood_shape_reaches_biology_by_both_routes(tmp_path):
     """A claim at `biology/affects` (the fixture's operator) whose sorts are
@@ -289,16 +280,18 @@ def test_dogfood_payload_change_moves_the_digest(tmp_path):
 
 
 def test_an_editorial_bump_of_a_foreign_sorts_contract_leaves_claim_identity_and_moves_the_digest(tmp_path):
-    """The claim is at `crossing/affects-local-entity`, no domain facet is in
-    the closure (`axis=None`), and the bumped contract is `testing`, reached
-    **through the claim** by slot 1's sort and nothing else.
+    """The claim is at `testing/affects`, admitted only by `crossing`'s
+    instantiation `affects-local-entity`; no domain facet is in the closure
+    (`axis=None`), and the bumped contract is `testing`, reached **through the
+    claim** by its template and its `cause` role's sort.
 
-    The end-to-end consulted set no longer isolates that route: since
-    estimand typing the fixture's assessments carry a typed estimand whose
-    declaration is `testing`'s, so `testing` is consulted twice over and a
-    walk that lost the claim's sort collection would still reach it (an earlier version
-    scored vacuous on exactly that). The claim route is therefore measured
-    on its own below, with no estimand supplied — which is what this test asserts.
+    The end-to-end consulted set does not isolate that route: the fixture's
+    assessments carry a typed estimand built for this claim, whose declaration
+    is `crossing`'s but whose referent sorts are `testing`'s, so `testing` is
+    consulted twice over and a walk that lost the claim's sort collection would
+    still reach it (an earlier version scored vacuous on exactly that). The
+    claim route is therefore measured on its own below, with no estimand
+    supplied — which is what this test asserts.
     """
     from domain_facet_fixtures import CROSSING_CLAIM
     from profiles import pins_for

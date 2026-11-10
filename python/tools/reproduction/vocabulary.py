@@ -1,19 +1,36 @@
-"""The base, biology, and mm30 contracts used by the reproduction."""
+"""The base, biology, and mm30 contracts used by the reproduction.
+
+**The contract layer is retired with the v1 grammar** (beliefs-d64969, ruling P11).
+`mm30.yaml` and its predecessors are v1 documents (`operators`, `edges`,
+slot-keyed `estimands`) and no biology pack ships, so nothing here that compiles a
+contract can run under base v2: `contract`, `plan` and `binding_for` raise
+`MalformedContract` (base v2 refuses a v1 document), `biology`, `profile` and
+`pins` raise `ProfileError`, `snapshot` reaches one of the two, and
+`checked_lines` / `snapshot_over` still read the v1 binding's `dataset_identity`.
+The contract-layer imports live inside
+the functions that compile, so the driver's other steps (`hold`, `spec`, `run`)
+still import. The documents stay in place as the v1 heritage the mm30 recreate
+reads; beliefs-709bd9 restores this module against the biology v2 genesis and the
+mm30 corpus-local v2 contract.
+"""
 
 from __future__ import annotations
 
 from functools import cache
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 
-from beliefs.consulted import CorpusPins
-from beliefs.contract.domain import DomainContract, VocabularyBinding, parse_domain_contract
 from beliefs.dataset import DatasetDeclaration, dataset_address
-from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract, shipped_domain_contract
-from beliefs.resolution import ResolutionSnapshot, build_snapshot
 from reproduction import paths, state
+
+if TYPE_CHECKING:
+    from beliefs.consulted import CorpusPins
+    from beliefs.contract.domain import DomainContract, SortBinding
+    from beliefs.profile import ProfileSpec
+    from beliefs.resolution import ResolutionSnapshot
 
 DOCUMENT = Path(__file__).with_name("mm30.yaml")
 # The earliest document, byte-for-byte, so `check_succession` runs against the
@@ -51,11 +68,15 @@ def _document(path: Path = DOCUMENT) -> dict:
 
 @cache
 def base():
+    from beliefs.profile import shipped_base_contract
+
     return shipped_base_contract()
 
 
 @cache
 def biology() -> DomainContract:
+    from beliefs.profile import shipped_domain_contract
+
     return shipped_domain_contract("biology")
 
 
@@ -70,6 +91,8 @@ def contract(path: Path = DOCUMENT) -> DomainContract:
     the estimand-era document, which itself succeeds the earliest one. Each predecessor
     is parsed here rather than trusted by shape: `check_succession` certifies
     nothing against an authored stand-in."""
+    from beliefs.contract.domain import parse_domain_contract
+
     ancestor = PREDECESSORS.get(path)
     predecessor = contract(ancestor) if ancestor is not None else None
     return parse_domain_contract(
@@ -79,6 +102,8 @@ def contract(path: Path = DOCUMENT) -> DomainContract:
 
 @cache
 def profile(path: Path = DOCUMENT) -> ProfileSpec:
+    from beliefs.profile import compile_profile
+
     if path == DOCUMENT:
         return compile_profile(base(), [biology(), contract(path)])
     return compile_profile(base(), [contract(path)])
@@ -116,6 +141,8 @@ def operator_for(plan_: dict, predicate: str, subject_kind: str, object_kind: st
 
 
 def pins() -> CorpusPins:
+    from beliefs.consulted import CorpusPins
+
     p = profile()
     return CorpusPins(
         science_contract=f"science:{p.base_contract_identity}",
@@ -123,11 +150,11 @@ def pins() -> CorpusPins:
     )
 
 
-def binding_for(sort: str) -> VocabularyBinding:
+def binding_for(sort: str) -> SortBinding:
     return contract().sorts[sort].vocabulary
 
 
-def concept_binding() -> VocabularyBinding:
+def concept_binding() -> SortBinding:
     return binding_for("concept")
 
 
@@ -141,7 +168,7 @@ HELD_SORTS = {
 }
 
 
-def checked_lines(declared: DatasetDeclaration, content: bytes, binding: VocabularyBinding) -> list[str]:
+def checked_lines(declared: DatasetDeclaration, content: bytes, binding: SortBinding) -> list[str]:
     address = dataset_address(declared)
     if binding.dataset_identity is None or address != f"dataset:{binding.dataset_identity}":
         raise RuntimeError(
@@ -157,12 +184,15 @@ def checked_lines(declared: DatasetDeclaration, content: bytes, binding: Vocabul
     return content.decode("utf-8").splitlines()
 
 
-def snapshot_over(declared: DatasetDeclaration, content: bytes, binding: VocabularyBinding) -> ResolutionSnapshot:
+def snapshot_over(declared: DatasetDeclaration, content: bytes, binding: SortBinding) -> ResolutionSnapshot:
+    from beliefs.resolution import build_snapshot
+
     return build_snapshot(readable={binding: checked_lines(declared, content, binding)})
 
 
 def snapshot() -> ResolutionSnapshot:
     from beliefs import stored
+    from beliefs.resolution import build_snapshot
     from reproduction import world
 
     st = state.load()

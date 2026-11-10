@@ -9,7 +9,14 @@ import pytest
 from authority import ACTOR
 from closure_fixtures import make_closure
 from dataset_fixtures import pinned, pinned_for
-from fixtures_cut3 import TESTING_PROFILE, spec_draft, spec_rules, typed_applicability, typed_estimand
+from fixtures_cut3 import (
+    TESTING_PROFILE,
+    carry_registers,
+    spec_draft,
+    spec_rules,
+    typed_applicability,
+    typed_estimand,
+)
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -48,22 +55,6 @@ OTHER_CLAIM = build_claim(
 `TESTING_CLAIM`, which `typed_estimand`'s default estimand answers, so a target
 proposition storing this claim contradicts an unmodified `spec_draft()` spec
 on claim identity alone."""
-
-
-def carry_registers(writer):
-    """A fixture corpus carries a one-entry register for each activated domain
-    contract (design §9.2, R9), so `register-missing` is not every audit's
-    finding; the register hygiene tests below use a corpus without one."""
-    from beliefs.register import AssumptionsRegister, RegisterEntry
-
-    for namespace, identity in writer.profile.activated_contracts.items():
-        if namespace == "coordination":
-            continue
-        sort = min(term for term, declared in writer.profile.sorts.items() if declared.contract == namespace)
-        entry = RegisterEntry("fixture collapses", "fixture licenses", "fixture leaves unestablished")
-        register = AssumptionsRegister(f"{namespace}:{identity}", None, {f"sort:{sort}": entry})
-        writer.add(stored.assumptions_register_node(register))
-    return writer
 
 
 @pytest.fixture()

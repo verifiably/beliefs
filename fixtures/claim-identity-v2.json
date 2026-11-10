@@ -1,0 +1,893 @@
+{
+  "fixture": "claim-identity",
+  "note": "A conformance oracle, frozen. Regenerate deliberately with tools/generate_claim_identity_fixture.py and review the diff; never regenerate during a test run. Each row carries the claim's components in the order the author wrote them, and an implementation must build and project from them; comparing against `projection` alone would bypass the projection this fixture exists to pin. A role is a referent object (arity one) or a member list (arity many); a null polarity is the authoring route's 'no sign to assert'.",
+  "claim_domain": "science.claim.v2",
+  "identity_contract": "science.identity.v1",
+  "base_contract": "contracts/science/CONTRACT.yaml",
+  "domain_contracts": [
+    "fixtures/contracts/testing.yaml"
+  ],
+  "profile_compiled_identity": "614eaa7c8dd4958c01ee1c074645828e1b4ca580d8b451cb3d4a750b28bb5e4a",
+  "vector": [
+    {
+      "name": "affects-positive-causal",
+      "covers": "form polar; polarity positive; layer causal; two one-roles; release-bound sorts; no qualifiers",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "8d86547d83e5e5fce56948eede09d7d031dfb1f28b26ef38c86f146093b6eb54"
+    },
+    {
+      "name": "affects-negative-causal",
+      "covers": "polarity negative",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"negative\",\"qualifiers\":{},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "db22067f4e20d49ac9f6c86693e4d7b99c11860116ce8502c66bbd4ab7a65caa"
+    },
+    {
+      "name": "affects-unsigned-causal",
+      "covers": "polarity unsigned: the operator has a sign and this claim asserts none",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "unsigned",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "unsigned",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"unsigned\",\"qualifiers\":{},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "f0d26a17d024a896818efd0665d25f6752889c9899b691c34cb5ee0a93d79bc8"
+    },
+    {
+      "name": "affects-null-statistical",
+      "covers": "form \"null\"; polarity inapt on a sign-apt template; layer statistical",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "null",
+        "polarity": null,
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "null",
+        "polarity": "inapt",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"null\",\"layer\":\"statistical\",\"operator\":\"testing/affects\",\"polarity\":\"inapt\",\"qualifiers\":{},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "273c1b7e10eaf287a1a40fc65e67b43c84877edb60fce906a992c778fc993dbe"
+    },
+    {
+      "name": "affects-within-model",
+      "covers": "the reserved within-model role; a world-kind-bound sort; distinct from affects-positive-causal",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          },
+          "within-model": {
+            "sort": "testing/procedure-spec",
+            "term": "procedure:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          },
+          "within-model": {
+            "sort": "testing/procedure-spec",
+            "term": "procedure:6666666666666666666666666666666666666666666666666666666666666666"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"},\"within-model\":{\"sort\":\"testing/procedure-spec\",\"term\":\"procedure:6666666666666666666666666666666666666666666666666666666666666666\"}}}",
+      "digest": "b1da4d0a800757f1f3087f900471ea53c928cdd1cde627a88855e3b495b01399"
+    },
+    {
+      "name": "affects-generic-population",
+      "covers": "quantifier generic; a claim-side qualifier; a dataset-bound restriction sort",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"positive\",\"qualifiers\":{\"testing/population\":{\"quantifier\":\"generic\",\"restriction\":{\"sort\":\"testing/cohort\",\"term\":\"EX:adults\"}}},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "9f2c266e8273bd7d346d0c197ac897fca4e74e96d9f9b664f74ed5de62fd7aa3"
+    },
+    {
+      "name": "affects-universal-population",
+      "covers": "quantifier universal: kernel section 4.1's founding pair, second half",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "universal",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:humans"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "universal",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:humans"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"positive\",\"qualifiers\":{\"testing/population\":{\"quantifier\":\"universal\",\"restriction\":{\"sort\":\"testing/cohort\",\"term\":\"EX:humans\"}}},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "0ea30b6037d88ca76b2b9ea4000638d66a34301bf52f5d82ca011175321faba3"
+    },
+    {
+      "name": "affects-existential-two-dimensions",
+      "covers": "quantifier existential; two qualifier dimensions, so map-key order is observable",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/setting": {
+            "quantifier": "existential",
+            "restriction": {
+              "sort": "testing/entity",
+              "term": "EX:gene-z"
+            }
+          },
+          "testing/population": {
+            "quantifier": "universal",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/setting": {
+            "quantifier": "existential",
+            "restriction": {
+              "sort": "testing/entity",
+              "term": "EX:gene-z"
+            }
+          },
+          "testing/population": {
+            "quantifier": "universal",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"negative\",\"qualifiers\":{\"testing/population\":{\"quantifier\":\"universal\",\"restriction\":{\"sort\":\"testing/cohort\",\"term\":\"EX:adults\"}},\"testing/setting\":{\"quantifier\":\"existential\",\"restriction\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-z\"}}},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "48810ea7e1762e1748596b9ae74982af1a21a5410677fc0c51672440844668cd"
+    },
+    {
+      "name": "affects-decomposed-restriction",
+      "covers": "a restriction in NFD: the projection holds it decomposed, the canonical bytes hold it composed",
+      "claim": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:cafe\u0301-cohort"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/affects",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:cafe\u0301-cohort"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/affects\",\"polarity\":\"positive\",\"qualifiers\":{\"testing/population\":{\"quantifier\":\"generic\",\"restriction\":{\"sort\":\"testing/cohort\",\"term\":\"EX:caf\u00e9-cohort\"}}},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "ed758ff2cfba4fe90150176a4698622cf7e621085b75be4cf63fb1d37a2240ca"
+    },
+    {
+      "name": "promotes-bridge",
+      "covers": "a bridging relation as the operator, over its template's roles; distinct from the template's claim",
+      "claim": {
+        "operator": "testing/promotes",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/promotes",
+        "roles": {
+          "cause": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "effect": {
+            "sort": "testing/outcome",
+            "term": "EX:outcome-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/promotes\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"cause\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},\"effect\":{\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}}}",
+      "digest": "d6bfc70a866b885d8729279dc2e23a1822e2af26449c78536a2c12eab359c95d"
+    },
+    {
+      "name": "correlates-with-written-forward",
+      "covers": "a size-2 many role without coefficients (parties), written in one member order",
+      "claim": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/outcome",
+              "term": "EX:outcome-y",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/outcome",
+              "term": "EX:outcome-y",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"testing/correlates-with\",\"polarity\":\"positive\",\"qualifiers\":{\"testing/population\":{\"quantifier\":\"generic\",\"restriction\":{\"sort\":\"testing/cohort\",\"term\":\"EX:adults\"}}},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},{\"coefficient\":1,\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}]}}",
+      "digest": "b166f8bba2a9515efb5ec9b71cf9460508e9ff948664d0dacb43a1de53748cba"
+    },
+    {
+      "name": "correlates-with-written-reversed",
+      "covers": "the same claim with its parties written in the other order: one identity",
+      "claim": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/outcome",
+              "term": "EX:outcome-y",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/outcome",
+              "term": "EX:outcome-y",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {
+          "testing/population": {
+            "quantifier": "generic",
+            "restriction": {
+              "sort": "testing/cohort",
+              "term": "EX:adults"
+            }
+          }
+        },
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"testing/correlates-with\",\"polarity\":\"positive\",\"qualifiers\":{\"testing/population\":{\"quantifier\":\"generic\",\"restriction\":{\"sort\":\"testing/cohort\",\"term\":\"EX:adults\"}}},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},{\"coefficient\":1,\"sort\":\"testing/outcome\",\"term\":\"EX:outcome-y\"}]}}",
+      "digest": "b166f8bba2a9515efb5ec9b71cf9460508e9ff948664d0dacb43a1de53748cba"
+    },
+    {
+      "name": "correlates-event-product-non-ascii",
+      "covers": "a non-ASCII referent (BETA); a selection-bound and a run-output-bound sort",
+      "claim": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/product",
+              "term": "EX:product-p",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/event",
+              "term": "EX:\u03b2-catenin",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/event",
+              "term": "EX:\u03b2-catenin",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/product",
+              "term": "EX:product-p",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"testing/correlates-with\",\"polarity\":\"negative\",\"qualifiers\":{},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"testing/event\",\"term\":\"EX:\u03b2-catenin\"},{\"coefficient\":1,\"sort\":\"testing/product\",\"term\":\"EX:product-p\"}]}}",
+      "digest": "d8c44eba1e966298a2f91f106806a54bfc18e3843e8c5ede49a96bdf6f12eef4"
+    },
+    {
+      "name": "correlates-event-product-astral-bmp",
+      "covers": "case 2a: a supplementary-plane and a BMP member project in code-point, not UTF-16, order",
+      "claim": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/event",
+              "term": "EX:\ud83d\ude00",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/event",
+              "term": "EX:\uff21",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "testing/correlates-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "testing/event",
+              "term": "EX:\uff21",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/event",
+              "term": "EX:\ud83d\ude00",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"testing/correlates-with\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"testing/event\",\"term\":\"EX:\uff21\"},{\"coefficient\":1,\"sort\":\"testing/event\",\"term\":\"EX:\ud83d\ude00\"}]}}",
+      "digest": "981690f8c8e83790976d75d5eda78b66faf3bffc515a7c8ec6bf72b2d7a7d865"
+    },
+    {
+      "name": "transforms-structural",
+      "covers": "polarity inapt on a sign-inapt template; layer structural; many roles with coefficients; an empty min-0 role (facilitators)",
+      "claim": {
+        "operator": "testing/transforms",
+        "roles": {
+          "inputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-z",
+              "coefficient": 1
+            },
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 2
+            }
+          ],
+          "outputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-w",
+              "coefficient": 1
+            }
+          ],
+          "facilitators": []
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": null,
+        "layer": "structural"
+      },
+      "projection": {
+        "operator": "testing/transforms",
+        "roles": {
+          "facilitators": [],
+          "inputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 2
+            },
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-z",
+              "coefficient": 1
+            }
+          ],
+          "outputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-w",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "inapt",
+        "layer": "structural"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"structural\",\"operator\":\"testing/transforms\",\"polarity\":\"inapt\",\"qualifiers\":{},\"roles\":{\"facilitators\":[],\"inputs\":[{\"coefficient\":2,\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"},{\"coefficient\":1,\"sort\":\"testing/entity\",\"term\":\"EX:gene-z\"}],\"outputs\":[{\"coefficient\":1,\"sort\":\"testing/entity\",\"term\":\"EX:gene-w\"}]}}",
+      "digest": "6e1625ae5c5627efb619b256d400cdd1ad6624be0449007c8815cd053a793026"
+    },
+    {
+      "name": "transforms-facilitated-causal",
+      "covers": "a non-empty coefficient-free member of a role on a coefficient template; a second layer",
+      "claim": {
+        "operator": "testing/transforms",
+        "roles": {
+          "inputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 1
+            }
+          ],
+          "outputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-w",
+              "coefficient": 3
+            }
+          ],
+          "facilitators": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:catalyst-k",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": null,
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "testing/transforms",
+        "roles": {
+          "facilitators": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:catalyst-k",
+              "coefficient": 1
+            }
+          ],
+          "inputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-x",
+              "coefficient": 1
+            }
+          ],
+          "outputs": [
+            {
+              "sort": "testing/entity",
+              "term": "EX:gene-w",
+              "coefficient": 3
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "inapt",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"testing/transforms\",\"polarity\":\"inapt\",\"qualifiers\":{},\"roles\":{\"facilitators\":[{\"coefficient\":1,\"sort\":\"testing/entity\",\"term\":\"EX:catalyst-k\"}],\"inputs\":[{\"coefficient\":1,\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"}],\"outputs\":[{\"coefficient\":3,\"sort\":\"testing/entity\",\"term\":\"EX:gene-w\"}]}}",
+      "digest": "5bc2b8462a61a6232d26d1b7885db0c8727af6792f752a41f8dd8f45613be150"
+    },
+    {
+      "name": "measured-by-methodological",
+      "covers": "layer methodological; a scheme-bound sort; a second sign-inapt template",
+      "claim": {
+        "operator": "testing/measured-by",
+        "roles": {
+          "subject": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          },
+          "instrument": {
+            "sort": "testing/method",
+            "term": "EX:assay-q"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": null,
+        "layer": "methodological"
+      },
+      "projection": {
+        "operator": "testing/measured-by",
+        "roles": {
+          "instrument": {
+            "sort": "testing/method",
+            "term": "EX:assay-q"
+          },
+          "subject": {
+            "sort": "testing/entity",
+            "term": "EX:gene-x"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "inapt",
+        "layer": "methodological"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"methodological\",\"operator\":\"testing/measured-by\",\"polarity\":\"inapt\",\"qualifiers\":{},\"roles\":{\"instrument\":{\"sort\":\"testing/method\",\"term\":\"EX:assay-q\"},\"subject\":{\"sort\":\"testing/entity\",\"term\":\"EX:gene-x\"}}}",
+      "digest": "b70e599bee5eaba07f4a8fe49c3c71073fbf2722c1a204c3a5f52d20bdf3242d"
+    }
+  ]
+}

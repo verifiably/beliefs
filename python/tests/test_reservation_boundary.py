@@ -53,7 +53,11 @@ def writer(tmp_path):
 
 def _proposition(writer: CorpusWriter, a: str = "EX:a", b: str = "EX:b") -> Node:
     claim = build_claim(
-        WITH_BIOLOGY, operator=AFFECTS, args=(Referent(GENE, a), Referent(GENE, b)), layer="causal", polarity="positive"
+        WITH_BIOLOGY,
+        operator=AFFECTS,
+        roles={"cause": Referent(GENE, a), "effect": Referent(GENE, b)},
+        layer="causal",
+        polarity="positive",
     )
     return writer.add(stored.proposition_node(f"{a}-{b}", title="p", claim=project_claim(claim)))
 

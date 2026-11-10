@@ -148,6 +148,24 @@ def spec_draft(**overrides) -> SpecDraft:
     return SpecDraft(**fields)
 
 
+def carry_registers(writer):
+    """A fixture corpus carries a one-entry assumptions register for each
+    activated domain contract (design section 9.2, R9), so `register-missing` is
+    not every audit's finding. A test whose subject is the register hygiene report
+    itself uses a corpus without one."""
+    from beliefs import stored
+    from beliefs.register import AssumptionsRegister, RegisterEntry
+
+    for namespace, identity in writer.profile.activated_contracts.items():
+        if namespace == "coordination":
+            continue
+        sort = min(term for term, declared in writer.profile.sorts.items() if declared.contract == namespace)
+        entry = RegisterEntry("fixture collapses", "fixture licenses", "fixture leaves unestablished")
+        register = AssumptionsRegister(f"{namespace}:{identity}", None, {f"sort:{sort}": entry})
+        writer.add(stored.assumptions_register_node(register))
+    return writer
+
+
 def seeded() -> Seeded:
     return Seeded(
         plan=SeedPlan(

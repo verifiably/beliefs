@@ -153,12 +153,20 @@ through the kernel as a library. The driver is `python/tools/reproduction/`, one
 module per step, and [development.md](development.md#recreating-the-mm30-corpus)
 says how to run it.
 
+The walk below is the reproduction as it last ran, under the v1 claim grammar.
+Under base v2 the driver's contract layer does not run: its mm30 contract documents
+(`python/tools/reproduction/mm30*.yaml`) are v1 documents that base v2 refuses to
+parse, and no biology pack ships, so the steps that compile the profile or type
+the claim refuse until a biology v2 pack and an mm30 v2 contract exist. The v1
+documents stay in place as the record the recreation reads.
+
 1. **Open the roots.** `init_world_root`, `init_corpus_root` and `init_store_root`
    register a world, a corpus and a byte store under one `Authority`. The profile
-   compiles the base contract, the shipped biology pack and the reproduction's own
-   mm30 contract, and `adopt_manifest` pins all three in the corpus manifest.
-2. **Type the claim.** `build_claim` types *disease stage affects PHF19*: the mm30
-   contract's operator `affects-concept-molecular-entity`, a concept and a
+   compiled the base contract, the biology pack then shipped and the
+   reproduction's own mm30 contract, and `adopt_manifest` pinned all three in the
+   corpus manifest.
+2. **Type the claim.** `build_claim` typed *disease stage affects PHF19*: the mm30
+   contract's v1 operator `affects-concept-molecular-entity`, a concept and a
    biology molecular entity as its arguments, layer causal, polarity positive.
    `project_claim` gives the stored form, and
    `writer.add(stored.proposition_node(...))` mints the proposition.

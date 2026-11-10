@@ -8,6 +8,7 @@ from dataclasses import replace
 
 import pytest
 from authority import ACTOR, FULL
+from fixtures_cut3 import carry_registers
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -49,7 +50,7 @@ def writer(tmp_path) -> CorpusWriter:
     port = OperationRecorder(root, authority=FULL, profile=WITH_BIOLOGY)
     w = CorpusWriter(root, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY, operation_port=port)
     w.adopt_manifest(profile=pins_for(WITH_BIOLOGY))
-    return w
+    return carry_registers(w)
 
 
 @pytest.fixture()
@@ -322,6 +323,15 @@ def _world_of(tmp_path, placement):
     return world, roots, publish(world, tuple(placement), hold_shipped(world))
 
 
+def _owing_a_register(findings) -> tuple:
+    """`findings` less the one `register-missing` warning a fixture world's
+    corpus owes: its corpora carry no assumptions register, so each reports the
+    activated `biology` contract (design section 9.2). Asserted, then set aside."""
+    owed = [f for f in findings if f.code == "register-missing"]
+    assert [(f.ref, f.detail) for f in owed] == [("corpus.yaml", "biology")]
+    return tuple(f for f in findings if f.code != "register-missing")
+
+
 def _stamped(value: ReservationAssignment) -> Node:
     return stored.stamp_semantic_identity(_node(value))
 
@@ -336,12 +346,12 @@ def test_world_audit_skips_a_considered_event_recorded_in_an_absent_corpus(tmp_p
     assignment = _root((event.id,))
     world, roots, published = _world_of(tmp_path, {ALPHA: (_stamped(assignment),), BETA: (event,)})
     present = audit.audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
-    assert present.corpora[ALPHA] == () and present.corpora[BETA] == ()
+    assert _owing_a_register(present.corpora[ALPHA]) == () and _owing_a_register(present.corpora[BETA]) == ()
     make_absent(roots, BETA)
 
     absent = audit.audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
-    assert absent.corpora[ALPHA] == ()
+    assert _owing_a_register(absent.corpora[ALPHA]) == ()
     assert [f.code for f in absent.corpora[BETA]] == ["corpus-absent"]
     view = open_world_view(world, published, on_damage="report")
     outcome = audit.check_reservation_assignment(view, view.get(assignment.id), profile=WITH_BIOLOGY)
@@ -365,8 +375,10 @@ def test_world_audit_reports_dangling_refs_and_forks_under_the_holding_corpus(tm
 
     found = audit.audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
 
-    assert [(f.code, f.ref) for f in found.corpora[ALPHA]] == [("assignment-ref-unresolved", dangling.id)]
-    assert sorted((f.code, f.ref) for f in found.corpora[BETA]) == sorted(
+    assert [(f.code, f.ref) for f in _owing_a_register(found.corpora[ALPHA])] == [
+        ("assignment-ref-unresolved", dangling.id)
+    ]
+    assert sorted((f.code, f.ref) for f in _owing_a_register(found.corpora[BETA])) == sorted(
         [("assignment-fork", max(first.id, second.id)), ("semantic-hash-stale", stale_fork.id)]
     )
 

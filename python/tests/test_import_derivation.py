@@ -19,7 +19,7 @@ from types import SimpleNamespace
 from typing import TypedDict
 
 import pytest
-from fixtures_cut3 import spec_draft, spec_rules
+from fixtures_cut3 import carry_registers, spec_draft, spec_rules
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.node import Node
 from test_audit import (
@@ -212,6 +212,7 @@ def derived(tmp_path):
     verdict is `passed` and any other stored verdict is a contradiction."""
     namespace = _two_runs(tmp_path / "corpus", mount=True, agreeing=True)
     assert namespace.verification.verdict == "passed"
+    carry_registers(namespace.writer)  # so a clean audit has no register-missing warning to report
     return namespace
 
 
@@ -222,6 +223,7 @@ def derived_unmounted(tmp_path):
     runs are absent and is contradicted the moment they are mounted."""
     namespace = _two_runs(tmp_path / "corpus", mount=False, agreeing=False)
     assert namespace.verification.verdict == "failed"
+    carry_registers(namespace.writer)  # so a clean audit has no register-missing warning to report
     return namespace
 
 

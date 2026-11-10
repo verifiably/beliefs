@@ -2,23 +2,26 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import UNCONSULTED, typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from profiles import biology, pins_for
 
 from beliefs import stored
 from beliefs.belief import Availability, SuppliedContext
+from beliefs.claim import Claim, Referent, build_claim
 from beliefs.closure import RetractionEnumeration
 from beliefs.contract import domain
 from beliefs.contract.domain import ReleaseBinding
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation
+from beliefs.estimand import Control, Estimand, LevelsContrast, Measure, build_estimand
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
 from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract
 from beliefs.resolution import build_snapshot
@@ -107,6 +110,61 @@ CROSSING_CLAIM: dict[str, Any] = {
 `affects-local-entity` admits (its effect is `crossing/local-entity`)."""
 
 
+BIOLOGY_CLAIM: dict[str, Any] = {
+    "operator": "biology/affects",
+    "roles": {
+        "cause": {"sort": "biology/gene", "term": GENE},
+        "effect": {"sort": "biology/gene", "term": OTHER_GENE},
+    },
+    "qualifiers": {},
+    "form": "polar",
+    "polarity": "positive",
+    "layer": "causal",
+}
+"""A claim at the biology fixture's `affects` template over its own `gene` sort,
+which its instantiation `affects-gene-gene` admits."""
+
+
+def _claim_of(facet: dict[str, Any]) -> Claim:
+    """The typed claim a seeded proposition facet projects, under a profile
+    holding every fixture contract a facet here names."""
+    roles = {name: Referent(value["sort"], value["term"]) for name, value in facet["roles"].items()}
+    return build_claim(
+        profile_with(crossing=True),
+        operator=facet["operator"],
+        roles=roles,
+        form=facet["form"],
+        polarity=facet["polarity"],
+        layer=facet["layer"],
+    )
+
+
+def estimand_for(facet: dict[str, Any]) -> Estimand:
+    """`typed_estimand`'s fields, built for the claim `facet` projects (P5: an
+    assessment's estimand answers its own proposition's claim). The level,
+    measure and identification sorts are the namespace's whose instantiation
+    admits the claim: `biology`'s for a biology claim, `testing`'s otherwise
+    (`crossing` declares its estimand over `testing`'s sorts)."""
+    if facet == CLAIM_FACET:
+        return typed_estimand()
+    namespace = "biology" if facet["operator"].startswith("biology/") else "testing"
+    estimand, _receipt = build_estimand(
+        profile_with(crossing=True),
+        _claim_of(facet),
+        contrast=LevelsContrast(
+            role="cause",
+            member=None,
+            baseline=Referent(f"{namespace}/level", "EX:ndmm"),
+            comparison=Referent(f"{namespace}/level", "EX:pd"),
+        ),
+        measure=Measure(quantity=Referent(f"{namespace}/measure", "EX:tpm"), scale="additive"),
+        reference=Decimal(0),
+        control=Control(identification=Referent(f"{namespace}/identification", "EX:observational"), conditioning=()),
+        snapshot=UNCONSULTED,
+    )
+    return estimand
+
+
 def seed_nodes(
     *,
     axis: str | None = "rows",
@@ -116,7 +174,9 @@ def seed_nodes(
     outcomes: tuple[str, str] = ("supported", "supported"),
 ) -> list[Node]:
     domain_facets: dict[str, Any] = {"biology/gene-axis": {"axis": axis}} if axis is not None else {}
-    nodes: list[Node] = [stored.proposition_node("p", title="p", claim=claim or CLAIM_FACET)]
+    facet = claim or CLAIM_FACET
+    estimand = estimand_for(facet)
+    nodes: list[Node] = [stored.proposition_node("p", title="p", claim=facet)]
     nodes.append(
         stored.dataset_node(
             title="d-a",
@@ -150,7 +210,7 @@ def seed_nodes(
             proposition=proposition,
             outcome=outcomes[0],
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
+            estimand=estimand,
             applicability=typed_applicability(),
         ),
         stored.assessment_node(
@@ -161,7 +221,7 @@ def seed_nodes(
             proposition=proposition,
             outcome=outcomes[1],
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
+            estimand=estimand,
             applicability=typed_applicability(),
         ),
     ]

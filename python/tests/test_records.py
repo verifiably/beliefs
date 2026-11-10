@@ -82,10 +82,12 @@ class TestTheFacetDigest:
             != assessment(estimate=Decimal("0.4")).facet_digest()
         )
         assert base.facet_digest() != assessment(estimand=typed_estimand(reference=Decimal(1))).facet_digest()
-        adults = typed_applicability(
-            {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}
+        # `follow-up` is the testing contract's applicability-side dimension;
+        # `population` is claim-side and refuses here by design.
+        six_months = typed_applicability(
+            {"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:six-months"))}
         )
-        assert base.facet_digest() != assessment(applicability=adults).facet_digest()
+        assert base.facet_digest() != assessment(applicability=six_months).facet_digest()
 
     def test_typed_projection_carries_estimand_and_applicability_always_and_the_optionals_only_when_present(self):
         from decimal import Decimal

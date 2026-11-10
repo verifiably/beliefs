@@ -13,7 +13,7 @@ from beliefs import stored
 from beliefs.dataset import dataset_address
 from beliefs.errors import FacetPayloadRefused, FacetUndeclared, MalformedRecord, ProfileError
 from beliefs.facet_read import FacetRead, read_observed_facets
-from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract, shipped_domain_contract
+from beliefs.profile import ProfileSpec
 
 RESOURCES = [{"name": "r-a", "digest": "sha256:" + "a" * 64}]
 ADDRESS = stored.dataset_node(title="d-a", resources=RESOURCES).id
@@ -66,10 +66,9 @@ def test_the_reader_refuses_anything_but_a_corpus_view():
 def test_the_reader_refuses_a_profile_shaped_spoof_before_minting(tmp_path):
     from unittest.mock import Mock
 
-    strict = compile_profile(shipped_base_contract(), [shipped_domain_contract("biology")])
     spoof = Mock(spec=ProfileSpec)
     spoof.facets = WITH_BIOLOGY.facets
-    spoof.activated_contracts = strict.activated_contracts
+    spoof.activated_contracts = WITH_BIOLOGY.activated_contracts
     view, _ = _corpus(tmp_path, **{"biology/gene-axis": {"axis": "rows"}})
 
     with pytest.raises(ProfileError, match="compiled ProfileSpec"):

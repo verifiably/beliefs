@@ -221,7 +221,7 @@ def testing_contract_path() -> Path:
 
 @pytest.fixture(scope="session")
 def parity_fixture_path() -> Path:
-    return REPO_ROOT / "fixtures" / "claim-identity-v1.json"
+    return REPO_ROOT / "fixtures" / "claim-identity-v2.json"
 
 
 @pytest.fixture(scope="session")

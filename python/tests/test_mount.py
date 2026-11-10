@@ -10,12 +10,12 @@ from beliefs.consulted import CorpusPins
 from beliefs.corpus import CoordinationResolver
 from beliefs.errors import ManifestMalformed, MountPinUnresolved, UnparsedContract
 from beliefs.mount import compile_mount_profile
-from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination, shipped_domain_contract
+from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination
 from beliefs.world.registry import CorpusManifest, manifest_bytes
 
-SHIPPED = compile_profile(
-    shipped_base_contract(), [shipped_domain_contract("biology")], coordination=shipped_coordination(2)
-)
+# What the package ships under base v2: the base and the coordination contract.
+# No domain pack ships until beliefs-709bd9's genesis (design section 12).
+SHIPPED = compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(2))
 LOCAL = compile_profile(shipped_base_contract(), [biology("fixture")], coordination=shipped_coordination(2))
 COORD_ONLY = compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(2))
 
@@ -29,9 +29,7 @@ def _root(tmp_path, name, pins: CorpusPins, corpus_id: str = "c" * 32):
 
 @pytest.mark.parametrize("version", (1, 2, 3))
 def test_shipped_pins_compile_with_nothing_available(tmp_path, version):
-    expected = compile_profile(
-        shipped_base_contract(), [shipped_domain_contract("biology")], coordination=shipped_coordination(version)
-    )
+    expected = compile_profile(shipped_base_contract(), [], coordination=shipped_coordination(version))
     root = _root(tmp_path, "a", pins_for(expected))
     assert compile_mount_profile(root).compiled_identity == expected.compiled_identity
 
@@ -72,16 +70,11 @@ def test_an_available_unpinned_document_is_never_activated(tmp_path):
 
 
 def test_duplicate_available_documents_are_harmless(tmp_path):
-    """Review Focus 3."""
+    """Review Focus 3. (Its shipped-pack half retired with the shipped biology
+    pack: no domain document ships under base v2.)"""
     root = _root(tmp_path, "b", pins_for(LOCAL))
     twice = compile_mount_profile(root, available=(biology("fixture"), biology("fixture")))
-    shipped_too = compile_mount_profile(
-        _root(tmp_path, "a", pins_for(SHIPPED)), available=(shipped_domain_contract("biology"),)
-    )
-    assert (
-        twice.compiled_identity == LOCAL.compiled_identity
-        and shipped_too.compiled_identity == SHIPPED.compiled_identity
-    )
+    assert twice.compiled_identity == LOCAL.compiled_identity
 
 
 @pytest.mark.parametrize(

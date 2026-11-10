@@ -52,7 +52,7 @@ def proposition(writer) -> Node:
     claim = build_claim(
         WITH_BIOLOGY,
         operator=AFFECTS,
-        args=(Referent(GENE, "EX:a"), Referent(GENE, "EX:b")),
+        roles={"cause": Referent(GENE, "EX:a"), "effect": Referent(GENE, "EX:b")},
         layer="causal",
         polarity="positive",
     )

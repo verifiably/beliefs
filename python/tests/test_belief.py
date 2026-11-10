@@ -71,7 +71,7 @@ PROPOSITION = claim_identity(CLAIM)
 
 # A second, unrelated claim — same testing namespace (the fixture set carries
 # no second domain contract to reach a genuinely different one), but a
-# different operator and different args, and never named by any assessment
+# different operator and different roles, and never named by any assessment
 # under test. Nothing below evaluates a proposition equal to this claim's
 # identity, so it exercises "present in `records.claims`, read by nobody".
 OTHER_CLAIM = build_claim(
@@ -549,7 +549,7 @@ class TestTheEstimandWalk:
         measures_document["description"] = measures_description
         measures = domain.parse_domain_contract(measures_document, source="<q8-measures>", base=_base, predecessor=None)
         testing_document = copy.deepcopy(_testing_document)
-        testing_document["estimands"]["affects"]["measure_sort"] = "measures/assay"
+        testing_document["estimands"]["instantiation:affects-entity-outcome"]["measure_sort"] = "measures/assay"
         testing = domain.parse_domain_contract(testing_document, source="<q8-testing>", base=_base, predecessor=None)
         return compile_profile(_base, [testing, measures, biology(biology_description)])
 
@@ -558,7 +558,10 @@ class TestTheEstimandWalk:
         claim = build_claim(
             profile=profile,
             operator="testing/affects",
-            args=(Referent("testing/entity", "EX:gene-x"), Referent("testing/outcome", "EX:pheno-y")),
+            roles={
+                "cause": Referent("testing/entity", "EX:gene-x"),
+                "effect": Referent("testing/outcome", "EX:pheno-y"),
+            },
             polarity="positive",
             layer="causal",
         )
@@ -567,7 +570,9 @@ class TestTheEstimandWalk:
             profile,
             claim,
             snapshot=UNCONSULTED,
-            contrast=LevelsContrast(0, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
+            contrast=LevelsContrast(
+                "cause", None, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")
+            ),
             measure=Measure(Referent("measures/assay", "EX:m"), "additive"),
             reference=Decimal(0),
             control=Control(Referent("testing/identification", "EX:obs"), ()),

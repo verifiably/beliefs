@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand
 from fixtures_cut4 import path_for
 from nodes.core.node import Node
 from profiles import pins_for
@@ -408,6 +408,7 @@ def test_raw_deletion_restores_admission_undetected_on_read(tmp_path):
     read says so. The undetectable-history limit, not a tamper-evidence
     claim — the log audit's refutation is the durable module's arm."""
     scenario = _scenario(tmp_path / "corpus")
+    carry_registers(scenario.writer)  # so the two checks below have no register-missing warning to report
     failing = _verification(scenario, "v-1-fail", scope="clean-environment", verdict="failed")
     assert scenario.lifecycle(ASSESSMENTS[0]) == INVALIDATED
     invalidated = scenario.belief()
@@ -437,6 +438,8 @@ def test_managed_delete_reads_identically_to_raw_on_the_corpus(tmp_path):
     `refuted` — and that half runs durably."""
     raw = _scenario(tmp_path / "raw")
     managed = _scenario(tmp_path / "managed")
+    for scenario in (raw, managed):
+        carry_registers(scenario.writer)  # so `corpus_check` has no register-missing warning to report
     failing = {
         label: _verification(scenario, "v-1-fail", scope="clean-environment", verdict="failed")
         for label, scenario in (("raw", raw), ("managed", managed))
@@ -779,21 +782,29 @@ held fixed."""
 
 SETTING = OTHER_GENE
 """The `testing/setting` dimension's restriction sort is `entity`, so its term
-comes from the same vocabulary the arguments do."""
+comes from the same vocabulary the roles' do."""
+
+COHORT = "testing/cohort"
+ENTITY = "testing/entity"
+"""Every restriction carries its sort: the dimension's restriction sort."""
 
 QUALIFIED = {
     **CLAIM_FACET,
-    "qualifiers": {"testing/population": {"quantifier": "generic", "restriction": ADULTS}},
+    "qualifiers": {"testing/population": {"quantifier": "generic", "restriction": {"sort": COHORT, "term": ADULTS}}},
 }
 M5_VARIANTS = {
     "qualified": QUALIFIED,
     "restriction": {
         **QUALIFIED,
-        "qualifiers": {"testing/population": {"quantifier": "generic", "restriction": CHILDREN}},
+        "qualifiers": {
+            "testing/population": {"quantifier": "generic", "restriction": {"sort": COHORT, "term": CHILDREN}}
+        },
     },
     "quantifier": {
         **QUALIFIED,
-        "qualifiers": {"testing/population": {"quantifier": "universal", "restriction": ADULTS}},
+        "qualifiers": {
+            "testing/population": {"quantifier": "universal", "restriction": {"sort": COHORT, "term": ADULTS}}
+        },
     },
     "unqualified": {**QUALIFIED, "qualifiers": {}},
 }
@@ -843,14 +854,14 @@ def test_qualifier_key_order_leaves_the_identity_unchanged(tmp_path, claim_profi
     """The negative: the same qualification, re-serialized with its keys in a
     different order, is the same claim. `science.identity.v1` sorts object keys
     at encode time, so neither the stored stamp nor `I_claim` moves."""
-    population = {"quantifier": "generic", "restriction": ADULTS}
-    setting = {"quantifier": "generic", "restriction": SETTING}
+    population = {"quantifier": "generic", "restriction": {"sort": COHORT, "term": ADULTS}}
+    setting = {"quantifier": "generic", "restriction": {"sort": ENTITY, "term": SETTING}}
     forward = {**CLAIM_FACET, "qualifiers": {"testing/population": population, "testing/setting": setting}}
     reversed_keys = {
         **CLAIM_FACET,
         "qualifiers": {
-            "testing/setting": {"restriction": SETTING, "quantifier": "generic"},
-            "testing/population": {"restriction": ADULTS, "quantifier": "generic"},
+            "testing/setting": {"restriction": {"term": SETTING, "sort": ENTITY}, "quantifier": "generic"},
+            "testing/population": {"restriction": {"term": ADULTS, "sort": COHORT}, "quantifier": "generic"},
         },
     }
     writer = _writer(tmp_path / "corpus")
