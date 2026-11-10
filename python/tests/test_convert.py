@@ -625,3 +625,143 @@ def test_evaluated_logarithmic_coefficients_stay_decimal_even_for_rational_resul
         < Decimal("2.00000000000000000000000000000001")
     )
     assert factor_change.map.scale == Fraction(1) and base_change.map.offset == Fraction(0)
+
+
+@pytest.mark.parametrize(
+    "unit,scale,offset",
+    [
+        ("millikelvin", Fraction(1000), Fraction(0)),
+        ("celsius", Fraction(1), Fraction("-273.15")),
+    ],
+)
+def test_an_independent_output_uses_its_own_level_map_under_by_parameters(unit, scale, offset):
+    answer = result(coords("kelvin"), coords(unit), ARRHENIUS, output=OutputTyping("independent", "real"))
+    assert isinstance(answer, Convertible)
+    assert answer.map.scale == scale and answer.map.offset == offset and answer.flip is None
+    response = result(coords("kelvin"), coords("celsius"), ARRHENIUS, output=OutputTyping("response-log-level", "real"))
+    assert isinstance(response, NotConvertible) and response.reason == "transformation"
+    independent_variable = result(
+        coords("kelvin"), coords(unit), ARRHENIUS, binding="independent", output=OutputTyping("independent", "real")
+    )
+    assert (
+        isinstance(independent_variable, NotConvertible) and independent_variable.reason == "independent-variable map"
+    )
+
+
+def test_an_independent_output_does_not_apply_an_unrelated_response_flip():
+    records, a, b, model = authorities()
+    records.put(model)
+    answer = result(
+        coords(None, scale=a),
+        coords(None, scale=b),
+        ARRHENIUS,
+        output=OutputTyping("independent", "real"),
+        snap=snapshot(records),
+    )
+    assert isinstance(answer, Convertible)
+    assert answer.map.scale == -2 and answer.map.offset == 10 and answer.flip is None
+    # Even a response certificate which admits negative affine maps supplies no output flip.
+    response = result(
+        coords(None, scale=a),
+        coords(None, scale=b),
+        DIFFERENCE_OF_MEANS,
+        output=OutputTyping("independent", "real"),
+        snap=snapshot(records),
+    )
+    assert isinstance(response, Convertible) and response.flip is None
+
+
+@pytest.mark.parametrize(
+    "binding,functional",
+    [
+        ("certified", HODGES_LEHMANN_SHIFT),
+        ("certified", replace(DIFFERENCE_OF_MEANS, response_transformation="fixed")),
+        ("certified", replace(DIFFERENCE_OF_MEANS, response_transformation="none")),
+        ("independent", DIFFERENCE_OF_MEANS),
+    ],
+)
+def test_rounded_logarithmic_coefficients_do_not_prove_identity(base_contract, testing_document, binding, functional):
+    testing_document["transformations"]["near-two"] = {
+        "kind": "logarithm",
+        "base": "2.0000000000000000000000000000000001",
+        "domain": "positive",
+        "invertible": True,
+        "definition": "A distinct high-precision base.",
+    }
+    profile = compile_testing(base_contract, testing_document)
+    answer = result(
+        coords(transformation="near-two"),
+        coords(transformation="log2"),
+        functional,
+        binding=binding,
+        snap=snapshot(profile=profile),
+    )
+    if binding == "independent":
+        assert isinstance(answer, NotConvertible) and answer.reason == "independent-variable map"
+    elif functional.response_transformation in {"fixed", "none"}:
+        assert isinstance(answer, NotConvertible) and answer.reason == "transformation"
+    else:
+        assert isinstance(answer, Convertible) and answer.map.cls == "affine"
+    identical = result(
+        coords(transformation="near-two"),
+        coords(transformation="near-two"),
+        functional,
+        binding=binding,
+        snap=snapshot(profile=profile),
+    )
+    assert isinstance(identical, Convertible) and identical.map.cls == "identity"
+
+
+@pytest.mark.parametrize(
+    "base,decreasing",
+    [
+        ("1.0000000000000000000000000000000001", False),
+        ("0.99999999999999999999999999999999999", True),
+    ],
+)
+@pytest.mark.parametrize("side", ["source", "target"])
+def test_a_valid_high_precision_log_base_near_one_retains_its_nonzero_direction(
+    base_contract, testing_document, base, decreasing, side
+):
+    testing_document["transformations"]["near-one"] = {
+        "kind": "logarithm",
+        "base": base,
+        "domain": "positive",
+        "invertible": True,
+        "definition": "A valid exact base near one.",
+    }
+    profile = compile_testing(base_contract, testing_document)
+    a, b = coords(transformation="near-one"), coords(transformation="log2")
+    if side == "target":
+        a, b = b, a
+    answer = result(a, b, snap=snapshot(profile=profile))
+    assert isinstance(answer, Convertible) and answer.map.cls == "affine"
+    assert isinstance(answer.map.scale, Decimal) and answer.map.scale != 0
+    assert answer.map.decreasing is decreasing and (answer.map.scale < 0) is decreasing
+    magnitude = answer.map.scale.copy_abs()
+    if side == "source":
+        assert Decimal("1e-36") < magnitude < Decimal("1e-32")
+    else:
+        assert Decimal("1e32") < magnitude < Decimal("1e36")
+
+
+@pytest.mark.parametrize(
+    "factor",
+    [
+        "1.0000000000000000000000000000000001",
+        "0.99999999999999999999999999999999999",
+    ],
+)
+def test_logarithmic_offsets_preserve_close_to_one_declared_factors_and_inverses(
+    base_contract, testing_document, factor
+):
+    testing_document["conversions"]["tpm-to-ktpm"]["factor"] = factor
+    profile = compile_testing(base_contract, testing_document)
+    forward = result(coords(transformation="log2"), coords("ktpm", "log2"), snap=snapshot(profile=profile))
+    reverse = result(coords("ktpm", "log2"), coords(transformation="log2"), snap=snapshot(profile=profile))
+    assert isinstance(forward, Convertible) and isinstance(reverse, Convertible)
+    assert forward.map.cls == reverse.map.cls == "affine"
+    assert isinstance(forward.map.offset, Decimal) and isinstance(reverse.map.offset, Decimal)
+    assert forward.map.offset != 0 and reverse.map.offset != 0
+    assert (forward.map.offset > 0) is (Fraction(factor) > 1)
+    assert reverse.map.offset == forward.map.offset.copy_negate()

@@ -765,11 +765,19 @@ constant-mediated entries can join different quantity kinds. Affine coefficients
 and inverse conversions are exact fractions; logarithms use a fixed 34-digit
 Decimal context. Evaluated logarithmic coefficients stay Decimal even when the
 result happens to be rational; structural zero and one remain exact fractions.
+Declared logarithm bases reach the 34-digit logarithm operation without input
+rounding, and inverse raw factors use the negated logarithm of their exact
+finite reciprocal. Rounded Decimal coefficients never prove an identity map.
 A ratio refuses an offset; a difference drops it.
 
 Shape admission precedes the separate response-direction action. Independent
-variable bindings admit identity alone. Monotone maps under positive raw scaling
-use the coordinates' shared admissible raw domain, without asserting unprovided
+variable bindings admit identity alone. `output.typing="independent"` selects an
+output parameter's own level coordinates, rather than a response-binding map:
+its conversion bypasses the functional's response certificate and response flip.
+A response-binding call still uses the certificate's full parameter intersection;
+`binding="independent"` still enforces identity alone, regardless of output typing.
+Monotone maps under positive raw scaling use the coordinates' shared admissible
+raw domain, without asserting unprovided
 sample values. Offset or negative raw maps need provable domain containment;
 a logarithm against an affine transformation always needs that proof. Where the
 declarations cannot determine a map, the result is `Unknown`.

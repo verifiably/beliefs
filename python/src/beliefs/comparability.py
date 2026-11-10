@@ -390,11 +390,23 @@ def _sign(transformation: CompiledTransformation) -> int:
 
 
 def _affine_map(scale: Fraction | Decimal, offset: Fraction | Decimal) -> ComposedMap:
-    return ComposedMap("identity" if scale == 1 and offset == 0 else "affine", scale, offset, scale < 0)
+    identity = isinstance(scale, Fraction) and isinstance(offset, Fraction) and scale == 1 and offset == 0
+    return ComposedMap("identity" if identity else "affine", scale, offset, scale < 0)
 
 
-def _decimal(value: Fraction) -> Decimal:
-    return CONTEXT.divide(Decimal(value.numerator), Decimal(value.denominator))
+def _finite_decimal(value: Fraction) -> bool:
+    denominator = value.denominator
+    for prime in (2, 5):
+        while denominator % prime == 0:
+            denominator //= prime
+    return denominator == 1
+
+
+def _ln_fraction(value: Fraction) -> Decimal:
+    # Raw factors are declared finite decimals or their exact inverses.
+    if _finite_decimal(value):
+        return CONTEXT.ln(Decimal(decimal_projection(value)))
+    return CONTEXT.minus(CONTEXT.ln(Decimal(decimal_projection(1 / value))))
 
 
 def _contains_image(source: str, target: str, factor: Fraction, offset: Fraction) -> bool:
@@ -438,9 +450,9 @@ def _compose(a: CompiledTransformation, b: CompiledTransformation, raw: RawMap) 
             return Unknown("domain", concerns)
         assert a.base is not None and b.base is not None
         # Evaluated logarithmic coefficients stay Decimal; only structural 0/1 is exact.
-        ln_b = CONTEXT.ln(_decimal(b.base))
-        scale = Fraction(1) if a.base == b.base else CONTEXT.divide(CONTEXT.ln(_decimal(a.base)), ln_b)
-        offset = Fraction(0) if raw.factor == 1 else CONTEXT.divide(CONTEXT.ln(_decimal(raw.factor)), ln_b)
+        ln_b = CONTEXT.ln(Decimal(b.number_text["base"]))
+        scale = Fraction(1) if a.base == b.base else CONTEXT.divide(CONTEXT.ln(Decimal(a.number_text["base"])), ln_b)
+        offset = Fraction(0) if raw.factor == 1 else CONTEXT.divide(_ln_fraction(raw.factor), ln_b)
         return _affine_map(scale, offset)
     if a.kind == b.kind == "monotone" and a.term == b.term:
         return Unknown("transformation under unit change", concerns)
@@ -529,10 +541,10 @@ def convert(
     if binding == "independent":
         if map.cls != "identity":
             return NotConvertible("independent-variable map", concerns)
-    elif not _admits(functional, map):
+    elif output.typing != "independent" and not _admits(functional, map):
         return NotConvertible("transformation", concerns)
     flip: Literal["invariant", "complement", "negate"] | None = None
-    if binding == "certified" and map.decreasing:
+    if binding == "certified" and output.typing != "independent" and map.decreasing:
         action = functional.response_reversal
         if action != "invariant" and action != "complement" and action != "negate":
             return NotConvertible("response reversal", concerns)

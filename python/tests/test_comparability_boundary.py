@@ -26,6 +26,14 @@ def test_no_declaration_identifier_or_decimal_literal_in_comparability():
         if keyword.arg == "prec" and isinstance(keyword.value, ast.Constant) and keyword.value.value == 34
     }
     assert len(precision) == 1
+    decimal_radices = {
+        id(node)
+        for statement in tree.body
+        if isinstance(statement, ast.FunctionDef) and statement.name == "_finite_decimal"
+        for node in ast.walk(statement)
+        if isinstance(node, ast.Constant) and type(node.value) is int and node.value in {2, 5}
+    }
+    assert len(decimal_radices) == 2
     for node in ast.walk(tree):
         if isinstance(node, ast.Constant):
             value = node.value
@@ -33,6 +41,6 @@ def test_no_declaration_identifier_or_decimal_literal_in_comparability():
                 assert re.fullmatch(r"[a-z][a-z0-9-]*/[a-z][a-z0-9-]*", value) is None
             elif isinstance(value, (int, float)) and not isinstance(value, bool):
                 assert not isinstance(value, float)
-                assert value in {0, 1, -1} or id(node) in precision
+                assert value in {0, 1, -1} or id(node) in precision | decimal_radices
         if isinstance(node, ast.Name):
             assert node.id != "float"
