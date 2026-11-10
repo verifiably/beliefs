@@ -74,8 +74,19 @@ require declared source and target sorts and any aggregation rule. Classificatio
 rules require a declared classes sort and admitted `reads`. Proxy models require
 admitted source and target observables, a held source procedure, an authoritative
 held `scale_of` when present, typed validity, and valid assumption particulars for
-the basis and any calibration transfer. These refusals are `MeasurementRecordRefused`
-with the id and clause. Scope references must already be resolved: if
+the basis and any calibration transfer. A calibration also requires an admitted
+calibrated observable, nonempty held assessments whose outcomes are all `supported`,
+and held specs whose applicability is equal to or broader than validity over the
+union of dimensions. Only term qualifiers on term-form dimensions can be adapted
+from interim applicability; other forms refuse as undecidable. For scale targets,
+transfer is required exactly when the calibrated observable is absent from all of
+the authority's yields. Crosswalks require two authorities: matching orientations
+need a positive coefficient, opposite orientations a negative affine coefficient;
+multiplicative conversions cannot flip orientation. These refusals are
+`MeasurementRecordRefused` with the id and clause, including its
+`CalibrationNotQualified` and `CrosswalkSignRefused` subclasses. Standing, v2
+estimand shape and interpretation-rule qualification are outside this door.
+Scope references must already be resolved: if
 `type_restriction_map` changes their projection, call it before building the record
 ([measurement records](records.md#measurement-records)). Publication staging
 repeats facet and stamp checks and refuses governed kinds without facets; it does

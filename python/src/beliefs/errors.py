@@ -1315,6 +1315,14 @@ class MeasurementRecordRefused(WriteRefused):
     """A measurement record fails its profile or held-dependency write checks."""
 
 
+class CalibrationNotQualified(MeasurementRecordRefused):
+    """A proxy's held calibration does not support its claimed validity."""
+
+
+class CrosswalkSignRefused(MeasurementRecordRefused):
+    """A crosswalk does not preserve its authorities' declared orientations."""
+
+
 class KindNotMintedHere(WriteRefused):
     """A kind belongs to another minting door, or declares no governed facet."""
 

@@ -156,7 +156,14 @@ from beliefs.measurement import check_observable
 from beliefs.permit import Authority
 from beliefs.procedure import PROCEDURE_FACET, PROCEDURE_KIND, Procedure, SameAs, procedure_from_stored
 from beliefs.profile import ProfileSpec, shipped_base
-from beliefs.proxy_model import PROXY_FACET, PROXY_KIND, Calibration, proxy_from_stored
+from beliefs.proxy_model import (
+    PROXY_FACET,
+    PROXY_KIND,
+    Calibration,
+    check_crosswalk,
+    proxy_from_stored,
+    qualify_calibration,
+)
 from beliefs.record import RunInput, RunValue
 from beliefs.referent_mapping import MAPPING_FACET, MAPPING_KIND, mapping_from_stored
 from beliefs.register import ENTRY_KINDS, REGISTER_FACET, REGISTER_KIND, AssumptionsRegister, register_from_stored
@@ -4352,7 +4359,16 @@ class CorpusWriter:
             try:
                 check()
             except ScienceError as exc:
+                if isinstance(exc, MeasurementRecordRefused):
+                    raise type(exc)(f"{node.id}: {clause}: {exc}") from exc
                 refuse(clause, str(exc))
+
+        def held_calibration_record(address: str) -> Node:
+            from beliefs.errors import CalibrationNotQualified
+
+            if view.resolve(address) != address:
+                raise CalibrationNotQualified(f"calibration: record {address!r} is not held")
+            return view.get(address)
 
         def held_procedure(address: str, clause: str, *, authority: bool = False) -> Procedure:
             if view.resolve(address) != address:
@@ -4402,18 +4418,28 @@ class CorpusWriter:
         elif node.kind == PROXY_KIND:
             proxy = proxy_from_stored(node)
             checked("source.observable", lambda: check_observable(self._profile, proxy.source.observable))
-            held_procedure(proxy.source.procedure, "source.procedure")
+            source = held_procedure(proxy.source.procedure, "source.procedure")
             target_observable = proxy.target.observable
             if target_observable is not None:
                 checked("target.observable", lambda: check_observable(self._profile, target_observable))
+            authority = None
             if proxy.target.scale_of is not None:
-                held_procedure(proxy.target.scale_of, "target.scale_of", authority=True)
+                authority = held_procedure(proxy.target.scale_of, "target.scale_of", authority=True)
+                checked("crosswalk", lambda: check_crosswalk(proxy, source, authority))
             scope("validity", scope_projection(proxy.validity))
             basis = proxy.basis
             if isinstance(basis, Calibration):
+                checked("basis.calibration.calibrated", lambda: check_observable(self._profile, basis.calibrated))
                 transfer = basis.transfer
+                if authority is not None:
+                    differs = basis.calibrated not in authority.yields
+                    if differs and transfer is None:
+                        refuse("basis.calibration.transfer", "calibration-transfer-missing")
+                    if not differs and transfer is not None:
+                        refuse("basis.calibration.transfer", "calibration-transfer-redundant")
                 if transfer is not None:
                     checked("basis.calibration.transfer", lambda: check_instance(self._profile, transfer))
+                checked("basis.calibration", lambda: qualify_calibration(proxy, held_calibration_record, self._profile))
             else:
                 checked("basis.assumption", lambda: check_instance(self._profile, basis))
 

@@ -194,3 +194,69 @@ def test_multiplicative_crosswalk_projects_factor_only_and_round_trips():
     facet: dict[str, Any] = proxy_projection(value)
     assert facet["crosswalk"]["conversion"] == {"kind": "multiplicative", "factor": "1.5"}
     assert proxy_from_stored(node_for("proxy-model", proxy_identity(value), facet)) == value
+
+
+@pytest.mark.parametrize(
+    "source_orientation,target_orientation,kind,factor,admitted",
+    [
+        ("higher-is-more", "higher-is-less", "affine", 2, False),
+        ("higher-is-more", "higher-is-less", "affine", -2, True),
+        ("higher-is-less", "higher-is-more", "affine", -2, True),
+        ("higher-is-more", "higher-is-more", "affine", -2, False),
+        ("higher-is-less", "higher-is-less", "affine", 2, True),
+        ("higher-is-more", "higher-is-less", "multiplicative", -2, False),
+        ("higher-is-more", "higher-is-less", "multiplicative", 2, False),
+        ("higher-is-more", "higher-is-more", "multiplicative", 2, True),
+        ("higher-is-more", "higher-is-more", "affine", 0, False),
+    ],
+)
+def test_crosswalk_sign(source_orientation, target_orientation, kind, factor, admitted):
+    from test_procedure import procedure
+
+    from beliefs import errors, proxy_model
+    from beliefs.procedure import Scale
+
+    source = procedure(scale=Scale(Fraction(0), Fraction(100), source_orientation))
+    target = procedure(scale=Scale(Fraction(0), Fraction(100), target_orientation))
+    value = proxy(
+        target=ProxyTarget(None, PID),
+        crosswalk=replace(
+            CROSSWALK, conversion=Conversion(kind, Fraction(factor), Fraction(0) if kind == "affine" else None)
+        ),
+    )
+    if admitted:
+        proxy_model.check_crosswalk(value, source, target)
+    else:
+        with pytest.raises(errors.MeasurementRecordRefused, match="crosswalk-sign"):
+            proxy_model.check_crosswalk(value, source, target)
+
+
+@pytest.mark.parametrize("source_authority,target_authority", [(False, True), (True, False)])
+def test_crosswalk_needs_two_authorities(source_authority, target_authority):
+    from test_procedure import procedure
+
+    from beliefs import errors, proxy_model
+    from beliefs.procedure import Scale
+
+    scale = Scale(Fraction(0), Fraction(100), "higher-is-more")
+    value = proxy(target=ProxyTarget(None, PID), crosswalk=CROSSWALK)
+    with pytest.raises(errors.MeasurementRecordRefused, match="crosswalk-sign"):
+        proxy_model.check_crosswalk(
+            value,
+            procedure(scale=scale if source_authority else None),
+            procedure(scale=scale if target_authority else None),
+        )
+
+
+@pytest.mark.parametrize("dimension", ["testing/follow-up", "testing/epoch", "testing/case-status"])
+def test_interim_non_term_forms_cannot_be_silently_dropped(dimension):
+    from fixtures_cut3 import TESTING_PROFILE
+
+    from beliefs.claim import Qualifier, Referent
+    from beliefs.errors import CalibrationNotQualified
+    from beliefs.proxy_model import restrictions_from_interim_applicability
+
+    with pytest.raises(CalibrationNotQualified, match="calibration-scope-undecidable"):
+        restrictions_from_interim_applicability(
+            TESTING_PROFILE, {dimension: Qualifier("generic", Referent("testing/level", "EX:a"))}
+        )

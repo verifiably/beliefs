@@ -664,16 +664,35 @@ or a procedure's scale. It carries validity restrictions and either an assumptio
 instance or a calibration with its calibrated observable, assessment ids and
 permanent interpretation-rule identity strings. A calibration transfer assumption
 is required exactly when an observable target differs from the calibrated
-observable. A scale target instead names a held authority. A crosswalk is required
-exactly for scale targets: it includes a linking population, conversion and error.
+observable. For a scale target, it is required exactly when the calibrated
+observable is absent from the held authority's complete set of yielded observables.
+The calibrated observable is checked against the profile as well.
+
+A crosswalk is required exactly for scale targets: it includes a linking population,
+conversion and error. Both source and target procedures must be scale authorities.
 An affine conversion projects `scale` and `offset`; a multiplicative conversion
-projects `factor`. All coefficients and error values are decimal strings. The
-write door checks source and target observables, a held source procedure, a held
-authority for
-`scale_of`, typed validity restrictions, and the particulars of assumption bases
-and calibration transfers. These profile and held-record failures are
-`MeasurementRecordRefused` naming the record id and clause. Calibration assessment
-qualification and crosswalk sign are outside these checks.
+projects `factor`. All coefficients and error values are decimal strings. Same
+orientations require a strictly positive coefficient; opposite orientations require
+a strictly negative affine coefficient. A multiplicative crosswalk between opposite
+orientations is always refused (`CrosswalkSignRefused`, `crosswalk-sign`).
+
+A calibration requires at least one held assessment, and every cited assessment must
+have outcome `supported` (`CalibrationNotQualified`, `calibration-not-supported`).
+Each assessment's frozen spec must also be held. Its applicability must be equal to
+or broader than the proxy's validity, comparing the union of both scopes' dimensions:
+an assessment-only restriction narrows the scope; a validity-only restriction
+broadens it. Narrower, overlapping, disjoint and unknown comparisons refuse with
+`calibration-scope-overstated`. Interim applicability represents term qualifiers
+only on dimensions declaring a term restriction, using the dimension's restriction
+sort. Other forms refuse with `calibration-scope-undecidable`; no qualifier is
+dropped. Assessment standing, v2 estimand shape and interpretation-rule qualification
+are not checked by this door.
+
+The write door also checks admitted source and target observables, held source and
+scale-target procedures, typed validity restrictions, and assumption particulars
+for bases and transfers. Profile and held-record failures are
+`MeasurementRecordRefused` naming the record id and clause; the calibration and
+crosswalk refusals above are subclasses.
 
 `assumptions.AssumptionInstance` holds a declared assumption-kind term and canonical
 string-valued particulars. `check_instance` requires each key the compiled kind

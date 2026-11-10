@@ -1,6 +1,6 @@
 """Content-addressed proxy models, calibration bases and exact crosswalks."""
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
 
@@ -8,10 +8,13 @@ from nodes.core.node import Node
 
 from beliefs import _measurement_record as record
 from beliefs.assumptions import AssumptionInstance, instance_from_projection, instance_projection
+from beliefs.claim import Qualifier
 from beliefs.contract.base import SUPPORTED_CONVERSION_KINDS
-from beliefs.errors import MalformedRecord
+from beliefs.errors import CalibrationNotQualified, CrosswalkSignRefused, MalformedRecord, ScienceError
 from beliefs.measurement import Observable, observable_projection
-from beliefs.restriction import Restriction, decimal_projection
+from beliefs.procedure import Procedure, Scale
+from beliefs.profile import ProfileSpec
+from beliefs.restriction import Restriction, RestrictionMap, TermRestriction, co_scope, decimal_projection
 
 __all__ = [
     "PROXY_DOMAIN",
@@ -24,9 +27,12 @@ __all__ = [
     "ProxyModel",
     "ProxySource",
     "ProxyTarget",
+    "check_crosswalk",
     "proxy_from_stored",
     "proxy_identity",
     "proxy_projection",
+    "qualify_calibration",
+    "restrictions_from_interim_applicability",
 ]
 
 PROXY_DOMAIN = "science.proxy-model.v1"
@@ -254,3 +260,57 @@ def _proxy_from(value: object) -> ProxyModel:
 
 def proxy_from_stored(node: Node) -> ProxyModel:
     return record.from_stored(node, PROXY_KIND, _proxy_from, proxy_projection, proxy_identity)
+
+
+def check_crosswalk(proxy: ProxyModel, source: Procedure, authority: Procedure) -> None:
+    """Require two scale authorities and an orientation-preserving conversion."""
+    crosswalk = proxy.crosswalk
+    if crosswalk is None:
+        return
+    if not isinstance(source.scale, Scale) or not isinstance(authority.scale, Scale):
+        raise CrosswalkSignRefused("crosswalk-sign: source and target must both be scale authorities")
+    opposite = source.scale.orientation != authority.scale.orientation
+    conversion = crosswalk.conversion
+    if opposite and conversion.kind == "multiplicative":
+        raise CrosswalkSignRefused("crosswalk-sign: multiplicative conversion cannot flip orientation")
+    if (opposite and conversion.factor >= 0) or (not opposite and conversion.factor <= 0):
+        raise CrosswalkSignRefused("crosswalk-sign: conversion sign disagrees with scale orientations")
+
+
+def restrictions_from_interim_applicability(
+    profile: ProfileSpec, applicability: Mapping[str, Qualifier]
+) -> RestrictionMap:
+    """Represent v1 term qualifiers only where the dimension declares a term form."""
+    result: dict[str, Restriction] = {}
+    for key, qualifier in applicability.items():
+        dimension = profile.dimensions.get(key)
+        if dimension is None or dimension.restriction is None or dimension.restriction.form != "term":
+            raise CalibrationNotQualified(f"calibration-scope-undecidable: {key!r} has no v1 term representation")
+        result[key] = TermRestriction(dimension.restriction_sort, qualifier.restriction.term)
+    return result
+
+
+def qualify_calibration(proxy: ProxyModel, read: Callable[[str], Node], profile: ProfileSpec) -> None:
+    """Qualify supported held interim assessments against the proxy's whole scope."""
+    from beliefs.stored import analysis_spec_value, assessment_value, typed_ref
+
+    basis = proxy.basis
+    if not isinstance(basis, Calibration):
+        return
+    if not basis.assessments:
+        raise CalibrationNotQualified("calibration-not-supported: calibration requires assessments")
+    for address in basis.assessments:
+        try:
+            node = read(address)
+            if node.kind != "assessment":
+                raise CalibrationNotQualified(f"calibration-not-supported: {address!r} is not an assessment")
+            assessment = assessment_value(node, profile=profile)
+            if assessment.outcome != "supported":
+                raise CalibrationNotQualified(f"calibration-not-supported: {address!r} is {assessment.outcome}")
+            spec = analysis_spec_value(read(typed_ref("analysis-spec", assessment.spec)), profile=profile)
+            applicability = restrictions_from_interim_applicability(profile, spec.applicability)
+            if co_scope(applicability, proxy.validity, profile) not in {"equal", "broader"}:
+                raise CalibrationNotQualified(f"calibration-scope-overstated: assessment {address!r}")
+        except ScienceError as exc:
+            raise CalibrationNotQualified(str(exc)) from exc
+    # plan 2 (beliefs-f68a32): standing, v2 estimand shape and interpretation-rule qualification.
