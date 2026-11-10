@@ -1625,6 +1625,20 @@ class SessionRefused(ScienceError):
     or no well-formed chain."""
 
 
+ChainRole: TypeAlias = Literal["write root", "store root"]
+
+
+class ChainClaimed(SessionRefused):
+    """Another session on this host holds the chain: its write root or its
+    store root. One session writes a chain at a time; the holder's `close()`,
+    or its process's death, releases the claim."""
+
+    def __init__(self, root: Path, role: ChainRole) -> None:
+        super().__init__(f"{role} {root} is claimed by another session on this host")
+        self.root = root
+        self.role: ChainRole = role
+
+
 class SessionClosed(ScienceError):
     """A method was called on a session after `close()`."""
 

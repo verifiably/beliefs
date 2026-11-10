@@ -35,6 +35,7 @@ from beliefs.profile import ProfileSpec
 from beliefs.root import moment_seam, open_world
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
+from beliefs.session.claim import ChainClaim
 from beliefs.session.ledger import (
     TRANSITIONS,
     ActLine,
@@ -224,7 +225,11 @@ class WriterSession:
         coordination_resolver: CoordinationResolver | None = None,
         project: CoordinationAddress | None = None,
         world_config: WorldConfig | None = None,
+        claims: tuple[ChainClaim, ...] = (),
     ) -> None:
+        if type(claims) is not tuple or any(type(claim) is not ChainClaim for claim in claims):
+            raise TypeError("claims is a tuple of ChainClaim")
+        self._claims = claims
         self.session_id = require_hex(session_id, 32, "session id")
         self.actor = f"session:{self.session_id}"  # derived, never supplied
         self.world_id = require_hex(world_id, 32, "world id")
@@ -506,14 +511,21 @@ class WriterSession:
 
     # --- close -----------------------------------------------------------------------
     def close(self) -> None:
+        """Write `session-close`, then release the chain claims. The claims are
+        released however the close ends: a session whose ledger has failed can
+        no longer write, so holding its chains protects nothing."""
         with self._lock:
-            if self._ledger.failed:
-                raise SessionLedgerFailed("the session ledger failed; this session is terminal")
-            if self._closed:
-                return
-            self._ledger.append({"line": "session-close", "at": utc_now()})
-            self._closed = True
-            self._ledger.close()
+            try:
+                if self._ledger.failed:
+                    raise SessionLedgerFailed("the session ledger failed; this session is terminal")
+                if self._closed:
+                    return
+                self._ledger.append({"line": "session-close", "at": utc_now()})
+                self._closed = True
+                self._ledger.close()
+            finally:
+                for claim in reversed(self._claims):
+                    claim.release()
 
 
 _NO_WORLD = "this session was opened with no world configuration; the admit and publish doors have no world"

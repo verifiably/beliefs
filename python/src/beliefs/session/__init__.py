@@ -19,10 +19,11 @@ from beliefs.corpus import (
     require_pins_agree,
     require_profile_compatible,
 )
-from beliefs.errors import CorpusRootRefused, ManifestMalformed, ManifestMissing, SessionRefused
+from beliefs.errors import ChainRole, CorpusRootRefused, ManifestMalformed, ManifestMissing, SessionRefused
 from beliefs.permit import Authority
 from beliefs.profile import ProfileSpec
 from beliefs.root import durable_executor_factory, durable_operation_port, holdings_seam, log_seam, store_identity
+from beliefs.session.claim import ChainClaim, claim_chain
 from beliefs.session.ledger import (
     TRANSITIONS,
     ActLine,
@@ -162,9 +163,6 @@ def open_attended_session(
 
     session_id = secrets.token_hex(16)
     path = ledger_path(operations_root, session_id)
-    path.parent.mkdir(parents=True, exist_ok=False)
-    _fsync_directory(path.parent.parent)
-    ledger = LedgerWriter(path)
 
     def writer_factory(authority: Authority) -> CorpusWriter:
         return CorpusWriter(
@@ -178,30 +176,52 @@ def open_attended_session(
             read_mounts=read_mounts,
         )
 
-    session = WriterSession(
-        session_id=session_id,
-        world_id=world_config.world_id,
-        corpus_root=root,
-        corpus_id=corpus_id,
-        operations_root=operations_root,
-        ledger=ledger,
-        writer_factory=writer_factory,
-        profile=profile,
-        store_root=store_root,
-        store_id=store_id,
-        holdings_seam=holdings_seam() if store_root is not None else None,
-        coordination_resolver=resolver,
-        project=pinned,
-        world_config=world_config,
-    )
-    # Session-open is written (by the constructor) before reconciliation runs.
-    session.findings = reconcile_sessions(
-        world_config,
-        operations_root,
-        exclude=session_id,
-        store_roots=() if store_root is None else (store_root,),
-    )
+    # The opening path owns what it acquires until it returns: each chain
+    # claim, then the ledger. Any exception releases them all and propagates;
+    # ledger bytes already written stay (an unclosed ledger reads as an
+    # interrupted session) and the session directory is not removed. Only once
+    # reconciliation returns does ownership pass to the session.
+    with ExitStack() as owned:
+        claims = [_claim(owned, root, "write root")]
+        if store_root is not None:
+            claims.append(_claim(owned, store_root, "store root"))
+        path.parent.mkdir(parents=True, exist_ok=False)
+        _fsync_directory(path.parent.parent)
+        ledger = LedgerWriter(path)
+        owned.callback(ledger.close)
+        session = WriterSession(
+            session_id=session_id,
+            world_id=world_config.world_id,
+            corpus_root=root,
+            corpus_id=corpus_id,
+            operations_root=operations_root,
+            ledger=ledger,
+            writer_factory=writer_factory,
+            profile=profile,
+            store_root=store_root,
+            store_id=store_id,
+            holdings_seam=holdings_seam() if store_root is not None else None,
+            coordination_resolver=resolver,
+            project=pinned,
+            world_config=world_config,
+            claims=tuple(claims),
+        )
+        # Session-open is written (by the constructor) before reconciliation runs.
+        session.findings = reconcile_sessions(
+            world_config,
+            operations_root,
+            exclude=session_id,
+            store_roots=() if store_root is None else (store_root,),
+        )
+        owned.pop_all()
     return session
+
+
+def _claim(owned: ExitStack, root: Path, role: ChainRole) -> ChainClaim:
+    """Claim one chain and push its release onto the opening path's stack."""
+    claim = claim_chain(root, role)
+    owned.callback(claim.release)
+    return claim
 
 
 def _mount_resolver(mounted: Mapping[Path, ProfileSpec] | None) -> CoordinationResolver | None:

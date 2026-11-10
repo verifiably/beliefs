@@ -1222,6 +1222,7 @@ def test_reconciliation_over_the_real_root(work_directory, monkeypatch):
     assert findings == reconcile_sessions(config, ops)
     codes = {f.code for f in findings}
     assert "session-outcome-unknown" in codes and "session-unclosed" in codes
+    session.close()  # a later session on this root needs the chain claim
     later, _ops2 = attended(work_directory, root)  # a later endpoint over a *different* operations root
     assert {f.code for f in later.findings} == {"session-unknown"}  # this session's intents name a ledger it cannot see
     later.close()
@@ -1241,7 +1242,6 @@ def test_reconciliation_over_the_real_root(work_directory, monkeypatch):
     assert tree_hash(halted_root, metadata_root_for(halted_root), halted_ops) == before
     assert {"session-entry-pending", "session-unclosed"} <= {f.code for f in found}
     halted.close()
-    session.close()
 
 
 def test_reconciliation_is_lock_coherent_under_an_interleaved_write(work_directory):

@@ -79,7 +79,8 @@ The `science` layer writes through a session:
    `mounts`, when given, must name every configured root exactly once. The corpus
    must have a manifest whose pins agree with the profile, and its
    [chain](glossary.md#roots-log) must be well-formed. The session's actor is
-   `session:<32 hex>`, derived from a fresh session id. The session writes
+   `session:<32 hex>`, derived from a fresh session id. The session claims its
+   write root, then its store root when it has one (see below), writes
    `session-open` to its ledger and reconciles the other sessions' ledgers.
 2. `claim_invocation(id, command, input_digest)` writes `invocation-open` for a new
    id and returns `ClaimFresh`. For an id it has seen, it returns `ClaimDone` (with
@@ -95,7 +96,26 @@ The `science` layer writes through a session:
    `act` line for every store transaction it commits: a `write`, `delete` or `move`,
    and each object a `tree-write` creates (the tree file included).
 5. `close_invocation(id, outcome)` writes `invocation-close`, and `close()` writes
-   `session-close`.
+   `session-close` and releases the session's chain claims.
+
+**One session per written chain per host.** A session claims each chain it writes,
+its write root and its store root, with an exclusive `flock` on the root directory
+itself, taken after every validation and before the session directory is created.
+Nothing is created in or beside the root, and the engine locks only its metadata
+sibling's lock file, so the claim never contends with an operation lock. A second
+session on a claimed root, from this process or another on the same host, raises
+`ChainClaimed` (a `SessionRefused`, naming the root and whether it is the write
+root or the store root) and creates no session directory; a store root refusal
+releases the write root it had claimed. Read mounts are not claimed, so two
+sessions on different corpora with no shared store both open. The claim follows the
+directory, not its name: a root reached through a symbolic link conflicts with the
+same root claimed by its own path. If opening fails after a claim (the session
+directory, `session-open` or reconciliation raises), every claim is released and
+the exception propagates; ledger bytes already written stay, and read as an
+interrupted session. `close()` releases the claims after its `session-close`
+attempt, including when the ledger has failed and `close()` raises
+`SessionLedgerFailed`. Process death releases them too. The claim is host-local: it
+does not exclude a session on another host.
 
 The ledger is the append-only file `<operations_root>/sessions/<id>/ledger.v1`.
 Every line is written, flushed and fsynced before the call that wrote it returns.
@@ -271,7 +291,8 @@ main ones are:
   [records.md](records.md#write-rules)): the record fails a
   check;
 - `SignatureRefused`: a relation breaks an enforced signature;
-- `SessionRefused`: a session cannot open;
+- `SessionRefused`: a session cannot open; its subclass `ChainClaimed` names a
+  write root or store root another session on this host holds;
 - `PublicationRefused`: a publish is refused before its intent, and the exception
   names the reason.
 
