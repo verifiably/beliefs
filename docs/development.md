@@ -40,6 +40,7 @@ The kernel's main areas, under `python/src/beliefs/`:
 |---|---|---|
 | Contracts and profiles | `contract/`, `contracts/`, `domains/`, `profile.py`, `mount.py`, `facets.py` | [contracts.md](contracts.md) |
 | Typed claims, identity and the shared encoding | `claim.py`, `estimand.py`, `resolution.py`, `decode.py`, `identity/`, `projection.py` | [records.md](records.md#identity) |
+| Measurement values, records and read-side checks | `measurement.py`, `restriction.py`, `procedure.py`, `referent_mapping.py`, `proxy_model.py`, `classification_rule.py`, `aptness.py`, `dependencies.py`, `eligibility.py`, `comparability.py` | [records.md](records.md#measurement-records), [contracts.md](contracts.md#typed-restrictions) |
 | The corpus and its writes | `root.py`, `corpus.py`, `stored.py`, `permit.py`, `session/` | [writes.md](writes.md) |
 | Operations, acquisition and holdings | `intents/`, `report.py`, `acquisition.py`, `audit_operation.py`, `holdings/` | [writes.md](writes.md#operations) |
 | Runs, datasets and replay | `spec.py`, `recipe.py`, `adapter.py`, `boundary.py`, `confinement.py`, `replay.py`, `verify.py`, `dataset.py` | [records.md](records.md#specs-runs-and-assessments) |
@@ -261,6 +262,10 @@ change), and add the kind to `KIND_ACTS` as above.
    role, any bridges, and dimensions with their placement and `applies_to`; add
    `estimands` keyed `instantiation:<name>` or `bridge:<name>` where specs need
    them ([contracts.md](contracts.md#domain-contracts)).
+   Measurement packs also declare quantity kinds, units, conversions,
+   transformations, procedure and assumption kinds, measurement admissions and
+   aspect sorts as needed. Declare applicability restriction forms explicitly;
+   calendar intervals require a named duration convention for decidable comparison.
    `fixtures/contracts/testing.yaml` uses every part of the grammar.
 2. Load it with `load_domain_contract(path, base=shipped_base_contract(),
    predecessor=None)` and compile it with the base into a profile:

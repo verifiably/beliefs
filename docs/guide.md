@@ -78,6 +78,16 @@ answer (`NoBelief`), never a zero. See [records.md](records.md#beliefs).
 
 ## Runs and reproducibility
 
+Measurement records describe what was measured and how: a procedure's complete
+observables, a mapping between bearer sorts, a proxy model with its validity and
+basis, or a classification rule. Domain contracts supply their measurement
+vocabulary. Read-side helpers check binding aptness, dependency eligibility and
+coordinate conversion, with separate exact comparison and rendered estimate
+paths. They coexist with the interim estimand used by specs, assessments and
+belief; that path does not call the new helpers. See
+[measurement records](records.md#measurement-records) and
+[coordinate convertibility](records.md#coordinate-convertibility).
+
 An **analysis spec** freezes the plan before anything runs: the target proposition,
 the estimand, the method, the input roles, the interpretation rule that turns
 outputs into an outcome, and the equivalence rule that says what "the same result"
@@ -209,6 +219,7 @@ way would move the answer.
 | Identity encoding and content addresses | [records.md](records.md#identity) |
 | Claim typing | [records.md](records.md#propositions-and-claims) |
 | Specs, runs, assessments, verifications | [records.md](records.md#specs-runs-and-assessments), [records.md](records.md#verifications) |
+| Measurement records, aptness and coordinate conversion | [records.md](records.md#measurement-records), [records.md](records.md#coordinate-convertibility) |
 | Datasets, holdings and sources | [records.md](records.md#datasets-sources-and-holdings) |
 | Belief answers | [records.md](records.md#beliefs) |
 | The TypeScript mirror and parity fixtures | [records.md](records.md#encoding-and-parity) |

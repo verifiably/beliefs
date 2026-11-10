@@ -66,8 +66,9 @@ ordinary writes. Each runs these steps in order, except `delete` (below):
 An `analysis-spec` is also refused unless every register it cites is a held
 `assumptions-register` describing an activated domain contract at its pinned
 identity (`RegisterNotCurrent`, [records.md](records.md#specs-runs-and-assessments)).
-`add` decodes each measurement record's canonical facet before applying its
-kind-specific checks. Procedures require a declared procedure kind, admitted
+The four measurement kinds use the existing `add` door, with no separate minting
+operation. `add` decodes each canonical facet before applying its kind-specific
+checks. Procedures require a declared procedure kind, admitted
 `yields`, typed `validated_in`, an authoritative held `same_as` procedure when
 present, and `inputs` exactly for `fills_within_model` kinds. Referent mappings
 require declared source and target sorts and any aggregation rule. Classification

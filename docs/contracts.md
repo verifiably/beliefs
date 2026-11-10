@@ -4,11 +4,11 @@ Type: standard, data model; document types 1. This is version 1 of the rules tha
 contract documents must satisfy. A contract is a YAML document that declares the
 vocabulary records may use. The Science base contract declares kinds, relations,
 facets and the closed grammars. A domain contract declares sorts, dimensions,
-relation templates, instantiations, bridges, estimand declarations, duration
-conventions and namespaced facets. The coordination contract
+relation templates, instantiations, bridges, estimand declarations, measurement
+vocabulary and admissions, duration conventions and namespaced facets. The coordination contract
 declares view and coordination kinds. A compiled profile combines a base contract,
 a set of domain contracts and optionally a coordination contract. The code accepts
-base contract version 1 (claim, estimand and composite grammar version 1), any
+base contract version 2 (claim grammar 2; estimand, measurement and composite grammar 1), any
 positive domain contract version in a genesis or successor lineage, coordination
 contract versions 1 to 3, and corpus manifest version 2. The records these
 contracts govern are described in [records.md](records.md), and the writes that

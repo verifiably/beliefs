@@ -110,7 +110,7 @@ the beliefs documents use, each linking the document that specifies or explains 
   evidence. ([records](records.md#datasets-sources-and-holdings))
 - <a id="domain-contract"></a>**Domain contract** — A namespaced contract that adds
   sorts, dimensions, templates, instantiations, bridges, estimand declarations,
-  duration conventions and facets.
+  measurement vocabulary and admissions, duration conventions and facets.
   ([contracts](contracts.md#domain-contracts))
 - <a id="duration-convention"></a>**Duration convention** — A named exact
   conversion from a calendar unit to a noncalendar unit of the same duration
@@ -167,12 +167,12 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="measure"></a>**Measure** — An observable with a unit or procedure-defined
   scale, resulting level of measurement, value type, transformation and producing
   procedure; represented by `measurement.Measure` alongside the interim estimand value.
-  ([contracts](contracts.md#domain-contracts))
+  ([records](records.md#measurement-records))
 - <a id="nobelief"></a>**NoBelief** — The answer that no belief can be given, with its
   reason, such as `no-eligible-assessment`. ([records](records.md#beliefs))
 - <a id="observable"></a>**Observable** — A quantity kind, bearer sort and optional
   aspect; two observables are equal only when all three parts match.
-  ([contracts](contracts.md#domain-contracts))
+  ([records](records.md#measurement-records))
 - <a id="observes"></a>**Observes** — The run-input role for held data, the only role
   that can make an assessment count; `reads` never can.
   ([records](records.md#specs-runs-and-assessments))

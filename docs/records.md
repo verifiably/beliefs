@@ -4,7 +4,7 @@ Type: data model; document types 1. This document describes the records a belief
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
 encoding, `science.identity.v1`, and one version of each grammar the base contract
-declares (claim grammar 1, estimand grammar 1, composite grammar 1). The other
+declares (claim grammar 2; estimand, measurement and composite grammar 1). The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
@@ -610,6 +610,19 @@ act's subject and outcome; the `acquisition-set` entry's outcome is described un
 
 ### Measurement records
 
+`measurement.Observable` holds a quantity kind, bearer sort and optional aspect
+(`{sort, term}`); equality includes all three. `measurement.Measure` adds exactly
+one unit or procedure-defined scale, a level of measurement, value type,
+transformation and producing procedure. A ratio value requires ratio-level values;
+a difference refuses nominal-level values. `check_measure` checks declared
+observable terms, aspect-sort admission, the unit's quantity kind and the
+transformation; a logarithm refuses ratio-level values. It does not validate an
+aspect term against its sort's identifier class or establish the procedure's yield.
+The latter is checked separately by `check_measure_procedure` and aptness.
+`Measure.coordinates` exposes only quantity kind, unit or scale, value type and
+transformation for conversion. These values coexist with `estimand.Measure`;
+the current estimand, assessment and belief path still uses that interim value.
+
 The `procedure`, `referent_mapping`, `proxy_model` and `classification_rule`
 modules provide frozen record values, canonical facet projections and stored-node
 readers. Their addresses are `<kind>:<64 lowercase hex>`, derived from the complete
@@ -618,7 +631,8 @@ facet under `science.procedure.v1`, `science.referent-mapping.v1`,
 check the exact field set, recompute the canonical facet and verify its address.
 Optional fields are absent when unset. The four `stored` builders
 (`procedure_node`, `referent_mapping_node`, `proxy_model_node`,
-`classification_rule_node`) stamp the semantic identity and mint through `add`.
+`classification_rule_node`) stamp the semantic identity; callers mint their nodes
+through `add`.
 Their readers are profile-free: they validate the canonical payload and id, while
 the write door checks declarations and held dependencies. A malformed payload
 raises `MalformedRecord` at the door and is reported by `corpus_check` as
