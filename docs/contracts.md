@@ -293,6 +293,34 @@ declarations for succession. Absent optional fields are omitted from projections
 How to write, load and ship a domain contract is in
 [development.md](development.md#adding-a-domain-contract).
 
+## Typed restrictions
+
+`beliefs.restriction` types a map of applicability-side dimension terms to restriction
+values, without an operator or quantifiers. It checks each dimension's declared
+form, a term's sort and identifier class, an interval unit's quantity kind, and a
+rule's class identifiers against the declared classes sort. Malformed shapes or
+typings raise `MalformedRestriction`, a `MeasurementError`.
+
+The value forms are `{sort, term}`, `{unit, low?, high?, low_closed, high_closed}`,
+`{start, end}`, `{rule, classes}`, and a list of two or more values of one non-union
+form. Numeric bounds are exact decimal strings on projection and `Fraction`s in
+memory. At least one bound is required; equal bounds require both ends closed.
+Authored bounds must have a finite decimal representation, and parsed mantissas
+and exponent magnitudes are limited to 4096. Time intervals use the reservation
+assignment's whole-second UTC timestamps or `open` at one end and are half-open.
+Rule classes are non-empty, sorted and distinct.
+
+`co_scope` compares two restriction maps dimension by dimension: `equal`,
+`narrower`, `broader`, `overlapping`, `disjoint` or `unknown`. A one-sided restriction
+is narrower than an unrestricted dimension. Numeric intervals normalize through
+an explicitly declared conversion using exact rational arithmetic; time intervals
+and unions use endpoint-sensitive interval arithmetic. Matching terms and class
+sets establish equality or containment; distinct terms and distinct rules stay
+unknown. Per-dimension results fold with disjoint first, then unknown, then mixed
+narrower/broader or overlapping, then a single containment direction or equality.
+`co_scope_by_dimension` exposes those particulars. Calendar convention semantics
+are not yet represented by this API.
+
 ## Facet fields
 
 A field name matches `[a-z][a-z0-9_]*`. Its `type` is one of `string`, `integer`,

@@ -24,6 +24,14 @@ class ScienceError(Exception):
     """Base for every error this package raises."""
 
 
+class MeasurementError(ScienceError):
+    """Base for measurement and restriction refusals."""
+
+
+class MalformedRestriction(MeasurementError):
+    """A restriction has an invalid shape or dimension typing."""
+
+
 class ManifestMalformed(ScienceError):
     """A corpus manifest is not its exact closed shape."""
 

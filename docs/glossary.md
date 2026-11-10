@@ -62,6 +62,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="clean-environment"></a>**Clean environment** — The verification scope at which
   a passed verification admits an assessment. It is derived from the runs'
   receipts, never chosen. ([records](records.md#verifications))
+- <a id="co-scope"></a>**Co-scope** — How one typed restriction map relates to
+  another: equal, narrower, broader, overlapping, disjoint or unknown, computed per
+  dimension and folded conservatively. ([contracts](contracts.md#typed-restrictions))
 - <a id="composite"></a>**Composite** — A record of a structure over claims: a node set
   and member propositions read as directed edges, with no cycle. It never enters a
   belief. ([records](records.md#other-world-records))
@@ -173,6 +176,9 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="reservation-chain"></a>**Reservation chain** — The linear sequence of
   reservation assignments sharing a `chain` name and a `scope`, from one root to one
   head. ([records](records.md#chains-and-derived-changes))
+- <a id="restriction"></a>**Restriction** — A typed term, numeric interval, time
+  interval, rule class set or union limiting an applicability-side dimension.
+  ([contracts](contracts.md#typed-restrictions))
 - <a id="retraction"></a>**Retraction** — A record that withdraws the standing of a
   record, a dataset route or a producer snapshot without changing it.
   ([records](records.md#other-world-records))
