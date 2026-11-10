@@ -305,8 +305,12 @@ store transaction before it applies its effects, and an effect that meets drift
 rolls back, settles the registration as not committed and raises a routine refusal.
 A refusal therefore does not prove that nothing registered, and no `act` line can
 describe a rolled-back registration, so the ledger is marked failed before the
-exception propagates; the holdings boundary still reports a routine refusal as
-`StoreWriteRefused`. The failed ledger cannot close its invocation or the session.
+exception propagates. What the act then raises depends on the act: `write` still
+reports a routine engine refusal as `StoreWriteRefused`, after the ledger has
+failed; `delete` and `move` raise the engine's error itself; a `tree-write` raises
+`SessionLedgerFailed`, because the failed session refuses the read of the object
+that follows a refused create, so its read-again tolerance applies only outside a
+session. The failed ledger cannot close its invocation or the session.
 This ends attended sessions too, on any such failure: an engine refusal caused by a
 write outside the session, and also a missing source for a `delete` or `move`,
 which fails before anything is submitted. A write from an invocation that is not

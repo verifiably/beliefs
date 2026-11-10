@@ -613,7 +613,8 @@ def test_each_store_call_ledgers_one_act_on_the_store_chain(tmp_path):
     ]
 
 
-def test_a_tree_write_ledgers_every_create_under_its_one_intent(tmp_path):
+def _two_member_tree(tmp_path: Path):
+    """A two-member tree, its member sources laid under `tmp_path`, and its locator."""
     from beliefs.tree import TreeMember, make_tree, tree_digest
 
     contents = {"a.txt": b"alpha", "d/b.txt": b"beta"}
@@ -626,9 +627,14 @@ def test_a_tree_write_ledgers_every_create_under_its_one_intent(tmp_path):
     tree = make_tree(
         tuple(TreeMember(name, _state_of(data).content_hash, len(data)) for name, data in contents.items())
     )
+    return tree, sources, StoreTreeLocator(STORE_ID, tree_digest(tree).split(":", 1)[1])
+
+
+def test_a_tree_write_ledgers_every_create_under_its_one_intent(tmp_path):
+    tree, sources, location = _two_member_tree(tmp_path)
     seam = FakeSeam(tmp_path / "corpus")
     session, _writer, ctx, _ = _holdings(tmp_path, seam)
-    tree_write(ctx, StoreTreeLocator(STORE_ID, tree_digest(tree).split(":", 1)[1]), tree, sources)
+    tree_write(ctx, location, tree, sources)
     ((intent,),) = (seam.intents,)
     assert seam.reached.count("store_create") == 3  # two members, then the tree file
     acts = session.invocation_acts("A")
@@ -636,6 +642,21 @@ def test_a_tree_write_ledgers_every_create_under_its_one_intent(tmp_path):
         *((STORE_ID, entry, intent, ()) for entry in seam.entries),
         (CORPUS, "2" * 64, intent, (_published_pair(seam),)),
     ]
+
+
+def test_a_tree_write_create_refusal_fails_the_session_with_ledger_failed(tmp_path):
+    """Under a session the create's routine refusal fails the ledger inside the
+    wrapper, so the boundary's read-again of the object is refused by the failed
+    session: the act raises `SessionLedgerFailed`, never `StoreWriteRefused`."""
+    tree, sources, location = _two_member_tree(tmp_path)
+    seam = FakeSeam(tmp_path / "corpus", raises=ExecutionError("refused", index=None, applied=0))
+    session, _writer, ctx, _ = _holdings(tmp_path, seam)
+    with pytest.raises(SessionLedgerFailed):
+        tree_write(ctx, location, tree, sources)
+    assert seam.reached.count("store_create") == 1  # the first create; nothing after it
+    assert seam.reached[-1] == "store_create"  # the object is never read again
+    assert _ledger_acts(session) == ()
+    assert session._ledger.failed is True
 
 
 def test_an_engine_refusal_fails_the_ledger(tmp_path):
