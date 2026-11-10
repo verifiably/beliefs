@@ -20,9 +20,11 @@ from nodes.core.errors import RefError
 from nodes.core.write_plan import DefaultExecutor
 from profiles import pins_for
 from test_corpus_write import OperationRecorder
+from test_procedure import OBS, procedure
 from verification_fixtures import publish_corpus
 
 from beliefs import stored
+from beliefs.classification_rule import ClassificationRule
 from beliefs.corpus import CorpusWriter, MountCitations, ReadView, _operation_lock_for, _root_state_for
 from beliefs.errors import (
     AcquisitionBoundaryRefused,
@@ -33,8 +35,11 @@ from beliefs.errors import (
     EligibilityUnmet,
     FacetPayloadRefused,
     ImportRefused,
+    MeasurementRecordRefused,
+    SemanticHashStale,
 )
 from beliefs.profile import compile_profile, shipped_base_contract
+from beliefs.restriction import RuleRestriction
 from beliefs.verify import decode_verification, publication_node
 
 TYPED = profile_with()
@@ -497,6 +502,70 @@ def test_a_citing_write_while_a_mount_is_held_refuses_build_contended(roots):
     with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended, match="citing session write"):
         w.add(assessment("a", run, p))
     assert not ReadView.opened_at(roots["w"]).holds("assessment:a")
+
+
+@pytest.fixture()
+def rule_citation():
+    rule = stored.classification_rule_node(ClassificationRule("testing/level", (OBS,), "Classify.", None, None, None))
+    scope = {"testing/case-status": RuleRestriction(rule.id, ("EX:a",))}
+    return rule, stored.procedure_node(procedure(validated_in=scope))
+
+
+def test_a_mounted_rule_citation_preserves_the_contention_retry(roots, rule_citation):
+    rule, node = rule_citation
+    adopted(roots["m"]).add(rule)
+    w = mounted_writer(roots, "m")
+    with _root_state_for(roots["m"], DefaultExecutor).lock, pytest.raises(BuildContended, match="citing session write"):
+        w.add(node)
+    assert not w.read_view.holds(node.id)
+    assert w.add(node).id == node.id
+
+
+def test_a_mounted_rule_citation_preserves_the_conflicting_holders(roots, rule_citation):
+    from fixtures_cut4 import raw_write
+
+    rule, node = rule_citation
+    adopted(roots["m"]).add(rule)
+    raw_write(roots["m3"], rule.model_copy(update={"title": "Another title for this rule"}))
+    w = mounted_writer(roots, "m", "m3")
+    with pytest.raises(AddressMapConflict) as refused:
+        w.add(node)
+    finding = refused.value.finding
+    ids = sorted(ReadView.opened_at(roots[name]).corpus_id for name in ("m", "m3"))
+    assert (finding.code, finding.ref, finding.detail) == ("duplicate-location", rule.id, ", ".join(ids))
+    assert not w.read_view.holds(node.id)
+
+
+def test_a_mounted_rule_citation_preserves_the_contract_mismatch(roots, rule_citation):
+    rule, node = rule_citation
+    adopted(roots["m2"], TYPED_OTHER).add(rule)
+    w = mounted_writer(roots, "m2")
+    with pytest.raises(CitationContractMismatch) as refused:
+        w.add(node)
+    mismatch = refused.value
+    assert (mismatch.root, mismatch.namespace) == (roots["m2"], "biology")
+    assert mismatch.held == f"biology:{TYPED_OTHER.activated_contracts['biology']}"
+    assert mismatch.writer == f"biology:{TYPED.activated_contracts['biology']}"
+    assert not w.read_view.holds(node.id)
+
+
+@pytest.mark.parametrize("restamp", [False, True])
+def test_a_mounted_rule_citation_distinguishes_read_errors_from_decode_errors(roots, rule_citation, restamp):
+    from fixtures_cut4 import raw_write
+
+    rule, node = rule_citation
+    rule.facets["classification-rule"]["extra"] = "Malformed rule field"
+    if restamp:
+        stored.stamp_semantic_identity(rule)
+    raw_write(roots["m"], rule)
+    w = mounted_writer(roots, "m")
+    if restamp:
+        with pytest.raises(MeasurementRecordRefused, match=f"{node.id}: validated_in: .*unexpected fields"):
+            w.add(node)
+    else:
+        with pytest.raises(SemanticHashStale, match=rule.id):
+            w.add(node)
+    assert not w.read_view.holds(node.id)
 
 
 def test_a_writer_on_a_mount_a_citing_write_holds_refuses_build_hold(roots):

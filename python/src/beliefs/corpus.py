@@ -74,6 +74,7 @@ from beliefs.coordination import (
     standing_tips,
 )
 from beliefs.dataset import dataset_address
+from beliefs.dependencies import walk as walk_measurement_dependencies
 from beliefs.errors import (
     AcquisitionBoundaryRefused,
     ActorMismatch,
@@ -94,7 +95,6 @@ from beliefs.errors import (
     DatasetAddressDisagreement,
     DeletionKindExcluded,
     DeletionTargetMissing,
-    DependencyNotHeld,
     DeprecatedKeyCollision,
     EligibilityUnmet,
     FacetPayloadRefused,
@@ -105,6 +105,7 @@ from beliefs.errors import (
     KindNotMintedHere,
     LoneSurrogate,
     MalformedRecord,
+    MalformedRestriction,
     MalformedSnapshot,
     ManifestAlreadyPresent,
     ManifestMalformed,
@@ -4396,22 +4397,29 @@ class CorpusWriter:
                 refuse(clause, f"procedure {address!r} is not a scale authority")
             return value
 
-        def held_rule_classes(address: str) -> str:
-            if view.resolve(address) != address:
-                raise DependencyNotHeld(f"classification rule {address!r} is not held")
-            held = view.get(address)
-            if held.id != address:
-                raise MalformedRecord(f"held view returned {held.id!r} for {address!r}")
-            return rule_from_stored(held).classes
-
         def scope(clause: str, raw: Mapping[str, object]) -> None:
             try:
                 typed = type_restriction_map(self._profile, raw)
-            except ScienceError as exc:
+            except MalformedRestriction as exc:
                 raise MeasurementRecordRefused(f"{node.id}: {clause}: {exc}") from exc
             if scope_projection(typed) != raw:
                 refuse(clause, "resolve authoring references with type_restriction_map before building the record")
-            checked(clause, lambda: check_held_rule_scope(self._profile, typed, classes_of=held_rule_classes))
+            classes: dict[str, str] = {}
+            for address in sorted(walk_measurement_dependencies(typed, self._profile).references):
+                # Citation view failures keep their own types and payloads.
+                if view.resolve(address) != address:
+                    refuse(clause, f"classification rule {address!r} is not held")
+                held = view.get(address)
+                if held.id != address:
+                    refuse(clause, f"held view returned {held.id!r} for {address!r}")
+                try:
+                    classes[address] = rule_from_stored(held).classes
+                except MalformedRecord as exc:
+                    raise MeasurementRecordRefused(f"{node.id}: {clause}: {exc}") from exc
+            try:
+                check_held_rule_scope(self._profile, typed, classes_of=classes.__getitem__)
+            except MalformedRestriction as exc:
+                raise MeasurementRecordRefused(f"{node.id}: {clause}: {exc}") from exc
 
         if node.kind == PROCEDURE_KIND:
             procedure = procedure_from_stored(node)
