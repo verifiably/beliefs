@@ -64,9 +64,9 @@ def reduce(context, corpus_id, world, binding):
 def test_the_kill_window_reads_unsettled_until_a_fulfilled_recheck_lifts_it(certified_work):
     context, store_id, corpus_id, world, binding = setup(certified_work)
     location = StoreLocator(store_id, "held.bin")
-    context.seam.store_write(context.store_root, location.relative_path, b"original")
+    context.seam.store_write(context.store_root, location.relative_path, b"original", "f" * 64)
 
-    def kill_before_write(_root, _path, _content):
+    def kill_before_write(_root, _path, _content, _intent):
         raise RuntimeError("kill")
 
     killed = replace(context, seam=replace(context.seam, store_write=kill_before_write))
@@ -137,7 +137,7 @@ def test_the_three_move_windows_read_exactly(certified_work):
         context, store_id, corpus_id, world, binding = setup(certified_work / name)
         source = StoreLocator(store_id, "source.bin")
         destination = StoreLocator(store_id, "destination.bin")
-        context.seam.store_write(context.store_root, source.relative_path, b"payload")
+        context.seam.store_write(context.store_root, source.relative_path, b"payload", "f" * 64)
 
         if name == "between-appends":
             original_append = context.seam.append_intent
@@ -153,7 +153,7 @@ def test_the_three_move_windows_read_exactly(certified_work):
             killed = replace(context, seam=replace(context.seam, append_intent=append))
         elif name == "before-mutation":
 
-            def store_move(_root, _source, _destination):
+            def store_move(_root, _source, _destination, _intent):
                 raise RuntimeError("kill")
 
             killed = replace(context, seam=replace(context.seam, store_move=store_move))

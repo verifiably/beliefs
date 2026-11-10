@@ -121,7 +121,7 @@ def test_act_context_takes_no_actor_field():
 
 def test_recheck_publishes_found_with_the_hash_the_engine_observed(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "held.bin", b"held bytes")
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"held bytes", "f" * 64)
 
     result = recheck(ctx, StoreLocator(store_id, "held.bin"))
 
@@ -161,7 +161,7 @@ def test_recheck_appends_its_intent_before_reading(certified_work):
 def test_recheck_refuses_to_mint_from_a_detached_capture(certified_work):
     ctx, store_id = context(certified_work)
     location = StoreLocator(store_id, "held.bin")
-    ctx.seam.store_write(ctx.store_root, location.relative_path, b"undamaged")
+    ctx.seam.store_write(ctx.store_root, location.relative_path, b"undamaged", "f" * 64)
 
     def detached(root, path):
         captured = science_root._log_seam().capture(root, (path,))
@@ -264,7 +264,7 @@ def test_recheck_on_a_metadata_less_store_reports_byte_locator_untested_and_mint
 
 def test_recheck_of_an_unserviceable_restored_root_mints_nothing_never_absent(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload", "f" * 64)
     replica = certified_work / "replica"
     replicate_root(ctx.store_root, replica, authority=FULL)
     (replica / "held.bin").unlink()
@@ -319,7 +319,7 @@ def test_read_unestablished_reports_retrieval_failed_verbatim_and_mints_nothing(
 
 def test_a_final_directory_is_established_neither(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "directory/payload.bin", b"held bytes")
+    ctx.seam.store_write(ctx.store_root, "directory/payload.bin", b"held bytes", "f" * 64)
 
     result = recheck(ctx, StoreLocator(store_id, "directory"))
 
@@ -410,9 +410,9 @@ def test_write_records_the_engine_final_row_not_the_payload_digest(certified_wor
     doctored = "sha256:" + "d" * 64
     original_write = ctx.seam.store_write
 
-    def write_with_doctored_evidence(root, path, content):
-        outcome = original_write(root, path, content)
-        return StoreOutcomeView(outcome.txid, ((path, FileStateView(doctored, 7)),))
+    def write_with_doctored_evidence(root, path, content, intent):
+        outcome = original_write(root, path, content, intent)
+        return StoreOutcomeView(outcome.txid, ((path, FileStateView(doctored, 7)),), outcome.entry)
 
     ctx = replace(ctx, seam=replace(ctx.seam, store_write=write_with_doctored_evidence))
     result = write(ctx, StoreLocator(store_id, "held.bin"), b"payload")
@@ -429,12 +429,12 @@ def test_write_records_the_engine_final_row_not_the_payload_digest(certified_wor
 )
 def test_delete_refuses_a_wrong_or_missing_final_row(certified_work, final_states, error):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload", "f" * 64)
     original_delete = ctx.seam.store_delete
 
-    def delete_with_adversarial_evidence(root, path):
-        outcome = original_delete(root, path)
-        return StoreOutcomeView(outcome.txid, final_states)
+    def delete_with_adversarial_evidence(root, path, intent):
+        outcome = original_delete(root, path, intent)
+        return StoreOutcomeView(outcome.txid, final_states, outcome.entry)
 
     ctx = replace(ctx, seam=replace(ctx.seam, store_delete=delete_with_adversarial_evidence))
 
@@ -452,7 +452,7 @@ def test_delete_refuses_a_wrong_or_missing_final_row(certified_work, final_state
 
 def test_delete_records_absent_from_the_final_row_never_the_return(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload", "f" * 64)
 
     result = delete(ctx, StoreLocator(store_id, "held.bin"))
 
@@ -474,7 +474,7 @@ def test_write_validates_expected_before_its_intent_or_mutation(certified_work):
 
 def test_move_publishes_two_observations_fulfilling_two_intents(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload", "f" * 64)
     source_location = StoreLocator(store_id, "source.bin")
     destination_location = StoreLocator(store_id, "destination.bin")
 
@@ -517,9 +517,9 @@ def test_move_publishes_two_observations_fulfilling_two_intents(certified_work):
 
 def test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "held.bin", b"original")
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"original", "f" * 64)
 
-    def kill_before_write(_root, _path, _content):
+    def kill_before_write(_root, _path, _content, _intent):
         raise RuntimeError("kill")
 
     ctx = replace(ctx, seam=replace(ctx.seam, store_write=kill_before_write))
@@ -535,7 +535,7 @@ def test_a_kill_between_intent_and_mutation_leaves_the_intent_unmatched(certifie
 
 def test_a_move_killed_between_the_two_appends(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload", "f" * 64)
     original_append = ctx.seam.append_intent
     calls = 0
 
@@ -559,9 +559,9 @@ def test_a_move_killed_between_the_two_appends(certified_work):
 
 def test_a_move_killed_after_both_appends_before_the_mutation(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload", "f" * 64)
 
-    def kill_before_move(_root, _source, _destination):
+    def kill_before_move(_root, _source, _destination, _intent):
         raise RuntimeError("kill")
 
     ctx = replace(ctx, seam=replace(ctx.seam, store_move=kill_before_move))
@@ -577,7 +577,7 @@ def test_a_move_killed_after_both_appends_before_the_mutation(certified_work):
 
 def test_a_move_never_mutates_when_its_intent_append_fails(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload", "f" * 64)
 
     def append_fails(_root, _payload):
         raise RuntimeError("append failed")
@@ -606,7 +606,7 @@ def test_a_move_never_mutates_when_its_intent_append_fails(certified_work):
 
 def test_a_move_killed_between_the_publications(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload", "f" * 64)
     original_publish = ctx.seam.publish_fulfilling
     calls = 0
 
@@ -633,7 +633,7 @@ def test_a_move_killed_between_the_publications(certified_work):
 
 def test_a_mixed_store_move_refuses_before_mutating(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "source.bin", b"payload", "f" * 64)
 
     with pytest.raises(StoreIdMismatch):
         move(ctx, StoreLocator(store_id, "source.bin"), StoreLocator("b" * 32, "destination.bin"))
@@ -783,7 +783,7 @@ def test_store_refusal_is_true_for_exactly_the_routine_causes(cause, applied, ro
 def test_write_wraps_a_routine_store_refusal_and_nothing_else(certified_work):
     ctx, store_id = context(certified_work)
 
-    def refusing(_root, _path, _content):
+    def refusing(_root, _path, _content, _intent):
         raise ExecutionError("refused", index=None, applied=0) from ProjectApprovalRefused("read-only")
 
     with pytest.raises(StoreWriteRefused) as caught:
@@ -791,7 +791,7 @@ def test_write_wraps_a_routine_store_refusal_and_nothing_else(certified_work):
     assert caught.value.location == f"store:{store_id}:held.bin"
     assert isinstance(caught.value.__cause__, ExecutionError)
 
-    def internal(_root, _path, _content):
+    def internal(_root, _path, _content, _intent):
         raise ExecutionError("internal", index=None, applied=None) from RuntimeError("boom")
 
     with pytest.raises(ExecutionError, match="internal"):
@@ -810,7 +810,7 @@ def test_write_wraps_a_routine_store_refusal_and_nothing_else(certified_work):
 
 def test_write_against_a_read_only_replica_raises_store_write_refused_from_the_production_seam(certified_work):
     ctx, store_id = context(certified_work)
-    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload")
+    ctx.seam.store_write(ctx.store_root, "held.bin", b"payload", "f" * 64)
     replica = certified_work / "replica"
     replicate_root(ctx.store_root, replica, authority=FULL)
     assert read_lifecycle_state(replica) in (
@@ -870,9 +870,9 @@ def _counting(ctx):
     created = []
     original = ctx.seam.store_create
 
-    def counting(root, path, content):
+    def counting(root, path, content, intent):
         created.append(path)
-        return original(root, path, content)
+        return original(root, path, content, intent)
 
     return replace(ctx, seam=replace(ctx.seam, store_create=counting)), created
 
@@ -936,7 +936,7 @@ def test_a_routine_create_refusal_counts_only_when_the_object_matches(certified_
     tree, sources = _tree_of(tmp_path, {"a.txt": b"alpha"})
     path = object_path(_digest(b"alpha"))
 
-    def refusing(root, rel, content):
+    def refusing(root, rel, content, intent):
         if rel == path:
             (ctx.store_root / rel).parent.mkdir(parents=True, exist_ok=True)
             (ctx.store_root / rel).write_bytes(b"damaged")  # another writer's bytes arrive first
@@ -1054,11 +1054,11 @@ def test_an_interrupted_tree_write_leaves_whole_objects_and_an_unmatched_intent(
     calls = []
     original = ctx.seam.store_create
 
-    def interrupted(root, path, content):
+    def interrupted(root, path, content, intent):
         if len(calls) == 2:
             raise RuntimeError("kill")
         calls.append(path)
-        return original(root, path, content)
+        return original(root, path, content, intent)
 
     with pytest.raises(RuntimeError, match="kill"):
         tree_write(
@@ -1071,3 +1071,19 @@ def test_an_interrupted_tree_write_leaves_whole_objects_and_an_unmatched_intent(
         assert _digest((ctx.store_root / path).read_bytes()) == digest
     assert not _observation_files(ctx)
     assert _unmatched_intents(ctx) == 1
+
+
+def test_write_delete_and_move_refuse_a_non_store_locator_before_any_intent(certified_work):
+    ctx, store_id = context(certified_work)
+    valid = StoreLocator(store_id, "held.bin")
+    for non_store in (url_locator("https://example.org/data"), StoreTreeLocator(store_id, "b" * 64)):
+        for call in (
+            lambda loc=non_store: write(ctx, loc, b"x"),  # type: ignore[arg-type]
+            lambda loc=non_store: delete(ctx, loc),  # type: ignore[arg-type]
+            lambda loc=non_store: move(ctx, loc, valid),  # type: ignore[arg-type]
+            lambda loc=non_store: move(ctx, valid, loc),  # type: ignore[arg-type]
+        ):
+            with pytest.raises(MalformedRecord):
+                call()
+    assert _unmatched_intents(ctx) == 0
+    assert not _observation_files(ctx)

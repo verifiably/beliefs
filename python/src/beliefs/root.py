@@ -418,7 +418,7 @@ def store_identity(store_root: Path) -> str | None:
     genesis — a corpus root's, or a malformed payload — raises
     ``CorpusRootRefused``: that root is misnamed, not merely empty.
     """
-    if not store_root.exists():
+    if not store_root.is_dir():
         return None
     inspected = inspect_chain_detached(_PRODUCTION_BACKEND, str(store_root))
     if type(inspected) is not WellFormedChain or not inspected.entries:
@@ -1211,7 +1211,16 @@ def _store_outcome_view(outcome: TransactionOutcome) -> StoreOutcomeView:
     return StoreOutcomeView(
         outcome.txid,
         tuple((path, _path_state_view(state)) for path, state in outcome.final_states),
+        outcome.registration,
     )
+
+
+def _require_store_path(name: str, path: str) -> None:
+    """Refuse a malformed store path as a beliefs refusal, before anything is submitted."""
+    try:
+        require_rel_path(name, path)
+    except SpecValidationError as error:
+        raise StoreWriteRefused(path, str(error)) from error
 
 
 OBJECTS_REFUSAL = "objects/ is written only by tree-write"
@@ -1223,9 +1232,9 @@ def _refuse_object_path(path: str) -> None:
         raise StoreWriteRefused(path, OBJECTS_REFUSAL)
 
 
-def _store_write(root: Path, path: str, content: bytes) -> StoreOutcomeView:
+def _store_write(root: Path, path: str, content: bytes, intent: str) -> StoreOutcomeView:
     root = Path(root)
-    require_rel_path("path", path)
+    _require_store_path("path", path)
     _refuse_object_path(path)
     initial: dict[str, PathState] = {}
     final: dict[str, PathState] = {}
@@ -1269,10 +1278,10 @@ def _store_write(root: Path, path: str, content: bytes) -> StoreOutcomeView:
     )
 
 
-def _store_create(root: Path, path: str, content: bytes) -> StoreOutcomeView:
+def _store_create(root: Path, path: str, content: bytes, intent: str) -> StoreOutcomeView:
     """Create one content-addressed object; an existing file is a routine refusal."""
     root = Path(root)
-    require_rel_path("path", path)
+    _require_store_path("path", path)
     if not path.startswith(OBJECTS_PREFIX):
         raise StoreWriteRefused(path, f"a created object lives under {OBJECTS_PREFIX}")
     initial: dict[str, PathState] = {path: ABSENT}
@@ -1306,9 +1315,9 @@ def _store_create(root: Path, path: str, content: bytes) -> StoreOutcomeView:
     )
 
 
-def _store_delete(root: Path, path: str) -> StoreOutcomeView:
+def _store_delete(root: Path, path: str, intent: str) -> StoreOutcomeView:
     root = Path(root)
-    require_rel_path("path", path)
+    _require_store_path("path", path)
     _refuse_object_path(path)
     pre = _observe_file(root, path)
     spec = build_spec(
@@ -1343,10 +1352,10 @@ def _store_delete(root: Path, path: str) -> StoreOutcomeView:
     )
 
 
-def _store_move(root: Path, source: str, destination: str) -> StoreOutcomeView:
+def _store_move(root: Path, source: str, destination: str, intent: str) -> StoreOutcomeView:
     root = Path(root)
-    require_rel_path("source", source)
-    require_rel_path("destination", destination)
+    _require_store_path("source", source)
+    _require_store_path("destination", destination)
     _refuse_object_path(source)
     _refuse_object_path(destination)
     pre = _observe_file(root, source)

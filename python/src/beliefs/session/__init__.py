@@ -16,13 +16,15 @@ from beliefs.corpus import (
     Finding,
     SnapshotResolver,
     _operation_lock_for,
+    _order_by_operation_lock,
     require_pins_agree,
     require_profile_compatible,
 )
-from beliefs.errors import ManifestMalformed, ManifestMissing, SessionRefused
-from beliefs.permit import Authority
+from beliefs.errors import ChainRole, CorpusRootRefused, ManifestMalformed, ManifestMissing, SessionRefused
+from beliefs.permit import Authority, WritePermit
 from beliefs.profile import ProfileSpec
 from beliefs.root import durable_executor_factory, durable_operation_port, holdings_seam, log_seam, store_identity
+from beliefs.session.claim import ChainClaim, claim_chain
 from beliefs.session.ledger import (
     TRANSITIONS,
     ActLine,
@@ -37,6 +39,7 @@ from beliefs.session.ledger import (
     read_ledger_evidence,
 )
 from beliefs.session.reconcile import reconcile
+from beliefs.session.staging import RunStaging
 from beliefs.session.writer import (
     Claim,
     ClaimDone,
@@ -70,9 +73,13 @@ __all__ = [
     "WriterSession",
     "open_attended_session",
     "open_ledger_reader",
+    "open_run_session",
     "reconcile",
     "reconcile_sessions",
 ]
+
+
+_RUN_FAMILIES = frozenset({"corpus-write", "run", "holdings"})
 
 
 def _fsync_directory(path: Path) -> None:
@@ -106,8 +113,74 @@ def open_attended_session(
     resolves through the coordination resolver before the session directory
     exists, and the pinned result is written into `session-open`.
     """
+    return _open_session(
+        world_config,
+        operations_root,
+        write_root=write_root,
+        profile=profile,
+        mounts=mounts,
+        store_root=store_root,
+        snapshot_resolver=snapshot_resolver,
+        project=project,
+        ceiling=None,
+        run=False,
+    )
+
+
+def open_run_session(
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    write_root: Path,
+    profile: ProfileSpec,
+    ceiling: WritePermit,
+    mounts: Mapping[Path, ProfileSpec] | None = None,
+    store_root: Path | None = None,
+    snapshot_resolver: SnapshotResolver | None = None,
+    project: CoordinationAddress | None = None,
+) -> WriterSession:
+    """The unattended constructor for a launched run: the same claims, ledger and
+    reconciliation as `open_attended_session`, under `ceiling`, the permit the
+    launcher's file carried (`WritePermit.from_json`). The ceiling is recorded in
+    `session-open`. It must be admissible: never ungoverned, and naming only the
+    `corpus-write`, `run` and `holdings` families; anything else refuses with
+    `SessionRefused` before any claim or directory. The operations root is pinned
+    with `O_NOFOLLOW` before the session directory is created, and an unreadable
+    or symbolic-link operations root refuses with `SessionRefused`. A run session
+    refuses tree writes (`RunSessionRefused("tree-write")`).
+    """
+    if type(ceiling) is not WritePermit:
+        raise TypeError("ceiling must be a WritePermit")
+    return _open_session(
+        world_config,
+        operations_root,
+        write_root=write_root,
+        profile=profile,
+        mounts=mounts,
+        store_root=store_root,
+        snapshot_resolver=snapshot_resolver,
+        project=project,
+        ceiling=ceiling,
+        run=True,
+    )
+
+
+def _open_session(
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    write_root: Path,
+    profile: ProfileSpec,
+    mounts: Mapping[Path, ProfileSpec] | None,
+    store_root: Path | None,
+    snapshot_resolver: SnapshotResolver | None,
+    project: CoordinationAddress | None,
+    ceiling: WritePermit | None,
+    run: bool,
+) -> WriterSession:
+    """The shared body: validation, then the claim-to-reconciliation block."""
     if type(world_config) is not WorldConfig:
-        raise TypeError("open_attended_session takes an exact WorldConfig")
+        raise TypeError("the session constructors take an exact WorldConfig")
     if not isinstance(operations_root, Path):
         raise TypeError("operations_root must be a Path")
     if not isinstance(write_root, Path):
@@ -119,6 +192,17 @@ def open_attended_session(
         or any(not isinstance(key, Path) or not isinstance(value, ProfileSpec) for key, value in mounts.items())
     ):
         raise TypeError("mounts maps each configured root's Path to its compiled ProfileSpec")
+    if store_root is not None and not isinstance(store_root, Path):
+        raise TypeError("store_root must be a Path")
+    if run:
+        assert ceiling is not None
+        if ceiling.ungoverned:
+            raise SessionRefused("a run session's ceiling is never ungoverned")
+        inadmissible = sorted(ceiling.act_families - _RUN_FAMILIES)
+        if inadmissible:
+            raise SessionRefused(
+                f"a run session's ceiling names only corpus-write, run and holdings; not {inadmissible}"
+            )
     if project is not None:
         require_project_address(project)
         if mounts is None:
@@ -151,8 +235,6 @@ def open_attended_session(
         )
     store_id: str | None = None
     if store_root is not None:
-        if not isinstance(store_root, Path):
-            raise TypeError("store_root must be a Path")
         store_id = store_identity(store_root)
         if store_id is None:
             raise SessionRefused(f"store root {store_root} carries no store genesis")
@@ -162,9 +244,6 @@ def open_attended_session(
 
     session_id = secrets.token_hex(16)
     path = ledger_path(operations_root, session_id)
-    path.parent.mkdir(parents=True, exist_ok=False)
-    _fsync_directory(path.parent.parent)
-    ledger = LedgerWriter(path)
 
     def writer_factory(authority: Authority) -> CorpusWriter:
         return CorpusWriter(
@@ -178,25 +257,68 @@ def open_attended_session(
             read_mounts=read_mounts,
         )
 
-    session = WriterSession(
-        session_id=session_id,
-        world_id=world_config.world_id,
-        corpus_root=root,
-        corpus_id=corpus_id,
-        operations_root=operations_root,
-        ledger=ledger,
-        writer_factory=writer_factory,
-        profile=profile,
-        store_root=store_root,
-        store_id=store_id,
-        holdings_seam=holdings_seam() if store_root is not None else None,
-        coordination_resolver=resolver,
-        project=pinned,
-        world_config=world_config,
-    )
-    # Session-open is written (by the constructor) before reconciliation runs.
-    session.findings = reconcile_sessions(world_config, operations_root, exclude=session_id)
+    # The opening path owns what it acquires until it returns: each chain
+    # claim, then a run session's operations-root pin, then the ledger. Any
+    # exception releases them all and propagates; ledger bytes already written
+    # stay (an unclosed ledger reads as an interrupted session) and the session
+    # directory is not removed. Only once reconciliation returns does ownership
+    # pass to the session.
+    with ExitStack() as owned:
+        claims = [_claim(owned, root, "write root")]
+        if store_root is not None:
+            claims.append(_claim(owned, store_root, "store root"))
+        # A run session pins its operations root for kernel staging before the
+        # session directory or `session-open` is created; the stack closes it
+        # on any failure.
+        staging = None
+        if run:
+            try:
+                if not operations_root.is_symlink() and not operations_root.exists():
+                    operations_root.mkdir(parents=True, exist_ok=True)
+                staging = RunStaging(operations_root, session_id)
+            except OSError as caught:
+                raise SessionRefused(f"operations root {operations_root}: {caught}") from caught
+            owned.callback(staging.close)
+        path.parent.mkdir(parents=True, exist_ok=False)
+        _fsync_directory(path.parent.parent)
+        ledger = LedgerWriter(path)
+        owned.callback(ledger.close)
+        session = WriterSession(
+            session_id=session_id,
+            world_id=world_config.world_id,
+            corpus_root=root,
+            corpus_id=corpus_id,
+            operations_root=operations_root,
+            ledger=ledger,
+            writer_factory=writer_factory,
+            profile=profile,
+            store_root=store_root,
+            store_id=store_id,
+            holdings_seam=holdings_seam() if store_root is not None else None,
+            coordination_resolver=resolver,
+            project=pinned,
+            world_config=world_config,
+            claims=tuple(claims),
+            ceiling=ceiling,
+            run=run,
+            staging=staging,
+        )
+        # Session-open is written (by the constructor) before reconciliation runs.
+        session.findings = reconcile_sessions(
+            world_config,
+            operations_root,
+            exclude=session_id,
+            store_roots=() if store_root is None else (store_root,),
+        )
+        owned.pop_all()
     return session
+
+
+def _claim(owned: ExitStack, root: Path, role: ChainRole) -> ChainClaim:
+    """Claim one chain and push its release onto the opening path's stack."""
+    claim = claim_chain(root, role)
+    owned.callback(claim.release)
+    return claim
 
 
 def _mount_resolver(mounted: Mapping[Path, ProfileSpec] | None) -> CoordinationResolver | None:
@@ -211,7 +333,11 @@ def _mount_resolver(mounted: Mapping[Path, ProfileSpec] | None) -> CoordinationR
 
 
 def reconcile_sessions(
-    world_config: WorldConfig, operations_root: Path, *, exclude: str | None = None
+    world_config: WorldConfig,
+    operations_root: Path,
+    *,
+    exclude: str | None = None,
+    store_roots: tuple[Path, ...] = (),
 ) -> tuple[Finding, ...]:
     """The audit surface: one lock-coherent snapshot per root, read
     through detached inspection; writes nothing and recovers nothing.
@@ -220,13 +346,22 @@ def reconcile_sessions(
     session that opens between a listing and the chain read would show an intent
     the chain holds under an id the listing never saw, and reconciliation would
     call it `session-unknown`.
+
+    `store_roots` are read too, each keyed by its store id, so a store `act`
+    line verifies against its store chain. Their operation locks join the hold
+    after the corpus roots'. Every store registration under a session and its
+    `act` line are written under that store root's operation lock, so inside the
+    hold the store chain and the ledgers agree.
     """
+    if type(store_roots) is not tuple or any(not isinstance(root, Path) for root in store_roots):
+        raise TypeError("store_roots is a tuple of store root Paths")
     sessions = Path(operations_root) / "sessions"
     chains: dict[str, ChainView] = {}
     extra: list[Finding] = []
-    roots = sorted(world_config.corpus_roots)
+    roots = _order_by_operation_lock(world_config.corpus_roots)
+    stores = _order_by_operation_lock(store_roots)
     with ExitStack() as stack:
-        for root in roots:
+        for root in (*roots, *stores):
             stack.enter_context(_operation_lock_for(root))
         ids = (
             sorted(entry.name for entry in sessions.iterdir() if entry.is_dir() and entry.name != exclude)
@@ -248,7 +383,28 @@ def reconcile_sessions(
                 )
                 continue
             chains[corpus_id] = log_seam().inspect_detached(root)
+        for root in stores:
+            try:
+                store_id = store_identity(root)
+            except CorpusRootRefused as caught:
+                extra.append(_store_unreadable(root, str(caught)))
+                continue
+            if store_id is None:
+                extra.append(_store_unreadable(root, "no chain, no well-formed chain, or no store genesis"))
+                continue
+            chains[store_id] = log_seam().inspect_detached(root)
         ledgers = tuple(read_ledger_evidence(operations_root, sid) for sid in ids)
-    # The order is `reconcile`'s own — corpus id, then chain position, then code.
-    # The unadopted roots precede it in sorted-root order; nothing is re-sorted.
+    # The order is `reconcile`'s own — chain id, then chain position, then code.
+    # The unadopted corpus roots precede it in sorted-root order, then the
+    # unreadable store roots in theirs; nothing is re-sorted.
     return (*extra, *reconcile(ledgers, chains))
+
+
+def _store_unreadable(root: Path, detail: str) -> Finding:
+    return Finding(
+        severity="error",
+        code="session-store-unreadable",
+        ref=str(root),
+        detail=detail,
+        message="a store root whose identity cannot be read is not reconciled",
+    )

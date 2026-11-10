@@ -332,3 +332,43 @@ def test_the_coordination_requirement_excludes_the_publication_kinds():
     kinds = RequiredCapabilities.coordination().permit.kinds
     assert not kinds & {"publication", "publication-binding"}
     assert len(kinds) == 8
+
+
+@pytest.mark.parametrize(
+    "permit",
+    [
+        WritePermit(frozenset(), frozenset()),
+        WritePermit(frozenset({"proposition", "run"}), frozenset({"corpus-write", "run"})),
+        WritePermit(frozenset({"holdings-observation"}), frozenset({"holdings"})),
+        WritePermit.full(),
+    ],
+)
+def test_from_json_round_trips_the_session_open_permit(permit):
+    summary = permit.summary()
+    shape = {
+        "kinds": list(summary.kinds),
+        "act_families": list(summary.act_families),
+        "ungoverned": permit.ungoverned,
+    }
+    assert WritePermit.from_json(shape) == permit
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"kinds": [], "act_families": [], "ungoverned": False, "extra": 1},
+        {"kinds": [], "act_families": []},
+        {"kinds": (), "act_families": [], "ungoverned": False},
+        {"kinds": [], "act_families": [], "ungoverned": 0},
+        {"kinds": ["no-such-kind"], "act_families": [], "ungoverned": False},
+        {"kinds": [], "act_families": ["no-such-family"], "ungoverned": False},
+        {"kinds": [1], "act_families": [], "ungoverned": False},
+        {"kinds": [], "act_families": [1], "ungoverned": False},
+        {"kinds": ["proposition", "proposition"], "act_families": [], "ungoverned": False},
+        {"kinds": [], "act_families": ["corpus-write", "corpus-write"], "ungoverned": False},
+        [],
+    ],
+)
+def test_from_json_refuses_other_shapes(value):
+    with pytest.raises(ValueError):
+        WritePermit.from_json(value)

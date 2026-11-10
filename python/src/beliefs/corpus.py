@@ -33,7 +33,7 @@ import os
 import re
 import secrets
 import threading
-from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from datetime import datetime
@@ -1041,6 +1041,20 @@ rather than minting one of its own.
 """
 
 
+def _operation_lock_key(root: Path) -> str:
+    """The registry key and multi-root acquisition order for `root`'s operation lock."""
+    return str(Path(root).resolve())
+
+
+def _order_by_operation_lock(roots: Iterable[Path]) -> tuple[Path, ...]:
+    """Distinct roots in operation-lock acquisition order (`_operation_lock_key`),
+    keeping the first `Path` given for each resolved root."""
+    by_key: dict[str, Path] = {}
+    for root in roots:
+        by_key.setdefault(_operation_lock_key(root), root)
+    return tuple(by_key[key] for key in sorted(by_key))
+
+
 def _locked_operation_lock(key: str) -> OperationLock:
     """The per-root lock, with `_ROOT_STATES_LOCK` already held."""
     lock = _OPERATION_LOCKS.get(key)
@@ -1061,12 +1075,12 @@ def _operation_lock_for(root: Path) -> OperationLock:
     without one.
     """
     with _ROOT_STATES_LOCK:
-        return _locked_operation_lock(str(Path(root).resolve()))
+        return _locked_operation_lock(_operation_lock_key(root))
 
 
 def _root_state_for(root: Path, executor_factory: Callable[[Path], WritePlanExecutor]) -> _RootState:
     resolved = Path(root).resolve()
-    key = str(resolved)
+    key = _operation_lock_key(resolved)
     with _ROOT_STATES_LOCK:
         state = _ROOT_STATES.get(key)
         if state is None:
@@ -1097,7 +1111,7 @@ def mark_root_unresolved(root: Path) -> None:
     judging against an index that never saw the commit. A root no writer has
     opened in this process has no state to mark."""
     with _ROOT_STATES_LOCK:
-        state = _ROOT_STATES.get(str(Path(root).resolve()))
+        state = _ROOT_STATES.get(_operation_lock_key(root))
     if state is not None:
         state.unresolved = True
 

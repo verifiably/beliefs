@@ -232,16 +232,29 @@ class InvocationRecord:
 
 class LedgerWriter:
     """Append-only; every line is written, flushed and fsynced before the call
-    returns, and a failure anywhere in that sequence is terminal."""
+    returns, and a failure anywhere in that sequence is terminal, as is `fail`."""
 
     def __init__(self, path: Path) -> None:
         self._path = Path(path)
         self._file = open(self._path, "ab", buffering=0)  # noqa: SIM115 - held for the session's lifetime
         self._failed = False
+        self._reason = ""
 
     @property
     def failed(self) -> bool:
         return self._failed
+
+    def fail(self, reason: str) -> None:
+        """Mark the ledger failed without writing anything: every later `append`
+        raises `SessionLedgerFailed`. Idempotent; the first reason stands."""
+        if self._failed:
+            return
+        self._failed = True
+        self._reason = f"the session ledger failed: {reason}"
+        try:
+            self._file.close()
+        except OSError:
+            pass  # deliberate best-effort cleanup; must not mask the failure the caller is propagating
 
     def _write(self, data: bytes) -> None:
         written = self._file.write(data)
@@ -250,7 +263,7 @@ class LedgerWriter:
 
     def append(self, line: Mapping[str, object]) -> None:
         if self._failed:
-            raise SessionLedgerFailed("the session ledger failed earlier; nothing further is appended")
+            raise SessionLedgerFailed(f"{self._reason}; nothing further is appended")
         data = encode_line(_validated_line(line, line_number=None))
         try:
             self._write(data)
@@ -258,11 +271,12 @@ class LedgerWriter:
             os.fsync(self._file.fileno())
         except OSError as caught:
             self._failed = True
+            self._reason = f"ledger append failed: {caught}"
             try:
                 self._file.close()
             except OSError:
                 pass  # deliberate best-effort cleanup; must not mask the primary SessionLedgerFailed
-            raise SessionLedgerFailed(f"ledger append failed: {caught}") from caught
+            raise SessionLedgerFailed(self._reason) from caught
 
     def close(self) -> None:
         if not self._file.closed:

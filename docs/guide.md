@@ -135,7 +135,11 @@ several steps (acquiring data, auditing, moving records, publishing) is an
 record of what was done, usually an act report, and whether it finished is read from
 the log. `science` writes through a
 **writer session**, whose ledger records every step so a retried command is
-recognised rather than repeated. See [writes.md](writes.md#writer-sessions) and
+recognised rather than repeated. A launched run opens a **run session** instead, under a
+ceiling limited to corpus writes, runs and holdings, and one that refuses tree writes.
+Its runs are confined only, and stage in scratch the kernel chooses and checks
+before every launch.
+See [writes.md](writes.md#writer-sessions) and
 [writes.md](writes.md#operations).
 
 **Publishing** copies the records a saved view selects into a new corpus that

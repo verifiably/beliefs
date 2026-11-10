@@ -123,6 +123,7 @@ from beliefs.tree import TREE_ALGORITHM, object_path, parse_tree_file
 
 if TYPE_CHECKING:
     from beliefs.corpus import ReadView
+    from beliefs.session.staging import RunStaging
 
 __all__ = [
     "HeldTree",
@@ -862,6 +863,56 @@ def _policy_refusal(policy: BoundaryPolicy) -> ConfinementRefusal | None:
     return None
 
 
+def _is_confined(policy: BoundaryPolicy) -> bool:
+    try:
+        return supported_policy(policy) == CONFINED_POLICY
+    except ConfinementRefusal:
+        return False
+
+
+def _run_staging(
+    port: OperationPort, scratch_base: Path | None, boundary_policy: BoundaryPolicy, executor: str
+) -> Path | tuple[RunStaging, str] | RunRefused:
+    """After the permit check and before anything else: a run session's port
+    stages in the kernel's own scratch and runs only the confined policy, so a
+    caller's `scratch_base` or any other policy refuses before the intent, with no
+    report (a session port cannot publish one that fulfils no intent). Any other
+    port needs the caller's `scratch_base`."""
+    from beliefs.session.routes import run_staging_of
+
+    staging = run_staging_of(port)
+    if staging is None:
+        if scratch_base is None:
+            raise TypeError(f"{executor} needs a scratch_base outside a run session")
+        return scratch_base
+    if scratch_base is not None:
+        return RunRefused(
+            "scratch-not-staging",
+            None,
+            None,
+            None,
+            f"a run session stages its confined jobs itself; the caller passed scratch_base {scratch_base}",
+        )
+    if not _is_confined(boundary_policy):
+        return RunRefused(
+            "policy-unconfined",
+            None,
+            None,
+            None,
+            f"a run session runs only {CONFINED_POLICY.identity}, not {getattr(boundary_policy, 'identity', boundary_policy)!r}",
+        )
+    return staging
+
+
+def _scratch_base(staging: Path | tuple[RunStaging, str]) -> Path:
+    """The run's scratch base: the invocation's kernel staging under a run session
+    (created on its first confined execution), the caller's otherwise."""
+    if isinstance(staging, Path):
+        return staging
+    run_staging, invocation = staging
+    return run_staging.invocation_dir(invocation)
+
+
 def _project(
     *,
     spec: FrozenSpec | None,
@@ -923,12 +974,14 @@ def _execute_run(
     observer: str,
     started_at: str,
     host_realization: str,
-    scratch_base: Path,
+    staging: Path | tuple[RunStaging, str],
     cores: int,
     boundary_policy: BoundaryPolicy,
     staged_trees: list[Path],
 ) -> RunMinted | RunRefused:
     try:
+        scratch_base = _scratch_base(staging)
+        run_staging = None if isinstance(staging, Path) else staging
         scratch = create_scratch_root(scratch_base)
         bundle = scratch / "bundle"
         code_identity = capture_bundle(code_roots, bundle)
@@ -969,6 +1022,7 @@ def _execute_run(
                 started_at=started_at,
                 host_realization=host_realization,
                 scratch_base=scratch_base,
+                staging=run_staging,
                 cores=cores,
                 staged_trees=staged_trees,
             )
@@ -1106,6 +1160,7 @@ def _execute_confined(
     started_at: str,
     host_realization: str,
     scratch_base: Path,
+    staging: tuple[RunStaging, str] | None,
     cores: int,
     staged_trees: list[Path],
 ) -> RunMinted | RunRefused:
@@ -1115,7 +1170,11 @@ def _execute_confined(
     read. One capture (the caller's), one pre-bind observation (the bundle's
     fold, the snapshot verification ``materialize_snapshot`` performs, the
     inputs' fingerprint), one post-exit observation — no other pass over the
-    closure. Raises ConfinementRefusal for the caller's except clause."""
+    closure. Raises ConfinementRefusal for the caller's except clause.
+
+    Under a run session (`staging`), snapshots materialize in the shared
+    kernel cache and every bind is checked against the pinned anchors
+    immediately before each of the two launches."""
     output_root = scratch / "out"
     output_root.mkdir()
     (output_root / TRACE_DIR).mkdir()
@@ -1145,7 +1204,8 @@ def _execute_confined(
     trace_file = f"{OUTPUT_ROOT}/{TRACE_DIR}/events.jsonl"
     relative_entrypoint = captured_entrypoint.relative_to(bundle.resolve()).as_posix()
     environment = sandbox_environment(trace_file)
-    snapshot = materialize_snapshot(captured, scratch_base / "environments")
+    environments = staging[0].cache_dir() if staging is not None else scratch_base / "environments"
+    snapshot = materialize_snapshot(captured, environments)
     check_bundle_intact(bundle, code_identity)
     inputs_before = fingerprint(output_root / "inputs")
 
@@ -1173,6 +1233,8 @@ def _execute_confined(
             output_root=planning_root,
         )
         planning_inputs_before = fingerprint(planning_root / "inputs")
+        if staging is not None:
+            staging[0].check_binds(planning_plan, staging[1])
         planning_result = launch_confined(
             plan=planning_plan,
             environment=environment,
@@ -1223,6 +1285,8 @@ def _execute_confined(
         bundle=bundle,
         output_root=output_root,
     )
+    if staging is not None:
+        staging[0].check_binds(execution_plan, staging[1])
     launched = launch_confined(
         plan=execution_plan,
         environment=environment,
@@ -1286,13 +1350,16 @@ def execute_assessment_run(
     observer: str,
     started_at: str,
     host_realization: str,
-    scratch_base: Path,
+    scratch_base: Path | None = None,
     cores: int = 1,
 ) -> RunMinted | RunRefused:
     try:
         port.authority.require("run", ("run", "act-report"))
     except PermitExceeded as exceeded:
         return RunRefused("permit-exceeded", None, None, None, str(exceeded))
+    staging = _run_staging(port, scratch_base, boundary_policy, "execute_assessment_run")
+    if type(staging) is RunRefused:
+        return staging
     actor = port.authority.actor
     if type(spec) is not FrozenSpec:
         subject = spec if type(spec) is str else "absent"
@@ -1329,7 +1396,7 @@ def execute_assessment_run(
             observer=observer,
             started_at=started_at,
             host_realization=host_realization,
-            scratch_base=scratch_base,
+            staging=staging,
             cores=cores,
             boundary_policy=supported_policy(boundary_policy),
             staged_trees=staged_trees,
@@ -1387,7 +1454,7 @@ def execute_production_run(
     observer: str,
     started_at: str,
     host_realization: str,
-    scratch_base: Path,
+    scratch_base: Path | None = None,
     cores: int = 1,
     dataset_title: str = "produced dataset",
     output_dir: Path | None = None,
@@ -1396,6 +1463,9 @@ def execute_production_run(
         port.authority.require("run", ("run", "dataset", "act-report"))
     except PermitExceeded as exceeded:
         return RunRefused("permit-exceeded", None, None, None, str(exceeded))
+    staging = _run_staging(port, scratch_base, boundary_policy, "execute_production_run")
+    if type(staging) is RunRefused:
+        return staging
     actor = port.authority.actor
     transform_datasets = (
         tuple(dict.fromkeys(entry.dataset for entry in inputs if entry.role == "transforms"))
@@ -1448,7 +1518,7 @@ def execute_production_run(
             observer=observer,
             started_at=started_at,
             host_realization=host_realization,
-            scratch_base=scratch_base,
+            staging=staging,
             cores=cores,
             boundary_policy=supported_policy(boundary_policy),
             staged_trees=staged_trees,

@@ -60,7 +60,15 @@ def _session_of(decoded: shapes.DecodedIntent | shapes.Unrecognized) -> str | No
 
 
 def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]) -> tuple[Finding, ...]:
-    """The classification: one finding per state, ordered deterministically."""
+    """The classification: one finding per state, ordered deterministically.
+
+    `chains` is keyed by chain id: corpus ids and store ids together, both 32
+    lowercase hexadecimal characters, minted independently. Every well-formed
+    chain contributes its committed registrations to the pairs the ledgers'
+    `act` lines are matched against, so a store `act` line verifies against its
+    store chain. Only a chain that holds intents (a corpus) is classified intent
+    by intent; a store chain carries none.
+    """
     by_session: dict[str, LedgerEvidence] = {evidence.session_id: evidence for evidence in ledgers}
     keyed: list[tuple[tuple[str, int, str, str], Finding]] = []
 
@@ -138,7 +146,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
     committed_pairs: set[tuple[str, str]] = set()
     well_formed: set[str] = set()
 
-    # --- per corpus -------------------------------------------------------------------
+    # --- per chain: corpora and stores -----------------------------------------------
     for corpus_id in sorted(chains):
         view = chains[corpus_id]
         if type(view) is AbsentView:
@@ -191,6 +199,7 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                     )
                 )
 
+        # A store chain holds no intents; this loop classifies nothing there.
         for position, entry in enumerate(entries):
             if type(entry) is not IntentEntryView:
                 continue
@@ -296,9 +305,10 @@ def reconcile(ledgers: Sequence[LedgerEvidence], chains: Mapping[str, ChainView]
                 )
 
     # --- ledger claims the chains lack -------------------------------------------------
-    # Claims are matched by corpus. Only a well-formed
+    # Claims are matched by chain: an act's `corpus` field names the chain its
+    # entry is on, a corpus's or a store's. Only a well-formed
     # view is truth to compare a claim against: nothing is classified
-    # for a corpus whose view is absent or malformed, and a corpus with no
+    # for a chain whose view is absent or malformed, and a chain with no
     # view at all (its root was not read) is not evidence either way.
     for evidence in ledgers:
         if type(evidence) is not LedgerReader:

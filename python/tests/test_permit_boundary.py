@@ -59,6 +59,10 @@ PRIMITIVE_IMPLEMENTATIONS = frozenset(
         "session/routes.py:LedgeredPort.execute_fulfilling",
         "session/routes.py:LedgeredPort.execute_fulfilling_guarded",
         "session/routes.py:ledgered_seam.publish_fulfilling",
+        "session/routes.py:ledgered_seam.store_write",
+        "session/routes.py:ledgered_seam.store_delete",
+        "session/routes.py:ledgered_seam.store_move",
+        "session/routes.py:ledgered_seam.store_create",
     }
 )
 

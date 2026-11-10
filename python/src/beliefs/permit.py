@@ -121,6 +121,23 @@ class WritePermit:
     def full(cls) -> WritePermit:
         return cls(frozenset(KIND_ACTS), ACT_FAMILIES, True)
 
+    @classmethod
+    def from_json(cls, value: object) -> WritePermit:
+        """The exact inverse of the `permit` object a `session-open` line carries."""
+        if type(value) is not dict or set(value) != {"kinds", "act_families", "ungoverned"}:
+            raise ValueError("a permit is an object with exactly kinds, act_families and ungoverned")
+        kinds = value["kinds"]
+        families = value["act_families"]
+        ungoverned = value["ungoverned"]
+        for name, items in (("kinds", kinds), ("act_families", families)):
+            if type(items) is not list or any(type(item) is not str for item in items):
+                raise ValueError(f"permit {name} is a list of strings")
+            if len(set(items)) != len(items):
+                raise ValueError(f"permit {name} contains duplicate entries")
+        if type(ungoverned) is not bool:
+            raise ValueError("permit ungoverned is a bool")
+        return cls(frozenset(kinds), frozenset(families), ungoverned)
+
     def summary(self) -> PermitSummary:
         return PermitSummary(tuple(sorted(self.kinds)), tuple(sorted(self.act_families)), self.ungoverned)
 

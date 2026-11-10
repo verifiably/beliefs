@@ -449,9 +449,10 @@ optional `expected`. Holdings acts alone mint observations.
 A tree dataset is held as a tree file plus its member objects. The store keeps each
 object at `objects/sha256/<hh>/<hex>`, where `<hex>` is the object's digest and `<hh>`
 its first two characters. The `objects/` directory is closed to ordinary acts: a
-store locator refuses `objects` and every path under it. The store's ordinary write, delete and move primitives refuse
-those paths again, and objects are created only by a create-only primitive that
-refuses any path outside `objects/sha256/`; an existing object is a routine refusal.
+store locator refuses `objects` and every path under it. The store's ordinary write,
+delete and move primitives refuse those paths again, and objects are created only by
+a create-only primitive that refuses any path outside `objects/sha256/`; an existing
+object is a routine refusal.
 
 The `tree-write` act writes a tree into a store. It announces a `tree-write` intent, then
 for each member in tree order (and last for the tree file) reads the object's path.
@@ -460,9 +461,18 @@ digest and size; a present object is reused only when its digest and size are ex
 tree's. Any other bytes, size or kind refuse the act, as does a read the engine does not
 observe (the object could not be read), and so does a routine refusal of the
 create whose object, read again, does not match exactly: a refusal alone never proves the
-object exists. The act holds one member's bytes at a time, leaves only whole objects when
-interrupted (with its intent unmatched), and on success publishes one `found` observation
-of the tree's digest.
+object exists. Under a writer session the object is not read again: the refused create
+has already ended the session, and the act raises `SessionLedgerFailed`
+([writes.md](writes.md#failure)). The act holds one member's bytes at a time, leaves
+only whole objects when interrupted (with its intent unmatched), and on success
+publishes one `found` observation of the tree's digest.
+
+Under a writer session every store transaction a holdings act commits (a write,
+delete or move, and each object a tree-write creates) is recorded in the session's
+ledger as an `act` line whose `corpus` is the store id, the id of the chain the
+registration is on, and whose `intent` is the act's intent on the corpus chain. A
+store failure that may have registered ends the session; see
+[writes.md](writes.md#writer-sessions).
 
 The re-check of a store-tree location is a `re-check` act that reads the tree file and
 then each member object. An unreadable read is an inconclusive attempt that mints nothing.
