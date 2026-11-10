@@ -28,7 +28,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { Claim, type ClaimParts, Qualifier, Referent, buildClaim } from "../src/claim.js";
+import { Claim, type ClaimParts, Member, Qualifier, Referent, buildClaim } from "../src/claim.js";
 import {
   BaseContract,
   type ClaimGrammar,
@@ -41,15 +41,17 @@ import {
 import {
   ClaimError,
   ContractMismatch,
+  InadmissibleLayer,
   ProfileError,
   SubclassRefused,
+  UninstantiatedTemplate,
   UnparsedContract,
   UntypedReferent,
 } from "../src/errors.js";
 import {
   type CompiledDimension,
   type CompiledEstimandDecl,
-  type CompiledOperator,
+  type CompiledInstantiation,
   type CompiledTemplate,
   ProfileSpec,
   compileProfile,
@@ -97,6 +99,23 @@ const gene = new Referent("testing/entity", "EX:gene-x");
 const otherGene = new Referent("testing/entity", "EX:gene-z");
 const outcome = new Referent("testing/outcome", "EX:outcome-y");
 const adults = new Referent("testing/cohort", "EX:adults");
+const method = new Referent("testing/method", "EX:assay-1");
+
+/** An `affects` claim's parts, with `roles` and `qualifiers` given as records. */
+function affectsParts(
+  roles: Record<string, Referent | readonly Member[]> = { cause: gene, effect: outcome },
+  qualifiers: Record<string, Qualifier> = {},
+  layer = "causal",
+): ClaimParts {
+  return {
+    operator: "testing/affects",
+    roles: new Map(Object.entries(roles)),
+    qualifiers: new Map(Object.entries(qualifiers)),
+    form: "polar",
+    polarity: "positive",
+    layer,
+  };
+}
 
 describe("a constructor that never runs cannot mint a value", () => {
   /** The forge: a derived constructor returning an object instead of calling `super`. */
@@ -121,17 +140,30 @@ describe("a constructor that never runs cannot mint a value", () => {
     expect(Referent.is(bad)).toBe(false);
   });
 
-  it("a forged referent cannot fill an argument slot", () => {
-    // Before the brand this produced a claim whose projection carried `[123, 123]`
+  it("a forged referent cannot fill a role", () => {
+    // Before the brand this produced a claim whose projection carried `123`
     // — a trusted claim holding integers where identifiers belong.
     const bad = forge(Referent, { sort: "testing/entity", term: 123 });
+    expect(() => buildClaim(profile, affectsParts({ cause: bad, effect: outcome }))).toThrow(UntypedReferent);
+    expect(() => buildClaim(profile, affectsParts({ cause: gene, effect: outcome, "within-model": bad }))).toThrow(
+      UntypedReferent,
+    );
+  });
+
+  it("a forged member cannot fill a many role", () => {
+    // A member owns its coefficient invariant; a forged one would carry `0` or
+    // a JavaScript number into the projection, which then refuses or hashes it.
+    const bad = forge(Member, { referent: gene, coefficient: 0 });
+    expect(bad instanceof Member).toBe(true);
+    expect(Member.is(bad)).toBe(false);
     expect(() =>
       buildClaim(profile, {
-        operator: "testing/subtype-of",
-        args: [bad, bad],
+        operator: "testing/correlates-with",
+        roles: new Map([["parties", [bad, new Member(outcome)]]]),
         qualifiers: new Map(),
-        polarity: null,
-        layer: "structural",
+        form: "polar",
+        polarity: "positive",
+        layer: "statistical",
       }),
     ).toThrow(UntypedReferent);
   });
@@ -139,19 +171,20 @@ describe("a constructor that never runs cannot mint a value", () => {
   it("a forged qualifier cannot be selected", () => {
     const bad = forge(Qualifier, { quantifier: "generic", restriction: adults });
     expect(bad instanceof Qualifier).toBe(true);
-    expect(() =>
-      buildClaim(profile, {
-        operator: "testing/affects",
-        args: [gene, outcome],
-        qualifiers: new Map([["testing/population", bad]]),
-        polarity: "positive",
-        layer: "causal",
-      }),
-    ).toThrow(/not a Qualifier/);
+    expect(() => buildClaim(profile, affectsParts(undefined, { "testing/population": bad }))).toThrow(
+      /not a Qualifier/,
+    );
   });
 
   it("a forged claim cannot be projected or hashed", () => {
-    const bad = forge(Claim, { operator: "x", args: [], qualifiers: {}, polarity: "positive", layer: "causal" });
+    const bad = forge(Claim, {
+      operator: "x",
+      roles: {},
+      qualifiers: {},
+      form: "polar",
+      polarity: "positive",
+      layer: "causal",
+    });
     expect(bad instanceof Claim).toBe(true);
     expect(() => projectClaim(bad)).toThrow(ClaimError);
     expect(() => claimIdentity(bad)).toThrow(ClaimError);
@@ -165,13 +198,22 @@ describe("a constructor that never runs cannot mint a value", () => {
   });
 });
 
-describe("the qualifiers a claim holds are genuinely immutable", () => {
-  const claim = buildClaim(profile, {
-    operator: "testing/affects",
-    args: [gene, outcome],
-    qualifiers: new Map([["testing/population", new Qualifier("generic", adults)]]),
-    polarity: "positive",
-    layer: "causal",
+describe("the roles and qualifiers a claim holds are genuinely immutable", () => {
+  const claim = buildClaim(
+    profile,
+    affectsParts(undefined, { "testing/population": new Qualifier("generic", adults) }),
+  );
+  const transforms = buildClaim(profile, {
+    operator: "testing/transforms",
+    roles: new Map<string, readonly Member[]>([
+      ["inputs", [new Member(gene, 2n)]],
+      ["outputs", [new Member(otherGene)]],
+      ["facilitators", []],
+    ]),
+    qualifiers: new Map(),
+    form: "polar",
+    polarity: null,
+    layer: "structural",
   });
 
   it("a caller cannot delete a qualifier and move the claim's identity", () => {
@@ -194,23 +236,54 @@ describe("the qualifiers a claim holds are genuinely immutable", () => {
     expect(Object.getPrototypeOf(claim.qualifiers)).toBe(null);
   });
 
-  it("keeps the arguments frozen too", () => {
-    expect(Object.isFrozen(claim.args)).toBe(true);
-    expect(() => (claim.args as Referent[]).push(gene)).toThrow(TypeError);
+  it("holds the roles in a frozen null-prototype record", () => {
+    const before = claimIdentity(claim);
+    expect(Object.isFrozen(claim.roles)).toBe(true);
+    expect(Object.getPrototypeOf(claim.roles)).toBe(null);
+    expect(() => {
+      (claim.roles as Record<string, unknown>).effect = gene;
+    }).toThrow(TypeError);
+    expect(() => {
+      // biome-ignore lint/performance/noDelete: deleting is the attack being refused
+      delete (claim.roles as Record<string, unknown>).cause;
+    }).toThrow(TypeError);
+    expect(claimIdentity(claim)).toBe(before);
   });
 
-  it("does not keep the caller's map", () => {
-    const authored = new Map([["testing/population", new Qualifier("generic", adults)]]);
-    const built = buildClaim(profile, {
-      operator: "testing/affects",
-      args: [gene, outcome],
-      qualifiers: authored,
-      polarity: "positive",
-      layer: "causal",
-    });
+  it("keeps each many role's members frozen too", () => {
+    const before = claimIdentity(transforms);
+    for (const name of ["inputs", "outputs", "facilitators"]) {
+      const members = transforms.roles[name] as Member[];
+      expect(Object.isFrozen(members)).toBe(true);
+      expect(() => members.push(new Member(outcome))).toThrow(TypeError);
+    }
+    expect(claimIdentity(transforms)).toBe(before);
+  });
+
+  it("does not keep the caller's maps or member arrays", () => {
+    const qualifiers = new Map([["testing/population", new Qualifier("generic", adults)]]);
+    const built = buildClaim(profile, { ...affectsParts(), qualifiers });
     const before = claimIdentity(built);
-    authored.delete("testing/population");
+    qualifiers.delete("testing/population");
     expect(claimIdentity(built)).toBe(before);
+
+    const inputs = [new Member(gene)];
+    const roles = new Map<string, readonly Member[]>([
+      ["inputs", inputs],
+      ["outputs", [new Member(otherGene)]],
+      ["facilitators", []],
+    ]);
+    const reaction = buildClaim(profile, {
+      ...affectsParts(),
+      operator: "testing/transforms",
+      roles,
+      polarity: null,
+      layer: "structural",
+    });
+    const reactionBefore = claimIdentity(reaction);
+    inputs.push(new Member(new Referent("testing/entity", "EX:smuggled")));
+    roles.delete("outputs");
+    expect(claimIdentity(reaction)).toBe(reactionBefore);
   });
 });
 
@@ -241,8 +314,9 @@ describe("a profile that did not come from the contracts is not a profile", () =
 
   const parts: ClaimParts = {
     operator: "forged/op",
-    args: [new Referent("forged/sort", "X:1")],
+    roles: new Map([["made-up", new Referent("forged/sort", "X:1")]]),
     qualifiers: new Map(),
+    form: "polar",
     polarity: "yes",
     layer: "made-up",
   };
@@ -411,83 +485,56 @@ describe("neither a compiled profile nor its source contract can be edited after
   // whose result no longer existed.
   it("refuses a new operator injected into the resolution table", () => {
     expect(() => {
-      (profile.operators as Record<string, CompiledOperator>)["injected/op"] = {
+      (profile.templates as Record<string, CompiledTemplate>)["injected/op"] = {
+        kind: "template",
         term: "injected/op",
-        arity: 1,
-        argSorts: ["testing/entity"],
+        roles: {},
         signApt: true,
         layers: ["causal"],
-        dimensions: [],
+        forms: ["polar"],
+        edge: null,
       };
     }).toThrow(TypeError);
-    expect(() =>
-      buildClaim(profile, {
-        operator: "injected/op",
-        args: [gene],
-        qualifiers: new Map(),
-        polarity: "positive",
-        layer: "causal",
-      }),
-    ).toThrow(ProfileError);
+    expect(() => buildClaim(profile, { ...affectsParts({}), operator: "injected/op" })).toThrow(ProfileError);
   });
 
-  it("refuses a rewritten argument sort inside a compiled operator", () => {
+  it("refuses a rewritten role sort inside a compiled instantiation", () => {
     // The nested arrays are the part a shallow freeze misses, and the one that
-    // re-types an operator that is otherwise entirely real.
-    const operator = profile.operators["testing/subtype-of"] as CompiledOperator;
-    expect(Object.isFrozen(operator)).toBe(true);
+    // re-types an instantiation that is otherwise entirely real.
+    const instantiation = profile.instantiations["testing/affects-entity-outcome"] as CompiledInstantiation;
+    expect(Object.isFrozen(instantiation)).toBe(true);
     expect(() => {
-      (operator.argSorts as string[])[1] = "testing/outcome";
+      (instantiation.roles.cause as string[]).push("testing/outcome");
     }).toThrow(TypeError);
-    expect(() =>
-      buildClaim(profile, {
-        operator: "testing/subtype-of",
-        args: [gene, outcome],
-        qualifiers: new Map(),
-        polarity: null,
-        layer: "structural",
-      }),
-    ).toThrow(/declared testing\/entity/);
+    expect(() => buildClaim(profile, affectsParts({ cause: outcome, effect: outcome }))).toThrow(
+      UninstantiatedTemplate,
+    );
   });
 
   it("refuses a rewritten restriction sort inside a compiled dimension", () => {
-    // The dimension's twin of the argument-sort case: rewriting it re-types
-    // every qualifier on that dimension, across every operator permitting it.
+    // Rewriting it re-types every qualifier on that dimension, across every
+    // operator it applies to.
     const dimension = profile.dimensions["testing/population"] as CompiledDimension;
     expect(Object.isFrozen(dimension)).toBe(true);
     expect(() => {
       (dimension as { restrictionSort: string }).restrictionSort = "testing/entity";
     }).toThrow(TypeError);
     expect(() =>
-      buildClaim(profile, {
-        operator: "testing/affects",
-        args: [gene, outcome],
-        qualifiers: new Map([["testing/population", new Qualifier("generic", gene)]]),
-        polarity: "positive",
-        layer: "causal",
-      }),
+      buildClaim(profile, affectsParts(undefined, { "testing/population": new Qualifier("generic", gene) })),
     ).toThrow(/restricts to sort testing\/cohort/);
   });
 
   it("refuses a layer smuggled into the base contract after compilation", () => {
     // The source contract and the compiled profile are separate objects, so this
     // one needs both freezes: the grammar the profile holds is the base
-    // contract's own, and an operator's layers are the profile's copy.
+    // contract's own, and a template's layers are the profile's copy.
     expect(() => {
       (base.claimGrammar.layers as string[]).push("smuggled");
     }).toThrow(TypeError);
     expect(() => {
-      ((profile.operators["testing/affects"] as CompiledOperator).layers as string[]).push("smuggled");
+      ((profile.templates["testing/affects"] as CompiledTemplate).layers as string[]).push("smuggled");
     }).toThrow(TypeError);
-    expect(() =>
-      buildClaim(profile, {
-        operator: "testing/affects",
-        args: [gene, outcome],
-        qualifiers: new Map(),
-        polarity: "positive",
-        layer: "smuggled",
-      }),
-    ).toThrow(/does not admit layer/);
+    expect(() => buildClaim(profile, affectsParts(undefined, {}, "smuggled"))).toThrow(InadmissibleLayer);
   });
 
   it("refuses an operator added to the source contract after compilation", () => {
@@ -539,13 +586,7 @@ describe("two genuine contracts that were not typed against each other", () => {
 
   it("compiles under the base it was actually parsed against", () => {
     const underWide = parseDomainContract(speculativeText, "testing", wideBase);
-    const built = buildClaim(compileProfile(wideBase, [underWide]), {
-      operator: "testing/affects",
-      args: [gene, outcome],
-      qualifiers: new Map(),
-      polarity: "positive",
-      layer: "speculative",
-    });
+    const built = buildClaim(compileProfile(wideBase, [underWide]), affectsParts(undefined, {}, "speculative"));
     expect(projectClaim(built).layer).toBe("speculative");
   });
 
@@ -568,13 +609,20 @@ describe("two genuine contracts that were not typed against each other", () => {
 describe("the checked path still works", () => {
   it("builds, projects and hashes a well-formed claim", () => {
     const claim = buildClaim(profile, {
-      operator: "testing/subtype-of",
-      args: [gene, otherGene],
+      operator: "testing/measured-by",
+      roles: new Map([
+        ["subject", gene],
+        ["instrument", method],
+      ]),
       qualifiers: new Map(),
+      form: "polar",
       polarity: null,
-      layer: "structural",
+      layer: "methodological",
     });
-    expect(projectClaim(claim).args).toEqual(["EX:gene-x", "EX:gene-z"]);
+    expect(projectClaim(claim).roles).toEqual({
+      subject: { sort: "testing/entity", term: "EX:gene-x" },
+      instrument: { sort: "testing/method", term: "EX:assay-1" },
+    });
     expect(claimIdentity(claim)).toMatch(/^[0-9a-f]{64}$/);
   });
 });

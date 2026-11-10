@@ -119,8 +119,20 @@ export class MalformedReferent extends ClaimError {}
 export class DuplicateMember extends ClaimError {}
 export class CoefficientRefused extends ClaimError {}
 export class UntypedQualifier extends ClaimError {}
-export class ArityMismatch extends ClaimError {}
-export class ArgumentSortMismatch extends ClaimError {}
+/** A role missing, undeclared, or holding a member count outside its declared bounds; or roles that are not a mapping. */
+export class RoleRefused extends ClaimError {}
+/** A referent whose sort the profile does not declare. */
+export class UndeclaredSort extends ClaimError {}
+/** A referent whose term is outside its sort's identifier class, after NFC normalization. */
+export class IdentifierClassMismatch extends ClaimError {}
+/** A role-to-sort assignment no instantiation (for a bridge, the bridge itself) admits. */
+export class UninstantiatedTemplate extends ClaimError {}
+/** A qualifier on a dimension placed `applicability`, which restricts an estimate, never a claim. */
+export class DimensionNotClaimSide extends ClaimError {}
+/** A claim form the template does not admit. */
+export class FormRefused extends ClaimError {}
+/** A `within-model` referent whose sort does not bind by `world-kind` to the reserved kind. */
+export class WithinModelRefused extends ClaimError {}
 export class UndeclaredDimension extends ClaimError {}
 export class RestrictionSortMismatch extends ClaimError {}
 export class UnknownQuantifier extends ClaimError {}

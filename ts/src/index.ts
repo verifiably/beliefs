@@ -16,7 +16,10 @@ export {
   Member,
   memberKey,
   Qualifier,
+  type QualifierRecord,
   Referent,
+  type RoleFilling,
+  type RoleRecord,
 } from "./claim.js";
 export {
   type BaseContract,
@@ -62,4 +65,11 @@ export {
   resolveOperator,
   templateOf,
 } from "./profile.js";
-export { CLAIM_DOMAIN, type ClaimProjection, claimIdentity, projectClaim } from "./projection.js";
+export {
+  CLAIM_DOMAIN,
+  type ClaimProjection,
+  claimIdentity,
+  type ProjectedMember,
+  type ProjectedReferent,
+  projectClaim,
+} from "./projection.js";
