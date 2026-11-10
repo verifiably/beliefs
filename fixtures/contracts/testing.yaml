@@ -185,6 +185,56 @@ estimands:
 duration_conventions:
   day: { unit: hours, length: 24 }
 
+quantity_kinds:
+  duration: { dimension: {T: 1}, definition: Elapsed time. }
+  rate: { dimension: {T: -1}, definition: Events per time. }
+  energy: { dimension: {M: 1, L: 2, T: -2}, definition: Energy per entity. }
+  molar-energy: { dimension: {M: 1, L: 2, T: -2, N: -1}, definition: Energy per amount. }
+  reciprocal-amount: { dimension: {N: -1}, definition: Reciprocal amount. }
+  temperature: { dimension: {Θ: 1}, definition: Thermodynamic temperature. }
+  abundance: { dimension: construct, definition: Transcript abundance. }
+  count: { dimension: counted, definition: Number of items. }
+  score: { dimension: construct, definition: An assigned score. }
+  fraction: { dimension: dimensionless, definition: A proportion. }
+
+units:
+  second: { symbol: s, quantity_kind: duration, definition: A second. }
+  hour: { symbol: h, quantity_kind: duration, definition: An hour. }
+  per-second: { symbol: s^-1, quantity_kind: rate, definition: Per second. }
+  per-hour: { symbol: h^-1, quantity_kind: rate, definition: Per hour. }
+  electronvolt: { symbol: eV, quantity_kind: energy, definition: An electronvolt. }
+  kilojoule-per-mole: { symbol: kJ/mol, quantity_kind: molar-energy, definition: Kilojoules per mole. }
+  per-mole: { symbol: mol^-1, quantity_kind: reciprocal-amount, definition: Per mole. }
+  kelvin: { symbol: K, quantity_kind: temperature, definition: A kelvin. }
+  celsius: { symbol: °C, quantity_kind: temperature, definition: A degree Celsius. }
+  millikelvin: { symbol: mK, quantity_kind: temperature, definition: A millikelvin. }
+  tpm: { symbol: TPM, quantity_kind: abundance, definition: Transcripts per million. }
+  ktpm: { symbol: kTPM, quantity_kind: abundance, definition: Thousands of transcripts per million. }
+  item: { symbol: item, quantity_kind: count, definition: An item. }
+  point: { symbol: point, quantity_kind: score, definition: A point. }
+  unity: { symbol: "1", quantity_kind: fraction, definition: Unity. }
+
+constants:
+  avogadro: { value: "6.02214076E23", unit: per-mole, exact: true, definition: The Avogadro constant. }
+
+conversions:
+  hour-to-second: { from: hour, to: second, kind: multiplicative, factor: "3600", exact: true, definition: Hours to seconds. }
+  per-second-to-per-hour: { from: per-second, to: per-hour, kind: multiplicative, factor: "3600", exact: true, definition: Per second to per hour. }
+  kelvin-to-celsius: { from: kelvin, to: celsius, kind: affine, factor: "1", offset: "-273.15", exact: true, definition: Kelvin to Celsius. }
+  kelvin-to-millikelvin: { from: kelvin, to: millikelvin, kind: multiplicative, factor: "1000", exact: true, definition: Kelvin to millikelvin. }
+  tpm-to-ktpm: { from: tpm, to: ktpm, kind: multiplicative, factor: "0.001", exact: true, definition: TPM to thousands of TPM. }
+  electronvolt-to-kilojoule-per-mole: { from: electronvolt, to: kilojoule-per-mole, kind: multiplicative, factor: "96.48533212", exact: false, error: "0.0000000005", constant: avogadro, definition: Energy per entity to energy per amount. }
+
+transformations:
+  identity: { kind: identity, domain: real, invertible: true, definition: Leave the value unchanged. }
+  negate: { kind: affine, scale: "-1", offset: "0", domain: real, invertible: true, definition: Negate the value. }
+  log2: { kind: logarithm, base: "2", domain: positive, invertible: true, definition: Base two logarithm. }
+  ln: { kind: logarithm, base: "2.718281828459045235360287471352662", domain: positive, invertible: true, definition: Natural logarithm. }
+  log2-plus-one: { kind: monotone, direction: increasing, fixed: true, domain: nonnegative, invertible: true, definition: Base two logarithm after adding one. }
+  logit: { kind: monotone, direction: increasing, fixed: true, domain: unit-interval, invertible: true, definition: Log odds. }
+  standardize: { kind: monotone, direction: increasing, fixed: false, domain: real, invertible: true, definition: Standardize against the sample. }
+  negated-standardize: { kind: monotone, direction: decreasing, fixed: false, domain: real, invertible: true, definition: Negate a sample standardization. }
+
 # Two fixture facets. They exist to exercise the namespaced grammar, the
 # asymmetry between kinds, composition across contracts and the registry check.
 # Neither means anything: `annotation` attaches to two kinds only so that a

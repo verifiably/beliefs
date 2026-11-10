@@ -36,13 +36,19 @@ import {
   BaseContract,
   type ClaimGrammar,
   type CompositeGrammar,
+  type ConstantDecl,
+  type ConversionDecl,
   type DeclarationTable,
   DomainContract,
   type EstimandGrammar,
   type FacetDecl,
   type KindDecl,
+  type QuantityDimension,
+  type QuantityKindDecl,
   type RelationDecl,
   type SortBinding,
+  type TransformationDecl,
+  type UnitDecl,
 } from "./contract.js";
 import { ContractMismatch, MalformedContract, ProfileError, SubclassRefused, UnparsedContract } from "./errors.js";
 import type { IdentifierClass } from "./patterns.js";
@@ -126,6 +132,22 @@ export interface CompiledDurationConvention {
   readonly fields: Readonly<Record<string, string | number>>;
 }
 
+export type CompiledQuantityKind = Omit<QuantityKindDecl, "name"> & {
+  readonly term: string;
+  readonly contract: string;
+};
+export type CompiledUnit = Omit<UnitDecl, "name"> & { readonly term: string; readonly contract: string };
+export type CompiledConstant = Omit<ConstantDecl, "name"> & { readonly term: string; readonly contract: string };
+export type CompiledConversion = Omit<ConversionDecl, "name"> & {
+  readonly term: string;
+  readonly contract: string;
+  readonly constantRole: "multiply" | "divide" | null;
+};
+export type CompiledTransformation = Omit<TransformationDecl, "name"> & {
+  readonly term: string;
+  readonly contract: string;
+};
+
 /** The placement of a dimension a claim's qualifiers may carry; `applicability` is the estimand grammar's. */
 const CLAIM_PLACEMENT = "claim";
 
@@ -150,6 +172,11 @@ export class ProfileSpec {
   /** Keyed by the compiled typed address of each declaration's target. */
   readonly estimands: ResolutionTable<CompiledEstimandDecl>;
   readonly durationConventions: ResolutionTable<CompiledDurationConvention>;
+  readonly quantityKinds: ResolutionTable<CompiledQuantityKind>;
+  readonly units: ResolutionTable<CompiledUnit>;
+  readonly constants: ResolutionTable<CompiledConstant>;
+  readonly conversions: ResolutionTable<CompiledConversion>;
+  readonly transformations: ResolutionTable<CompiledTransformation>;
   /**
    * The admission index: template term → the typed addresses
    * `instantiation:<namespace>/<name>` of every instantiation of it across the
@@ -174,6 +201,11 @@ export class ProfileSpec {
       bridges: ResolutionTable<CompiledBridge>;
       estimands: ResolutionTable<CompiledEstimandDecl>;
       durationConventions: ResolutionTable<CompiledDurationConvention>;
+      quantityKinds: ResolutionTable<CompiledQuantityKind>;
+      units: ResolutionTable<CompiledUnit>;
+      constants: ResolutionTable<CompiledConstant>;
+      conversions: ResolutionTable<CompiledConversion>;
+      transformations: ResolutionTable<CompiledTransformation>;
       admission: ResolutionTable<readonly string[]>;
     },
   ) {
@@ -206,8 +238,24 @@ export class ProfileSpec {
     this.bridges = frozenTable(Object.entries(parts.bridges));
     this.estimands = frozenTable(Object.entries(parts.estimands));
     this.durationConventions = frozenTable(Object.entries(parts.durationConventions));
+    this.quantityKinds = frozenTable(Object.entries(parts.quantityKinds));
+    this.units = frozenTable(Object.entries(parts.units));
+    this.constants = frozenTable(Object.entries(parts.constants));
+    this.conversions = frozenTable(Object.entries(parts.conversions));
+    this.transformations = frozenTable(Object.entries(parts.transformations));
     this.admission = frozenTable(Object.entries(parts.admission));
     Object.freeze(this);
+  }
+
+  /** The one declared route joining a unit pair, in either authored direction. */
+  conversionBetween(aUnit: string, bUnit: string): CompiledConversion | null {
+    return (
+      Object.values(this.conversions).find(
+        (conversion) =>
+          (conversion.fromUnit === aUnit && conversion.toUnit === bUnit) ||
+          (conversion.fromUnit === bUnit && conversion.toUnit === aUnit),
+      ) ?? null
+    );
   }
 
   /** The brand check: did this profile come from `compileProfile`, or merely look like it had? */
@@ -329,6 +377,102 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
         layers: decl.layers,
         forms: decl.forms,
         edge: decl.edge,
+      });
+    }
+  }
+
+  const quantityKinds: Record<string, CompiledQuantityKind> = Object.create(null);
+  const units: Record<string, CompiledUnit> = Object.create(null);
+  const constants: Record<string, CompiledConstant> = Object.create(null);
+  const conversions: Record<string, CompiledConversion> = Object.create(null);
+  const transformations: Record<string, CompiledTransformation> = Object.create(null);
+  const resolveMeasurement = (
+    contract: DomainContract,
+    reference: string,
+    table: ResolutionTable<unknown>,
+    where: string,
+  ): string => {
+    const resolved = localTerm(contract, reference);
+    if (!Object.hasOwn(table, resolved))
+      throw new ProfileError(`${contract.namespace}: ${where} names ${resolved}, which no activated contract declares`);
+    return resolved;
+  };
+  for (const contract of contracts) {
+    for (const [name, decl] of Object.entries(contract.quantityKinds)) {
+      quantityKinds[term(contract.namespace, name)] = Object.freeze({
+        term: term(contract.namespace, name),
+        dimension: decl.dimension,
+        contract: contract.namespace,
+      });
+    }
+  }
+  for (const contract of contracts) {
+    for (const [name, decl] of Object.entries(contract.units)) {
+      units[term(contract.namespace, name)] = Object.freeze({
+        term: term(contract.namespace, name),
+        symbol: decl.symbol,
+        quantityKind: resolveMeasurement(contract, decl.quantityKind, quantityKinds, `units.${name}: quantity_kind`),
+        external: decl.external,
+        contract: contract.namespace,
+      });
+    }
+  }
+  for (const contract of contracts) {
+    for (const [name, decl] of Object.entries(contract.constants)) {
+      constants[term(contract.namespace, name)] = Object.freeze({
+        term: term(contract.namespace, name),
+        value: decl.value,
+        unit: resolveMeasurement(contract, decl.unit, units, `constants.${name}: unit`),
+        exact: decl.exact,
+        contract: contract.namespace,
+      });
+    }
+  }
+  const pairs = new Set<string>();
+  for (const contract of contracts) {
+    for (const [name, decl] of Object.entries(contract.conversions)) {
+      const where = `conversions.${name}`;
+      const fromUnit = resolveMeasurement(contract, decl.fromUnit, units, `${where}: from`);
+      const toUnit = resolveMeasurement(contract, decl.toUnit, units, `${where}: to`);
+      const pair = JSON.stringify([fromUnit, toUnit].sort());
+      if (pairs.has(pair)) throw new ProfileError(`${where}: two conversions join the same unit pair`);
+      pairs.add(pair);
+      const constant =
+        decl.constant === null ? null : resolveMeasurement(contract, decl.constant, constants, `${where}: constant`);
+      const fromKind = units[fromUnit].quantityKind;
+      const toKind = units[toUnit].quantityKind;
+      let role: "multiply" | "divide" | null = null;
+      if (fromKind === toKind) {
+        if (constant !== null) throw new ProfileError(`${where}: conversion within a kind refuses a constant`);
+      } else {
+        if (constant === null) throw new ProfileError(`${where}: conversion between quantity kinds needs a constant`);
+        role = constantRole(
+          quantityKinds[fromKind].dimension,
+          quantityKinds[toKind].dimension,
+          quantityKinds[units[constants[constant].unit].quantityKind].dimension,
+          where,
+        );
+      }
+      conversions[term(contract.namespace, name)] = Object.freeze({
+        term: term(contract.namespace, name),
+        fromUnit,
+        toUnit,
+        kind: decl.kind,
+        factor: decl.factor,
+        offset: decl.offset,
+        exact: decl.exact,
+        error: decl.error,
+        constant,
+        constantRole: role,
+        contract: contract.namespace,
+      });
+    }
+    for (const [name, decl] of Object.entries(contract.transformations)) {
+      const { name: _name, ...fields } = decl;
+      transformations[term(contract.namespace, name)] = Object.freeze({
+        term: term(contract.namespace, name),
+        ...fields,
+        contract: contract.namespace,
       });
     }
   }
@@ -513,8 +657,29 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     bridges,
     estimands,
     durationConventions,
+    quantityKinds,
+    units,
+    constants,
+    conversions,
+    transformations,
     admission,
   });
+}
+
+function constantRole(
+  source: QuantityDimension,
+  target: QuantityDimension,
+  constant: QuantityDimension,
+  where: string,
+): "multiply" | "divide" {
+  if (typeof source !== "string" && typeof target !== "string" && typeof constant !== "string") {
+    const dimensions = new Set([...Object.keys(source), ...Object.keys(target), ...Object.keys(constant)]);
+    if ([...dimensions].every((key) => (source[key] ?? 0) + (constant[key] ?? 0) === (target[key] ?? 0)))
+      return "multiply";
+    if ([...dimensions].every((key) => (source[key] ?? 0) - (constant[key] ?? 0) === (target[key] ?? 0)))
+      return "divide";
+  }
+  throw new ProfileError(`${where}: dimensions do not reconcile through the declared constant`);
 }
 
 /**

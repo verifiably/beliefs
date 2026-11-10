@@ -32,10 +32,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from fractions import Fraction
 from functools import cache
 from importlib import resources
 from types import MappingProxyType
-from typing import final
+from typing import Literal, final
 
 from nodes.core.node import Node
 from nodes.core.registry import KindSpec, Registry, Violation
@@ -56,6 +57,7 @@ from beliefs.contract.domain import (
     DomainContract,
     EstimandDecl,
     InstantiationDecl,
+    QuantityDimension,
     SortBinding,
     TemplateDecl,
     _name,
@@ -75,6 +77,8 @@ from beliefs.sealed import sealed
 
 __all__ = [
     "CompiledBridge",
+    "CompiledConstant",
+    "CompiledConversion",
     "CompiledCoordinationKind",
     "CompiledDimension",
     "CompiledDurationConvention",
@@ -83,9 +87,12 @@ __all__ = [
     "CompiledInstantiation",
     "CompiledKind",
     "CompiledOperator",
+    "CompiledQuantityKind",
     "CompiledRole",
     "CompiledSort",
     "CompiledTemplate",
+    "CompiledTransformation",
+    "CompiledUnit",
     "ProfileSpec",
     "compile_profile",
     "shipped_base",
@@ -349,6 +356,100 @@ class CompiledEstimandDecl:
 
 
 @dataclass(frozen=True)
+class CompiledQuantityKind:
+    term: str
+    dimension: QuantityDimension
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"dimension": dict(self.dimension) if isinstance(self.dimension, Mapping) else self.dimension}
+
+
+@dataclass(frozen=True)
+class CompiledUnit:
+    term: str
+    symbol: str
+    quantity_kind: str
+    external: Mapping[str, str] | None
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {"symbol": self.symbol, "quantity_kind": self.quantity_kind}
+        if self.external is not None:
+            projection["external"] = dict(self.external)
+        return projection
+
+
+@dataclass(frozen=True)
+class CompiledConstant:
+    term: str
+    value: Fraction
+    unit: str
+    exact: bool
+    value_text: str
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"value": self.value_text, "unit": self.unit, "exact": self.exact}
+
+
+@dataclass(frozen=True)
+class CompiledConversion:
+    term: str
+    from_unit: str
+    to_unit: str
+    kind: str
+    factor: Fraction
+    offset: Fraction | None
+    exact: bool
+    error: Fraction | None
+    constant: str | None
+    constant_role: Literal["multiply", "divide"] | None
+    number_text: Mapping[str, str]
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "from": self.from_unit,
+            "to": self.to_unit,
+            "kind": self.kind,
+            **self.number_text,
+            "exact": self.exact,
+        }
+        if self.constant is not None:
+            projection["constant"] = self.constant
+            projection["constant_role"] = self.constant_role
+        return projection
+
+
+@dataclass(frozen=True)
+class CompiledTransformation:
+    term: str
+    kind: str
+    scale: Fraction | None
+    offset: Fraction | None
+    base: Fraction | None
+    direction: str | None
+    fixed: bool
+    domain: str
+    invertible: bool
+    number_text: Mapping[str, str]
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "kind": self.kind,
+            **self.number_text,
+            "fixed": self.fixed,
+            "domain": self.domain,
+            "invertible": self.invertible,
+        }
+        if self.direction is not None:
+            projection["direction"] = self.direction
+        return projection
+
+
+@dataclass(frozen=True)
 class CompiledDurationConvention:
     term: str
     fields: Mapping[str, str | int]
@@ -427,6 +528,11 @@ class ProfileSpec:
     """Keyed by the compiled typed address of each declaration's target,
     ``instantiation:<namespace>/<name>`` or ``bridge:<namespace>/<name>``."""
     duration_conventions: Mapping[str, CompiledDurationConvention]
+    quantity_kinds: Mapping[str, CompiledQuantityKind]
+    units: Mapping[str, CompiledUnit]
+    constants: Mapping[str, CompiledConstant]
+    conversions: Mapping[str, CompiledConversion]
+    transformations: Mapping[str, CompiledTransformation]
     admission: Mapping[str, tuple[str, ...]]
     """The admission index: template term → the typed addresses
     ``instantiation:<namespace>/<name>`` of every instantiation of it across the
@@ -514,11 +620,27 @@ class ProfileSpec:
                 bridges=self.bridges,
                 estimands=self.estimands,
                 duration_conventions=self.duration_conventions,
+                quantity_kinds=self.quantity_kinds,
+                units=self.units,
+                constants=self.constants,
+                conversions=self.conversions,
+                transformations=self.transformations,
             ),
             kinds=self.kinds,
             facets=self.facets,
             relations=self.relations,
             coordination=coordination,
+        )
+
+    def conversion_between(self, a_unit: str, b_unit: str) -> CompiledConversion | None:
+        """The one declared route joining the pair, in either authored direction."""
+        return next(
+            (
+                conversion
+                for conversion in self.conversions.values()
+                if {conversion.from_unit, conversion.to_unit} == {a_unit, b_unit}
+            ),
+            None,
         )
 
     def facets_of(self, kind: str) -> Mapping[str, CompiledFacet]:
@@ -895,6 +1017,104 @@ def compile_profile(
         for contract in contracts
         for name, decl in contract.sorts.items()
     }
+    quantity_kinds = {
+        contract.term(name): CompiledQuantityKind(contract.term(name), decl.dimension, contract.namespace)
+        for contract in contracts
+        for name, decl in contract.quantity_kinds.items()
+    }
+
+    def resolve_measurement(contract: DomainContract, reference: str, table: Mapping[str, object], where: str) -> str:
+        term = _local_term(contract, reference)
+        if term not in table:
+            raise ProfileError(f"{contract.namespace}: {where} names {term!r}, which no activated contract declares")
+        return term
+
+    units = {
+        contract.term(name): CompiledUnit(
+            contract.term(name),
+            decl.symbol,
+            resolve_measurement(contract, decl.quantity_kind, quantity_kinds, f"units.{name}: quantity_kind"),
+            decl.external,
+            contract.namespace,
+        )
+        for contract in contracts
+        for name, decl in contract.units.items()
+    }
+    constants = {
+        contract.term(name): CompiledConstant(
+            contract.term(name),
+            decl.value,
+            resolve_measurement(contract, decl.unit, units, f"constants.{name}: unit"),
+            decl.exact,
+            decl.value_text,
+            contract.namespace,
+        )
+        for contract in contracts
+        for name, decl in contract.constants.items()
+    }
+    conversions: dict[str, CompiledConversion] = {}
+    pairs: set[frozenset[str]] = set()
+    for contract in contracts:
+        for name, decl in contract.conversions.items():
+            where = f"conversions.{name}"
+            from_unit = resolve_measurement(contract, decl.from_unit, units, f"{where}: from")
+            to_unit = resolve_measurement(contract, decl.to_unit, units, f"{where}: to")
+            pair = frozenset({from_unit, to_unit})
+            if pair in pairs:
+                raise ProfileError(f"{contract.namespace}: {where}: two conversions join the same unit pair")
+            pairs.add(pair)
+            constant = (
+                resolve_measurement(contract, decl.constant, constants, f"{where}: constant")
+                if decl.constant is not None
+                else None
+            )
+            from_kind, to_kind = units[from_unit].quantity_kind, units[to_unit].quantity_kind
+            role: Literal["multiply", "divide"] | None = None
+            if from_kind == to_kind:
+                if constant is not None:
+                    raise ProfileError(f"{contract.namespace}: {where}: conversion within a kind refuses a constant")
+            else:
+                if constant is None:
+                    raise ProfileError(
+                        f"{contract.namespace}: {where}: conversion between quantity kinds needs a constant"
+                    )
+                role = _constant_role(
+                    quantity_kinds[from_kind].dimension,
+                    quantity_kinds[to_kind].dimension,
+                    quantity_kinds[units[constants[constant].unit].quantity_kind].dimension,
+                    where,
+                )
+            conversions[contract.term(name)] = CompiledConversion(
+                contract.term(name),
+                from_unit,
+                to_unit,
+                decl.kind,
+                decl.factor,
+                decl.offset,
+                decl.exact,
+                decl.error,
+                constant,
+                role,
+                decl.number_text,
+                contract.namespace,
+            )
+    transformations = {
+        contract.term(name): CompiledTransformation(
+            contract.term(name),
+            decl.kind,
+            decl.scale,
+            decl.offset,
+            decl.base,
+            decl.direction,
+            decl.fixed,
+            decl.domain,
+            decl.invertible,
+            decl.number_text,
+            contract.namespace,
+        )
+        for contract in contracts
+        for name, decl in contract.transformations.items()
+    }
     templates = {
         contract.term(name): _compile_template(contract, decl)
         for contract in contracts
@@ -948,6 +1168,11 @@ def compile_profile(
         bridges=MappingProxyType(dict(bridges)),
         estimands=MappingProxyType(dict(estimands)),
         duration_conventions=MappingProxyType(dict(duration_conventions)),
+        quantity_kinds=MappingProxyType(dict(quantity_kinds)),
+        units=MappingProxyType(dict(units)),
+        constants=MappingProxyType(dict(constants)),
+        conversions=MappingProxyType(dict(conversions)),
+        transformations=MappingProxyType(dict(transformations)),
     )
 
     coordination_kinds = (
@@ -983,6 +1208,11 @@ def compile_profile(
         bridges=tables.bridges,
         estimands=tables.estimands,
         duration_conventions=tables.duration_conventions,
+        quantity_kinds=tables.quantity_kinds,
+        units=tables.units,
+        constants=tables.constants,
+        conversions=tables.conversions,
+        transformations=tables.transformations,
         admission=MappingProxyType(admission),
         coordination_kinds=MappingProxyType(dict(coordination_kinds)),
         coordination_address_root=(coordination.address_root if coordination is not None else None),
@@ -1025,6 +1255,11 @@ class _ClaimTables:
     bridges: Mapping[str, CompiledBridge]
     estimands: Mapping[str, CompiledEstimandDecl]
     duration_conventions: Mapping[str, CompiledDurationConvention]
+    quantity_kinds: Mapping[str, CompiledQuantityKind]
+    units: Mapping[str, CompiledUnit]
+    constants: Mapping[str, CompiledConstant]
+    conversions: Mapping[str, CompiledConversion]
+    transformations: Mapping[str, CompiledTransformation]
 
 
 def _projection(
@@ -1072,10 +1307,27 @@ def _projection(
         "bridges": {term: decl.schema_projection() for term, decl in tables.bridges.items()},
         "estimands": {address: decl.schema_projection() for address, decl in tables.estimands.items()},
         "duration_conventions": {term: decl.schema_projection() for term, decl in tables.duration_conventions.items()},
+        "quantity_kinds": {term: decl.schema_projection() for term, decl in tables.quantity_kinds.items()},
+        "units": {term: decl.schema_projection() for term, decl in tables.units.items()},
+        "constants": {term: decl.schema_projection() for term, decl in tables.constants.items()},
+        "conversions": {term: decl.schema_projection() for term, decl in tables.conversions.items()},
+        "transformations": {term: decl.schema_projection() for term, decl in tables.transformations.items()},
     }
     if coordination is not None:
         projection["coordination"] = dict(coordination)
     return projection
+
+
+def _constant_role(
+    source: QuantityDimension, target: QuantityDimension, constant: QuantityDimension, where: str
+) -> Literal["multiply", "divide"]:
+    if isinstance(source, Mapping) and isinstance(target, Mapping) and isinstance(constant, Mapping):
+        dimensions = source.keys() | target.keys() | constant.keys()
+        if all(source.get(key, 0) + constant.get(key, 0) == target.get(key, 0) for key in dimensions):
+            return "multiply"
+        if all(source.get(key, 0) - constant.get(key, 0) == target.get(key, 0) for key in dimensions):
+            return "divide"
+    raise ProfileError(f"{where}: dimensions do not reconcile through the declared constant")
 
 
 def _local_term(contract: DomainContract, reference: str) -> str:

@@ -122,6 +122,11 @@ describe("the v2 testing document", () => {
     ]);
     expect(contract.durationConventions.day).toEqual({ name: "day", fields: { unit: "hours", length: 24 } });
     expect(Object.keys(contract.facets).sort()).toEqual(["testing/annotation", "testing/axis"]);
+    expect(
+      [contract.quantityKinds, contract.units, contract.constants, contract.conversions, contract.transformations].map(
+        (table) => Object.keys(table).length,
+      ),
+    ).toEqual([10, 15, 1, 6, 8]);
   });
 
   it("reads each of the six binding arms", () => {

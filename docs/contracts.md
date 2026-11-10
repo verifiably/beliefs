@@ -127,7 +127,8 @@ A writer accepts only the base contract the runtime ships.
 
 A domain contract requires `contract` (its namespace), `version` (a positive
 integer), `lineage`, `sorts` and `dimensions`. It may add `description`,
-`templates`, `instantiations`, `bridges`, `estimands`, `duration_conventions` and
+`templates`, `instantiations`, `bridges`, `estimands`, `duration_conventions`,
+`quantity_kinds`, `units`, `constants`, `conversions`, `transformations` and
 `facets`. Any other top-level field is refused, `kinds` and `relations` included,
 and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
 base v2. Its namespace may be neither `science` nor `coordination`. Each table is
@@ -212,10 +213,49 @@ and a list of them may not repeat a value.
   design replaces them.
 - **Duration conventions.** A duration convention is a mapping of fields, each a
   string or an integer. No field is validated yet; its projection is the mapping.
+- **Quantity kinds.** A quantity kind requires `dimension`: a map of SI base
+  dimensions (`L`, `M`, `T`, `I`, `Θ`, `N`, `J`) to integer exponents, or
+  `dimensionless`, `counted` or `construct`. Dimensions validate an explicitly
+  declared conversion through a constant; they never infer a conversion.
+- **Units.** A unit requires `symbol` and `quantity_kind`, a reference resolved
+  against activated quantity kinds at compile. Optional `external` maps `ucum`
+  and/or `qudt` to citable reference text.
+- **Constants.** A constant requires nonzero `value`, `unit` (resolved at compile)
+  and `exact` (a boolean).
+- **Conversions.** A conversion requires `from` and `to` unit references,
+  `kind` (`multiplicative` or `affine`), positive `factor` and boolean `exact`.
+  An affine conversion also requires `offset`; a multiplicative one refuses it.
+  Optional `error` is nonnegative. A conversion between distinct quantity kinds
+  requires a `constant` reference: adding or subtracting that constant's unit
+  dimension exponents from the source must yield the target exponents. Compilation
+  records whether the constant multiplies or divides; `dimensionless`, `counted`
+  and `construct` kinds cannot participate in that reconciliation. A conversion
+  within one kind refuses a constant. At most one declaration joins any unit pair,
+  across both directions and every activated contract; `conversion_between`
+  retrieves that declaration in either direction, without composing a route.
+- **Transformations.** Every transformation requires `kind`, `domain` (`real`,
+  `nonnegative`, `positive` or `unit-interval`) and boolean `invertible`. An
+  `identity` needs no coefficients; `affine` requires nonzero `scale` and `offset`;
+  `logarithm` requires positive `base` different from one. These three are fixed
+  by construction and refuse `fixed: false`. A `monotone` transformation instead
+  requires `direction` (`increasing` or `decreasing`) and boolean `fixed`, which
+  distinguishes a declared map from one depending on the sample. Each kind refuses
+  fields belonging only to another kind.
 - **Facets.** A domain facet declares `attaches_to` (world kinds) and `fields`. Its
   key in a profile is `<namespace>/<name>`.
 
-Estimand declarations and duration conventions carry no `retired`.
+Estimand declarations, duration conventions and the five measurement tables carry
+no `retired`.
+
+The five measurement tables may be declared by any domain namespace. Their
+references are local names or terms from other activated contracts, resolved in
+dependency order at compile. Their optional `definition` is prose outside every
+schema projection; the full document content identity still covers it. Numerical
+coefficients (`value`, `factor`, `offset`, `scale`, `base`, `error`) must be quoted
+decimal strings, never YAML numbers. Python reads exact rational values using
+`Fraction(Decimal(text))`; TypeScript holds exact integer numerators and denominators.
+Projections preserve the authored decimal text, so `"1"` and `"1.0"` remain distinct
+declarations for succession. Absent optional fields are omitted from projections.
 
 How to write, load and ship a domain contract is in
 [development.md](development.md#adding-a-domain-contract).

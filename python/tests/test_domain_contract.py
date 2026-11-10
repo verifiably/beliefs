@@ -6,6 +6,7 @@ compute, and is not asserted anywhere below.
 """
 
 import copy
+import json
 
 import pytest
 import yaml
@@ -78,6 +79,13 @@ class TestTheTestingContract:
         assert set(contract.duration_conventions) == {"day"}
         assert contract.duration_conventions["day"].fields == {"unit": "hours", "length": 24}
         assert set(contract.facets) == {"testing/axis", "testing/annotation"}
+        assert (
+            len(contract.quantity_kinds),
+            len(contract.units),
+            len(contract.constants),
+            len(contract.conversions),
+            len(contract.transformations),
+        ) == (10, 15, 1, 6, 8)
 
     def test_the_declarations_read_as_written(self, parse, testing_document):
         contract = parse(testing_document)
@@ -876,6 +884,11 @@ class TestSuccession:
             "bridge",
             "estimand",
             "duration-convention",
+            "quantity-kind",
+            "unit",
+            "constant",
+            "conversion",
+            "transformation",
         }
         keys = set(genesis.claim_vocabulary())
         # The same local name in two tables is two keys.
@@ -1024,7 +1037,7 @@ class TestTheLoadBoundary:
         document["templates"]["affects"]["forms"] = ["polar"]
 
         path = tmp_path / "successor.yaml"
-        path.write_text(yaml.safe_dump(document), encoding="utf-8")
+        path.write_text(json.dumps(document), encoding="utf-8")
         with pytest.raises(SuccessionViolation, match="different canonical schema projection"):
             domain.load_domain_contract(path, base=base_contract, predecessor=genesis)
 

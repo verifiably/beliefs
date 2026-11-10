@@ -400,6 +400,58 @@ export interface DurationConventionDecl {
   readonly fields: Readonly<Record<string, string | number>>;
 }
 
+/** Exact decimal coefficients, with their authored spelling retained. */
+export interface ExactRational {
+  readonly numerator: bigint;
+  readonly denominator: bigint;
+  readonly text: string;
+}
+
+export type QuantityDimension = Readonly<Record<string, number>> | "dimensionless" | "counted" | "construct";
+
+export interface QuantityKindDecl {
+  readonly name: string;
+  readonly dimension: QuantityDimension;
+}
+
+export interface UnitDecl {
+  readonly name: string;
+  readonly symbol: string;
+  readonly quantityKind: string;
+  readonly external: Readonly<Record<string, string>> | null;
+}
+
+export interface ConstantDecl {
+  readonly name: string;
+  readonly value: ExactRational;
+  readonly unit: string;
+  readonly exact: boolean;
+}
+
+export interface ConversionDecl {
+  readonly name: string;
+  readonly fromUnit: string;
+  readonly toUnit: string;
+  readonly kind: string;
+  readonly factor: ExactRational;
+  readonly offset: ExactRational | null;
+  readonly exact: boolean;
+  readonly error: ExactRational | null;
+  readonly constant: string | null;
+}
+
+export interface TransformationDecl {
+  readonly name: string;
+  readonly kind: string;
+  readonly scale: ExactRational | null;
+  readonly offset: ExactRational | null;
+  readonly base: ExactRational | null;
+  readonly direction: string | null;
+  readonly fixed: boolean;
+  readonly domain: string;
+  readonly invertible: boolean;
+}
+
 export class DomainContract {
   #minted = true;
   readonly namespace: string;
@@ -412,6 +464,11 @@ export class DomainContract {
   /** Keyed by typed local target, `instantiation:<name>` or `bridge:<name>`. */
   readonly estimands: DeclarationTable<EstimandDecl>;
   readonly durationConventions: DeclarationTable<DurationConventionDecl>;
+  readonly quantityKinds: DeclarationTable<QuantityKindDecl>;
+  readonly units: DeclarationTable<UnitDecl>;
+  readonly constants: DeclarationTable<ConstantDecl>;
+  readonly conversions: DeclarationTable<ConversionDecl>;
+  readonly transformations: DeclarationTable<TransformationDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
 
   /**
@@ -446,6 +503,11 @@ export class DomainContract {
       bridges: DeclarationTable<BridgeDecl>;
       estimands: DeclarationTable<EstimandDecl>;
       durationConventions: DeclarationTable<DurationConventionDecl>;
+      quantityKinds: DeclarationTable<QuantityKindDecl>;
+      units: DeclarationTable<UnitDecl>;
+      constants: DeclarationTable<ConstantDecl>;
+      conversions: DeclarationTable<ConversionDecl>;
+      transformations: DeclarationTable<TransformationDecl>;
       facets: DeclarationTable<FacetDecl>;
       base: BaseContract;
     },
@@ -468,6 +530,11 @@ export class DomainContract {
     this.bridges = parts.bridges;
     this.estimands = parts.estimands;
     this.durationConventions = parts.durationConventions;
+    this.quantityKinds = parts.quantityKinds;
+    this.units = parts.units;
+    this.constants = parts.constants;
+    this.conversions = parts.conversions;
+    this.transformations = parts.transformations;
     this.facets = parts.facets;
     this.base = parts.base;
     Object.freeze(this);
@@ -1296,6 +1363,180 @@ function parseRoleSorts(
   return frozenTable(entries);
 }
 
+function decimal(value: unknown, where: string): ExactRational {
+  if (typeof value !== "string" || !/^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$/.test(value)) {
+    throw new MalformedContract(`${where}: expected a decimal string, found ${shown(value)}`);
+  }
+  const [mantissa, exponent = "0"] = value.toLowerCase().split("e");
+  const [whole, fractional = ""] = mantissa.split(".");
+  const power = BigInt(exponent) - BigInt(fractional.length);
+  let numerator = BigInt(`${whole}${fractional}`);
+  let denominator = 1n;
+  if (power >= 0n) numerator *= 10n ** power;
+  else denominator = 10n ** -power;
+  let a = numerator < 0n ? -numerator : numerator;
+  let b = denominator;
+  while (b !== 0n) [a, b] = [b, a % b];
+  return Object.freeze({ numerator: numerator / a, denominator: denominator / a, text: value });
+}
+
+function measurementFields(
+  value: unknown,
+  required: string[],
+  optional: string[],
+  where: string,
+): Record<string, unknown> {
+  const body = mapping(value, where);
+  exactFields(body, required, [...optional, "definition", "description"], where);
+  if ("definition" in body) canonicalText(body.definition, `${where}.definition`);
+  return body;
+}
+
+function parseQuantityKind(name: string, value: unknown, where: string): QuantityKindDecl {
+  const body = measurementFields(value, ["dimension"], [], where);
+  const dimension = body.dimension;
+  if (dimension === "dimensionless" || dimension === "counted" || dimension === "construct") {
+    return Object.freeze({ name, dimension });
+  }
+  const exponents = mapping(dimension, `${where}.dimension`);
+  const entries: [string, number][] = [];
+  for (const [key, exponent] of Object.entries(exponents)) {
+    if (
+      !["L", "M", "T", "I", "Θ", "N", "J"].includes(key) ||
+      typeof exponent !== "number" ||
+      !Number.isSafeInteger(exponent)
+    ) {
+      throw new MalformedContract(`${where}: dimension needs SI base dimensions with integer exponents`);
+    }
+    entries.push([key, exponent]);
+  }
+  return Object.freeze({ name, dimension: frozenTable(entries) });
+}
+
+function parseUnit(
+  name: string,
+  value: unknown,
+  where: string,
+  ref: (value: unknown, where: string) => string,
+): UnitDecl {
+  const body = measurementFields(value, ["symbol", "quantity_kind"], ["external"], where);
+  let external: Readonly<Record<string, string>> | null = null;
+  if ("external" in body) {
+    const entries = mapping(body.external, `${where}.external`);
+    exactFields(entries, [], ["ucum", "qudt"], `${where}.external`);
+    external = frozenTable(
+      Object.entries(entries).map(([key, value]) => [key, canonicalText(value, `${where}.external.${key}`)]),
+    );
+  }
+  return Object.freeze({
+    name,
+    symbol: canonicalText(body.symbol, `${where}.symbol`),
+    quantityKind: ref(body.quantity_kind, `${where}.quantity_kind`),
+    external,
+  });
+}
+
+function parseConstant(
+  name: string,
+  value: unknown,
+  where: string,
+  ref: (value: unknown, where: string) => string,
+): ConstantDecl {
+  const body = measurementFields(value, ["value", "unit", "exact"], [], where);
+  const coefficient = decimal(body.value, `${where}.value`);
+  if (coefficient.numerator === 0n) throw new MalformedContract(`${where}: a constant value must be nonzero`);
+  return Object.freeze({
+    name,
+    value: coefficient,
+    unit: ref(body.unit, `${where}.unit`),
+    exact: bool(body.exact, `${where}.exact`),
+  });
+}
+
+function parseConversion(
+  name: string,
+  value: unknown,
+  where: string,
+  base: BaseContract,
+  ref: (value: unknown, where: string) => string,
+): ConversionDecl {
+  const raw = mapping(value, where);
+  const kind = raw.kind;
+  if (typeof kind !== "string" || !base.measurementGrammar.conversionKinds.includes(kind)) {
+    throw new MalformedContract(`${where}: unknown conversion kind ${shown(kind)}`);
+  }
+  const body = measurementFields(
+    value,
+    ["from", "to", "kind", "factor", "exact", ...(kind === "affine" ? ["offset"] : [])],
+    ["error", "constant"],
+    where,
+  );
+  const factor = decimal(body.factor, `${where}.factor`);
+  const offset = "offset" in body ? decimal(body.offset, `${where}.offset`) : null;
+  const error = "error" in body ? decimal(body.error, `${where}.error`) : null;
+  if (factor.numerator <= 0n) throw new MalformedContract(`${where}: conversion factor must be positive`);
+  if (error !== null && error.numerator < 0n)
+    throw new MalformedContract(`${where}: conversion error must be nonnegative`);
+  return Object.freeze({
+    name,
+    fromUnit: ref(body.from, `${where}.from`),
+    toUnit: ref(body.to, `${where}.to`),
+    kind,
+    factor,
+    offset,
+    exact: bool(body.exact, `${where}.exact`),
+    error,
+    constant: "constant" in body ? ref(body.constant, `${where}.constant`) : null,
+  });
+}
+
+function parseTransformation(name: string, value: unknown, where: string, base: BaseContract): TransformationDecl {
+  const raw = mapping(value, where);
+  const kind = raw.kind;
+  const grammar = base.measurementGrammar;
+  if (typeof kind !== "string" || !grammar.transformationKinds.includes(kind)) {
+    throw new MalformedContract(`${where}: unknown transformation kind ${shown(kind)}`);
+  }
+  const shapes: Record<string, string[]> = {
+    identity: [],
+    affine: ["scale", "offset"],
+    logarithm: ["base"],
+    monotone: ["direction", "fixed"],
+  };
+  const body = measurementFields(value, ["kind", "domain", "invertible", ...shapes[kind]], ["fixed"], where);
+  const scale = "scale" in body ? decimal(body.scale, `${where}.scale`) : null;
+  const offset = "offset" in body ? decimal(body.offset, `${where}.offset`) : null;
+  const logarithmBase = "base" in body ? decimal(body.base, `${where}.base`) : null;
+  if (scale !== null && scale.numerator === 0n) throw new MalformedContract(`${where}: affine scale must be nonzero`);
+  if (
+    logarithmBase !== null &&
+    (logarithmBase.numerator <= 0n || logarithmBase.numerator === logarithmBase.denominator)
+  ) {
+    throw new MalformedContract(`${where}: logarithm base must be positive and different from one`);
+  }
+  const fixed = bool("fixed" in body ? body.fixed : true, `${where}.fixed`);
+  if (kind !== "monotone" && !fixed) throw new MalformedContract(`${where}: ${kind} is fixed by construction`);
+  const direction = "direction" in body ? body.direction : null;
+  if (kind === "monotone" && (typeof direction !== "string" || !grammar.monotoneDirections.includes(direction))) {
+    throw new MalformedContract(`${where}: unknown monotone direction ${shown(direction)}`);
+  }
+  const domain = body.domain;
+  if (typeof domain !== "string" || !grammar.transformationDomains.includes(domain)) {
+    throw new MalformedContract(`${where}: unknown transformation domain ${shown(domain)}`);
+  }
+  return Object.freeze({
+    name,
+    kind,
+    scale,
+    offset,
+    base: logarithmBase,
+    direction: direction as string | null,
+    fixed,
+    domain,
+    invertible: bool(body.invertible, `${where}.invertible`),
+  });
+}
+
 function parseEstimandTarget(
   key: string,
   where: string,
@@ -1349,7 +1590,19 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
   exactFields(
     document,
     ["contract", "version", "lineage", "sorts", "dimensions"],
-    ["templates", "instantiations", "bridges", "duration_conventions", "estimands", "facets"],
+    [
+      "templates",
+      "instantiations",
+      "bridges",
+      "duration_conventions",
+      "estimands",
+      "facets",
+      "quantity_kinds",
+      "units",
+      "constants",
+      "conversions",
+      "transformations",
+    ],
     source,
   );
 
@@ -1521,6 +1774,39 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
   }
   const durationConventions = frozenTable(conventionEntries);
 
+  const measurementRef = (value: unknown, where: string) =>
+    reference(value, where, namespace, base.name, "measurement declaration");
+  const quantityKinds = frozenTable(
+    Object.entries(declarations(document.quantity_kinds, `${source}.quantity_kinds`)).map(([name, body]) => [
+      name,
+      parseQuantityKind(name, body, `${source}.quantity_kinds.${name}`),
+    ]),
+  );
+  const units = frozenTable(
+    Object.entries(declarations(document.units, `${source}.units`)).map(([name, body]) => [
+      name,
+      parseUnit(name, body, `${source}.units.${name}`, measurementRef),
+    ]),
+  );
+  const constants = frozenTable(
+    Object.entries(declarations(document.constants, `${source}.constants`)).map(([name, body]) => [
+      name,
+      parseConstant(name, body, `${source}.constants.${name}`, measurementRef),
+    ]),
+  );
+  const conversions = frozenTable(
+    Object.entries(declarations(document.conversions, `${source}.conversions`)).map(([name, body]) => [
+      name,
+      parseConversion(name, body, `${source}.conversions.${name}`, base, measurementRef),
+    ]),
+  );
+  const transformations = frozenTable(
+    Object.entries(declarations(document.transformations, `${source}.transformations`)).map(([name, body]) => [
+      name,
+      parseTransformation(name, body, `${source}.transformations.${name}`, base),
+    ]),
+  );
+
   return new DomainContract(MINT, {
     namespace,
     version,
@@ -1531,6 +1817,11 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     bridges,
     estimands,
     durationConventions,
+    quantityKinds,
+    units,
+    constants,
+    conversions,
+    transformations,
     facets,
     base,
   });

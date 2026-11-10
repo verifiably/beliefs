@@ -34,9 +34,11 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields
+from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 from types import MappingProxyType
-from typing import ClassVar, Self, final
+from typing import ClassVar, Literal, Self, cast, final
 
 from beliefs.contract.base import BaseContract
 from beliefs.contract.facets import FacetDecl, parse_facet_declarations
@@ -48,6 +50,8 @@ from beliefs.sealed import sealed
 
 __all__ = [
     "BridgeDecl",
+    "ConstantDecl",
+    "ConversionDecl",
     "DatasetBinding",
     "DimensionDecl",
     "DomainContract",
@@ -55,6 +59,8 @@ __all__ = [
     "EstimandDecl",
     "ExternalRef",
     "InstantiationDecl",
+    "QuantityDimension",
+    "QuantityKindDecl",
     "ReleaseBinding",
     "RoleDecl",
     "RunOutputBinding",
@@ -63,6 +69,8 @@ __all__ = [
     "SortBinding",
     "SortDecl",
     "TemplateDecl",
+    "TransformationDecl",
+    "UnitDecl",
     "WorldKindBinding",
     "check_succession",
     "load_domain_contract",
@@ -81,7 +89,20 @@ _HEX64 = "[0-9a-f]{64}"
 
 _CONTRACT_FIELDS = frozenset({"contract", "version", "lineage", "sorts", "dimensions"})
 _CONTRACT_OPTIONAL = frozenset(
-    {"description", "templates", "instantiations", "bridges", "duration_conventions", "estimands", "facets"}
+    {
+        "description",
+        "templates",
+        "instantiations",
+        "bridges",
+        "duration_conventions",
+        "estimands",
+        "facets",
+        "quantity_kinds",
+        "units",
+        "constants",
+        "conversions",
+        "transformations",
+    }
 )
 _V1_FIELDS = ("operators", "edges")
 _SORT_FIELDS = frozenset({"binding"})
@@ -520,8 +541,114 @@ class DurationConventionDecl:
         return {key: self.fields[key] for key in sorted(self.fields)}
 
 
+QuantityDimension = Mapping[str, int] | Literal["dimensionless", "counted", "construct"]
+
+
+@dataclass(frozen=True)
+class QuantityKindDecl:
+    name: str
+    dimension: QuantityDimension
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"dimension": dict(self.dimension) if isinstance(self.dimension, Mapping) else self.dimension}
+
+
+@dataclass(frozen=True)
+class UnitDecl:
+    name: str
+    symbol: str
+    quantity_kind: str
+    external: Mapping[str, str] | None
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {"symbol": self.symbol, "quantity_kind": self.quantity_kind}
+        if self.external is not None:
+            projection["external"] = dict(self.external)
+        return projection
+
+
+@dataclass(frozen=True)
+class ConstantDecl:
+    name: str
+    value: Fraction
+    unit: str
+    exact: bool
+    value_text: str
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"value": self.value_text, "unit": self.unit, "exact": self.exact}
+
+
+@dataclass(frozen=True)
+class ConversionDecl:
+    name: str
+    from_unit: str
+    to_unit: str
+    kind: str
+    factor: Fraction
+    offset: Fraction | None
+    exact: bool
+    error: Fraction | None
+    constant: str | None
+    number_text: Mapping[str, str]
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "from": self.from_unit,
+            "to": self.to_unit,
+            "kind": self.kind,
+            **self.number_text,
+            "exact": self.exact,
+        }
+        if self.constant is not None:
+            projection["constant"] = self.constant
+        return projection
+
+
+@dataclass(frozen=True)
+class TransformationDecl:
+    name: str
+    kind: str
+    scale: Fraction | None
+    offset: Fraction | None
+    base: Fraction | None
+    direction: str | None
+    fixed: bool
+    domain: str
+    invertible: bool
+    number_text: Mapping[str, str]
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        projection: dict[str, object] = {
+            "kind": self.kind,
+            **self.number_text,
+            "fixed": self.fixed,
+            "domain": self.domain,
+            "invertible": self.invertible,
+        }
+        if self.direction is not None:
+            projection["direction"] = self.direction
+        return projection
+
+
 _Declaration = (
-    SortDecl | DimensionDecl | TemplateDecl | InstantiationDecl | BridgeDecl | EstimandDecl | DurationConventionDecl
+    SortDecl
+    | DimensionDecl
+    | TemplateDecl
+    | InstantiationDecl
+    | BridgeDecl
+    | EstimandDecl
+    | DurationConventionDecl
+    | QuantityKindDecl
+    | UnitDecl
+    | ConstantDecl
+    | ConversionDecl
+    | TransformationDecl
 )
 
 
@@ -560,6 +687,11 @@ class DomainContract:
     estimands: Mapping[str, EstimandDecl]
     """Keyed by typed local target, ``instantiation:<name>`` or ``bridge:<name>``."""
     duration_conventions: Mapping[str, DurationConventionDecl]
+    quantity_kinds: Mapping[str, QuantityKindDecl]
+    units: Mapping[str, UnitDecl]
+    constants: Mapping[str, ConstantDecl]
+    conversions: Mapping[str, ConversionDecl]
+    transformations: Mapping[str, TransformationDecl]
     facets: Mapping[str, FacetDecl]
     content_identity: str
 
@@ -603,6 +735,11 @@ class DomainContract:
         bridges: dict[str, BridgeDecl],
         estimands: dict[str, EstimandDecl],
         duration_conventions: dict[str, DurationConventionDecl],
+        quantity_kinds: dict[str, QuantityKindDecl],
+        units: dict[str, UnitDecl],
+        constants: dict[str, ConstantDecl],
+        conversions: dict[str, ConversionDecl],
+        transformations: dict[str, TransformationDecl],
         facets: dict[str, FacetDecl],
         content_identity: str,
         base_identity: str,
@@ -625,6 +762,11 @@ class DomainContract:
             ("bridges", MappingProxyType(dict(bridges))),
             ("estimands", MappingProxyType(dict(estimands))),
             ("duration_conventions", MappingProxyType(dict(duration_conventions))),
+            ("quantity_kinds", MappingProxyType(dict(quantity_kinds))),
+            ("units", MappingProxyType(dict(units))),
+            ("constants", MappingProxyType(dict(constants))),
+            ("conversions", MappingProxyType(dict(conversions))),
+            ("transformations", MappingProxyType(dict(transformations))),
             ("facets", MappingProxyType(dict(facets))),
             ("content_identity", content_identity),
             ("base_identity", base_identity),
@@ -669,10 +811,152 @@ class DomainContract:
             *((f"bridge:{name}", decl) for name, decl in self.bridges.items()),
             *((f"estimand:{target}", decl) for target, decl in self.estimands.items()),
             *((f"duration-convention:{name}", decl) for name, decl in self.duration_conventions.items()),
+            *((f"quantity-kind:{name}", decl) for name, decl in self.quantity_kinds.items()),
+            *((f"unit:{name}", decl) for name, decl in self.units.items()),
+            *((f"constant:{name}", decl) for name, decl in self.constants.items()),
+            *((f"conversion:{name}", decl) for name, decl in self.conversions.items()),
+            *((f"transformation:{name}", decl) for name, decl in self.transformations.items()),
         )
 
 
 # --- parse helpers ----------------------------------------------------------------
+
+
+_DECIMAL = re.compile(r"^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$")
+_BASE_DIMENSIONS = frozenset({"L", "M", "T", "I", "Θ", "N", "J"})
+
+
+def _decimal(value: object, where: str) -> Fraction:
+    if not isinstance(value, str) or not _DECIMAL.fullmatch(value):
+        raise MalformedContract(f"{where}: expected a decimal string, found {value!r}")
+    return Fraction(Decimal(value))
+
+
+def _measurement_fields(
+    body: object, required: frozenset[str], optional: frozenset[str], where: str
+) -> dict[str, object]:
+    decl = _mapping(body, where)
+    _fields(decl, required, optional | {"definition", "description"}, where)
+    if "definition" in decl:
+        _require_text(decl["definition"], f"{where}: definition")
+    return decl
+
+
+def _parse_quantity_kind(name: str, body: object, where: str) -> QuantityKindDecl:
+    decl = _measurement_fields(body, frozenset({"dimension"}), frozenset(), where)
+    dimension = decl["dimension"]
+    if dimension == "dimensionless" or dimension == "counted" or dimension == "construct":
+        return QuantityKindDecl(name, cast(QuantityDimension, dimension))
+    exponents = _mapping(dimension, f"{where}: dimension")
+    validated: dict[str, int] = {}
+    for base, exponent in exponents.items():
+        if base not in _BASE_DIMENSIONS or type(exponent) is not int:
+            raise MalformedContract(f"{where}: dimension needs SI base dimensions with integer exponents")
+        validated[base] = exponent
+    return QuantityKindDecl(name, MappingProxyType(validated))
+
+
+def _parse_unit(name: str, body: object, where: str, reference: Callable[[object, str], str]) -> UnitDecl:
+    decl = _measurement_fields(body, frozenset({"symbol", "quantity_kind"}), frozenset({"external"}), where)
+    external = None
+    if "external" in decl:
+        entries = _mapping(decl["external"], f"{where}: external")
+        _fields(entries, frozenset(), frozenset({"ucum", "qudt"}), f"{where}: external")
+        external = MappingProxyType(
+            {key: _require_text(value, f"{where}: external.{key}") for key, value in entries.items()}
+        )
+    return UnitDecl(
+        name,
+        _require_text(decl["symbol"], f"{where}: symbol"),
+        reference(decl["quantity_kind"], f"{where}: quantity_kind"),
+        external,
+    )
+
+
+def _parse_constant(name: str, body: object, where: str, reference: Callable[[object, str], str]) -> ConstantDecl:
+    decl = _measurement_fields(body, frozenset({"value", "unit", "exact"}), frozenset(), where)
+    value = _decimal(decl["value"], f"{where}: value")
+    if value == 0:
+        raise MalformedContract(f"{where}: a constant value must be nonzero")
+    assert isinstance(decl["value"], str)
+    return ConstantDecl(
+        name,
+        value,
+        reference(decl["unit"], f"{where}: unit"),
+        _bool(decl["exact"], f"{where}: exact"),
+        decl["value"],
+    )
+
+
+def _parse_conversion(
+    name: str, body: object, where: str, base: BaseContract, reference: Callable[[object, str], str]
+) -> ConversionDecl:
+    raw = _mapping(body, where)
+    kind = raw.get("kind")
+    if not isinstance(kind, str) or kind not in base.measurement_grammar.conversion_kinds:
+        raise MalformedContract(f"{where}: unknown conversion kind {kind!r}")
+    required = frozenset({"from", "to", "kind", "factor", "exact"}) | ({"offset"} if kind == "affine" else set())
+    decl = _measurement_fields(body, required, frozenset({"error", "constant"}), where)
+    numbers = {key: _decimal(decl[key], f"{where}: {key}") for key in ("factor", "offset", "error") if key in decl}
+    if numbers["factor"] <= 0:
+        raise MalformedContract(f"{where}: conversion factor must be positive")
+    if "error" in numbers and numbers["error"] < 0:
+        raise MalformedContract(f"{where}: conversion error must be nonnegative")
+    text = MappingProxyType({key: _require_text(decl[key], f"{where}: {key}") for key in numbers})
+    return ConversionDecl(
+        name,
+        reference(decl["from"], f"{where}: from"),
+        reference(decl["to"], f"{where}: to"),
+        kind,
+        numbers["factor"],
+        numbers.get("offset"),
+        _bool(decl["exact"], f"{where}: exact"),
+        numbers.get("error"),
+        reference(decl["constant"], f"{where}: constant") if "constant" in decl else None,
+        text,
+    )
+
+
+def _parse_transformation(name: str, body: object, where: str, base: BaseContract) -> TransformationDecl:
+    raw = _mapping(body, where)
+    kind = raw.get("kind")
+    grammar = base.measurement_grammar
+    if not isinstance(kind, str) or kind not in grammar.transformation_kinds:
+        raise MalformedContract(f"{where}: unknown transformation kind {kind!r}")
+    shape = {
+        "identity": set(),
+        "affine": {"scale", "offset"},
+        "logarithm": {"base"},
+        "monotone": {"direction", "fixed"},
+    }[kind]
+    decl = _measurement_fields(body, frozenset({"kind", "domain", "invertible", *shape}), frozenset({"fixed"}), where)
+    numbers = {key: _decimal(decl[key], f"{where}: {key}") for key in ("scale", "offset", "base") if key in decl}
+    if "scale" in numbers and numbers["scale"] == 0:
+        raise MalformedContract(f"{where}: affine scale must be nonzero")
+    if "base" in numbers and (numbers["base"] <= 0 or numbers["base"] == 1):
+        raise MalformedContract(f"{where}: logarithm base must be positive and different from one")
+    fixed = _bool(decl.get("fixed", True), f"{where}: fixed")
+    if kind != "monotone" and not fixed:
+        raise MalformedContract(f"{where}: {kind} is fixed by construction")
+    direction = decl.get("direction")
+    if kind == "monotone" and (not isinstance(direction, str) or direction not in grammar.monotone_directions):
+        raise MalformedContract(f"{where}: unknown monotone direction {direction!r}")
+    domain = decl["domain"]
+    if not isinstance(domain, str) or domain not in grammar.transformation_domains:
+        raise MalformedContract(f"{where}: unknown transformation domain {domain!r}")
+    assert direction is None or isinstance(direction, str)
+    return TransformationDecl(
+        name,
+        kind,
+        numbers.get("scale"),
+        numbers.get("offset"),
+        numbers.get("base"),
+        direction,
+        fixed,
+        domain,
+        _bool(decl["invertible"], f"{where}: invertible"),
+        MappingProxyType({key: _require_text(decl[key], f"{where}: {key}") for key in numbers}),
+    )
 
 
 def _mapping(value: object, where: str) -> dict[str, object]:
@@ -1171,6 +1455,30 @@ def parse_domain_contract(
             scalars[field] = scalar
         duration_conventions[name] = DurationConventionDecl(name=name, fields=MappingProxyType(scalars))
 
+    def measurement_reference(value: object, where: str) -> str:
+        return _reference(value, where, namespace=namespace, base_name=base.name, what="measurement declaration")
+
+    quantity_kinds = {
+        name: _parse_quantity_kind(name, body, f"{source}: quantity_kinds.{name}")
+        for name, body in _declarations(root.get("quantity_kinds", {}), f"{source}: quantity_kinds").items()
+    }
+    units = {
+        name: _parse_unit(name, body, f"{source}: units.{name}", measurement_reference)
+        for name, body in _declarations(root.get("units", {}), f"{source}: units").items()
+    }
+    constants = {
+        name: _parse_constant(name, body, f"{source}: constants.{name}", measurement_reference)
+        for name, body in _declarations(root.get("constants", {}), f"{source}: constants").items()
+    }
+    conversions = {
+        name: _parse_conversion(name, body, f"{source}: conversions.{name}", base, measurement_reference)
+        for name, body in _declarations(root.get("conversions", {}), f"{source}: conversions").items()
+    }
+    transformations = {
+        name: _parse_transformation(name, body, f"{source}: transformations.{name}", base)
+        for name, body in _declarations(root.get("transformations", {}), f"{source}: transformations").items()
+    }
+
     contract = DomainContract._parsed(
         _MINT,
         namespace=namespace,
@@ -1183,6 +1491,11 @@ def parse_domain_contract(
         bridges=bridges,
         estimands=estimands,
         duration_conventions=duration_conventions,
+        quantity_kinds=quantity_kinds,
+        units=units,
+        constants=constants,
+        conversions=conversions,
+        transformations=transformations,
         facets=facets,
         content_identity=v1.digest(DOMAIN_CONTRACT_DOMAIN, root),
         base_identity=base.content_identity,

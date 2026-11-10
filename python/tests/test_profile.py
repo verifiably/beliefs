@@ -68,9 +68,9 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     and again when the exposure and reservation kinds entered it,
     and again when base v2's claim tables (templates, instantiations, bridges,
     duration conventions) replaced the operator and edge tables,
-    and again when the measurement grammar entered the projection."""
+    and again when the measurement grammar and its five declaration tables entered the projection."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "86c4f31cbf7cedbd3406df418c2c6665088c8a82c50100a6ce1edfbaf06f810c"
+    assert before.compiled_identity == "69e700053f4f9d50b1e3bc3ade84e22c8e5cfed095b47e141588df7c52a0b480"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -1097,6 +1097,11 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 bridges={},
                 estimands={},
                 duration_conventions={},
+                quantity_kinds={},
+                units={},
+                constants={},
+                conversions={},
+                transformations={},
                 facets={},
                 content_identity="0" * 64,
                 base_identity="0" * 64,
