@@ -1644,9 +1644,12 @@ class SessionClosed(ScienceError):
 
 
 class SessionProtocolError(ScienceError):
-    """A close naming anything but the current invocation, or an act by a
-    writer whose invocation is not current. Unreachable
-    through the dispatcher's lock; reaching it is a bug, never an outcome."""
+    """A close naming anything but the current invocation, an act by a writer
+    or route whose invocation is not current, a store route or ledgered store
+    call naming a missing or foreign store root, `seal()` on an attended
+    session, or `seal()` / `close()` from inside an act's hold on the same
+    thread. Unreachable through the dispatcher's lock; reaching it is a bug,
+    never an outcome."""
 
 
 class RunSessionRefused(ScienceError):

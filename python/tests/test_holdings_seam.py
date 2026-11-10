@@ -405,12 +405,14 @@ def _entries(view):
     return [(entry.digest, entry) for entry in view.entries]
 
 
-def _committed_registration(root, outcome):
+def _committed_registration(root, outcome, expected_paths: tuple[str, ...]):
     chain = science_root._log_seam().inspect_detached(root)
     assert isinstance(chain, WellFormedView)
     matches = [e for e in chain.entries if isinstance(e, RegisteredEntryView) and e.digest == outcome.entry]
     assert len(matches) == 1
     assert matches[0].txid == outcome.txid
+    assert tuple(path for path, _ in matches[0].initial) == expected_paths
+    assert tuple(path for path, _ in matches[0].final) == expected_paths
     settlements = [e for e in chain.entries if isinstance(e, SettledEntryView) and e.registration == outcome.entry]
     assert [s.committed for s in settlements] == [True]
 
@@ -423,25 +425,31 @@ def test_store_outcome_entry_is_the_committed_store_registration(certified_work,
     seam.store_write(root, "source.bin", b"held", intent)
     if operation == "write":
         outcome = seam.store_write(root, "a/b", b"x", intent)
+        expected_paths = ("a/b",)
     elif operation == "create":
         outcome = seam.store_create(root, OBJECT_PATH, b"abc", intent)
+        expected_paths = (OBJECT_PATH,)
     elif operation == "delete":
         outcome = seam.store_delete(root, "source.bin", intent)
+        expected_paths = ("source.bin",)
     else:
         outcome = seam.store_move(root, "source.bin", "destination.bin", intent)
+        expected_paths = ("destination.bin", "source.bin")
     assert len(outcome.entry) == 64
-    _committed_registration(root, outcome)
+    _committed_registration(root, outcome, expected_paths)
 
 
 def test_a_malformed_store_path_is_a_store_write_refusal(certified_work):
     root = _store(certified_work)
     before = science_root._log_seam().inspect_detached(root)
-    for call in (
-        lambda: holdings_seam().store_write(root, "", b"x", "f" * 64),
-        lambda: holdings_seam().store_create(root, "", b"x", "f" * 64),
-        lambda: holdings_seam().store_delete(root, "", "f" * 64),
-        lambda: holdings_seam().store_move(root, "", "d.bin", "f" * 64),
-    ):
-        with pytest.raises(StoreWriteRefused):
-            call()
+    for path in ("", "/abs", "..", "a/"):
+        for call in (
+            lambda path=path: holdings_seam().store_write(root, path, b"x", "f" * 64),
+            lambda path=path: holdings_seam().store_create(root, path, b"x", "f" * 64),
+            lambda path=path: holdings_seam().store_delete(root, path, "f" * 64),
+            lambda path=path: holdings_seam().store_move(root, path, "d.bin", "f" * 64),
+            lambda path=path: holdings_seam().store_move(root, "s.bin", path, "f" * 64),
+        ):
+            with pytest.raises(StoreWriteRefused):
+                call()
     assert science_root._log_seam().inspect_detached(root) == before

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -444,6 +445,132 @@ def test_a_run_session_without_a_store_seals_with_store_none(certified_work):
     try:
         tips = session.seal(WAIT)
         assert tips == SealedTips(_detached_tip(session.corpus_id, session.corpus_root), None)
+    finally:
+        session.close()
+
+
+def test_an_acquisition_close_in_flight_drains_into_the_sealed_tip(certified_work, tmp_path, monkeypatch):
+    from holdings_transport_fixtures import Scripted, scripted_seam
+    from test_session_routes import ACQUIRES, _acquisition_request
+
+    from beliefs.permit import WritePermit
+
+    ceiling = WritePermit(
+        frozenset({"holdings-observation", "dataset", "act-report"}),
+        frozenset({"corpus-write", "holdings"}),
+    )
+    config, root = _one_corpus(certified_work)
+    store = _store(certified_work)
+    session = open_run_session(
+        config, certified_work / "ops", write_root=root, profile=BASE, ceiling=ceiling, store_root=store
+    )
+    try:
+        session.claim_invocation("A", "acquire", DIGEST)
+        scoped = session.scoped(ACQUIRES, "A")
+        seal_waiting = _seal_waits(session, monkeypatch)
+        inside_close, release_close = threading.Event(), threading.Event()
+        real_closing_hold = writer_module.ScopedWriter._closing_hold
+
+        @contextmanager
+        def blocking_closing_hold(self):
+            with real_closing_hold(self):
+                inside_close.set()
+                assert release_close.wait(WAIT)
+                yield
+
+        monkeypatch.setattr(writer_module.ScopedWriter, "_closing_hold", blocking_closing_hold)
+        transport, _ = scripted_seam({"/a": Scripted(200, {"Content-Length": "1"}, (b"x",))})
+        acquirer = _Run(
+            "acquire",
+            lambda: scoped.acquire(_acquisition_request(), instrument="inst", scratch=tmp_path / "s", seam=transport),
+        )
+        acquirer.start()
+        assert inside_close.wait(WAIT)
+        sealer = _Run("seal", lambda: session.seal(WAIT))
+        sealer.start()
+        assert seal_waiting.wait(WAIT)
+        release_close.set()
+        acquirer.join(WAIT)
+        sealer.join(WAIT)
+        assert acquirer.raised is None and sealer.raised is None
+        assert acquirer.result.dataset is not None
+        assert sealer.result == SealedTips(
+            _detached_tip(session.corpus_id, root),
+            _detached_tip(session.store_id, store),  # type: ignore[arg-type]
+        )
+        assert len(session.invocation_acts("A")) == 2
+        session.close_invocation("A", {"done": []})
+    finally:
+        session.close()
+
+
+def test_a_holdings_write_cut_by_seal_reconciles_with_verified_store_act_and_outcome_unknown_intent(
+    certified_work, monkeypatch
+):
+    from test_session_reconcile import codes
+
+    from beliefs.session import reconcile_sessions
+
+    session = _run_session(certified_work, store=True)
+    store = session.store_root
+    assert store is not None and session.store_id is not None and session.world_config is not None
+    try:
+        session.claim_invocation("A", "hold", DIGEST)
+        seal_waiting = _seal_waits(session, monkeypatch)
+        stored, release = threading.Event(), threading.Event()
+        assert session._holdings_seam is not None
+        real_store_write = session._holdings_seam.store_write
+
+        def blocking_store_write(s_root, path, content, intent):
+            outcome = real_store_write(s_root, path, content, intent)
+            stored.set()
+            assert release.wait(WAIT)
+            return outcome
+
+        monkeypatch.setattr(
+            session, "_holdings_seam", replace(session._holdings_seam, store_write=blocking_store_write)
+        )
+        ctx = session.scoped(HOLDINGS, "A").holdings_context(instrument="inst")
+        act = _Run("act", lambda: write(ctx, StoreLocator(session.store_id, "p.bin"), b"bytes"))  # type: ignore[arg-type]
+        act.start()
+        assert stored.wait(WAIT)
+        sealer = _Run("seal", lambda: session.seal(WAIT))
+        sealer.start()
+        assert seal_waiting.wait(WAIT)
+        release.set()
+        act.join(WAIT)
+        sealer.join(WAIT)
+        assert type(act.raised) is SessionSealed
+        assert sealer.raised is None
+        (store_act,) = session.invocation_acts("A")
+        assert store_act.corpus == session.store_id
+        session.close_invocation("A", {"done": []})
+    finally:
+        session.close()
+    findings = reconcile_sessions(session.world_config, session.operations_root, store_roots=(store,))
+    assert codes(findings) == [("session-intent-unclaimed", "error", store_act.intent)]
+
+
+def test_concurrent_seals_from_two_threads_both_return_the_same_tips(certified_work, monkeypatch):
+    session = _run_session(certified_work, store=True)
+    try:
+        session.claim_invocation("A", "mint", DIGEST)
+        writer = session.scoped(PROPOSITIONS, "A")
+        inside, release = _block_record_act(session, monkeypatch)
+        act = _Run("act", lambda: writer.add(proposition("p")))
+        act.start()
+        assert inside.wait(WAIT)
+        s1 = _Run("seal-1", lambda: session.seal(WAIT))
+        s2 = _Run("seal-2", lambda: session.seal(WAIT))
+        s1.start()
+        s2.start()
+        release.set()
+        act.join(WAIT)
+        s1.join(WAIT)
+        s2.join(WAIT)
+        assert act.raised is None and s1.raised is None and s2.raised is None
+        assert s1.result == s2.result
+        session.close_invocation("A", {"done": []})
     finally:
         session.close()
 

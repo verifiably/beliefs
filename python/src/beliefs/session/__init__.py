@@ -144,16 +144,13 @@ def open_run_session(
     launcher's file carried (`WritePermit.from_json`). The ceiling is recorded in
     `session-open`. It must be admissible: never ungoverned, and naming only the
     `corpus-write`, `run` and `holdings` families; anything else refuses with
-    `SessionRefused` before any claim or directory. A run session refuses tree
-    writes (`RunSessionRefused("tree-write")`).
+    `SessionRefused` before any claim or directory. The operations root is pinned
+    with `O_NOFOLLOW` before the session directory is created, and an unreadable
+    or symbolic-link operations root refuses with `SessionRefused`. A run session
+    refuses tree writes (`RunSessionRefused("tree-write")`).
     """
     if type(ceiling) is not WritePermit:
         raise TypeError("ceiling must be a WritePermit")
-    if ceiling.ungoverned:
-        raise SessionRefused("a run session's ceiling is never ungoverned")
-    inadmissible = sorted(ceiling.act_families - _RUN_FAMILIES)
-    if inadmissible:
-        raise SessionRefused(f"a run session's ceiling names only corpus-write, run and holdings; not {inadmissible}")
     return _open_session(
         world_config,
         operations_root,
@@ -195,6 +192,17 @@ def _open_session(
         or any(not isinstance(key, Path) or not isinstance(value, ProfileSpec) for key, value in mounts.items())
     ):
         raise TypeError("mounts maps each configured root's Path to its compiled ProfileSpec")
+    if store_root is not None and not isinstance(store_root, Path):
+        raise TypeError("store_root must be a Path")
+    if run:
+        assert ceiling is not None
+        if ceiling.ungoverned:
+            raise SessionRefused("a run session's ceiling is never ungoverned")
+        inadmissible = sorted(ceiling.act_families - _RUN_FAMILIES)
+        if inadmissible:
+            raise SessionRefused(
+                f"a run session's ceiling names only corpus-write, run and holdings; not {inadmissible}"
+            )
     if project is not None:
         require_project_address(project)
         if mounts is None:
@@ -227,8 +235,6 @@ def _open_session(
         )
     store_id: str | None = None
     if store_root is not None:
-        if not isinstance(store_root, Path):
-            raise TypeError("store_root must be a Path")
         store_id = store_identity(store_root)
         if store_id is None:
             raise SessionRefused(f"store root {store_root} carries no store genesis")
@@ -252,24 +258,31 @@ def _open_session(
         )
 
     # The opening path owns what it acquires until it returns: each chain
-    # claim, then the ledger. Any exception releases them all and propagates;
-    # ledger bytes already written stay (an unclosed ledger reads as an
-    # interrupted session) and the session directory is not removed. Only once
-    # reconciliation returns does ownership pass to the session.
+    # claim, then a run session's operations-root pin, then the ledger. Any
+    # exception releases them all and propagates; ledger bytes already written
+    # stay (an unclosed ledger reads as an interrupted session) and the session
+    # directory is not removed. Only once reconciliation returns does ownership
+    # pass to the session.
     with ExitStack() as owned:
         claims = [_claim(owned, root, "write root")]
         if store_root is not None:
             claims.append(_claim(owned, store_root, "store root"))
+        # A run session pins its operations root for kernel staging before the
+        # session directory or `session-open` is created; the stack closes it
+        # on any failure.
+        staging = None
+        if run:
+            try:
+                if not operations_root.is_symlink() and not operations_root.exists():
+                    operations_root.mkdir(parents=True, exist_ok=True)
+                staging = RunStaging(operations_root, session_id)
+            except OSError as caught:
+                raise SessionRefused(f"operations root {operations_root}: {caught}") from caught
+            owned.callback(staging.close)
         path.parent.mkdir(parents=True, exist_ok=False)
         _fsync_directory(path.parent.parent)
         ledger = LedgerWriter(path)
         owned.callback(ledger.close)
-        # A run session pins its operations root for kernel staging before
-        # `session-open` is written; the stack closes it on any failure.
-        staging = None
-        if run:
-            staging = RunStaging(operations_root, session_id)
-            owned.callback(staging.close)
         session = WriterSession(
             session_id=session_id,
             world_id=world_config.world_id,

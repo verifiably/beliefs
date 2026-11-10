@@ -1161,3 +1161,62 @@ def test_an_attended_session_holds_its_world_config(tmp_path, monkeypatch):
     assert config is not None
     assert config.world_id == WORLD
     assert config.world_root == tmp_path / "world"
+
+
+def test_writer_session_run_is_read_only_and_fresh_ledger_writer_has_empty_reason(tmp_path):
+    session, _ = make_session(tmp_path, run=True)
+    try:
+        assert session.run is True
+        assert session._ledger._reason == ""
+        with pytest.raises(AttributeError):
+            session.run = False  # type: ignore[misc]
+    finally:
+        session.close()
+
+
+def test_run_session_releases_staging_descriptors_at_close_invocation_close_and_failed_close(tmp_path):
+    from test_run_staging import _open_targets_beneath
+
+    from beliefs.errors import ConfinementNotEstablished
+
+    session, _ = make_session(tmp_path, run=True)
+    ops = session.operations_root.resolve()
+    staging = session._staging
+    assert staging is not None
+    session.claim_invocation("A", "run", DIGEST)
+    inv_dir = staging.invocation_dir("A").resolve()
+    assert inv_dir in _open_targets_beneath(ops)
+    session.close_invocation("A", {"done": []})
+    assert inv_dir not in _open_targets_beneath(ops)
+    with pytest.raises(ConfinementNotEstablished, match="released"):
+        staging.invocation_dir("A")
+
+    session.claim_invocation("B", "run", DIGEST)
+    staging.invocation_dir("B")
+    session._ledger.fail("injected")
+    with pytest.raises(SessionLedgerFailed):
+        session.close()
+    assert _open_targets_beneath(ops) == set()
+    with pytest.raises(ConfinementNotEstablished, match="closed"):
+        staging.invocation_dir("C")
+
+
+def test_an_opening_failure_after_the_staging_pin_closes_the_staging_descriptor(certified_work, monkeypatch):
+    from test_run_session import CEILING
+    from test_run_staging import _open_targets_beneath
+    from test_session_claim import _claimable, _one_corpus, _store
+
+    from beliefs.session import open_run_session
+
+    config, root = _one_corpus(certified_work)
+    store = _store(certified_work)
+    ops = certified_work / "ops"
+
+    def fail_reconcile(*_args, **_kwargs):
+        raise RuntimeError("injected post-pin reconciliation failure")
+
+    monkeypatch.setattr(session_module, "reconcile_sessions", fail_reconcile)
+    with pytest.raises(RuntimeError, match="injected post-pin reconciliation failure"):
+        open_run_session(config, ops, write_root=root, profile=BASE, ceiling=CEILING, store_root=store)
+    assert _open_targets_beneath(ops) == set()
+    assert _claimable(root, "write root") and _claimable(store, "store root")

@@ -143,14 +143,52 @@ def test_read_after_appends_nothing_on_an_unsettled_registration(certified_work)
     assert isinstance(result, AfterEntries)
     assert result.pending == pending_view.pending
     assert _listing(root) == before
+    bounded = read_after(
+        root,
+        genesis=pending_view.genesis.digest,
+        after=pending_view.genesis.digest,
+        through=pending_view.entries[2].digest,
+    )
+    assert isinstance(bounded, AfterEntries)
+    assert bounded.entries == pending_view.entries[1:3]
+    assert bounded.pending == pending_view.pending
+    unavailable = read_after(root, genesis=pending_view.genesis.digest, after="f" * 64)
+    assert isinstance(unavailable, AfterUnavailable) and unavailable.reason == "tip-not-on-chain"
+    assert _listing(root) == before
     again = log_seam().inspect_detached(root)
     assert type(again) is WellFormedView and again.pending == pending_view.pending
 
 
-@pytest.mark.parametrize("through_is_tip", [True, False])
-def test_entries_are_the_view_entries_by_identity_of_digest(certified_work, through_is_tip: bool) -> None:
+def test_through_at_the_tip_returns_the_full_slice_after_genesis(certified_work) -> None:
     root, view = _corpus(certified_work)
-    through = view.tip if through_is_tip else None
-    result = read_after(root, genesis=view.genesis.digest, after=view.genesis.digest, through=through)
+    result = read_after(root, genesis=view.genesis.digest, after=view.genesis.digest, through=view.tip)
     assert isinstance(result, AfterEntries)
     assert [e.digest for e in result.entries] == [e.digest for e in view.entries[1:]]
+
+
+def test_read_after_does_not_classify_a_mid_read_file_not_found_as_chain_absent(tmp_path, monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import beliefs.after as after_module
+
+    root = tmp_path / "root"
+    root.mkdir()
+
+    def vanishing_leaf(_root: Path) -> object:
+        raise FileNotFoundError("a chain leaf vanished mid-read")
+
+    monkeypatch.setattr(after_module, "log_seam", lambda: SimpleNamespace(inspect_detached=vanishing_leaf))
+    with pytest.raises(FileNotFoundError, match="vanished mid-read"):
+        read_after(root, genesis="0" * 64, after="0" * 64)
+
+
+def test_read_after_refuses_an_unexpected_view_type(tmp_path, monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import beliefs.after as after_module
+
+    root = tmp_path / "root"
+    root.mkdir()
+    monkeypatch.setattr(after_module, "log_seam", lambda: SimpleNamespace(inspect_detached=lambda _r: object()))
+    with pytest.raises(TypeError, match="unexpected chain view"):
+        read_after(root, genesis="0" * 64, after="0" * 64)

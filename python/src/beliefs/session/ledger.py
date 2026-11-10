@@ -238,7 +238,7 @@ class LedgerWriter:
         self._path = Path(path)
         self._file = open(self._path, "ab", buffering=0)  # noqa: SIM115 - held for the session's lifetime
         self._failed = False
-        self._reason = "the session ledger failed earlier"
+        self._reason = ""
 
     @property
     def failed(self) -> bool:

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import errno
 import os
+import select
 import signal
 import subprocess
 import sys
@@ -26,7 +27,7 @@ import beliefs.session.claim as claim_module
 from beliefs.errors import ChainClaimed, SessionLedgerFailed, SessionRefused
 from beliefs.root import init_corpus_root, init_store_root, init_world_root, open_corpus
 from beliefs.session import open_attended_session
-from beliefs.session.claim import claim_chain
+from beliefs.session.claim import ChainRole, claim_chain
 from beliefs.session.ledger import LedgerWriter, ledger_path
 from beliefs.world.registry import WorldConfig
 
@@ -61,7 +62,7 @@ def _session_dirs(ops: Path) -> list[str]:
     return sorted(entry.name for entry in sessions.iterdir()) if sessions.is_dir() else []
 
 
-def _claimable(root: Path, role) -> bool:
+def _claimable(root: Path, role: ChainRole) -> bool:
     try:
         claim = claim_chain(root, role)
     except ChainClaimed:
@@ -191,6 +192,7 @@ def _child(work: Path, config: WorldConfig, root: Path, mode: str, **kwargs) -> 
     home = work / "child-home"
     home.mkdir(exist_ok=True)
     env = {"PATH": os.environ["PATH"], "HOME": str(home)}
+    kwargs.setdefault("stdin", subprocess.DEVNULL)
     return subprocess.Popen(
         [sys.executable, "-c", _CHILD, str(config.world_root), config.world_id, str(root), str(work / "ops"), mode],
         env=env,
@@ -202,18 +204,30 @@ def _child(work: Path, config: WorldConfig, root: Path, mode: str, **kwargs) -> 
     )
 
 
+def _communicate_bounded(child: subprocess.Popen[str], timeout: float = 120) -> tuple[str, str]:
+    try:
+        return child.communicate(timeout=timeout)
+    finally:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=60)
+        for stream in (child.stdin, child.stdout, child.stderr):
+            if stream is not None:
+                stream.close()
+
+
 def test_a_second_session_from_another_process_is_refused(certified_work):
     config, root = _one_corpus(certified_work)
     first = open_attended_session(config, certified_work / "ops", write_root=root, profile=BASE)
     try:
         child = _child(certified_work, config, root, "once")
-        out, err = child.communicate(timeout=120)
+        out, err = _communicate_bounded(child)
         assert child.returncode == 3, err
         assert out.strip() == "refused write root"
     finally:
         first.close()
     child = _child(certified_work, config, root, "once")
-    out, err = child.communicate(timeout=120)
+    out, err = _communicate_bounded(child)
     assert child.returncode == 0 and out.strip() == "held", err
 
 
@@ -223,6 +237,8 @@ def test_a_killed_holder_releases(certified_work):
     holder = _child(certified_work, config, root, "hold", stdin=subprocess.PIPE)
     try:
         assert holder.stdout is not None
+        ready, _, _ = select.select([holder.stdout], [], [], 60)
+        assert ready, "holder child did not report readiness within 60 s"
         line = holder.stdout.readline()
         assert line.strip() == "held", holder.stderr.read() if holder.stderr else ""
         with pytest.raises(ChainClaimed):
@@ -272,6 +288,16 @@ def _fail_reconciliation(monkeypatch, _ops: Path) -> None:
     monkeypatch.setattr(session_module, "reconcile_sessions", reconcile_sessions)
 
 
+def _open_fd_targets() -> set[Path]:
+    targets: set[Path] = set()
+    for entry in os.listdir("/proc/self/fd"):
+        try:
+            targets.add(Path(os.readlink(f"/proc/self/fd/{entry}")))
+        except OSError:
+            continue
+    return targets
+
+
 @pytest.mark.parametrize(
     ("inject", "raised", "ledger_written"),
     [
@@ -297,7 +323,9 @@ def test_an_opening_failure_after_both_claims_releases_them(
     ids = _session_dirs(ops)
     if ledger_written:
         (failed,) = ids
-        assert ledger_path(ops, failed).is_file()  # an unclosed ledger reads as an interrupted session
+        failed_ledger = ledger_path(ops, failed)
+        assert failed_ledger.is_file()  # an unclosed ledger reads as an interrupted session
+        assert failed_ledger.resolve() not in _open_fd_targets()
     else:
         assert ids == []
     open_attended_session(config, ops, write_root=root, profile=BASE, store_root=store).close()

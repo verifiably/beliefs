@@ -1071,3 +1071,19 @@ def test_an_interrupted_tree_write_leaves_whole_objects_and_an_unmatched_intent(
         assert _digest((ctx.store_root / path).read_bytes()) == digest
     assert not _observation_files(ctx)
     assert _unmatched_intents(ctx) == 1
+
+
+def test_write_delete_and_move_refuse_a_non_store_locator_before_any_intent(certified_work):
+    ctx, store_id = context(certified_work)
+    valid = StoreLocator(store_id, "held.bin")
+    for non_store in (url_locator("https://example.org/data"), StoreTreeLocator(store_id, "b" * 64)):
+        for call in (
+            lambda loc=non_store: write(ctx, loc, b"x"),  # type: ignore[arg-type]
+            lambda loc=non_store: delete(ctx, loc),  # type: ignore[arg-type]
+            lambda loc=non_store: move(ctx, loc, valid),  # type: ignore[arg-type]
+            lambda loc=non_store: move(ctx, valid, loc),  # type: ignore[arg-type]
+        ):
+            with pytest.raises(MalformedRecord):
+                call()
+    assert _unmatched_intents(ctx) == 0
+    assert not _observation_files(ctx)

@@ -418,7 +418,7 @@ def store_identity(store_root: Path) -> str | None:
     genesis — a corpus root's, or a malformed payload — raises
     ``CorpusRootRefused``: that root is misnamed, not merely empty.
     """
-    if not store_root.exists():
+    if not store_root.is_dir():
         return None
     inspected = inspect_chain_detached(_PRODUCTION_BACKEND, str(store_root))
     if type(inspected) is not WellFormedChain or not inspected.entries:

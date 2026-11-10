@@ -166,13 +166,14 @@ Otherwise each confined execution stages in
 `<operations_root>/scratch/<session>/<invocation>`, the invocation the port is bound
 to, and snapshots materialize in `<operations_root>/scratch/environments`, a cache
 shared across sessions and never removed by a run. A run session opens its
-operations root (never through a symbolic link) and records its device and inode
-before `session-open`. The `scratch`, `environments`, session and invocation
-directories are created `0700` or opened relative to their parent's descriptor
-without following a symbolic link, the session and invocation directories created
-exclusively at their first use, and each one's identity is recorded. Later
-executions of the same invocation reuse its directory. Immediately before each
-launch, planning and execution alike, every bind is checked:
+operations root with `O_NOFOLLOW` (refusing a symbolic link at the root path with
+`SessionRefused`) and records its device and inode before creating the session
+directory. The `scratch`,
+`environments`, session and invocation directories are created `0700` or opened
+relative to their parent's descriptor without following a symbolic link, the session
+and invocation directories created exclusively at their first use, and each one's
+identity is recorded. Later executions of the same invocation reuse its directory.
+Immediately before each launch, planning and execution alike, every bind is checked:
 
 1. each of those directories, from the operations root down, is still not a
    symbolic link and still the recorded directory;
@@ -204,13 +205,13 @@ root or the store root) and creates no session directory; a store root refusal
 releases the write root it had claimed. Read mounts are not claimed, so two
 sessions on different corpora with no shared store both open. The claim follows the
 directory, not its name: a root reached through a symbolic link conflicts with the
-same root claimed by its own path. If opening fails after a claim (the session
-directory, a run session's operations-root pin, `session-open` or reconciliation
+same root claimed by its own path. If opening fails after a claim (a run session's
+operations-root pin, the session directory, `session-open` or reconciliation
 raises), every claim and descriptor is released and the exception propagates;
-ledger bytes already written stay, and read as an interrupted session. `close()` releases the claims after its `session-close`
-attempt, including when the ledger has failed and `close()` raises
-`SessionLedgerFailed`. Process death releases them too. The claim is host-local: it
-does not exclude a session on another host.
+ledger bytes already written stay, and read as an interrupted session. `close()`
+releases the claims after its `session-close` attempt, including when the ledger
+has failed and `close()` raises `SessionLedgerFailed`. Process death releases them
+too. The claim is host-local: it does not exclude a session on another host.
 
 The ledger is the append-only file `<operations_root>/sessions/<id>/ledger.v1`.
 Every line is written, flushed and fsynced before the call that wrote it returns.

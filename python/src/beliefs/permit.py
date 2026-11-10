@@ -127,6 +127,8 @@ class WritePermit:
         for name, items in (("kinds", kinds), ("act_families", families)):
             if type(items) is not list or any(type(item) is not str for item in items):
                 raise ValueError(f"permit {name} is a list of strings")
+            if len(set(items)) != len(items):
+                raise ValueError(f"permit {name} contains duplicate entries")
         if type(ungoverned) is not bool:
             raise ValueError("permit ungoverned is a bool")
         return cls(frozenset(kinds), frozenset(families), ungoverned)

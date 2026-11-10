@@ -281,6 +281,8 @@ def write(
     standing: tuple[HoldingsObservation, ...] = (),
 ) -> PublishedObservation:
     ctx.authority.require("holdings", ("holdings-observation",))
+    if type(location) is not StoreLocator:
+        raise MalformedRecord("a store act takes a StoreLocator")
     if expected is not None:
         require_canonical_digest(expected, "a holdings observation's expected digest")
         if expected.split(":", 1)[0] != "sha256":
@@ -313,6 +315,8 @@ def delete(
     ctx: ActContext, location: StoreLocator, *, standing: tuple[HoldingsObservation, ...] = ()
 ) -> PublishedObservation:
     ctx.authority.require("holdings", ("holdings-observation",))
+    if type(location) is not StoreLocator:
+        raise MalformedRecord("a store act takes a StoreLocator")
     token, intent = _append(ctx, location, "delete")
     _bind(ctx, location)
     state = _final(ctx.seam.store_delete(ctx.store_root, location.relative_path, intent), location.relative_path)
@@ -330,6 +334,8 @@ def move(
     standing_destination: tuple[HoldingsObservation, ...] = (),
 ) -> tuple[PublishedObservation, PublishedObservation]:
     ctx.authority.require("holdings", ("holdings-observation",))
+    if type(source) is not StoreLocator or type(destination) is not StoreLocator:
+        raise MalformedRecord("a store move takes two StoreLocators")
     source_token, source_intent = _append(ctx, source, "move-source")
     destination_token, destination_intent = _append(ctx, destination, "move-destination")
     _bind(ctx, source)

@@ -288,7 +288,7 @@ class WriterSession:
     ) -> None:
         if type(run) is not bool:
             raise TypeError("run must be an exact bool")
-        self.run = run
+        self._run = run
         if staging is not None and type(staging) is not RunStaging:
             raise TypeError("staging must be a RunStaging")
         if (staging is not None) != run:
@@ -329,10 +329,10 @@ class WriterSession:
         # `close_invocation` are unchanged by that — they still take it once.
         self._lock = threading.RLock()
         # The depth of `_hold`s on the lock, changed only while it is held, so a
-        # hold that sees zero is its holder's outermost. Set by `seal()` without
-        # the lock; read by `_hold`, `claim_invocation` and `select_project`
-        # under it.
+        # hold that sees zero is its holder's outermost.
         self._hold_depth = 0
+        # Set by `seal()` without the lock; read by `_hold`, `claim_invocation`
+        # and `select_project` under it.
         self._sealed = False
         self._index: dict[str, _Invocation] = {}
         self._current: str | None = None
@@ -353,6 +353,10 @@ class WriterSession:
                 "project": None if project is None else str(project),
             }
         )
+
+    @property
+    def run(self) -> bool:
+        return self._run
 
     # --- liveness -------------------------------------------------------------
     def _require_live(self) -> None:

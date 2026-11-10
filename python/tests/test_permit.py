@@ -358,6 +358,11 @@ def test_from_json_round_trips_the_session_open_permit(permit):
         {"kinds": (), "act_families": [], "ungoverned": False},
         {"kinds": [], "act_families": [], "ungoverned": 0},
         {"kinds": ["no-such-kind"], "act_families": [], "ungoverned": False},
+        {"kinds": [], "act_families": ["no-such-family"], "ungoverned": False},
+        {"kinds": [1], "act_families": [], "ungoverned": False},
+        {"kinds": [], "act_families": [1], "ungoverned": False},
+        {"kinds": ["proposition", "proposition"], "act_families": [], "ungoverned": False},
+        {"kinds": [], "act_families": ["corpus-write", "corpus-write"], "ungoverned": False},
         [],
     ],
 )

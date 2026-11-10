@@ -26,7 +26,7 @@ from beliefs import root as science_root
 from beliefs.boundary import RunMinted, RunRefused
 from beliefs.confinement import DEVICES, host_prerequisites
 from beliefs.corpus import _operation_lock_for
-from beliefs.errors import SessionLedgerFailed, SessionProtocolError, StoreWriteRefused
+from beliefs.errors import SessionLedgerFailed, SessionProtocolError, SessionRefused, StoreWriteRefused
 from beliefs.holdings.acquire import AcquisitionRequest, ResourceRequest
 from beliefs.holdings.boundary import ActContext, delete, move, recheck, tree_write, write
 from beliefs.holdings.records import StoreLocator, StoreTreeLocator, url_locator
@@ -711,7 +711,8 @@ def test_a_store_call_on_another_root_is_refused_before_the_store(tmp_path):
     assert session.invocation_acts("A") == ()
 
 
-def test_a_store_act_holds_the_store_roots_operation_lock_through_its_line(tmp_path, monkeypatch):
+@pytest.mark.parametrize("operation", ["write", "tree-write", "move"])
+def test_a_store_act_holds_the_store_roots_operation_lock_through_its_line(tmp_path, monkeypatch, operation):
     lock = TracingLock()
     seam = FakeSeam(tmp_path / "corpus", lock=lock)
     session, _writer, ctx, _ = _holdings(tmp_path, seam)
@@ -723,22 +724,36 @@ def test_a_store_act_holds_the_store_roots_operation_lock_through_its_line(tmp_p
         append(line)
 
     monkeypatch.setattr(session._ledger, "append", recording)
-    write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+    if operation == "write":
+        write(ctx, StoreLocator(STORE_ID, "p.bin"), b"bytes")
+        expected_store_calls = [("store_write",)]
+        expected_observer_locks_before = 1
+    elif operation == "tree-write":
+        tree, sources, location = _two_member_tree(tmp_path)
+        tree_write(ctx, location, tree, sources)
+        expected_store_calls = [("store_create",), ("store_create",), ("store_create",)]
+        expected_observer_locks_before = 1
+    else:
+        move(ctx, StoreLocator(STORE_ID, "p.bin"), StoreLocator(STORE_ID, "q.bin"))
+        expected_store_calls = [("store_move",)]
+        expected_observer_locks_before = 2
+
     store = tmp_path / "store"
-    start = seam.events.index(("corpus_lock-enter", store, True))
-    end = seam.events.index(("corpus_lock-exit", store))
-    assert seam.events[start : end + 1] == [
-        ("corpus_lock-enter", store, True),  # the session lock is already held
-        ("store_write",),
-        ("append", "act", STORE_ID, True),
-        ("corpus_lock-exit", store),
-    ]
-    # The observer root's lock was taken and released before the store call: one
+    store_enters = [i for i, e in enumerate(seam.events) if e == ("corpus_lock-enter", store, True)]
+    assert len(store_enters) == len(expected_store_calls)
+    for idx, expected_call in zip(store_enters, expected_store_calls, strict=True):
+        assert seam.events[idx : idx + 4] == [
+            ("corpus_lock-enter", store, True),  # the session lock is already held
+            expected_call,
+            ("append", "act", STORE_ID, True),
+            ("corpus_lock-exit", store),
+        ]
+    # The observer root's lock was taken and released before the store calls: one
     # operation lock at a time.
-    before = seam.events[:start]
+    before = seam.events[: store_enters[0]]
     observer_enters = [e for e in before if e[:2] == ("corpus_lock-enter", session.corpus_root)]
     observer_exits = [e for e in before if e == ("corpus_lock-exit", session.corpus_root)]
-    assert len(observer_enters) == len(observer_exits) == 1
+    assert len(observer_enters) == len(observer_exits) == expected_observer_locks_before
 
 
 def test_a_context_kept_past_its_invocation_reaches_no_member(tmp_path):
@@ -1278,7 +1293,7 @@ def test_a_failed_staging_pin_releases_the_claims(certified_work, monkeypatch):
         raise OSError(errno.EIO, "injected staging-pin failure")
 
     monkeypatch.setattr(session_module, "RunStaging", refused_pin)
-    with pytest.raises(OSError, match="injected staging-pin failure"):
+    with pytest.raises(SessionRefused, match="injected staging-pin failure"):
         open_run_session(
             config, certified_work / "ops", write_root=root, profile=BASE, ceiling=RUN_CEILING, store_root=store
         )

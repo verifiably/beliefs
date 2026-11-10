@@ -247,9 +247,19 @@ class RunStaging:
                 self._root,
             ]
             self._invocations.clear()
+            self._session = None
+            self._cache = None
+            self._scratch = None
+            first_error: OSError | None = None
             for anchor in anchors:
                 if anchor is not None:
-                    os.close(anchor.fd)
+                    try:
+                        os.close(anchor.fd)
+                    except OSError as caught:
+                        if first_error is None:
+                            first_error = caught
+            if first_error is not None:
+                raise first_error
 
     def _require_open(self) -> None:
         if self._closed:

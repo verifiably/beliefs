@@ -409,23 +409,18 @@ def test_an_unfulfilled_url_recheck_intent_reads_as_a_store_one_does():
 STORE = "5" * 32
 
 
-def store_view(*entries) -> WellFormedView:
-    """A store chain: registrations and their settlements, never an intent."""
-    return view(*entries)
-
-
 def store_registration(digest: str) -> RegisteredEntryView:
     return RegisteredEntryView(digest=digest, txid="t" + digest[:4], initial=(), final=(), fulfills=None)
 
 
 def test_a_store_act_verifies_against_the_store_chain():
-    chains = {STORE: store_view(store_registration(R), settled(R, True))}
+    chains = {STORE: view(store_registration(R), settled(R, True))}
     acts = (("A", R, I),)
     assert reconcile([ledger(opens=("A",), closes=("A",), acts=acts, corpus=STORE)], chains) == ()
 
 
 def test_a_fabricated_store_act_is_unverified():
-    chains = {STORE: store_view(store_registration(R), settled(R, True))}
+    chains = {STORE: view(store_registration(R), settled(R, True))}
     fabricated = "f" * 64
     acts = (("A", fabricated, I),)
     found = codes(reconcile([ledger(opens=("A",), closes=("A",), acts=acts, corpus=STORE)], chains))
@@ -434,9 +429,10 @@ def test_a_fabricated_store_act_is_unverified():
 
 def test_store_chains_contribute_no_intent_findings():
     """A store chain carries registrations and settlements and no intents: it
-    yields no intent-loop finding, even with acts naming nothing on it."""
+    yields no intent-loop finding, even when its registrations are uncovered by
+    any ledger act."""
     other = "e" * 64
-    chains = {STORE: store_view(store_registration(R), settled(R, True), store_registration(other))}
+    chains = {STORE: view(store_registration(R), settled(R, True), store_registration(other))}
     found = codes(reconcile([ledger(opens=("A",), closed=False)], chains))
     assert found == [("session-unclosed", "warning", S1)]
 
@@ -499,17 +495,26 @@ def test_reconcile_sessions_reads_the_given_store_roots(certified_work):
 
 
 def test_an_unreadable_store_root_is_a_finding(certified_work):
-    """A store root with no store genesis, and a root whose genesis is a
-    corpus's, each read as `session-store-unreadable`, not a raise."""
+    """A store root with no store genesis (missing or regular file), a root
+    whose genesis is a corpus's, and a root with a malformed store genesis
+    payload each read as `session-store-unreadable`, not a raise."""
+    from test_store_root import _fabricate_genesis
+
     root, ops = certified_work / "corpus", certified_work / "ops"
     init_corpus_root(root, authority=FULL)
     CorpusWriter(root, durable_executor_factory(), authority=FULL, profile=WITH_BIOLOGY).adopt_manifest(profile=PINS)
     config = WorldConfig(world_root=certified_work / "world", world_id=WORLD, corpus_roots=(root,))
+    malformed = certified_work / "malformed-store"
+    _fabricate_genesis(malformed, b'{"domain":"science.store-root.v1"}')
     missing = certified_work / "no-store"
-    found = reconcile_sessions(config, ops, store_roots=(root, missing))
+    regular_file = certified_work / "plain-file"
+    regular_file.write_bytes(b"not a directory")
+    found = reconcile_sessions(config, ops, store_roots=(root, malformed, missing, regular_file))
     assert codes(found) == [
         ("session-store-unreadable", "error", str(root)),
+        ("session-store-unreadable", "error", str(malformed)),
         ("session-store-unreadable", "error", str(missing)),
+        ("session-store-unreadable", "error", str(regular_file)),
     ]
 
 

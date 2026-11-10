@@ -60,17 +60,18 @@ def read_after(root: Path, *, genesis: str, after: str, through: str | None = No
     `genesis` is the digest of the chain the caller saw `after` on; a chain
     with another genesis was replaced. `after` and `through` must be entries of
     the chain, `through` not before `after`."""
-    try:
-        view = log_seam().inspect_detached(root)
-    except FileNotFoundError:
+    root = Path(root)
+    if not root.is_dir():
         # The seam does not return `AbsentView` for a root that is not there;
         # the engine's root open raises. A missing directory is an absent chain.
         return AfterUnavailable("chain-absent", f"{root}: no such root")
+    view = log_seam().inspect_detached(root)
     if type(view) is AbsentView:
         return AfterUnavailable("chain-absent", f"{root}: no chain")
     if type(view) is MalformedView:
         return AfterUnavailable("chain-malformed", f"{root}: {view.defect.detail}")
-    assert type(view) is WellFormedView
+    if type(view) is not WellFormedView:
+        raise TypeError(f"unexpected chain view {type(view).__name__}")
     if genesis != view.genesis.digest:
         return AfterUnavailable(
             "genesis-mismatch", f"{root}: the chain's genesis is {view.genesis.digest}, not {genesis}"

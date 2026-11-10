@@ -267,14 +267,61 @@ def test_an_invocation_never_staged_refuses(tmp_path):
         staging.close()
 
 
+def _open_targets_beneath(root: Path) -> set[Path]:
+    resolved_root = root.resolve()
+    found: set[Path] = set()
+    for entry in os.listdir("/proc/self/fd"):
+        try:
+            target = Path(os.readlink(f"/proc/self/fd/{entry}"))
+        except OSError:
+            continue
+        if target == resolved_root or target.is_relative_to(resolved_root):
+            found.add(target)
+    return found
+
+
 def test_close_releases_every_descriptor_and_is_idempotent(tmp_path):
-    before = len(os.listdir("/proc/self/fd"))
+    ops = tmp_path / "ops"
+    assert _open_targets_beneath(ops) == set()
     staging = _staging(tmp_path)
     _laid_out(staging)
     staging.invocation_dir("i2")
-    assert len(os.listdir("/proc/self/fd")) > before
+    scratch = ops.resolve() / "scratch"
+    assert _open_targets_beneath(ops) == {
+        ops.resolve(),
+        scratch,
+        scratch / "environments",
+        scratch / SESSION_A,
+        scratch / SESSION_A / "i1",
+        scratch / SESSION_A / "i2",
+    }
+    staging.release("i1")
+    assert (scratch / SESSION_A / "i1") not in _open_targets_beneath(ops)
+    with pytest.raises(ConfinementNotEstablished, match="released"):
+        staging.invocation_dir("i1")
     staging.close()
     staging.close()
-    assert len(os.listdir("/proc/self/fd")) == before
+    assert _open_targets_beneath(ops) == set()
     with pytest.raises(ConfinementNotEstablished, match="closed"):
         staging.invocation_dir("i3")
+
+
+def test_close_releases_remaining_descriptors_when_an_earlier_close_raises(tmp_path, monkeypatch):
+    ops = tmp_path / "ops"
+    staging = _staging(tmp_path)
+    _laid_out(staging)
+    staging.invocation_dir("i2")
+    real_close = os.close
+    calls = 0
+
+    def flaky_close(fd: int) -> None:
+        nonlocal calls
+        calls += 1
+        real_close(fd)
+        if calls == 1:
+            raise OSError(9, "injected close failure")
+
+    monkeypatch.setattr(os, "close", flaky_close)
+    with pytest.raises(OSError, match="injected close failure"):
+        staging.close()
+    assert _open_targets_beneath(ops) == set()

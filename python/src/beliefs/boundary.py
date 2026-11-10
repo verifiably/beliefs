@@ -872,7 +872,7 @@ def _is_confined(policy: BoundaryPolicy) -> bool:
 
 def _run_staging(
     port: OperationPort, scratch_base: Path | None, boundary_policy: BoundaryPolicy, executor: str
-) -> tuple[RunStaging, str] | RunRefused | None:
+) -> Path | tuple[RunStaging, str] | RunRefused:
     """After the permit check and before anything else: a run session's port
     stages in the kernel's own scratch and runs only the confined policy, so a
     caller's `scratch_base` or any other policy refuses before the intent, with no
@@ -884,7 +884,7 @@ def _run_staging(
     if staging is None:
         if scratch_base is None:
             raise TypeError(f"{executor} needs a scratch_base outside a run session")
-        return None
+        return scratch_base
     if scratch_base is not None:
         return RunRefused(
             "scratch-not-staging",
@@ -904,15 +904,13 @@ def _run_staging(
     return staging
 
 
-def _scratch_base(scratch_base: Path | None, staging: tuple[RunStaging, str] | None) -> Path:
+def _scratch_base(staging: Path | tuple[RunStaging, str]) -> Path:
     """The run's scratch base: the invocation's kernel staging under a run session
     (created on its first confined execution), the caller's otherwise."""
-    if staging is not None:
-        run_staging, invocation = staging
-        return run_staging.invocation_dir(invocation)
-    if scratch_base is None:
-        raise TypeError("a scratch_base is required outside a run session")
-    return scratch_base
+    if isinstance(staging, Path):
+        return staging
+    run_staging, invocation = staging
+    return run_staging.invocation_dir(invocation)
 
 
 def _project(
@@ -976,14 +974,14 @@ def _execute_run(
     observer: str,
     started_at: str,
     host_realization: str,
-    scratch_base: Path | None,
-    staging: tuple[RunStaging, str] | None,
+    staging: Path | tuple[RunStaging, str],
     cores: int,
     boundary_policy: BoundaryPolicy,
     staged_trees: list[Path],
 ) -> RunMinted | RunRefused:
     try:
-        scratch_base = _scratch_base(scratch_base, staging)
+        scratch_base = _scratch_base(staging)
+        run_staging = None if isinstance(staging, Path) else staging
         scratch = create_scratch_root(scratch_base)
         bundle = scratch / "bundle"
         code_identity = capture_bundle(code_roots, bundle)
@@ -1024,7 +1022,7 @@ def _execute_run(
                 started_at=started_at,
                 host_realization=host_realization,
                 scratch_base=scratch_base,
-                staging=staging,
+                staging=run_staging,
                 cores=cores,
                 staged_trees=staged_trees,
             )
@@ -1398,7 +1396,6 @@ def execute_assessment_run(
             observer=observer,
             started_at=started_at,
             host_realization=host_realization,
-            scratch_base=scratch_base,
             staging=staging,
             cores=cores,
             boundary_policy=supported_policy(boundary_policy),
@@ -1521,7 +1518,6 @@ def execute_production_run(
             observer=observer,
             started_at=started_at,
             host_realization=host_realization,
-            scratch_base=scratch_base,
             staging=staging,
             cores=cores,
             boundary_policy=supported_policy(boundary_policy),
