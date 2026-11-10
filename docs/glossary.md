@@ -107,6 +107,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   conversion from a calendar unit to a noncalendar unit of the same duration
   quantity kind. Calendar restrictions name it explicitly.
   ([contracts](contracts.md#typed-restrictions))
+- <a id="eligibility"></a>**Eligibility** — Whether a held dependency remains usable
+  under a supplied snapshot; local conditions and the full dependency closure
+  are judged separately. ([records](records.md#dependency-eligibility))
 - <a id="epoch"></a>**Epoch** — An immutable, published index of a world over an
   explicit set of corpus states. A read bound to an epoch names it.
   ([guide](guide.md#worlds-identity-and-change))

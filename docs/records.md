@@ -732,6 +732,30 @@ and content addresses. Calibration assessments are held terminal entries with no
 terms in this walk; their internals are not followed. These helpers coexist with
 the interim estimand path, which does not call them.
 
+#### Dependency eligibility
+
+`eligibility.dependency_eligibility` judges requested ids once each against supplied
+held records and a compiled profile. Procedures, mappings, classification rules
+and registers must be held and unretracted. A procedure whose kind fills
+`within-model` also needs observations holding every dataset and code digest in
+its inputs. An assumption-based proxy needs only its own heldness and standing;
+a calibration-based proxy additionally asks the supplied assessment-eligibility
+callable about each assessment, reporting the first refusal in id order. Without
+that callable calibration eligibility fails closed; assessment internals are not
+judged by this helper. Reference-cycle members are locally ineligible, while an
+ancestor outside the cycle retains its own local verdict.
+
+`eligibility.closure_eligibility` separately judges every member of each requested
+id's transitive closure. It reports `dependency-ineligible: <id>` for the first
+ineligible member in id order, `not-held` when a member is absent, or `cycle` when
+the closure cycles. This includes rules cited only inside procedure validation
+or proxy validity, including unions. Its `ClosureEligibility` result pairs the
+requested verdicts with sorted, distinct `reads`: every id observed by heldness
+or record reads, including attempted missing ids and members visited before a
+failed traversal. A later snapshot's retraction can change eligibility while the
+frozen ids and terms remain unchanged. These helpers do not alter the interim
+assessment and belief path.
+
 ## Exposure events and reservation assignments
 
 Two world kinds record what has been seen of a question and how its data is held
