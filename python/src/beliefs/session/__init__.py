@@ -16,6 +16,7 @@ from beliefs.corpus import (
     Finding,
     SnapshotResolver,
     _operation_lock_for,
+    _order_by_operation_lock,
     require_pins_agree,
     require_profile_compatible,
 )
@@ -344,8 +345,8 @@ def reconcile_sessions(
     sessions = Path(operations_root) / "sessions"
     chains: dict[str, ChainView] = {}
     extra: list[Finding] = []
-    roots = sorted(world_config.corpus_roots)
-    stores = sorted(store_roots)
+    roots = _order_by_operation_lock(world_config.corpus_roots)
+    stores = _order_by_operation_lock(store_roots)
     with ExitStack() as stack:
         for root in (*roots, *stores):
             stack.enter_context(_operation_lock_for(root))

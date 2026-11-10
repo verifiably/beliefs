@@ -604,3 +604,80 @@ def test_a_store_write_between_the_chain_and_ledger_reads_is_not_unverified(cert
     assert len(store_acts) == 1
     again = reconcile_sessions(config, ops, store_roots=(store_root,))
     assert "session-act-unverified" not in [f.code for f in again]
+
+
+def test_reconcile_sessions_and_relocation_order_multi_root_locks_by_resolved_string_key(tmp_path, monkeypatch):
+    """`Path` compares by parts (`a/b` < `a-b`), while the lock registry keys by
+    `str(Path(root).resolve())` (`a-b` < `a/b`, since `'-'` < `'/'`). Every
+    multi-root hold — `reconcile_sessions` over corpus roots and store roots
+    (including symlink aliases and duplicate spellings) and `relocation._both_locks`
+    — acquires locks in that one resolved-string order."""
+    from contextlib import contextmanager
+
+    from nodes.core.write_plan import DefaultExecutor
+
+    import beliefs.session as session_module
+    from beliefs import relocation
+
+    nested = tmp_path / "a" / "b"
+    hyphen = tmp_path / "a-b"
+    nested.mkdir(parents=True)
+    hyphen.mkdir(parents=True)
+    assert nested < hyphen
+    assert str(hyphen.resolve()) < str(nested.resolve())
+
+    store_nested = tmp_path / "s" / "b"
+    store_hyphen = tmp_path / "s-b"
+    store_dup = tmp_path / "s-b" / "sub" / ".."
+    assert store_nested < store_hyphen
+    assert str(store_hyphen.resolve()) < str(store_nested.resolve())
+    assert store_dup.resolve() == store_hyphen.resolve()
+
+    config = WorldConfig(world_root=tmp_path / "world", world_id=WORLD, corpus_roots=(nested, hyphen))
+    reconcile_entered: list[str] = []
+
+    @contextmanager
+    def record_reconcile_lock(root: Path):
+        reconcile_entered.append(str(Path(root).resolve()))
+        yield
+
+    monkeypatch.setattr(session_module, "_operation_lock_for", record_reconcile_lock)
+    found = reconcile_sessions(
+        config,
+        tmp_path / "ops",
+        store_roots=(store_nested, store_hyphen, store_dup),
+    )
+
+    assert reconcile_entered == [
+        str(hyphen.resolve()),
+        str(nested.resolve()),
+        str(store_hyphen.resolve()),
+        str(store_nested.resolve()),
+    ]
+    assert codes(found) == [
+        ("session-corpus-unadopted", "error", str(hyphen)),
+        ("session-corpus-unadopted", "error", str(nested)),
+        ("session-store-unreadable", "error", str(store_hyphen)),
+        ("session-store-unreadable", "error", str(store_nested)),
+    ]
+
+    relocation_entered: list[str] = []
+
+    class RecordingHold:
+        def __init__(self, key: str) -> None:
+            self.key = key
+
+        def __enter__(self) -> None:
+            relocation_entered.append(self.key)
+
+        def __exit__(self, *_: object) -> None:
+            pass
+
+    nested_writer = CorpusWriter(nested, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
+    hyphen_writer = CorpusWriter(hyphen, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
+    monkeypatch.setattr(nested_writer, "_operation", RecordingHold(str(nested.resolve())))
+    monkeypatch.setattr(hyphen_writer, "_operation", RecordingHold(str(hyphen.resolve())))
+
+    with relocation._both_locks(nested_writer, hyphen_writer):
+        pass
+    assert relocation_entered == [str(hyphen.resolve()), str(nested.resolve())]

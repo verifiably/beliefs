@@ -21,7 +21,7 @@ from nodes.core.relations import Relation
 
 from beliefs import stored
 from beliefs.corpus import EXCLUDED_MUTATION_KINDS as EXCLUDED_KINDS
-from beliefs.corpus import CorpusWriter
+from beliefs.corpus import CorpusWriter, _order_by_operation_lock
 from beliefs.errors import (
     ActorMismatch,
     AddressDisagreement,
@@ -42,10 +42,10 @@ from beliefs.report import ActReport, Consolidated, Moved, OperationIntent
 @contextmanager
 def _both_locks(first: CorpusWriter, second: CorpusWriter) -> Iterator[None]:
     """Both roots' operation locks, each distinct root once, in sorted order."""
-    roots = {str(Path(writer.root).resolve()): writer for writer in (first, second)}
+    writers = {second.root: second, first.root: first}
     with ExitStack() as stack:
-        for key in sorted(roots):
-            stack.enter_context(roots[key]._operation)
+        for root in _order_by_operation_lock((first.root, second.root)):
+            stack.enter_context(writers[root]._operation)
         yield
 
 
