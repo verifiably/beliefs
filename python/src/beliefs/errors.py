@@ -1674,7 +1674,9 @@ class SealTimeout(ScienceError):
 class SealTipsUnavailable(ScienceError):
     """`seal()` could not name a written chain's tip: the detached read of
     `root` is not well-formed, or it carries a registration nothing has
-    settled. `reason` is `chain-absent`, `chain-malformed` or `pending`."""
+    settled, or the engine refused to produce the read (`LogEvidenceRefused`,
+    kept as `__cause__`). `reason` is `chain-absent`, `chain-malformed`,
+    `chain-unreadable` or `pending`."""
 
     def __init__(self, root: Path, reason: str) -> None:
         super().__init__(f"{root}: the sealed tip is unavailable: {reason}")

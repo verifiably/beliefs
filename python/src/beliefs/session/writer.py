@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 import threading
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -17,6 +18,7 @@ from beliefs.coordination import CoordinationAddress, CoordinationRefused
 from beliefs.corpus import CoordinationResolver, CorpusWriter, Finding, OperationCommit, _operation_lock_for
 from beliefs.errors import (
     CoordinationUnavailable,
+    LogEvidenceRefused,
     PermitExceeded,
     PermitFact,
     ProjectNotResolvable,
@@ -235,13 +237,26 @@ def _sealed_tip(chain_id: str, root: Path) -> ChainTip:
     """`root`'s tip from a detached read, or `SealTipsUnavailable`. A pending
     pair is a staged registration recovery would settle after the tip, where it
     would read as a post-seal entry, so it refuses rather than widening the
-    tips."""
-    view = log_seam().inspect_detached(root)
+    tips. A read the engine refused to produce (`LogEvidenceRefused`) names no
+    tip either: `chain-unreadable`."""
+    try:
+        view = log_seam().inspect_detached(root)
+    except LogEvidenceRefused as caught:
+        raise SealTipsUnavailable(root, "chain-unreadable") from caught
     if type(view) is not WellFormedView:
         raise SealTipsUnavailable(root, "chain-absent" if type(view) is AbsentView else "chain-malformed")
     if view.pending:
         raise SealTipsUnavailable(root, "pending")
     return ChainTip(chain_id, view.genesis.digest, view.tip)
+
+
+def _require_seal_timeout(timeout: object) -> None:
+    """A seal's lock timeout: a finite number of seconds from zero to
+    `threading.TIMEOUT_MAX`. A negative one would wait without limit."""
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)):
+        raise TypeError(f"the seal timeout must be an int or a float, not {type(timeout).__name__}")
+    if not (math.isfinite(timeout) and 0 <= timeout <= threading.TIMEOUT_MAX):
+        raise ValueError(f"the seal timeout must be finite, from 0 to {threading.TIMEOUT_MAX} s, not {timeout}")
 
 
 class WriterSession:
@@ -604,13 +619,24 @@ class WriterSession:
         lock, no recovery. A chain that is not well-formed, or that carries a
         registration nothing has settled, raises `SealTipsUnavailable`. The
         seal writes no ledger line, and the chain claims stay held until
-        `close()`."""
+        `close()`.
+
+        `timeout` must be a finite number of seconds, at least zero and at most
+        `threading.TIMEOUT_MAX`; anything else is refused before the flag is
+        set. A seal from inside an act's own hold (a signal handler run on the
+        acting thread) would re-enter the lock and name a tip the act then
+        writes past, so it raises `SessionProtocolError`; the flag stays set,
+        as after a timeout, and a seal from outside the hold returns the
+        tips."""
         if not self.run:
             raise SessionProtocolError("only a run session can be sealed")
+        _require_seal_timeout(timeout)
         self._sealed = True
         if not self._lock.acquire(timeout=timeout):
             raise SealTimeout(f"a hold begun before the seal did not drain within {timeout} s")
         try:
+            if self._hold_depth:  # under the lock, only the caller's own hold
+                raise SessionProtocolError("seal() called from inside an act's hold")
             self._require_live()
             corpus = _sealed_tip(self.corpus_id, self.corpus_root)
             store = None
@@ -625,8 +651,15 @@ class WriterSession:
         """Write `session-close`, then release the chain claims, then close a run
         session's staging descriptors. The claims are released however the close
         ends: a session whose ledger has failed can no longer write, so holding its
-        chains protects nothing."""
+        chains protects nothing.
+
+        A close from inside an act's own hold is refused with
+        `SessionProtocolError` before anything is written or released: the act
+        would then commit past a completed ledger. After a `SealTimeout`, close
+        waits without limit for the hold the seal could not outwait."""
         with self._lock:
+            if self._hold_depth:  # under the lock, only the caller's own hold
+                raise SessionProtocolError("close() called from inside an act's hold")
             try:
                 if self._ledger.failed:
                     raise SessionLedgerFailed("the session ledger failed; this session is terminal")

@@ -1204,6 +1204,41 @@ def test_confined_runs_under_a_run_session_stage_beneath_their_own_invocations_k
         session.close()
 
 
+def test_the_bind_check_runs_before_each_of_the_two_launches(certified_work, monkeypatch):
+    """The planning launch and the execution launch each follow a bind check of
+    the very plan they launch, for the run's own invocation."""
+    import beliefs.boundary as boundary_module
+    from beliefs.session.staging import RunStaging
+
+    events: list[tuple[str, object, str | None]] = []
+    real_check, real_launch = RunStaging.check_binds, boundary_module.launch_confined
+
+    def checking(self, plan, invocation):
+        events.append(("check", plan, invocation))
+        return real_check(self, plan, invocation)
+
+    def launching(**kwargs):
+        events.append(("launch", kwargs["plan"], None))
+        return real_launch(**kwargs)
+
+    monkeypatch.setattr(RunStaging, "check_binds", checking)
+    monkeypatch.setattr(boundary_module, "launch_confined", launching)
+    session = _durable_run_session(certified_work)
+    try:
+        _confined_run(session, certified_work, "i1", "hello")
+    finally:
+        session.close()
+    assert [(kind, invocation) for kind, _plan, invocation in events] == [
+        ("check", "i1"),
+        ("launch", None),
+        ("check", "i1"),
+        ("launch", None),
+    ]
+    planning, execution = events[0][1], events[2][1]
+    assert planning is not execution
+    assert events[1][1] is planning and events[3][1] is execution
+
+
 def test_the_bind_check_gates_the_launch_and_refuses_after_the_intent(tmp_path, monkeypatch):
     import beliefs.boundary as boundary_module
     from beliefs.errors import ConfinementNotEstablished

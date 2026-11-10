@@ -111,30 +111,44 @@ The `science` layer writes through a session:
 `SealedTips(corpus, store)`, each a `ChainTip(chain_id, genesis, tip)`: `chain_id`
 is the corpus id or the store id, `genesis` and `tip` are entry digests, and
 `store` is `None` when the session binds no store root. Only a run session can be
-sealed; on an attended session `seal()` raises `SessionProtocolError`.
+sealed; on an attended session `seal()` raises `SessionProtocolError`. A `timeout`
+that is not an `int` or a `float` raises `TypeError`, and one that is not finite,
+is negative or exceeds `threading.TIMEOUT_MAX` raises `ValueError`; both are
+refused before the flag is set, so the session stays unsealed.
 
 1. The seal flag is set without the session lock.
 2. The session lock is taken with `timeout`. If it cannot be, `SealTimeout` is
    raised and the flag stays set; a later `seal()` waits again.
-3. Holding the lock, a closed session raises `SessionClosed` and one whose ledger
-   failed `SessionLedgerFailed`. Otherwise the write root's chain, then the store
-   root's, is read detached (no lock, no recovery). A chain that is not well-formed raises
-   `SealTipsUnavailable` with `reason` `chain-absent` or `chain-malformed`, and one
-   with a registration nothing has settled raises it with `reason` `pending`; the
-   exception names the root.
+3. Holding the lock, a seal made from inside an act's own hold (for example a
+   signal handler run on the thread that is acting) raises `SessionProtocolError`:
+   it would otherwise re-enter the lock and name a tip the act then writes past.
+   The flag stays set, as after a timeout, and a seal from outside the hold
+   returns the tips once the act drains. A closed session raises `SessionClosed`
+   and one whose ledger failed `SessionLedgerFailed`. Otherwise the write root's
+   chain, then the store root's, is read detached (no lock, no recovery). A chain
+   that is not well-formed raises `SealTipsUnavailable` with `reason`
+   `chain-absent` or `chain-malformed`; one the engine refuses to read
+   (`LogEvidenceRefused`, kept as the exception's cause) raises it with `reason`
+   `chain-unreadable`; and one with a registration nothing has settled raises it
+   with `reason` `pending`. The exception names the root.
 
 The flag is checked only when an act or a phase takes the session lock as its
 outermost hold. A hold begun before the flag drains whole, and the seal waits for
 it: each scoped write, an audit (whose fulfilment re-enters the lock inside its own
-hold), and the close of an acquisition or a re-check. Anything that takes the lock
-afresh after the flag is refused with `SessionSealed`, which is not a
-`SessionClosed`. That cuts a route act at its next phase: a run whose intent was
+hold), and the close of an acquisition or a re-check. An act, or a phase of a route
+act, whose outermost hold begins after the flag is refused with `SessionSealed`,
+which is not a `SessionClosed`; closes and reads take the lock too but are not
+refused. That cuts a route act at its next phase: a run whose intent was
 appended before the seal cannot fulfil it, and a holdings act whose store call was
 in progress writes that call's `act` line and is then refused at its publication,
 leaving its corpus intent unfulfilled. After the seal, `claim_invocation` and
 `select_project` raise `SessionSealed`; `close_invocation`, `close()` and the reads
 (`invocation_acts`, `invocation_selection`, `invocation_sharing`) are admitted. The
 seal writes no ledger line, and the chain claims stay held until `close()`.
+`close()` made from inside an act's own hold raises `SessionProtocolError` before
+it writes or releases anything, since the act would then commit past a completed
+ledger. After a `SealTimeout`, `close()` waits without limit for the hold the seal
+could not outwait.
 
 **Confined jobs under a run session.** Every bind a confined run makes (the loader
 and environment from the materialized snapshot, the code bundle, the output root and

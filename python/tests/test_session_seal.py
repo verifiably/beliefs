@@ -19,6 +19,7 @@ from test_session_routes import STORE_ID, FakeSeam, TracingLock, _plan, _registe
 from test_session_writer import DIGEST, PROPOSITIONS, make_session
 
 from beliefs.errors import (
+    LogEvidenceRefused,
     ScienceError,
     SealTimeout,
     SealTipsUnavailable,
@@ -310,6 +311,101 @@ def test_pending_on_a_written_chain_refuses_the_seal(tmp_path, monkeypatch, chai
     with pytest.raises(SealTipsUnavailable) as refused:
         session.seal(WAIT)
     assert (refused.value.root, refused.value.reason) == (root, reason)
+    session.close()
+
+
+def test_a_refused_detached_read_refuses_the_seal_as_chain_unreadable(tmp_path, monkeypatch):
+    session, _ = make_session(tmp_path, run=True)
+    refusal = LogEvidenceRefused("inspect", "TransactionHalted", "injected")
+
+    def refusing(_root: Path) -> object:
+        raise refusal
+
+    monkeypatch.setattr(writer_module, "log_seam", lambda: SimpleNamespace(inspect_detached=refusing))
+    with pytest.raises(SealTipsUnavailable) as refused:
+        session.seal(WAIT)
+    assert (refused.value.root, refused.value.reason) == (session.corpus_root, "chain-unreadable")
+    assert refused.value.__cause__ is refusal
+    session.close()
+
+
+def _seal_inside_the_hold(session: WriterSession, monkeypatch, call: Callable[[], object]) -> dict[str, object]:
+    """Run `call` on the act's own thread, inside its hold after the commit; the
+    dict keeps what it returned or the `SessionProtocolError` it raised."""
+    seen: dict[str, object] = {}
+    real = session._record_act
+
+    def calling(invocation, commit) -> None:
+        assert session._hold_depth > 0
+        try:
+            seen["returned"] = call()
+        except SessionProtocolError as caught:
+            seen["raised"] = caught
+        real(invocation, commit)
+
+    monkeypatch.setattr(session, "_record_act", calling)
+    return seen
+
+
+def test_a_seal_from_inside_an_acts_hold_is_a_protocol_error(tmp_path, monkeypatch):
+    """A seal on the thread already holding the lock (a signal handler run on
+    the acting thread) would re-enter the lock and report a tip the act then
+    writes past; it is refused, and the flag stays set as after a timeout."""
+    _stub_views(monkeypatch)
+    session, _ = make_session(tmp_path, run=True)
+    session.claim_invocation("A", "mint", DIGEST)
+    writer = session.scoped(PROPOSITIONS, "A")
+    seen = _seal_inside_the_hold(session, monkeypatch, lambda: session.seal(WAIT))
+    writer.add(proposition("p"))
+    assert "returned" not in seen
+    assert type(seen["raised"]) is SessionProtocolError and "hold" in str(seen["raised"])
+    assert len(session.invocation_acts("A")) == 1
+    assert session._sealed is True
+    with pytest.raises(SessionSealed):
+        writer.add(proposition("q"))
+    assert type(session.seal(WAIT)) is SealedTips
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
+def test_a_close_from_inside_an_acts_hold_is_a_protocol_error(tmp_path, monkeypatch):
+    session, _ = make_session(tmp_path, run=True)
+    session.claim_invocation("A", "mint", DIGEST)
+    writer = session.scoped(PROPOSITIONS, "A")
+    seen = _seal_inside_the_hold(session, monkeypatch, session.close)
+    writer.add(proposition("p"))
+    assert "returned" not in seen
+    assert type(seen["raised"]) is SessionProtocolError and "hold" in str(seen["raised"])
+    assert session._closed is False
+    assert not open_ledger_reader(session.operations_root, session.session_id).closed
+    (line,) = session.invocation_acts("A")
+    session.close_invocation("A", {"done": []})
+    session.close()
+    ledger = open_ledger_reader(session.operations_root, session.session_id)
+    assert ledger.closed and ledger.acts() == (line,)
+
+
+@pytest.mark.parametrize("timeout", [-1, -0.5, float("nan"), float("inf"), float("-inf"), 1e300])
+def test_a_timeout_that_is_not_a_finite_nonnegative_number_is_refused_before_the_flag(tmp_path, monkeypatch, timeout):
+    _stub_views(monkeypatch)
+    session, _ = make_session(tmp_path, run=True)
+    session.claim_invocation("A", "mint", DIGEST)
+    with pytest.raises(ValueError, match="timeout"):
+        session.seal(timeout)
+    assert session._sealed is False
+    session.scoped(PROPOSITIONS, "A").add(proposition("p"))
+    assert len(session.invocation_acts("A")) == 1
+    session.close_invocation("A", {"done": []})
+    session.close()
+
+
+@pytest.mark.parametrize("timeout", ["1", None, True])
+def test_a_timeout_that_is_not_a_number_is_a_type_error_before_the_flag(tmp_path, monkeypatch, timeout):
+    _stub_views(monkeypatch)
+    session, _ = make_session(tmp_path, run=True)
+    with pytest.raises(TypeError, match="timeout"):
+        session.seal(timeout)
+    assert session._sealed is False
     session.close()
 
 
