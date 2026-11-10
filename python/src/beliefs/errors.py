@@ -1625,6 +1625,20 @@ class SessionRefused(ScienceError):
     or no well-formed chain."""
 
 
+ChainRole: TypeAlias = Literal["write root", "store root"]
+
+
+class ChainClaimed(SessionRefused):
+    """Another session on this host holds the chain: its write root or its
+    store root. One session writes a chain at a time; the holder's `close()`,
+    or its process's death, releases the claim."""
+
+    def __init__(self, root: Path, role: ChainRole) -> None:
+        super().__init__(f"{role} {root} is claimed by another session on this host")
+        self.root = root
+        self.role: ChainRole = role
+
+
 class SessionClosed(ScienceError):
     """A method was called on a session after `close()`."""
 
@@ -1635,9 +1649,45 @@ class SessionProtocolError(ScienceError):
     through the dispatcher's lock; reaching it is a bug, never an outcome."""
 
 
+class RunSessionRefused(ScienceError):
+    """A run session refused an operation it never performs: a tree write
+    (`operation == "tree-write"`). Refused before any intent or ledger effect;
+    the session stays live."""
+
+    def __init__(self, operation: str) -> None:
+        super().__init__(f"a run session refuses {operation}")
+        self.operation = operation
+
+
+class SessionSealed(ScienceError):
+    """A sealed run session refused an act, a phase, a claim or a selection.
+    Deliberately not a `SessionClosed`: the session stays open, and
+    `close_invocation`, `close` and the reads stay available."""
+
+
+class SealTimeout(ScienceError):
+    """`seal(timeout)` could not take the session lock in time: a hold begun
+    before the seal is still running. The seal stays set; a later `seal()`
+    retries the wait."""
+
+
+class SealTipsUnavailable(ScienceError):
+    """`seal()` could not name a written chain's tip: the detached read of
+    `root` is not well-formed, or it carries a registration nothing has
+    settled, or the engine refused to produce the read (`LogEvidenceRefused`,
+    kept as `__cause__`). `reason` is `chain-absent`, `chain-malformed`,
+    `chain-unreadable` or `pending`."""
+
+    def __init__(self, root: Path, reason: str) -> None:
+        super().__init__(f"{root}: the sealed tip is unavailable: {reason}")
+        self.root = root
+        self.reason = reason
+
+
 class SessionLedgerFailed(ScienceError):
-    """A ledger `write`, `flush` or `fsync` failed; the session is terminal
-    and appends nothing further."""
+    """A ledger `write`, `flush` or `fsync` failed, or a store call that may
+    have registered raised (`LedgerWriter.fail`); the session is terminal and
+    appends nothing further."""
 
 
 class LedgerMalformed(ScienceError):

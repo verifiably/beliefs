@@ -79,8 +79,18 @@ The `science` layer writes through a session:
    `mounts`, when given, must name every configured root exactly once. The corpus
    must have a manifest whose pins agree with the profile, and its
    [chain](glossary.md#roots-log) must be well-formed. The session's actor is
-   `session:<32 hex>`, derived from a fresh session id. The session writes
+   `session:<32 hex>`, derived from a fresh session id. The session claims its
+   write root, then its store root when it has one (see below), writes
    `session-open` to its ledger and reconciles the other sessions' ledgers.
+   `open_run_session(..., ceiling=permit)` opens the unattended form for a launched
+   run. Its ceiling is a `WritePermit` deserialized from the launcher's file
+   (`WritePermit.from_json`, the exact inverse of the `permit` object in
+   `session-open`) and is recorded there. The ceiling must be admissible: never
+   ungoverned, and naming only the `corpus-write`, `run` and `holdings` families;
+   otherwise `SessionRefused` is raised before any claim or session directory exists.
+   A run session refuses tree writes: `seal_acquisition` and a store `tree-write`
+   create raise `RunSessionRefused("tree-write")` before any intent or ledger line,
+   and the session stays live.
 2. `claim_invocation(id, command, input_digest)` writes `invocation-open` for a new
    id and returns `ClaimFresh`. For an id it has seen, it returns `ClaimDone` (with
    the recorded outcome), `ClaimOpen` or `ClaimMismatch`, and writes nothing.
@@ -91,12 +101,148 @@ The `science` layer writes through a session:
    current one. It then appends a `corpus-write` operation intent, commits the
    write as the transaction that fulfils that intent, and writes an `act` line that
    names the intent, the [registration](glossary.md#registration) and the records
-   written.
+   written. A holdings act through the session (`holdings_context`) also writes one
+   `act` line for every store transaction it commits: a `write`, `delete` or `move`,
+   and each object a `tree-write` creates (the tree file included).
 5. `close_invocation(id, outcome)` writes `invocation-close`, and `close()` writes
-   `session-close`.
+   `session-close` and releases the session's chain claims.
+
+**Sealing a run session.** `seal(timeout)` ends a run session's writing and returns
+`SealedTips(corpus, store)`, each a `ChainTip(chain_id, genesis, tip)`: `chain_id`
+is the corpus id or the store id, `genesis` and `tip` are entry digests, and
+`store` is `None` when the session binds no store root. Only a run session can be
+sealed; on an attended session `seal()` raises `SessionProtocolError`. A `timeout`
+that is not an `int` or a `float` raises `TypeError`, and one that is not finite,
+is negative or exceeds `threading.TIMEOUT_MAX` raises `ValueError`; both are
+refused before the flag is set, so the session stays unsealed.
+
+1. The seal flag is set without the session lock.
+2. The session lock is taken with `timeout`. If it cannot be, `SealTimeout` is
+   raised and the flag stays set; a later `seal()` waits again.
+3. Holding the lock, a seal made from inside an act's own hold (for example a
+   signal handler run on the thread that is acting) raises `SessionProtocolError`:
+   it would otherwise re-enter the lock and name a tip the act then writes past.
+   The flag stays set, as after a timeout, and a seal from outside the hold
+   returns the tips once the act drains. A closed session raises `SessionClosed`
+   and one whose ledger failed `SessionLedgerFailed`. Otherwise the write root's
+   chain, then the store root's, is read detached (no lock, no recovery). A chain
+   that is not well-formed raises `SealTipsUnavailable` with `reason`
+   `chain-absent` or `chain-malformed`; one the engine refuses to read
+   (`LogEvidenceRefused`, kept as the exception's cause) raises it with `reason`
+   `chain-unreadable`; and one with a registration nothing has settled raises it
+   with `reason` `pending`. The exception names the root.
+
+The flag is checked only when an act or a phase takes the session lock as its
+outermost hold. A hold begun before the flag drains whole, and the seal waits for
+it: each scoped write, an audit (whose fulfilment re-enters the lock inside its own
+hold), and the close of an acquisition or a re-check. An act, or a phase of a route
+act, whose outermost hold begins after the flag is refused with `SessionSealed`,
+which is not a `SessionClosed`; closes and reads take the lock too but are not
+refused. That cuts a route act at its next phase: a run whose intent was
+appended before the seal cannot fulfil it, and a holdings act whose store call was
+in progress writes that call's `act` line and is then refused at its publication,
+leaving its corpus intent unfulfilled. After the seal, `claim_invocation` and
+`select_project` raise `SessionSealed`; `close_invocation`, `close()` and the reads
+(`invocation_acts`, `invocation_selection`, `invocation_sharing`) are admitted. The
+seal writes no ledger line, and the chain claims stay held until `close()`.
+`close()` made from inside an act's own hold raises `SessionProtocolError` before
+it writes or releases anything, since the act would then commit past a completed
+ledger. After a `SealTimeout`, `close()` waits without limit for the hold the seal
+could not outwait.
+
+**Confined jobs under a run session.** Every bind a confined run makes (the loader
+and environment from the materialized snapshot, the code bundle, the output root and
+the staged inputs) lies beneath its scratch, so under a run session the kernel
+chooses that scratch itself. `execute_assessment_run` and `execute_production_run`
+take `scratch_base` as an optional keyword. Through a run session's operation port,
+after the permit check and before any intent, they return `RunRefused` with no
+report, intent or registration when:
+
+- the caller passed a `scratch_base` (`scratch-not-staging`);
+- the boundary policy is not the confined one (`policy-unconfined`): the minimal
+  policy runs the workflow outside any sandbox.
+
+Otherwise each confined execution stages in
+`<operations_root>/scratch/<session>/<invocation>`, the invocation the port is bound
+to, and snapshots materialize in `<operations_root>/scratch/environments`, a cache
+shared across sessions and never removed by a run. A run session opens its
+operations root (never through a symbolic link) and records its device and inode
+before `session-open`. The `scratch`, `environments`, session and invocation
+directories are created `0700` or opened relative to their parent's descriptor
+without following a symbolic link, the session and invocation directories created
+exclusively at their first use, and each one's identity is recorded. Later
+executions of the same invocation reuse its directory. Immediately before each
+launch, planning and execution alike, every bind is checked:
+
+1. each of those directories, from the operations root down, is still not a
+   symbolic link and still the recorded directory;
+2. every source but the two device nodes is the invocation's directory or the cache
+   joined, as text, with a relative path that has no `..`, `.` or empty component;
+3. that path, opened one component at a time from the recorded directory without
+   following a symbolic link, reaches the same file an `lstat` of the source finds.
+
+A failure is `ConfinementNotEstablished`, so the run refuses after its intent with
+`confinement-not-established`. The check does not close the window between itself
+and `bwrap`'s own resolution of the same paths: a directory swapped inside that
+window is not caught. That window is closed only by the assumption that the job's
+actor cannot reach `<operations_root>` at all, which the caller must keep true and
+this check does not replace. The session holds an invocation's directory
+descriptor until `close_invocation`, and `close()` closes the rest after releasing
+the chain claims. Removing `<operations_root>/scratch/<session>` is the caller's
+cleanup. Through any other port the caller's `scratch_base` is required (a missing
+one raises `TypeError`), either policy is accepted, and snapshots materialize in
+`<scratch_base>/environments`.
+
+**One session per written chain per host.** A session claims each chain it writes,
+its write root and its store root, with an exclusive `flock` on the root directory
+itself, taken after every validation and before the session directory is created.
+Nothing is created in or beside the root, and the engine locks only its metadata
+sibling's lock file, so the claim never contends with an operation lock. A second
+session on a claimed root, from this process or another on the same host, raises
+`ChainClaimed` (a `SessionRefused`, naming the root and whether it is the write
+root or the store root) and creates no session directory; a store root refusal
+releases the write root it had claimed. Read mounts are not claimed, so two
+sessions on different corpora with no shared store both open. The claim follows the
+directory, not its name: a root reached through a symbolic link conflicts with the
+same root claimed by its own path. If opening fails after a claim (the session
+directory, a run session's operations-root pin, `session-open` or reconciliation
+raises), every claim and descriptor is released and the exception propagates;
+ledger bytes already written stay, and read as an interrupted session. `close()` releases the claims after its `session-close`
+attempt, including when the ledger has failed and `close()` raises
+`SessionLedgerFailed`. Process death releases them too. The claim is host-local: it
+does not exclude a session on another host.
 
 The ledger is the append-only file `<operations_root>/sessions/<id>/ledger.v1`.
 Every line is written, flushed and fsynced before the call that wrote it returns.
+
+An `act` line carries `invocation`, `corpus`, `entry`, `intent` and `records`.
+`corpus` is the id of the chain the entry is on: the corpus id for a corpus write,
+and the store id (the store genesis's `store_id`) for a store transaction. For a
+store transaction, `entry` is the store registration's digest as the engine
+returned it, `intent` is the holdings act's intent on the corpus chain (for a move,
+the move-source intent; for a tree-write, its one intent on every create), and
+`records` is empty. The session holds its lock, then the store root's operation
+lock, across the store call and its `act` line; holdings takes the corpus root's
+operation lock only around an intent append or a publication, so a writer holds one
+operation lock at a time.
+
+**Reading entries after a tip.** `beliefs.after.read_after(root, *, genesis,
+after, through=None)` answers what a chain recorded since a tip a caller saw (a
+`ChainTip`'s `genesis` and `tip`). It reads the chain detached: no lock, no recovery
+and no append, so a registration nothing has settled stays staged and is reported,
+not settled. It returns `AfterEntries(entries, tip, pending)`: the entries strictly
+after `after`, up to and including `through` when given, else to the chain's tip;
+`tip` is the digest the slice runs to (`after` itself when `entries` is empty) and
+`pending` is the chain's unsettled `(txid, registration digest)` pairs. Otherwise it
+returns `AfterUnavailable(reason, detail)` as a value, never an exception, with
+`reason`:
+
+- `chain-absent`: the root has no chain, or no such directory exists;
+- `chain-malformed`: the chain is not well-formed;
+- `genesis-mismatch`: the chain's genesis is not `genesis`;
+- `tip-not-on-chain`: `after` is no entry of the chain;
+- `through-not-on-chain`: `through` is no entry of the chain;
+- `through-before-after`: `through` precedes `after`.
 
 ## Citations across mounts
 
@@ -258,7 +404,8 @@ main ones are:
   [records.md](records.md#write-rules)): the record fails a
   check;
 - `SignatureRefused`: a relation breaks an enforced signature;
-- `SessionRefused`: a session cannot open;
+- `SessionRefused`: a session cannot open; its subclass `ChainClaimed` names a
+  write root or store root another session on this host holds;
 - `PublicationRefused`: a publish is refused before its intent, and the exception
   names the reason.
 
@@ -284,10 +431,39 @@ intent. An interrupted publish resumes with `resume_publish(event_token=...)`
 under the same actor, and `pending_publishes` lists the unfinished ones.
 
 **Sessions.** A failed ledger append makes the session terminal
-(`SessionLedgerFailed`). A write from an invocation that is not the current one
-raises `SessionProtocolError`. When a session opens, `reconcile_sessions` compares
+(`SessionLedgerFailed`). So does a store call through a session that raises
+anything other than `StoreWriteRefused` for its arguments (a malformed path, an
+`objects/` path, a create outside `objects/sha256/`), which is refused before
+anything reaches the engine and leaves the session live. The engine registers a
+store transaction before it applies its effects, and an effect that meets drift
+rolls back, settles the registration as not committed and raises a routine refusal.
+A refusal therefore does not prove that nothing registered, and no `act` line can
+describe a rolled-back registration, so the ledger is marked failed before the
+exception propagates. What the act then raises depends on the act: `write` still
+reports a routine engine refusal as `StoreWriteRefused`, after the ledger has
+failed; `delete` and `move` raise the engine's error itself; a `tree-write` raises
+`SessionLedgerFailed`, because the failed session refuses the read of the object
+that follows a refused create, so its read-again tolerance applies only outside a
+session. The failed ledger cannot close its invocation or the session.
+This ends attended sessions too, on any such failure: an engine refusal caused by a
+write outside the session, and also a missing source for a `delete` or `move`,
+which fails before anything is submitted. A write from an invocation that is not
+the current one raises `SessionProtocolError`. When a session opens, `reconcile_sessions` compares
 every other session's ledger with the chains. It reports findings such as
 `session-unclosed`, `session-intent-unclaimed` and `session-act-unverified`.
+`reconcile_sessions` reads every configured corpus root's chain and, given
+`store_roots`, each of those store roots' chains, keyed by store id; a session
+opened with a store root passes it. It holds every one of those roots'
+operation locks (corpus roots first, then store roots, each sorted) while it
+reads the chains and the ledgers. A store `act` line is then checked against its
+store chain: one naming a registration that chain does not hold as committed is
+`session-act-unverified`. Because every store registration under a session and
+its `act` line are written under the store root's operation lock, a store write
+cannot land between the chain read and the ledger read. Store chains hold no
+intents, so they add no intent findings. A store root whose identity cannot be
+read (no store genesis, or a corpus's genesis) is a `session-store-unreadable`
+error naming the root, and its chain is not read. An `act` line naming a chain
+that was not read is not classified.
 
 **Gaps.** Reconciliation reports, but it writes nothing and recovers nothing. A
 contended or refused write is not retried automatically; the caller retries it.

@@ -587,7 +587,9 @@ def run_assessment(
     data="hello",
     held_inputs=None,
     scratch_base=None,
+    kernel_scratch=False,
 ):
+    """`kernel_scratch` passes no scratch base, for a run session's port."""
     code, held = stage(tmp_path, snakefile=snakefile, data=data)
     spec = spec if spec is not None else freeze(spec_draft(), held_rules=spec_rules())
     if held_inputs is not None:
@@ -612,7 +614,7 @@ def run_assessment(
         observer="observer-1",
         started_at=started_at,
         host_realization=host_realization,
-        scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
+        scratch_base=None if kernel_scratch else scratch_base if scratch_base is not None else tmp_path / "scratch",
         cores=cores,
     )
 
@@ -636,7 +638,9 @@ def run_production(
     definition_override=None,
     scratch_base=None,
     output_dir=None,
+    kernel_scratch=False,
 ):
+    """`kernel_scratch` passes no scratch base, for a run session's port."""
     code, held = stage(tmp_path, snakefile=snakefile, data=data)
     supplied = (
         held_inputs
@@ -678,7 +682,7 @@ def run_production(
         observer="observer-1",
         started_at=started_at,
         host_realization=host_realization,
-        scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
+        scratch_base=None if kernel_scratch else scratch_base if scratch_base is not None else tmp_path / "scratch",
         cores=cores,
         output_dir=output_dir,
     )

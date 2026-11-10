@@ -37,6 +37,7 @@ from beliefs.root import (
     init_store_root,
     replicate_root,
 )
+from beliefs.world.logmodel import RegisteredEntryView, SettledEntryView, WellFormedView
 
 TXID = "1" * 32
 
@@ -51,7 +52,7 @@ def test_read_path_answers_found_with_the_content_hash(certified_work):
     root = _store(certified_work)
     payload = b"held bytes"
     seam = holdings_seam()
-    seam.store_write(root, "payload.bin", payload)
+    seam.store_write(root, "payload.bin", payload, "f" * 64)
 
     assert seam.read_path(root, "payload.bin") == PathObservedView(
         FileStateView("sha256:" + sha256(payload).hexdigest(), len(payload))
@@ -67,7 +68,7 @@ def test_read_path_answers_absent_for_a_missing_path(certified_work):
 def test_read_path_reports_a_directory_as_non_regular(certified_work):
     root = _store(certified_work)
     seam = holdings_seam()
-    seam.store_write(root, "directory/payload.bin", b"held bytes")
+    seam.store_write(root, "directory/payload.bin", b"held bytes", "f" * 64)
 
     assert seam.read_path(root, "directory") == PathObservedView(NonRegularStateView("directory"))
 
@@ -88,7 +89,7 @@ def test_store_write_returns_the_verified_final_surface(certified_work):
     root = _store(certified_work)
     payload = b"held bytes"
 
-    outcome = holdings_seam().store_write(root, "directory/payload.bin", payload)
+    outcome = holdings_seam().store_write(root, "directory/payload.bin", payload, "f" * 64)
 
     assert len(outcome.txid) == 32
     assert outcome.final_states == (
@@ -100,9 +101,9 @@ def test_store_write_returns_the_verified_final_surface(certified_work):
 def test_store_delete_returns_the_absent_row(certified_work):
     root = _store(certified_work)
     seam = holdings_seam()
-    seam.store_write(root, "payload.bin", b"held bytes")
+    seam.store_write(root, "payload.bin", b"held bytes", "f" * 64)
 
-    outcome = seam.store_delete(root, "payload.bin")
+    outcome = seam.store_delete(root, "payload.bin", "f" * 64)
 
     assert outcome.final_states == (("payload.bin", AbsentStateView()),)
 
@@ -111,9 +112,9 @@ def test_store_move_returns_the_dual_location_result(certified_work):
     root = _store(certified_work)
     payload = b"held bytes"
     seam = holdings_seam()
-    seam.store_write(root, "source.bin", payload)
+    seam.store_write(root, "source.bin", payload, "f" * 64)
 
-    outcome = seam.store_move(root, "source.bin", "destination.bin")
+    outcome = seam.store_move(root, "source.bin", "destination.bin", "f" * 64)
 
     assert outcome.final_states == (
         ("destination.bin", FileStateView("sha256:" + sha256(payload).hexdigest(), len(payload))),
@@ -128,12 +129,12 @@ def test_store_create_writes_a_new_object_and_refuses_an_existing_one(certified_
     root = _store(certified_work)
     seam = holdings_seam()
 
-    outcome = seam.store_create(root, OBJECT_PATH, b"abc")
+    outcome = seam.store_create(root, OBJECT_PATH, b"abc", "f" * 64)
 
     assert (root / OBJECT_PATH).read_bytes() == b"abc"
     assert outcome.final_states[-1] == (OBJECT_PATH, FileStateView("sha256:" + sha256(b"abc").hexdigest(), 3))
     with pytest.raises(ExecutionError) as refused:
-        seam.store_create(root, OBJECT_PATH, b"other")
+        seam.store_create(root, OBJECT_PATH, b"other", "f" * 64)
     assert refused.value.applied == 0
     assert seam.store_refusal(refused.value)
     assert (root / OBJECT_PATH).read_bytes() == b"abc"
@@ -147,10 +148,12 @@ def test_store_create_submits_create_only_effects(tmp_path, monkeypatch):
     def capture(**kwargs):
         captured.append(kwargs)
         spec = kwargs["spec"]
-        return SimpleNamespace(txid=TXID, final_states=tuple((row.path, row.state) for row in spec.final_surface))
+        return SimpleNamespace(
+            txid=TXID, final_states=tuple((row.path, row.state) for row in spec.final_surface), registration="e" * 64
+        )
 
     monkeypatch.setattr(science_root, "_mapped_submit", capture)
-    holdings_seam().store_create(root, OBJECT_PATH, b"abc")
+    holdings_seam().store_create(root, OBJECT_PATH, b"abc", "f" * 64)
 
     (call,) = captured
     effects = call["spec"].effects
@@ -169,16 +172,16 @@ def test_store_create_submits_create_only_effects(tmp_path, monkeypatch):
 )
 def test_store_create_refuses_a_path_outside_objects(tmp_path, path):
     with pytest.raises(StoreWriteRefused):
-        holdings_seam().store_create(tmp_path, path, b"abc")
+        holdings_seam().store_create(tmp_path, path, b"abc", "f" * 64)
 
 
 @pytest.mark.parametrize(
     "act",
     [
-        lambda seam, root, path: seam.store_write(root, path, b"abc"),
-        lambda seam, root, path: seam.store_delete(root, path),
-        lambda seam, root, path: seam.store_move(root, "source.bin", path),
-        lambda seam, root, path: seam.store_move(root, path, "destination.bin"),
+        lambda seam, root, path: seam.store_write(root, path, b"abc", "f" * 64),
+        lambda seam, root, path: seam.store_delete(root, path, "f" * 64),
+        lambda seam, root, path: seam.store_move(root, "source.bin", path, "f" * 64),
+        lambda seam, root, path: seam.store_move(root, path, "destination.bin", "f" * 64),
     ],
     ids=["write", "delete", "move-to", "move-from"],
 )
@@ -191,7 +194,7 @@ def test_ordinary_store_primitives_refuse_object_paths(tmp_path, act, path):
 def test_a_read_path_view_carries_the_byte_length(certified_work):
     root = _store(certified_work)
     seam = holdings_seam()
-    seam.store_create(root, OBJECT_PATH, b"abc")
+    seam.store_create(root, OBJECT_PATH, b"abc", "f" * 64)
 
     assert seam.read_path(root, OBJECT_PATH) == PathObservedView(
         FileStateView("sha256:" + sha256(b"abc").hexdigest(), byte_len=3)
@@ -204,7 +207,7 @@ def test_store_mutation_on_an_ungranted_root_refuses(certified_work):
     replicate_root(source, replica, authority=FULL)
 
     with pytest.raises(ExecutionError):
-        holdings_seam().store_write(replica, "payload.bin", b"held bytes")
+        holdings_seam().store_write(replica, "payload.bin", b"held bytes", "f" * 64)
 
 
 def test_the_seam_is_a_singleton():
@@ -228,13 +231,14 @@ def test_store_commands_submit_the_exact_protocol_contract(tmp_path, monkeypatch
         return SimpleNamespace(
             txid=TXID,
             final_states=tuple((row.path, row.state) for row in spec.final_surface),
+            registration="e" * 64,
         )
 
     monkeypatch.setattr(science_root, "_mapped_submit", capture)
     seam = holdings_seam()
     if operation == "create":
         path = "directory/payload.bin"
-        outcome = seam.store_write(root, path, payload)
+        outcome = seam.store_write(root, path, payload, "f" * 64)
         projection = [{"op": "write", "path": path, "content_sha256": sha256(payload).hexdigest()}]
         registered = (path,)
         effect_types = (CreateDirectory, CreateFileNoClobber)
@@ -245,7 +249,7 @@ def test_store_commands_submit_the_exact_protocol_contract(tmp_path, monkeypatch
         source.write_bytes(old)
         source.chmod(0o600)
         if operation == "replace":
-            outcome = seam.store_write(root, "source.bin", payload)
+            outcome = seam.store_write(root, "source.bin", payload, "f" * 64)
             projection = [
                 {
                     "op": "write",
@@ -259,14 +263,14 @@ def test_store_commands_submit_the_exact_protocol_contract(tmp_path, monkeypatch
             initial = (("source.bin", pre),)
             final = (("source.bin", post),)
         elif operation == "delete":
-            outcome = seam.store_delete(root, "source.bin")
+            outcome = seam.store_delete(root, "source.bin", "f" * 64)
             projection = [{"op": "delete", "path": "source.bin", "expected_digest": old_hash}]
             registered = ("source.bin",)
             effect_types = (DeletePath,)
             initial = (("source.bin", pre),)
             final = (("source.bin", ABSENT),)
         else:
-            outcome = seam.store_move(root, "source.bin", "destination.bin")
+            outcome = seam.store_move(root, "source.bin", "destination.bin", "f" * 64)
             projection = [
                 {
                     "op": "move",
@@ -312,11 +316,11 @@ def test_store_commands_submit_the_exact_protocol_contract(tmp_path, monkeypatch
 def test_store_move_refuses_an_existing_destination_without_changing_either_file(certified_work):
     root = _store(certified_work)
     seam = holdings_seam()
-    seam.store_write(root, "source.bin", b"source")
-    seam.store_write(root, "destination.bin", b"destination")
+    seam.store_write(root, "source.bin", b"source", "f" * 64)
+    seam.store_write(root, "destination.bin", b"destination", "f" * 64)
 
     with pytest.raises(ExecutionError):
-        seam.store_move(root, "source.bin", "destination.bin")
+        seam.store_move(root, "source.bin", "destination.bin", "f" * 64)
 
     assert (root / "source.bin").read_bytes() == b"source"
     assert (root / "destination.bin").read_bytes() == b"destination"
@@ -399,3 +403,45 @@ def test_publish_fulfilling_returns_the_registration_digest(certified_work):
 
 def _entries(view):
     return [(entry.digest, entry) for entry in view.entries]
+
+
+def _committed_registration(root, outcome):
+    chain = science_root._log_seam().inspect_detached(root)
+    assert isinstance(chain, WellFormedView)
+    matches = [e for e in chain.entries if isinstance(e, RegisteredEntryView) and e.digest == outcome.entry]
+    assert len(matches) == 1
+    assert matches[0].txid == outcome.txid
+    settlements = [e for e in chain.entries if isinstance(e, SettledEntryView) and e.registration == outcome.entry]
+    assert [s.committed for s in settlements] == [True]
+
+
+@pytest.mark.parametrize("operation", ["write", "create", "delete", "move"])
+def test_store_outcome_entry_is_the_committed_store_registration(certified_work, operation):
+    root = _store(certified_work)
+    seam = holdings_seam()
+    intent = "f" * 64
+    seam.store_write(root, "source.bin", b"held", intent)
+    if operation == "write":
+        outcome = seam.store_write(root, "a/b", b"x", intent)
+    elif operation == "create":
+        outcome = seam.store_create(root, OBJECT_PATH, b"abc", intent)
+    elif operation == "delete":
+        outcome = seam.store_delete(root, "source.bin", intent)
+    else:
+        outcome = seam.store_move(root, "source.bin", "destination.bin", intent)
+    assert len(outcome.entry) == 64
+    _committed_registration(root, outcome)
+
+
+def test_a_malformed_store_path_is_a_store_write_refusal(certified_work):
+    root = _store(certified_work)
+    before = science_root._log_seam().inspect_detached(root)
+    for call in (
+        lambda: holdings_seam().store_write(root, "", b"x", "f" * 64),
+        lambda: holdings_seam().store_create(root, "", b"x", "f" * 64),
+        lambda: holdings_seam().store_delete(root, "", "f" * 64),
+        lambda: holdings_seam().store_move(root, "", "d.bin", "f" * 64),
+    ):
+        with pytest.raises(StoreWriteRefused):
+            call()
+    assert science_root._log_seam().inspect_detached(root) == before

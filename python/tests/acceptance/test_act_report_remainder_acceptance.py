@@ -471,7 +471,14 @@ def test_the_session_routes_write_one_act_line_per_committed_transaction_and_nam
     session.close_invocation("A", {"done": []})
     session.close()
     acts = open_ledger_reader(session.operations_root, session.session_id).acts()
-    assert len(acts) == 4  # the audit's close, the write, the re-check act, the re-check's close
+    # The audit's close, the write's store registration and its publication, the re-check act, the re-check's close.
+    assert [act.corpus for act in acts] == [
+        session.corpus_id,
+        scoped.store_id,
+        session.corpus_id,
+        session.corpus_id,
+        session.corpus_id,
+    ]
     observed = rechecked.entries[0].outcome
     assert isinstance(observed, PublishedObservation), observed
     assert {pair[1] for act in acts for pair in act.record_ids} >= {

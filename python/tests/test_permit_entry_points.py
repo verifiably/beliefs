@@ -416,7 +416,7 @@ def _prepare_holdings(held: tuple[str, ...] = (), *, intent: bool = False):
         store_id = init_store_root(work / "store", authority=lacking())
         ctx = _context(lacking(), work)
         for name in held:
-            ctx.seam.store_write(ctx.store_root, name, b"held")
+            ctx.seam.store_write(ctx.store_root, name, b"held", "f" * 64)
         state = {"store_id": store_id}
         if intent:
             state["token"], state["intent"] = boundary._append(ctx, StoreLocator(store_id, "held.bin"), "write")
@@ -479,7 +479,12 @@ def _holdings(act: str):
             from beliefs.holdings.records import StoreTreeLocator
 
             return boundary._place_object(
-                ctx, StoreTreeLocator(store_id, "1" * 64), "sha256:" + sha256(b"held").hexdigest(), 4, lambda: b"held"
+                ctx,
+                StoreTreeLocator(store_id, "1" * 64),
+                "sha256:" + sha256(b"held").hexdigest(),
+                4,
+                lambda: b"held",
+                "f" * 64,
             )
         if act == "_append":
             return boundary._append(ctx, StoreLocator(store_id, "held.bin"), "write")

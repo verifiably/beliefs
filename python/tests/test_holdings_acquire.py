@@ -347,7 +347,7 @@ def test_a_publication_failure_after_a_committed_materialization_propagates_and_
 def test_an_unexpected_engine_failure_in_the_store_propagates_and_is_never_a_stop(acquisition):
     ctx, store_id, writer, scratch = acquisition
 
-    def internal(_root, _path, _content):
+    def internal(_root, _path, _content, _intent):
         raise ExecutionError("internal", index=None, applied=None) from RuntimeError("boom")
 
     ctx = replace(ctx, seam=replace(ctx.seam, store_write=internal))
@@ -360,7 +360,7 @@ def test_an_unexpected_engine_failure_in_the_store_propagates_and_is_never_a_sto
 def test_a_session_failure_between_the_look_and_the_write_propagates(acquisition):
     ctx, store_id, writer, scratch = acquisition
 
-    def closed(_root, _path, _content):
+    def closed(_root, _path, _content, _intent):
         raise SessionProtocolError("the invocation is no longer current")
 
     ctx = replace(ctx, seam=replace(ctx.seam, store_write=closed))
