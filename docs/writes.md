@@ -66,17 +66,22 @@ ordinary writes. Each runs these steps in order, except `delete` (below):
 An `analysis-spec` is also refused unless every register it cites is a held
 `assumptions-register` describing an activated domain contract at its pinned
 identity (`RegisterNotCurrent`, [records.md](records.md#specs-runs-and-assessments)).
-The four measurement kinds use the existing `add` door, with no separate minting
-operation. `add` decodes each canonical facet before applying its kind-specific
-checks. Procedures require a declared procedure kind, admitted
-`yields`, typed `validated_in`, an authoritative held `same_as` procedure when
-present, and `inputs` exactly for `fills_within_model` kinds. Referent mappings
-require declared source and target sorts and any aggregation rule. Classification
-rules require a declared classes sort and admitted `reads`. Proxy models require
-admitted source and target observables, a held source procedure, an authoritative
-held `scale_of` when present, typed validity, and valid assumption particulars for
-the basis and any calibration transfer. A calibration also requires an admitted
-calibrated observable, nonempty held assessments whose outcomes are all `supported`,
+The four measurement kinds mint through `add`, which decodes each canonical facet
+before applying its kind-specific checks. For procedure `yields`, classification
+rule `reads` and a proxy's source, explicit target and calibrated observables,
+`add` checks that each quantity kind and bearer sort is declared. An optional
+aspect sort must also be declared and admitted for the quantity kind. Pair
+admission in the `measurements` table is checked during binding aptness. See
+[binding aptness](records.md#binding-aptness).
+
+Procedures also require a declared procedure kind, typed `validated_in`, an
+authoritative held `same_as` procedure when present, and `inputs` exactly for
+`fills_within_model` kinds. Referent mappings require declared source and target
+sorts and any aggregation rule. Classification rules require a declared classes
+sort. Proxy models require a held source procedure, an authoritative held
+`scale_of` when present, typed validity, and valid assumption particulars for
+the basis and any calibration transfer. A calibration also requires nonempty
+held assessments whose outcomes are all `supported`,
 and held specs whose applicability is equal to or broader than validity over the
 union of dimensions. Only term qualifiers on term-form dimensions can be adapted
 from interim applicability; other forms refuse as undecidable. For scale targets,

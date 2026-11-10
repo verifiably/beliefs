@@ -5,12 +5,13 @@ contract documents must satisfy. A contract is a YAML document that declares the
 vocabulary records may use. The Science base contract declares kinds, relations,
 facets and the closed grammars. A domain contract declares sorts, dimensions,
 relation templates, instantiations, bridges, estimand declarations, measurement
-vocabulary and admissions, duration conventions and namespaced facets. The coordination contract
-declares view and coordination kinds. A compiled profile combines a base contract,
-a set of domain contracts and optionally a coordination contract. The code accepts
-base contract version 2 (claim grammar 2; estimand, measurement and composite grammar 1), any
-positive domain contract version in a genesis or successor lineage, coordination
-contract versions 1 to 3, and corpus manifest version 2. The records these
+vocabulary and admissions, duration conventions and namespaced facets. The
+coordination contract declares view and coordination kinds. A compiled profile
+combines a base contract, a set of domain contracts and optionally a coordination
+contract. The shipped base is version 2, with claim grammar 2 and estimand,
+measurement and composite grammar 1. Domain contract versions are positive
+integers in a genesis or successor lineage. The code supports coordination
+contract versions 1 to 3 and corpus manifest version 2. The records these
 contracts govern are described in [records.md](records.md), and the writes that
 check them in [writes.md](writes.md).
 
@@ -63,7 +64,10 @@ dimension, as an unknown field.
 
 The base contract has exactly these fields: `contract` (always `science`),
 `version`, `claim_grammar`, `estimand_grammar`, `measurement_grammar`,
-`composite_grammar`, `kinds`, `relations` and `facets`. The shipped base is version 2.
+`composite_grammar`, `kinds`, `relations` and `facets`. The Python and TypeScript
+parsers require a positive integer for the base `version` and the versions of
+the estimand and composite grammars. They require claim grammar version 2 and
+measurement grammar version 1.
 
 - `claim_grammar` holds `version`, `tag_encoding` (`science.identity.v1`),
   `quantifiers`, `polarities`, `sign_inapt_tag`, `forms`, `layers`,
@@ -121,7 +125,7 @@ The base contract has exactly these fields: `contract` (always `science`),
 - A base facet is either `reader`-shaped, naming its reader, or `schema`-shaped,
   declaring `fields`.
 
-A writer accepts only the base contract the runtime ships.
+A writer requires the identity of the shipped base contract.
 
 ## Domain contracts
 
@@ -216,8 +220,7 @@ and a list of them may not repeat a value.
   target, `instantiation:<name>` or `bridge:<name>`, which must name a declaration
   of that kind in the same document. It has `level_sorts` (keyed by role name),
   `measure_sort`, `identification_sort` and `conditioning_sort`, and may add
-  `description`. These are the interim estimand fields; the estimand grammar's own
-  design replaces them.
+  `description`. The current estimand uses these fields for admission against a claim.
 - **Duration conventions.** A duration convention requires exactly `conversion`,
   a local or foreign-qualified conversion reference, plus optional editorial
   `definition` and `description`. Compilation resolves the reference and requires
@@ -331,8 +334,9 @@ unknown. Per-dimension results fold with disjoint first, then unknown, then mixe
 narrower/broader or overlapping, then a single containment direction or equality.
 `co_scope_by_dimension` exposes those particulars.
 
-A calendar interval without a convention is admitted as unresolved and compares
-unknown even against itself. A supplied `convention` must name a declared duration
+A calendar interval without a convention is admitted as unresolved. When both
+scopes restrict the dimension, an unresolved calendar interval compares
+`unknown` even against itself. A supplied `convention` must name a declared duration
 convention whose conversion involves the interval's calendar unit; it is refused
 on noncalendar units. Local convention references resolve in the dimension's
 namespace when typed, and projections retain qualified references. Each calendar

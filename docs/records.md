@@ -3,8 +3,8 @@
 Type: data model; document types 1. This document describes the records a beliefs
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
-encoding, `science.identity.v1`, and one version of each grammar the base contract
-declares (claim grammar 2; estimand, measurement and composite grammar 1). The other
+encoding, `science.identity.v1`. The shipped base contract is version 2, with
+claim grammar 2 and estimand, measurement and composite grammar 1. The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
@@ -295,8 +295,7 @@ An estimand names the claim it answers by identity and operator, and its contras
 names one role of the operator's template (`role`); a contrast on a `many` role
 also names the member of that role it is on (`member`, a `{sort, term}` referent),
 and on a `one` role carries no `member`. The levels of a `levels` contrast share a
-sort. This role contrast is interim: the estimand grammar's own design replaces
-it. Restoring a stored estimand types only this shape against the profile: the
+sort. Restoring a stored estimand types only this shape against the profile: the
 operator resolves, the role is the template's, `member` is present exactly on a
 `many` role, and every referent's sort is declared. Whether the estimand is
 admitted for its claim is a separate check against that claim: the estimand must
@@ -638,6 +637,13 @@ the write door checks declarations and held dependencies. A malformed payload
 raises `MalformedRecord` at the door and is reported by `corpus_check` as
 `facet-payload-malformed` with its facet key. Prose in `body` is outside identity.
 
+When minting a procedure, classification rule or proxy model, `check_observable`
+requires each observable's quantity kind and bearer sort to be declared. If an
+aspect is present, its sort must be declared and admitted for that quantity kind
+in the `aspects` table. A bearer and quantity kind can pass these checks even if
+their pair is absent from the `measurements` table. For pair admission, see
+[binding aptness](#binding-aptness).
+
 #### Procedure
 
 A procedure includes its kind term, name, normative definition, distinct sorted
@@ -650,10 +656,11 @@ an orientation (`higher-is-more` or `higher-is-less`), making it an authority, o
 coefficients have exact finite decimal string projections under the shared
 4096-digit and exponent budget; values with no exact supported projection refuse.
 Validation restrictions retain their optional duration convention. The procedure
-kind must be declared, every yield observable must be admitted, and `inputs` must
-be present exactly when its kind declares `fills_within_model`. A `same_as` id
-must name a held procedure that declares its own scale range. Compatible-procedure
-and evidence ids are checked for shape, without requiring those records to be held.
+kind must be declared, each yield must pass the observable checks above, and
+`inputs` must be present exactly when its kind declares `fills_within_model`.
+A `same_as` id must name a held procedure that declares its own scale range.
+Compatible-procedure and evidence ids are checked for shape, without requiring
+those records to be held.
 
 Validation and proxy-validity scopes must pass `type_restriction_map` under the
 writer's profile. Applicability dimensions need not apply to a particular operator.
@@ -679,7 +686,7 @@ in the writer's compiled profile.
 
 A classification rule names a classes sort, input observables, a normative
 definition and optional external mapping, implementation and annotator. The door
-requires a declared classes sort and admitted input observables.
+requires a declared classes sort and checks each input observable as above.
 
 #### Proxy model
 
@@ -690,7 +697,6 @@ permanent interpretation-rule identity strings. A calibration transfer assumptio
 is required exactly when an observable target differs from the calibrated
 observable. For a scale target, it is required exactly when the calibrated
 observable is absent from the held authority's complete set of yielded observables.
-The calibrated observable is checked against the profile as well.
 
 A crosswalk is required exactly for scale targets: it includes a linking population,
 conversion and error. Both source and target procedures must be scale authorities.
@@ -712,11 +718,12 @@ sort. Other forms refuse with `calibration-scope-undecidable`; no qualifier is
 dropped. Assessment standing, v2 estimand shape and interpretation-rule qualification
 are not checked by this door.
 
-The write door also checks admitted source and target observables, held source and
-scale-target procedures, typed validity restrictions, and assumption particulars
-for bases and transfers. Profile and held-record failures are
-`MeasurementRecordRefused` naming the record id and clause; the calibration and
-crosswalk refusals above are subclasses.
+The source observable, any explicit target observable and any calibrated
+observable must pass the observable checks above. The write door also checks
+held source and scale-target procedures, typed validity restrictions, and
+assumption particulars for bases and transfers. Profile and held-record failures
+are `MeasurementRecordRefused` naming the record id and clause; the calibration
+and crosswalk refusals above are subclasses.
 
 `assumptions.AssumptionInstance` holds a declared assumption-kind term and canonical
 string-valued particulars. `check_instance` requires each key the compiled kind
@@ -725,10 +732,13 @@ declares and permits additional keys, including a crosswalk's error.
 #### Binding aptness
 
 `aptness.check_aptness` checks a measured binding against its role sort, compiled
-profile and held records. It first requires admitted source and explicit-target
-measurement pairs, then validates the measure's observable and coordinates. The
-procedure must yield the complete source observable before any scale-authority
-check. A bearer change requires a proxy; a mapping alone refuses. A proxy must
+profile and held records. It requires the `measurements` table to admit the
+source's bearer sort and quantity kind as a pair. It checks the pair of an
+explicit proxy target when present. An unlisted pair raises
+`MeasurementNotAdmitted`. After pair admission, the helper validates the
+measure's observable and coordinates. The procedure must yield the complete
+source observable before any scale-authority check. A bearer change requires a
+proxy; a mapping alone refuses. A proxy must
 match the source observable and procedure (or its `same_as` authority), target the
 role's bearer sort, and cite a referent mapping joining the two bearer sorts in
 either direction. A scale-target proxy cannot bridge a binding's bearer.

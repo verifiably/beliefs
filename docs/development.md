@@ -264,8 +264,10 @@ change), and add the kind to `KIND_ACTS` as above.
    them ([contracts.md](contracts.md#domain-contracts)).
    Measurement packs also declare quantity kinds, units, conversions,
    transformations, procedure and assumption kinds, measurement admissions and
-   aspect sorts as needed. Declare applicability restriction forms explicitly;
-   calendar intervals require a named duration convention for decidable comparison.
+   aspect sorts as needed. Declare applicability restriction forms explicitly.
+   A calendar interval needs a named duration convention to resolve its unit
+   when compared with another interval. A one-sided calendar restriction still
+   narrows an unrestricted dimension.
    `fixtures/contracts/testing.yaml` uses every part of the grammar.
 2. Load it with `load_domain_contract(path, base=shipped_base_contract(),
    predecessor=None)` and compile it with the base into a profile:

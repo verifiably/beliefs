@@ -114,7 +114,8 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([contracts](contracts.md#domain-contracts))
 - <a id="duration-convention"></a>**Duration convention** — A named exact
   conversion from a calendar unit to a noncalendar unit of the same duration
-  quantity kind. Calendar restrictions name it explicitly.
+  quantity kind. A calendar interval may name a convention. Without one, its
+  comparison with another interval is `unknown` for that dimension.
   ([contracts](contracts.md#typed-restrictions))
 - <a id="eligibility"></a>**Eligibility** — Whether a held dependency remains usable
   under a supplied snapshot; local conditions and the full dependency closure
