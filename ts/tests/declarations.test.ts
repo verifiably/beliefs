@@ -129,6 +129,37 @@ describe("the base contract's declarations", () => {
       ),
     ).toThrow(/log/);
   });
+  it("declares the measurement grammar's nine closed sets", () => {
+    expect(base.measurementGrammar).toEqual({
+      version: 1,
+      valueTypes: ["level", "difference", "ratio"],
+      levelsOfMeasurement: ["nominal", "ordinal", "interval", "ratio"],
+      scaleOrientations: ["higher-is-more", "higher-is-less"],
+      transformationKinds: ["identity", "affine", "logarithm", "monotone"],
+      monotoneDirections: ["increasing", "decreasing"],
+      transformationDomains: ["real", "nonnegative", "positive", "unit-interval"],
+      conversionKinds: ["multiplicative", "affine"],
+      cardinalities: ["one-to-one", "many-to-one", "one-to-many", "many-to-many"],
+      evidenceModes: ["observation", "annotation", "simulation", "derivation", "literature-extraction"],
+    });
+    expect(Object.isFrozen(base.measurementGrammar)).toBe(true);
+    expect(Object.isFrozen(base.measurementGrammar.valueTypes)).toBe(true);
+  });
+  it("refuses a measurement closed set wider than the kernel's", () => {
+    const document = parse(SHIPPED);
+    document.measurement_grammar.value_types.push("count");
+    expect(() => parseBaseContract(stringify(document), "<bad>")).toThrow(/count/);
+  });
+  it("refuses a base contract without the measurement grammar", () => {
+    const document = parse(SHIPPED);
+    document.measurement_grammar = undefined;
+    expect(() => parseBaseContract(stringify(document), "<missing>")).toThrow(/measurement_grammar/);
+  });
+  it.each([0, true, "1", 2])("refuses measurement grammar version %s", (version) => {
+    const document = parse(SHIPPED);
+    document.measurement_grammar.version = version;
+    expect(() => parseBaseContract(stringify(document), "<bad>")).toThrow(/version/);
+  });
   it("declares the v2 claim grammar's closed sets", () => {
     const grammar = base.claimGrammar;
     expect(base.version).toBe(2);

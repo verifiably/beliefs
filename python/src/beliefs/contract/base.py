@@ -40,20 +40,31 @@ __all__ = [
     "COMPOSES_SIGNATURE",
     "COMPOSITE_GRAMMAR",
     "ESTIMAND_GRAMMAR",
+    "MEASUREMENT_GRAMMAR_VERSION",
     "SUPPORTED_BINDING_KINDS",
+    "SUPPORTED_CARDINALITIES",
     "SUPPORTED_CONTRAST_KINDS",
+    "SUPPORTED_CONVERSION_KINDS",
+    "SUPPORTED_EVIDENCE_MODES",
     "SUPPORTED_FORMS",
+    "SUPPORTED_LEVELS_OF_MEASUREMENT",
     "SUPPORTED_MAPPING_TYPES",
+    "SUPPORTED_MONOTONE_DIRECTIONS",
     "SUPPORTED_PLACEMENTS",
     "SUPPORTED_ROLE_CATEGORIES",
     "SUPPORTED_SCALES",
+    "SUPPORTED_SCALE_ORIENTATIONS",
+    "SUPPORTED_TRANSFORMATION_DOMAINS",
+    "SUPPORTED_TRANSFORMATION_KINDS",
     "SUPPORTED_UNCERTAINTY_KINDS",
+    "SUPPORTED_VALUE_TYPES",
     "BaseContract",
     "ClaimGrammar",
     "CompositeGrammar",
     "EstimandGrammar",
     "FacetUse",
     "KindDecl",
+    "MeasurementGrammar",
     "RelationDecl",
     "ReservedRole",
     "load_base_contract",
@@ -86,7 +97,17 @@ distinction worth keeping is between a hole and a documented limit.
 """
 
 _CONTRACT_FIELDS = frozenset(
-    {"contract", "version", "claim_grammar", "estimand_grammar", "composite_grammar", "kinds", "relations", "facets"}
+    {
+        "contract",
+        "version",
+        "claim_grammar",
+        "estimand_grammar",
+        "measurement_grammar",
+        "composite_grammar",
+        "kinds",
+        "relations",
+        "facets",
+    }
 )
 _GRAMMAR_FIELDS = frozenset(
     {
@@ -122,6 +143,32 @@ _SUPPORTED_RESERVED_ROLES = ("within-model",)
 """The reserved role names typing admits on every operator; the table's key set
 is a closed set like the others and must match exactly."""
 _ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
+_MEASUREMENT_GRAMMAR_FIELDS = frozenset(
+    {
+        "version",
+        "tag_encoding",
+        "value_types",
+        "levels_of_measurement",
+        "scale_orientations",
+        "transformation_kinds",
+        "monotone_directions",
+        "transformation_domains",
+        "conversion_kinds",
+        "cardinalities",
+        "evidence_modes",
+    }
+)
+MEASUREMENT_GRAMMAR_VERSION = 1
+SUPPORTED_VALUE_TYPES = ("level", "difference", "ratio")
+SUPPORTED_LEVELS_OF_MEASUREMENT = ("nominal", "ordinal", "interval", "ratio")
+SUPPORTED_SCALE_ORIENTATIONS = ("higher-is-more", "higher-is-less")
+SUPPORTED_TRANSFORMATION_KINDS = ("identity", "affine", "logarithm", "monotone")
+SUPPORTED_MONOTONE_DIRECTIONS = ("increasing", "decreasing")
+SUPPORTED_TRANSFORMATION_DOMAINS = ("real", "nonnegative", "positive", "unit-interval")
+SUPPORTED_CONVERSION_KINDS = ("multiplicative", "affine")
+SUPPORTED_CARDINALITIES = ("one-to-one", "many-to-one", "one-to-many", "many-to-many")
+SUPPORTED_EVIDENCE_MODES = ("observation", "annotation", "simulation", "derivation", "literature-extraction")
+
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
 SUPPORTED_SHAPES = ("dag",)
 """The shapes this implementation derives. A contract naming a
@@ -200,6 +247,36 @@ class EstimandGrammar:
             "contrast_kinds": sorted(self.contrast_kinds),
             "scales": sorted(self.scales),
             "uncertainty_kinds": sorted(self.uncertainty_kinds),
+        }
+
+
+@dataclass(frozen=True)
+class MeasurementGrammar:
+    """The nine closed structural sets a measurement draws from."""
+
+    version: int
+    value_types: tuple[str, ...]
+    levels_of_measurement: tuple[str, ...]
+    scale_orientations: tuple[str, ...]
+    transformation_kinds: tuple[str, ...]
+    monotone_directions: tuple[str, ...]
+    transformation_domains: tuple[str, ...]
+    conversion_kinds: tuple[str, ...]
+    cardinalities: tuple[str, ...]
+    evidence_modes: tuple[str, ...]
+
+    def projection(self) -> dict[str, object]:
+        return {
+            "version": self.version,
+            "value_types": sorted(self.value_types),
+            "levels_of_measurement": sorted(self.levels_of_measurement),
+            "scale_orientations": sorted(self.scale_orientations),
+            "transformation_kinds": sorted(self.transformation_kinds),
+            "monotone_directions": sorted(self.monotone_directions),
+            "transformation_domains": sorted(self.transformation_domains),
+            "conversion_kinds": sorted(self.conversion_kinds),
+            "cardinalities": sorted(self.cardinalities),
+            "evidence_modes": sorted(self.evidence_modes),
         }
 
 
@@ -283,6 +360,7 @@ class BaseContract:
     version: int
     claim_grammar: ClaimGrammar
     estimand_grammar: EstimandGrammar
+    measurement_grammar: MeasurementGrammar
     composite_grammar: CompositeGrammar
     kinds: Mapping[str, KindDecl]
     relations: Mapping[str, RelationDecl]
@@ -494,6 +572,53 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
     ):
         _require_operated(declared, supported, f"{estimand_where}: {set_name}")
 
+    measurement_where = f"{source}: measurement_grammar"
+    measurement = _mapping(root["measurement_grammar"], measurement_where)
+    _exact_fields(measurement, _MEASUREMENT_GRAMMAR_FIELDS, measurement_where)
+    if measurement["tag_encoding"] != TAG_ENCODING:
+        raise MalformedContract(
+            f"{measurement_where}: tag_encoding is {measurement['tag_encoding']!r}; this implementation encodes tags only "
+            f"under {TAG_ENCODING!r}."
+        )
+    measurement_version = _positive_int(measurement["version"], f"{measurement_where}: version")
+    if measurement_version != MEASUREMENT_GRAMMAR_VERSION:
+        raise MalformedContract(
+            f"{measurement_where}: version is {measurement_version}, and this implementation reads measurement grammar "
+            f"version {MEASUREMENT_GRAMMAR_VERSION} only"
+        )
+    measurement_grammar = MeasurementGrammar(
+        version=measurement_version,
+        value_types=_closed_set(measurement["value_types"], f"{measurement_where}: value_types"),
+        levels_of_measurement=_closed_set(
+            measurement["levels_of_measurement"], f"{measurement_where}: levels_of_measurement"
+        ),
+        scale_orientations=_closed_set(measurement["scale_orientations"], f"{measurement_where}: scale_orientations"),
+        transformation_kinds=_closed_set(
+            measurement["transformation_kinds"], f"{measurement_where}: transformation_kinds"
+        ),
+        monotone_directions=_closed_set(
+            measurement["monotone_directions"], f"{measurement_where}: monotone_directions"
+        ),
+        transformation_domains=_closed_set(
+            measurement["transformation_domains"], f"{measurement_where}: transformation_domains"
+        ),
+        conversion_kinds=_closed_set(measurement["conversion_kinds"], f"{measurement_where}: conversion_kinds"),
+        cardinalities=_closed_set(measurement["cardinalities"], f"{measurement_where}: cardinalities"),
+        evidence_modes=_closed_set(measurement["evidence_modes"], f"{measurement_where}: evidence_modes"),
+    )
+    for set_name, declared, supported in (
+        ("value_types", measurement_grammar.value_types, SUPPORTED_VALUE_TYPES),
+        ("levels_of_measurement", measurement_grammar.levels_of_measurement, SUPPORTED_LEVELS_OF_MEASUREMENT),
+        ("scale_orientations", measurement_grammar.scale_orientations, SUPPORTED_SCALE_ORIENTATIONS),
+        ("transformation_kinds", measurement_grammar.transformation_kinds, SUPPORTED_TRANSFORMATION_KINDS),
+        ("monotone_directions", measurement_grammar.monotone_directions, SUPPORTED_MONOTONE_DIRECTIONS),
+        ("transformation_domains", measurement_grammar.transformation_domains, SUPPORTED_TRANSFORMATION_DOMAINS),
+        ("conversion_kinds", measurement_grammar.conversion_kinds, SUPPORTED_CONVERSION_KINDS),
+        ("cardinalities", measurement_grammar.cardinalities, SUPPORTED_CARDINALITIES),
+        ("evidence_modes", measurement_grammar.evidence_modes, SUPPORTED_EVIDENCE_MODES),
+    ):
+        _require_operated(declared, supported, f"{measurement_where}: {set_name}")
+
     facets = parse_facet_declarations(root["facets"], where=f"{source}: facets", namespace=None)
     kinds: dict[str, KindDecl] = {}
     for kind_name, body_value in _mapping(root["kinds"], f"{source}: kinds").items():
@@ -576,6 +701,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         version=_positive_int(root["version"], f"{source}: version"),
         claim_grammar=claim_grammar,
         estimand_grammar=estimand_grammar,
+        measurement_grammar=measurement_grammar,
         composite_grammar=composite_grammar,
         kinds=MappingProxyType(kinds),
         relations=MappingProxyType(relations),

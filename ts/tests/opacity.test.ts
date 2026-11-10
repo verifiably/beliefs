@@ -421,6 +421,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           claimGrammar: FORGED_GRAMMAR,
           estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+          measurementGrammar: base.measurementGrammar,
           compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
         }),
     ).toThrow(UnparsedContract);
@@ -451,6 +452,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           claimGrammar: FORGED_GRAMMAR,
           estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+          measurementGrammar: base.measurementGrammar,
           compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
         }),
     ).toThrow(SubclassRefused);

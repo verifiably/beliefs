@@ -62,8 +62,8 @@ dimension, as an unknown field.
 ## Base contract
 
 The base contract has exactly these fields: `contract` (always `science`),
-`version`, `claim_grammar`, `estimand_grammar`, `composite_grammar`, `kinds`,
-`relations` and `facets`. The shipped base is version 2.
+`version`, `claim_grammar`, `estimand_grammar`, `measurement_grammar`,
+`composite_grammar`, `kinds`, `relations` and `facets`. The shipped base is version 2.
 
 - `claim_grammar` holds `version`, `tag_encoding` (`science.identity.v1`),
   `quantifiers`, `polarities`, `sign_inapt_tag`, `forms`, `layers`,
@@ -91,6 +91,25 @@ The base contract has exactly these fields: `contract` (always `science`),
   `scales` and `uncertainty_kinds`. Those three must equal exactly the sets the
   implementation operates: `levels, continuous`, `additive, multiplicative` and
   `interval, standard-error`.
+- `measurement_grammar` holds `version` (exactly 1), `tag_encoding`
+  (`science.identity.v1`) and nine closed sets. Each set must equal exactly the
+  tags the implementation operates; missing, duplicate, wider and narrower sets
+  are refused:
+
+  | Field | Value |
+  |---|---|
+  | `value_types` | `level`, `difference`, `ratio` |
+  | `levels_of_measurement` | `nominal`, `ordinal`, `interval`, `ratio` |
+  | `scale_orientations` | `higher-is-more`, `higher-is-less` |
+  | `transformation_kinds` | `identity`, `affine`, `logarithm`, `monotone` |
+  | `monotone_directions` | `increasing`, `decreasing` |
+  | `transformation_domains` | `real`, `nonnegative`, `positive`, `unit-interval` |
+  | `conversion_kinds` | `multiplicative`, `affine` |
+  | `cardinalities` | `one-to-one`, `many-to-one`, `one-to-many`, `many-to-many` |
+  | `evidence_modes` | `observation`, `annotation`, `simulation`, `derivation`, `literature-extraction` |
+
+  The grammar enters compiled profile identity with every set sorted; authored
+  tag order is preserved in memory and does not affect that identity.
 - `composite_grammar` holds `version` and `shapes`. The only supported shape is
   `dag`.
 - Each kind has a `role` of `world` (the default) or `prose`, an identity `domain`

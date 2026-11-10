@@ -40,7 +40,15 @@ from typing import final
 from nodes.core.node import Node
 from nodes.core.registry import KindSpec, Registry, Violation
 
-from beliefs.contract.base import BaseContract, ClaimGrammar, CompositeGrammar, EstimandGrammar, FacetUse, RelationDecl
+from beliefs.contract.base import (
+    BaseContract,
+    ClaimGrammar,
+    CompositeGrammar,
+    EstimandGrammar,
+    FacetUse,
+    MeasurementGrammar,
+    RelationDecl,
+)
 from beliefs.contract.coordination import CoordinationContract
 from beliefs.contract.domain import (
     BridgeDecl,
@@ -409,6 +417,7 @@ class ProfileSpec:
     claim_grammar: ClaimGrammar
     composite_grammar: CompositeGrammar
     estimand_grammar: EstimandGrammar
+    measurement_grammar: MeasurementGrammar
     sorts: Mapping[str, CompiledSort]
     dimensions: Mapping[str, CompiledDimension]
     templates: Mapping[str, CompiledTemplate]
@@ -495,6 +504,7 @@ class ProfileSpec:
         return _projection(
             self.claim_grammar,
             self.estimand_grammar,
+            self.measurement_grammar,
             self.composite_grammar,
             _ClaimTables(
                 sorts=self.sorts,
@@ -964,6 +974,7 @@ def compile_profile(
         _registry=registry,
         claim_grammar=base.claim_grammar,
         estimand_grammar=base.estimand_grammar,
+        measurement_grammar=base.measurement_grammar,
         composite_grammar=base.composite_grammar,
         sorts=tables.sorts,
         dimensions=tables.dimensions,
@@ -986,6 +997,7 @@ def compile_profile(
             _projection(
                 base.claim_grammar,
                 base.estimand_grammar,
+                base.measurement_grammar,
                 base.composite_grammar,
                 tables,
                 kinds=kinds,
@@ -1018,6 +1030,7 @@ class _ClaimTables:
 def _projection(
     claim_grammar: ClaimGrammar,
     estimand_grammar: EstimandGrammar,
+    measurement_grammar: MeasurementGrammar,
     composite_grammar: CompositeGrammar,
     tables: _ClaimTables,
     *,
@@ -1047,6 +1060,7 @@ def _projection(
             "layers": sorted(claim_grammar.layers),
         },
         "estimand_grammar": estimand_grammar.projection(),
+        "measurement_grammar": measurement_grammar.projection(),
         "composite_grammar": composite_grammar.projection(),
         "kinds": {name: kind.projection() for name, kind in kinds.items()},
         "facets": {key: facet.projection() for key, facet in facets.items()},

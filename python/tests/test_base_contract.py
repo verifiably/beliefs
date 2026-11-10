@@ -109,7 +109,9 @@ class TestRefusals:
         with pytest.raises(MalformedContract, match="unknown field"):
             parse(broken)
 
-    @pytest.mark.parametrize("field", ["contract", "version", "claim_grammar", "kinds", "relations", "facets"])
+    @pytest.mark.parametrize(
+        "field", ["contract", "version", "claim_grammar", "measurement_grammar", "kinds", "relations", "facets"]
+    )
     def test_a_missing_field_is_refused(self, document, field):
         broken = copy.deepcopy(document)
         del broken[field]
@@ -391,6 +393,98 @@ class TestEstimandGrammar:
         document["estimand_grammar"]["version"] = 2
         after = compile_profile(parse_base_contract(document, source="<b>"), []).compiled_identity
         assert before != after
+
+
+class TestMeasurementGrammar:
+    def test_the_shipped_base_declares_the_nine_closed_sets(self, base_contract):
+        grammar = base_contract.measurement_grammar
+        assert grammar.version == 1
+        assert grammar.value_types == ("level", "difference", "ratio")
+        assert grammar.levels_of_measurement == ("nominal", "ordinal", "interval", "ratio")
+        assert grammar.scale_orientations == ("higher-is-more", "higher-is-less")
+        assert grammar.transformation_kinds == ("identity", "affine", "logarithm", "monotone")
+        assert grammar.monotone_directions == ("increasing", "decreasing")
+        assert grammar.transformation_domains == ("real", "nonnegative", "positive", "unit-interval")
+        assert grammar.conversion_kinds == ("multiplicative", "affine")
+        assert grammar.cardinalities == ("one-to-one", "many-to-one", "one-to-many", "many-to-many")
+        assert grammar.evidence_modes == (
+            "observation",
+            "annotation",
+            "simulation",
+            "derivation",
+            "literature-extraction",
+        )
+
+    def test_a_base_lacking_the_grammar_is_refused(self, document):
+        del document["measurement_grammar"]
+        with pytest.raises(MalformedContract, match="measurement_grammar"):
+            parse(document)
+
+    def test_another_tag_encoding_is_refused(self, document):
+        document["measurement_grammar"]["tag_encoding"] = "science.identity.v2"
+        with pytest.raises(MalformedContract, match="tag_encoding"):
+            parse(document)
+
+    def test_a_duplicate_tag_is_refused(self, document):
+        document["measurement_grammar"]["value_types"] = ["level", "level"]
+        with pytest.raises(TagCollision):
+            parse(document)
+
+    @pytest.mark.parametrize(
+        ("closed_set", "tags", "difference"),
+        [
+            ("value_types", ["level", "difference", "ratio", "count"], "count"),
+            ("levels_of_measurement", ["ordinal", "interval", "ratio"], "nominal"),
+            ("conversion_kinds", ["multiplicative", "affine", "logarithmic"], "logarithmic"),
+            (
+                "evidence_modes",
+                [
+                    "observation",
+                    "annotation",
+                    "simulation",
+                    "derivation",
+                    "literature-extraction",
+                    "simulation-calibrated",
+                ],
+                "simulation-calibrated",
+            ),
+        ],
+    )
+    def test_a_closed_set_must_exactly_match(self, document, closed_set, tags, difference):
+        document["measurement_grammar"][closed_set] = tags
+        with pytest.raises(MalformedContract, match=difference):
+            parse(document)
+
+    @pytest.mark.parametrize("version", [0, True, "1", 2])
+    def test_an_unsupported_version_is_refused(self, document, version):
+        document["measurement_grammar"]["version"] = version
+        with pytest.raises(MalformedContract, match="version"):
+            parse(document)
+
+    def test_an_unknown_grammar_field_is_refused(self, document):
+        document["measurement_grammar"]["extra"] = []
+        with pytest.raises(MalformedContract, match="unknown field"):
+            parse(document)
+
+    def test_the_grammar_enters_the_compiled_identity(self, base_contract):
+        from beliefs.identity import v1
+        from beliefs.profile import PROFILE_DOMAIN, compile_profile
+
+        compiled = compile_profile(base_contract, [])
+        without_measurement = compiled.projection()
+        assert v1.digest(PROFILE_DOMAIN, without_measurement) == compiled.compiled_identity
+        without_measurement.pop("measurement_grammar", None)
+        assert v1.digest(PROFILE_DOMAIN, without_measurement) != compiled.compiled_identity
+
+    def test_closed_set_order_does_not_move_the_compiled_identity(self, document):
+        from beliefs.profile import compile_profile
+
+        before = compile_profile(parse(document), []).compiled_identity
+        for tags in document["measurement_grammar"].values():
+            if isinstance(tags, list):
+                tags.reverse()
+        after = compile_profile(parse(document), []).compiled_identity
+        assert after == before
 
 
 class TestCompositeGrammarAndKind:

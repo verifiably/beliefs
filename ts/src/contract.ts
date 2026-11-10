@@ -84,10 +84,60 @@ export interface EstimandGrammar {
   readonly uncertaintyKinds: readonly string[];
 }
 
+export interface MeasurementGrammar {
+  readonly version: number;
+  readonly valueTypes: readonly string[];
+  readonly levelsOfMeasurement: readonly string[];
+  readonly scaleOrientations: readonly string[];
+  readonly transformationKinds: readonly string[];
+  readonly monotoneDirections: readonly string[];
+  readonly transformationDomains: readonly string[];
+  readonly conversionKinds: readonly string[];
+  readonly cardinalities: readonly string[];
+  readonly evidenceModes: readonly string[];
+}
+
 export interface CompositeGrammar {
   readonly version: number;
   readonly shapes: readonly string[];
 }
+export const MEASUREMENT_GRAMMAR_VERSION = 1;
+export const SUPPORTED_VALUE_TYPES: readonly string[] = Object.freeze(["level", "difference", "ratio"]);
+export const SUPPORTED_LEVELS_OF_MEASUREMENT: readonly string[] = Object.freeze([
+  "nominal",
+  "ordinal",
+  "interval",
+  "ratio",
+]);
+export const SUPPORTED_SCALE_ORIENTATIONS: readonly string[] = Object.freeze(["higher-is-more", "higher-is-less"]);
+export const SUPPORTED_TRANSFORMATION_KINDS: readonly string[] = Object.freeze([
+  "identity",
+  "affine",
+  "logarithm",
+  "monotone",
+]);
+export const SUPPORTED_MONOTONE_DIRECTIONS: readonly string[] = Object.freeze(["increasing", "decreasing"]);
+export const SUPPORTED_TRANSFORMATION_DOMAINS: readonly string[] = Object.freeze([
+  "real",
+  "nonnegative",
+  "positive",
+  "unit-interval",
+]);
+export const SUPPORTED_CONVERSION_KINDS: readonly string[] = Object.freeze(["multiplicative", "affine"]);
+export const SUPPORTED_CARDINALITIES: readonly string[] = Object.freeze([
+  "one-to-one",
+  "many-to-one",
+  "one-to-many",
+  "many-to-many",
+]);
+export const SUPPORTED_EVIDENCE_MODES: readonly string[] = Object.freeze([
+  "observation",
+  "annotation",
+  "simulation",
+  "derivation",
+  "literature-extraction",
+]);
+
 const SUPPORTED_SHAPES: readonly string[] = ["dag"];
 const SUPPORTED_CONTRAST_KINDS: readonly string[] = ["continuous", "levels"];
 const SUPPORTED_SCALES: readonly string[] = ["additive", "multiplicative"];
@@ -159,6 +209,7 @@ export class BaseContract {
   readonly version: number;
   readonly claimGrammar: ClaimGrammar;
   readonly estimandGrammar: EstimandGrammar;
+  readonly measurementGrammar: MeasurementGrammar;
   readonly compositeGrammar: CompositeGrammar;
   readonly kinds: DeclarationTable<KindDecl>;
   readonly relations: DeclarationTable<RelationDecl>;
@@ -170,6 +221,7 @@ export class BaseContract {
       version: number;
       claimGrammar: ClaimGrammar;
       estimandGrammar: EstimandGrammar;
+      measurementGrammar: MeasurementGrammar;
       compositeGrammar: CompositeGrammar;
       kinds?: DeclarationTable<KindDecl>;
       relations?: DeclarationTable<RelationDecl>;
@@ -212,6 +264,18 @@ export class BaseContract {
       contrastKinds: Object.freeze([...parts.estimandGrammar.contrastKinds]),
       scales: Object.freeze([...parts.estimandGrammar.scales]),
       uncertaintyKinds: Object.freeze([...parts.estimandGrammar.uncertaintyKinds]),
+    });
+    this.measurementGrammar = Object.freeze({
+      version: parts.measurementGrammar.version,
+      valueTypes: Object.freeze([...parts.measurementGrammar.valueTypes]),
+      levelsOfMeasurement: Object.freeze([...parts.measurementGrammar.levelsOfMeasurement]),
+      scaleOrientations: Object.freeze([...parts.measurementGrammar.scaleOrientations]),
+      transformationKinds: Object.freeze([...parts.measurementGrammar.transformationKinds]),
+      monotoneDirections: Object.freeze([...parts.measurementGrammar.monotoneDirections]),
+      transformationDomains: Object.freeze([...parts.measurementGrammar.transformationDomains]),
+      conversionKinds: Object.freeze([...parts.measurementGrammar.conversionKinds]),
+      cardinalities: Object.freeze([...parts.measurementGrammar.cardinalities]),
+      evidenceModes: Object.freeze([...parts.measurementGrammar.evidenceModes]),
     });
     this.compositeGrammar = Object.freeze({
       version: parts.compositeGrammar.version,
@@ -561,7 +625,17 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   const document = mapping(readDocument(text, source), source);
   exactFields(
     document,
-    ["contract", "version", "claim_grammar", "estimand_grammar", "composite_grammar", "kinds", "relations", "facets"],
+    [
+      "contract",
+      "version",
+      "claim_grammar",
+      "estimand_grammar",
+      "measurement_grammar",
+      "composite_grammar",
+      "kinds",
+      "relations",
+      "facets",
+    ],
     [],
     source,
   );
@@ -658,6 +732,75 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   ] as const) {
     requireOperated(declared, supported, `${source}.estimand_grammar.${name}`);
   }
+  const measurementDocument = mapping(document.measurement_grammar, `${source}.measurement_grammar`);
+  exactFields(
+    measurementDocument,
+    [
+      "version",
+      "tag_encoding",
+      "value_types",
+      "levels_of_measurement",
+      "scale_orientations",
+      "transformation_kinds",
+      "monotone_directions",
+      "transformation_domains",
+      "conversion_kinds",
+      "cardinalities",
+      "evidence_modes",
+    ],
+    [],
+    `${source}.measurement_grammar`,
+  );
+  if (measurementDocument.tag_encoding !== TAG_ENCODING) {
+    throw new MalformedContract(
+      `${source}.measurement_grammar.tag_encoding: this implementation carries ${TAG_ENCODING}, the contract names ${JSON.stringify(measurementDocument.tag_encoding)}`,
+    );
+  }
+  const measurementVersion = positiveInt(measurementDocument.version, `${source}.measurement_grammar.version`);
+  if (measurementVersion !== MEASUREMENT_GRAMMAR_VERSION)
+    throw new MalformedContract(
+      `${source}.measurement_grammar.version: ${measurementVersion}, and this implementation reads measurement grammar version ${MEASUREMENT_GRAMMAR_VERSION} only`,
+    );
+  const measurementGrammar: MeasurementGrammar = {
+    version: measurementVersion,
+    valueTypes: closedSet(measurementDocument.value_types, `${source}.measurement_grammar.value_types`),
+    levelsOfMeasurement: closedSet(
+      measurementDocument.levels_of_measurement,
+      `${source}.measurement_grammar.levels_of_measurement`,
+    ),
+    scaleOrientations: closedSet(
+      measurementDocument.scale_orientations,
+      `${source}.measurement_grammar.scale_orientations`,
+    ),
+    transformationKinds: closedSet(
+      measurementDocument.transformation_kinds,
+      `${source}.measurement_grammar.transformation_kinds`,
+    ),
+    monotoneDirections: closedSet(
+      measurementDocument.monotone_directions,
+      `${source}.measurement_grammar.monotone_directions`,
+    ),
+    transformationDomains: closedSet(
+      measurementDocument.transformation_domains,
+      `${source}.measurement_grammar.transformation_domains`,
+    ),
+    conversionKinds: closedSet(measurementDocument.conversion_kinds, `${source}.measurement_grammar.conversion_kinds`),
+    cardinalities: closedSet(measurementDocument.cardinalities, `${source}.measurement_grammar.cardinalities`),
+    evidenceModes: closedSet(measurementDocument.evidence_modes, `${source}.measurement_grammar.evidence_modes`),
+  };
+  for (const [name, declared, supported] of [
+    ["value_types", measurementGrammar.valueTypes, SUPPORTED_VALUE_TYPES],
+    ["levels_of_measurement", measurementGrammar.levelsOfMeasurement, SUPPORTED_LEVELS_OF_MEASUREMENT],
+    ["scale_orientations", measurementGrammar.scaleOrientations, SUPPORTED_SCALE_ORIENTATIONS],
+    ["transformation_kinds", measurementGrammar.transformationKinds, SUPPORTED_TRANSFORMATION_KINDS],
+    ["monotone_directions", measurementGrammar.monotoneDirections, SUPPORTED_MONOTONE_DIRECTIONS],
+    ["transformation_domains", measurementGrammar.transformationDomains, SUPPORTED_TRANSFORMATION_DOMAINS],
+    ["conversion_kinds", measurementGrammar.conversionKinds, SUPPORTED_CONVERSION_KINDS],
+    ["cardinalities", measurementGrammar.cardinalities, SUPPORTED_CARDINALITIES],
+    ["evidence_modes", measurementGrammar.evidenceModes, SUPPORTED_EVIDENCE_MODES],
+  ] as const) {
+    requireOperated(declared, supported, `${source}.measurement_grammar.${name}`);
+  }
   const facets = parseFacetDeclarations(document.facets, `${source}.facets`, null);
   const kindEntries: [string, KindDecl][] = [];
   for (const [name, bodyValue] of Object.entries(mapping(document.kinds, `${source}.kinds`))) {
@@ -744,6 +887,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       reservedRoles: reservedRoles(grammarDocument.reserved_roles, kinds, `${source}.claim_grammar.reserved_roles`),
     },
     estimandGrammar,
+    measurementGrammar,
     compositeGrammar,
     kinds,
     relations,

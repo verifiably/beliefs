@@ -67,9 +67,10 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     and again when the (here empty) `edges` table entered it too,
     and again when the exposure and reservation kinds entered it,
     and again when base v2's claim tables (templates, instantiations, bridges,
-    duration conventions) replaced the operator and edge tables."""
+    duration conventions) replaced the operator and edge tables,
+    and again when the measurement grammar entered the projection."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "c93e695047d81a06a6625aeed4142e61e09df44dc5823e48a77f1abb11d49267"
+    assert before.compiled_identity == "86c4f31cbf7cedbd3406df418c2c6665088c8a82c50100a6ce1edfbaf06f810c"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
