@@ -287,7 +287,7 @@ def _produce_single_basis(
     minted = mint_dataset(outcome.run, existing_bases={})
     assert minted.stamped is True
     assert minted.basis.run == outcome.run.address()
-    _record_id, _path, (run_operation,) = runrecord.publication_plan(outcome.run)
+    _record_id, _path, (run_operation, _dataset_operation) = runrecord.publication_plan(outcome.run)
     run_node = node_from_markdown(run_operation.content.decode())
     candidate = stored.dataset_node(
         title="duplicate",
