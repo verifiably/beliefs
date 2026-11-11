@@ -270,7 +270,9 @@ def carry_registers(writer):
         if namespace == "coordination":
             continue
         sort = min(term for term, declared in writer.profile.sorts.items() if declared.contract == namespace)
-        entry = RegisterEntry("fixture collapses", "fixture licenses", "fixture leaves unestablished")
+        entry = RegisterEntry(
+            "fixture collapses", "fixture licenses", "fixture leaves unestablished", status="provisional"
+        )
         register = AssumptionsRegister(f"{namespace}:{identity}", None, {f"sort:{sort}": entry})
         writer.add(stored.assumptions_register_node(register))
     return writer

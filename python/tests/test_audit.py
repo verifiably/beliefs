@@ -1625,7 +1625,7 @@ def test_check_composite_reads_form_only_and_never_a_snapshot(tmp_path):
 
 # --- the assumptions-register hygiene report (design §9.2, §6.5) ------------
 
-_PROSE = {"collapses": "c", "licenses": "l", "not_established": "n"}
+_PROSE: dict[str, Any] = {"collapses": "c", "licenses": "l", "not_established": "n", "status": "provisional"}
 
 
 def _testing_pin() -> str:

@@ -50,6 +50,7 @@ from beliefs.patterns import IdentifierClass
 from beliefs.sealed import sealed
 
 __all__ = [
+    "DECLARATION_FAMILIES",
     "AggregationRuleDecl",
     "AspectsDecl",
     "AssumptionKindDecl",
@@ -947,29 +948,37 @@ class DomainContract:
         # the sort and the dimension `population` are two declarations, and so
         # are an instantiation and a bridge sharing a name. An estimand's key is
         # already a typed address, so its tag is followed by one.
-        return (
-            *((f"sort:{name}", decl) for name, decl in self.sorts.items()),
-            *((f"dimension:{name}", decl) for name, decl in self.dimensions.items()),
-            *((f"template:{name}", decl) for name, decl in self.templates.items()),
-            *((f"instantiation:{name}", decl) for name, decl in self.instantiations.items()),
-            *((f"bridge:{name}", decl) for name, decl in self.bridges.items()),
-            *((f"estimand:{target}", decl) for target, decl in self.estimands.items()),
-            *((f"duration-convention:{name}", decl) for name, decl in self.duration_conventions.items()),
-            *((f"functional:{name}", decl) for name, decl in self.functionals.items()),
-            *((f"identification-class:{name}", decl) for name, decl in self.identification_classes.items()),
-            *((f"design:{name}", decl) for name, decl in self.designs.items()),
-            *((f"selection-mechanism:{name}", decl) for name, decl in self.selection_mechanisms.items()),
-            *((f"procedure-kind:{name}", decl) for name, decl in self.procedure_kinds.items()),
-            *((f"aggregation-rule:{name}", decl) for name, decl in self.aggregation_rules.items()),
-            *((f"assumption-kind:{name}", decl) for name, decl in self.assumption_kinds.items()),
-            *((f"measurement:{name}", decl) for name, decl in self.measurements.items()),
-            *((f"aspect:{name}", decl) for name, decl in self.aspects.items()),
-            *((f"quantity-kind:{name}", decl) for name, decl in self.quantity_kinds.items()),
-            *((f"unit:{name}", decl) for name, decl in self.units.items()),
-            *((f"constant:{name}", decl) for name, decl in self.constants.items()),
-            *((f"conversion:{name}", decl) for name, decl in self.conversions.items()),
-            *((f"transformation:{name}", decl) for name, decl in self.transformations.items()),
+        return tuple(
+            (f"{kind}:{name}", decl)
+            for kind, attr in DECLARATION_FAMILIES
+            for name, decl in cast(Mapping[str, _Declaration], getattr(self, attr)).items()
         )
+
+
+DECLARATION_FAMILIES: tuple[tuple[str, str], ...] = (
+    ("sort", "sorts"),
+    ("dimension", "dimensions"),
+    ("template", "templates"),
+    ("instantiation", "instantiations"),
+    ("bridge", "bridges"),
+    ("estimand", "estimands"),
+    ("duration-convention", "duration_conventions"),
+    ("functional", "functionals"),
+    ("identification-class", "identification_classes"),
+    ("design", "designs"),
+    ("selection-mechanism", "selection_mechanisms"),
+    ("procedure-kind", "procedure_kinds"),
+    ("aggregation-rule", "aggregation_rules"),
+    ("assumption-kind", "assumption_kinds"),
+    ("measurement", "measurements"),
+    ("aspect", "aspects"),
+    ("quantity-kind", "quantity_kinds"),
+    ("unit", "units"),
+    ("constant", "constants"),
+    ("conversion", "conversions"),
+    ("transformation", "transformations"),
+)
+"""Ordered `(kind_tag, DomainContract_attribute)` catalogue of all 21 declaration families."""
 
 
 # --- parse helpers ----------------------------------------------------------------

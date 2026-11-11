@@ -30,7 +30,7 @@ class TestTheShippedContract:
         assert request.node.get_closest_marker("xdist_group") is None
         contract = base.load_base_contract(base_contract_path)
         assert contract.name == "science"
-        assert contract.version == 2
+        assert contract.version == 3
 
     def test_it_declares_the_closed_sets_7_1_names(self, base_contract_path):
         grammar = base.load_base_contract(base_contract_path).claim_grammar
@@ -55,7 +55,7 @@ class TestContentIdentity:
         # Purely editorial changes move the contract identity — and so
         # belief_input_digest — while touching no declared schema.
         edited = copy.deepcopy(document)
-        edited["version"] = 3
+        edited["version"] = document["version"] + 1
         assert parse(edited).content_identity != parse(document).content_identity
 
     def test_reformatting_does_not_move_it(self, base_contract_path):
@@ -316,7 +316,7 @@ class TestClaimGrammarV2:
     def test_the_three_new_kinds(self, base_contract):
         register = base_contract.kinds["assumptions-register"]
         assert register.role == "world"
-        assert register.domain == "science.assumptions-register.v1"
+        assert register.domain == "science.assumptions-register.v2"
         assert dict(register.facets) == {"assumptions-register": base.FacetUse(required=True, covered=True)}
         facet = base_contract.facets["assumptions-register"]
         assert facet.shape == "reader"

@@ -144,7 +144,7 @@ def test_pack_provenance_survives_folding(parse, testing_document, base_contract
     assert projected == compile_profile(base_contract, [other, testing]).projection()
     assert isinstance(projected["aspects"], dict)
     assert set(projected["aspects"]) == {"other:testing/energy", "testing:testing/energy"}
-    entry = RegisterEntry("collapsed", "licensed", "unestablished")
+    entry = RegisterEntry("collapsed", "licensed", "unestablished", status="provisional")
     register = AssumptionsRegister(
         describes=f"testing:{testing.content_identity}",
         previous=None,

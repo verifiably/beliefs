@@ -8,8 +8,8 @@ relation templates, instantiations, bridges, estimand declarations, measurement
 vocabulary and admissions, duration conventions and namespaced facets. The
 coordination contract declares view and coordination kinds. A compiled profile
 combines a base contract, a set of domain contracts and optionally a coordination
-contract. The shipped base is version 2, with claim grammar 2 and estimand,
-measurement and composite grammar 1. Domain contract versions are positive
+contract. The shipped base is version 3, with claim and estimand grammars 2 and
+measurement and composite grammars 1. Domain contract versions are positive
 integers in a genesis or successor lineage. The code supports coordination
 contract versions 1 to 3 and corpus manifest version 2. The records these
 contracts govern are described in [records.md](records.md), and the writes that
@@ -405,15 +405,26 @@ any of the following holds:
 - the successor changes the schema projection of a claim-vocabulary declaration;
 - the successor un-retires a claim-vocabulary declaration.
 
-The claim vocabulary includes sorts, dimensions, templates, instantiations,
-bridges, estimand declarations, duration conventions, the five numerical
-measurement tables, the three vocabulary tables and the two pack tables. Each
-declaration is keyed by its typed address, `sort:<name>`, `dimension:<name>`,
-`template:<name>`, `instantiation:<name>`, `bridge:<name>`,
-`estimand:instantiation:<name>` or `estimand:bridge:<name>`, and
-`duration-convention:<name>`, plus `quantity-kind:`, `unit:`, `constant:`,
-`conversion:`, `transformation:`, `procedure-kind:`, `aggregation-rule:`,
-`assumption-kind:`, `measurement:` and `aspect:` followed by the row's key.
+The claim vocabulary covers all 21 domain declaration families: sorts, dimensions,
+templates, instantiations, bridges, estimand declarations, duration conventions,
+the seven methodological tables (`functionals`, `identification_classes`, `designs`,
+`selection_mechanisms`, `procedure_kinds`, `aggregation_rules` and
+`assumption_kinds`), the two pack tables (`measurements` and `aspects`) and the
+five numerical measurement tables (`quantity_kinds`, `units`, `constants`,
+`conversions` and `transformations`). Under succession each declaration is keyed by
+its local typed address: `sort:<name>`, `dimension:<name>`, `template:<name>`,
+`instantiation:<name>`, `bridge:<name>`, `estimand:instantiation:<name>` or
+`estimand:bridge:<name>`, `duration-convention:<name>`, `functional:<name>`,
+`identification-class:<name>`, `design:<name>`, `selection-mechanism:<name>`,
+`procedure-kind:<name>`, `aggregation-rule:<name>`, `assumption-kind:<name>`,
+`measurement:<key>`, `aspect:<key>`, `quantity-kind:<name>`, `unit:<name>`,
+`constant:<name>`, `conversion:<name>` and `transformation:<name>`.
+Assumptions-register coverage (`register_entry_keys`, see
+[records.md](records.md#assumptions-registers)) uses the same 21 family tags but
+qualifies every target (`<kind>:<namespace>/<name>`, nested
+`estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`,
+each declared `measurement` sort, and each sort listed in `aspects`, with empty
+aspect lists contributing no register key).
 Declarations sharing a local name in two tables are compared separately. Sets (layers, forms, categories, constraints, `applies_to`,
 the sorts a role lists) are compared as sets. Facets are not compared under
 succession. `description`, `definition` and `retired` are outside the comparison. A retired identifier can

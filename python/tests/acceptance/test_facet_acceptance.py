@@ -557,7 +557,7 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
             AssumptionsRegister(
                 describes="testing:" + TESTING_PROFILE.activated_contracts["testing"],
                 previous=None,
-                entries={"sort:testing/population": RegisterEntry("c", "l", "n")},
+                entries={"sort:testing/population": RegisterEntry("c", "l", "n", status="provisional")},
             )
         ),
     }

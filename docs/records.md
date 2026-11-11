@@ -583,18 +583,29 @@ An `assumptions-register` records what a domain contract's declarations collapse
 what they license and what they leave unestablished. Its facet has `describes`, the
 contract it describes as `<namespace>:<content identity>` (64 lowercase hex), an
 optional `previous`, the `assumptions-register:` id of the revision it supersedes,
-and `entries`. Each entry is keyed by the typed address of a declaration,
-`<kind>:<namespace>/<name>` with the kind one of `sort`, `template`, `instantiation`,
-`bridge`, `dimension`, `measurement` and `aspect`, and has exactly three non-empty strings: `collapses`,
-`licenses` and `not_established`. The kind is part of the key, so a sort and a
-dimension that share a local name have separate entries. A `measurement` entry
-names a sort declared as a key in the described contract's measurement table,
-including a key whose list is empty. An `aspect` entry names a sort listed in
-that contract's aspects table. A declaration contributed only by another activated
-pack does not qualify. A register's id is
+and `entries`. Each entry is keyed by the typed address of a declaration across the
+21 domain declaration families (`sort`, `dimension`, `template`, `instantiation`,
+`bridge`, `estimand`, `duration-convention`, `functional`, `identification-class`,
+`design`, `selection-mechanism`, `procedure-kind`, `aggregation-rule`,
+`assumption-kind`, `measurement`, `aspect`, `quantity-kind`, `unit`, `constant`,
+`conversion` and `transformation`). Ordinary keys are `<kind>:<namespace>/<name>`;
+estimand keys qualify their inner target as
+`estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`.
+Each entry has three non-empty prose strings (`collapses`, `licenses` and
+`not_established`) plus a required `status` (`provisional` or `established`).
+The kind is part of the key, so a sort and a
+dimension that share a local name have separate entries, and an instantiation and a
+bridge sharing a name have distinct estimand entries. A `measurement` entry
+names a sort declared as a key in the described contract's measurement table
+(including an external referenced sort when that contract declares the row, or a key
+whose list is empty). An `aspect` entry names a sort listed in
+that contract's aspects table (empty aspect lists contribute no key). A declaration
+contributed only by another activated pack does not qualify. A register's id is
 `assumptions-register:` followed by the digest of its facet under
-`science.assumptions-register.v1`, so a revision is a new record. The facet must be
-exactly the canonical form of the register it decodes to and the id must recompute
+`science.assumptions-register.v2`, so a prose revision or status promotion is a new
+record. The facet must be
+exactly the canonical form of the register it decodes to (`register_from_projection`)
+and the id must recompute
 from it; `add` refuses any other as `MalformedRecord`, and `corpus_check` reports it
 as `facet-payload-malformed`. Prose about a register goes in the record's `body`,
 outside its identity. A register has no relations. The TypeScript side never reads
@@ -610,9 +621,9 @@ profile's activated domain contracts; none of these refuses a write:
   identity. A `previous` naming a register not held ends the chain there; registers
   on a cycle have no head, and each is compared to the pin.
 - `register-entry-unknown` (error, on the register): an entry key whose kind is not
-  one of the seven (its reader refuses such a register too), or, for a register
-  describing the pinned identity, a key naming no declaration of that kind and name
-  in that contract. A register describing another identity reports `register-stale`
+  one of the 21 declaration families (its reader refuses such a register too), or, for a register
+  describing the pinned identity, a key naming no declaration of that kind and target
+  owned by that contract. A register describing another identity reports `register-stale`
   alone.
 - `bridging-register-uncited` (warning, on the proposition): a spec targets a
   proposition whose operator is a bridge, and no register it cites carries the entry

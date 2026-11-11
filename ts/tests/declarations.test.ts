@@ -184,7 +184,7 @@ describe("the base contract's declarations", () => {
   });
   it("declares the v2 claim grammar's closed sets", () => {
     const grammar = base.claimGrammar;
-    expect(base.version).toBe(2);
+    expect(base.version).toBe(3);
     expect(grammar.version).toBe(2);
     expect(grammar.forms).toEqual(["polar", "null"]);
     expect(grammar.roleCategories).toEqual(["set", "temporal", "class", "pattern"]);
@@ -196,7 +196,7 @@ describe("the base contract's declarations", () => {
     expect(Object.isFrozen(grammar.reservedRoles["within-model"])).toBe(true);
   });
   it("declares the register and four measurement world kinds", () => {
-    expect(base.kinds["assumptions-register"].domain).toBe("science.assumptions-register.v1");
+    expect(base.kinds["assumptions-register"].domain).toBe("science.assumptions-register.v2");
     expect(base.kinds["assumptions-register"].facets["assumptions-register"]).toEqual({
       required: true,
       covered: true,

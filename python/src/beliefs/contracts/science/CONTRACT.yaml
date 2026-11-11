@@ -10,7 +10,7 @@
 # change, because the identities *are* the bytes.
 
 contract: science
-version: 2
+version: 3
 
 claim_grammar:
   version: 2
@@ -149,7 +149,7 @@ kinds:
       reservation-assignment: { required: true, covered: true }
       display: { required: false, covered: false }
   assumptions-register:
-    domain: science.assumptions-register.v1
+    domain: science.assumptions-register.v2
     facets: { assumptions-register: { required: true, covered: true } }
   procedure: { domain: science.procedure.v1, facets: { procedure: { required: true, covered: true } } }
   referent-mapping: { domain: science.referent-mapping.v1, facets: { referent-mapping: { required: true, covered: true } } }

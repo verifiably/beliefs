@@ -63,6 +63,7 @@ from beliefs.acquisition import ProducerView, ReportView, bearer_refusal, validi
 from beliefs.assumptions import check_instance
 from beliefs.classification_rule import RULE_FACET, RULE_KIND, rule_from_stored
 from beliefs.consulted import CorpusPins
+from beliefs.contract.domain import DECLARATION_FAMILIES
 from beliefs.coordination import (
     COORDINATION_KINDS,
     PUBLICATION_KINDS,
@@ -2589,16 +2590,10 @@ def _register_chain_ends(registers: Mapping[str, AssumptionsRegister]) -> tuple[
     return heads + tuple(sorted(identity for identity in registers if identity not in visited))
 
 
-_DECLARATION_TABLES: Mapping[str, str] = MappingProxyType(
-    {
-        "sort": "sorts",
-        "template": "templates",
-        "instantiation": "instantiations",
-        "bridge": "bridges",
-        "dimension": "dimensions",
-    }
+_REGISTER_PROFILE_TABLES: Mapping[str, str] = MappingProxyType(
+    {kind: attr for kind, attr in DECLARATION_FAMILIES if kind not in {"estimand", "measurement", "aspect"}}
 )
-"""Each entry kind's compiled table on `ProfileSpec`, keyed `<namespace>/<name>`."""
+"""Each ordinary entry kind's compiled table on `ProfileSpec`, keyed `<namespace>/<name>`."""
 
 
 def _registers_report(
@@ -2646,8 +2641,17 @@ def _registers_report(
                 declared = any(
                     row.contract == namespace and term in row.aspect_sorts for row in profile._aspect_declarations
                 )
+            elif kind == "estimand":
+                target_kind, _, target_term = term.partition(":")
+                estimand_decl = profile.estimands.get(term)
+                declared = (
+                    target_kind in {"instantiation", "bridge"}
+                    and target_term.partition("/")[0] == namespace
+                    and estimand_decl is not None
+                    and estimand_decl.contract == namespace
+                )
             else:
-                table: Mapping[str, object] = getattr(profile, _DECLARATION_TABLES[kind])
+                table: Mapping[str, object] = getattr(profile, _REGISTER_PROFILE_TABLES[kind])
                 declared = term.partition("/")[0] == namespace and term in table
             if not declared:
                 findings.append(

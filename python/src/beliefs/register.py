@@ -4,32 +4,38 @@ license and leave unestablished, as a content-addressed world record.
 A register describes one domain contract by its content identity
 (`describes: "<namespace>:<content identity>"`), optionally names the revision it
 supersedes (`previous`), and carries entries keyed by the typed address of the
-declaration each describes, `<kind>:<namespace>/<name>` with the kind one of
-`ENTRY_KINDS`. The kind is part of the key because the declaration tables are
-separate namespaces: a sort and a dimension sharing a local name are two
-declarations with two sets of collapses.
+declaration each describes across all 21 `ENTRY_KINDS` families. Ordinary keys
+are `<kind>:<namespace>/<name>`; estimand keys qualify their inner target as
+`estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`.
+The kind is part of the key because the declaration tables are separate
+namespaces: a sort and a dimension sharing a local name are two declarations
+with two sets of collapses.
 
-Its id is `assumptions-register:` followed by the digest of its facet projection
-under `REGISTER_DOMAIN`, so a revision is a new record and a cited revision can
-always be read back. It has no relations: it names its contract by identity, and
-a contract is not a record. Prose outside the entries is the record's `body`,
-outside identity as for every record.
+Each entry carries three non-empty prose strings (`collapses`, `licenses`,
+`not_established`) and an explicit identity-bearing `status` (`"provisional"` or
+`"established"`). Its id is `assumptions-register:` followed by the digest of its
+facet projection under `REGISTER_DOMAIN`, so a revision or status promotion is a
+new record and a cited revision can always be read back. It has no relations: it
+names its contract by identity, and a contract is not a record. Prose outside
+the entries is the record's `body`, outside identity as for every record.
 
-This module holds the value and its stored reader only. Whether a register is
-current for a profile is the analysis-spec write door's question, and whether a
-corpus's registers are complete and fresh is `corpus_check`'s.
+This module holds the value, its projection and stored readers, and contract
+register-coverage key enumeration. Whether a register is current for a profile
+is the analysis-spec write door's question, and whether a corpus's registers are
+complete and fresh is `corpus_check`'s.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Literal
 
 from nodes.core.node import Node
 
+from beliefs.contract.domain import DECLARATION_FAMILIES, DomainContract
 from beliefs.errors import LoneSurrogate, MalformedRecord
 from beliefs.identity import v1
 
@@ -40,41 +46,57 @@ __all__ = [
     "REGISTER_KIND",
     "AssumptionsRegister",
     "RegisterEntry",
+    "RegisterStatus",
+    "register_entry_keys",
+    "register_from_projection",
     "register_from_stored",
     "register_identity",
     "register_projection",
 ]
 
-REGISTER_DOMAIN = "science.assumptions-register.v1"
+RegisterStatus = Literal["provisional", "established"]
+
+REGISTER_DOMAIN = "science.assumptions-register.v2"
 REGISTER_KIND = "assumptions-register"
 REGISTER_FACET = "assumptions-register"
-ENTRY_KINDS = ("sort", "template", "instantiation", "bridge", "dimension", "measurement", "aspect")
+ENTRY_KINDS: tuple[str, ...] = tuple(kind for kind, _ in DECLARATION_FAMILIES)
 
+_ORDINARY_KINDS = tuple(kind for kind in ENTRY_KINDS if kind != "estimand")
 _ENTRY_KEY = re.compile(
-    r"(sort|template|instantiation|bridge|dimension|measurement|aspect):[a-z][a-z0-9-]*/[a-z][a-z0-9-]*"
+    rf"(?:({'|'.join(re.escape(kind) for kind in _ORDINARY_KINDS)}):[a-z][a-z0-9-]*/[a-z][a-z0-9-]*"
+    r"|estimand:(?:instantiation|bridge):[a-z][a-z0-9-]*/[a-z][a-z0-9-]*)"
 )
 _DESCRIBES = re.compile(r"[a-z][a-z0-9-]*:[0-9a-f]{64}")
 _REGISTER_ID = re.compile(r"assumptions-register:[0-9a-f]{64}")
-_ENTRY_FIELDS = frozenset({"collapses", "licenses", "not_established"})
+_STATUSES = frozenset({"provisional", "established"})
+_ENTRY_FIELDS = frozenset({"collapses", "licenses", "not_established", "status"})
 _FACET_FIELDS = frozenset({"describes", "entries"})
 
 
 @dataclass(frozen=True)
 class RegisterEntry:
-    """One declaration's three required prose fields."""
+    """One declaration's three required prose fields and identity-bearing status."""
 
     collapses: str
     licenses: str
     not_established: str
+    status: RegisterStatus = field(kw_only=True)
 
     def __post_init__(self) -> None:
         for name in ("collapses", "licenses", "not_established"):
             value = getattr(self, name)
             if type(value) is not str or not value:
                 raise MalformedRecord(f"a register entry's {name} is a non-empty string, found {value!r}")
+        if type(self.status) is not str or self.status not in _STATUSES:
+            raise MalformedRecord(f"a register entry's status is 'provisional' or 'established', found {self.status!r}")
 
     def projection(self) -> dict[str, str]:
-        return {"collapses": self.collapses, "licenses": self.licenses, "not_established": self.not_established}
+        return {
+            "collapses": self.collapses,
+            "licenses": self.licenses,
+            "not_established": self.not_established,
+            "status": self.status,
+        }
 
 
 @dataclass(frozen=True)
@@ -104,7 +126,8 @@ class AssumptionsRegister:
         for key in sorted(self.entries, key=_order):
             if type(key) is not str or _ENTRY_KEY.fullmatch(key) is None:
                 raise MalformedRecord(
-                    f"entry key {key!r} is not a typed declaration address `<kind>:<namespace>/<name>`, "
+                    f"entry key {key!r} is not a typed declaration address (`<kind>:<namespace>/<name>`, or "
+                    f"`estimand:instantiation:<namespace>/<name>` / `estimand:bridge:<namespace>/<name>`), "
                     f"with the kind one of {', '.join(ENTRY_KINDS)}"
                 )
             entry = self.entries[key]
@@ -140,11 +163,43 @@ def register_identity(register: AssumptionsRegister) -> str:
         raise MalformedRecord("a register field is not canonically encodable") from refused
 
 
-def _entry(key: str, value: object, where: str) -> RegisterEntry:
+def _entry(key: object, value: object, where: str) -> RegisterEntry:
     if not isinstance(value, dict) or set(value) != _ENTRY_FIELDS:
-        raise MalformedRecord(f"{where}: entry {key!r} is exactly {{collapses, licenses, not_established}}")
+        raise MalformedRecord(f"{where}: entry {key!r} is exactly {{collapses, licenses, not_established, status}}")
     fields: dict[str, Any] = value
-    return RegisterEntry(fields["collapses"], fields["licenses"], fields["not_established"])
+    return RegisterEntry(
+        fields["collapses"],
+        fields["licenses"],
+        fields["not_established"],
+        status=fields["status"],
+    )
+
+
+def register_from_projection(value: object, *, source: str) -> AssumptionsRegister:
+    """Decode a canonical register projection from a stored facet or packaged resource."""
+    if not isinstance(value, dict):
+        raise MalformedRecord(f"{source}: a register projection is a mapping")
+    if not _FACET_FIELDS <= set(value) <= _FACET_FIELDS | {"previous"}:
+        raise MalformedRecord(f"{source}: a register facet is describes, entries and an optional previous")
+    if "previous" in value and value["previous"] is None:
+        raise MalformedRecord(f"{source}: previous is absent on a first revision, never null")
+    entries = value["entries"]
+    if not isinstance(entries, dict):
+        raise MalformedRecord(f"{source}: entries is a mapping")
+    try:
+        register = AssumptionsRegister(
+            describes=value["describes"],
+            previous=value.get("previous"),
+            entries={key: _entry(key, entry_value, source) for key, entry_value in entries.items()},
+        )
+        if register_projection(register) != value:
+            raise MalformedRecord("the facet is not the canonical projection of the register it decodes to")
+        register_identity(register)
+    except MalformedRecord as refused:
+        if str(refused).startswith(f"{source}: "):
+            raise
+        raise MalformedRecord(f"{source}: {refused}") from refused
+    return register
 
 
 def register_from_stored(node: Node) -> AssumptionsRegister:
@@ -157,22 +212,43 @@ def register_from_stored(node: Node) -> AssumptionsRegister:
     facet = node.facets.get(REGISTER_FACET)
     if not isinstance(facet, dict):
         raise MalformedRecord(f"{where}: an assumptions register carries an {REGISTER_FACET!r} facet")
-    if not _FACET_FIELDS <= set(facet) <= _FACET_FIELDS | {"previous"}:
-        raise MalformedRecord(f"{where}: a register facet is describes, entries and an optional previous")
-    entries = facet["entries"]
-    if not isinstance(entries, dict):
-        raise MalformedRecord(f"{where}: entries is a mapping")
-    try:
-        register = AssumptionsRegister(
-            describes=facet["describes"],
-            previous=facet.get("previous"),
-            entries={key: _entry(key, value, where) for key, value in entries.items()},
-        )
-        if register_projection(register) != facet:
-            raise MalformedRecord("the stored facet is not the canonical projection of the register it decodes to")
-        identity = register_identity(register)
-    except MalformedRecord as refused:
-        raise MalformedRecord(f"{where}: {refused}") from refused
+    register = register_from_projection(facet, source=where)
+    identity = register_identity(register)
     if node.id != identity:
         raise MalformedRecord(f"{where}: the id does not recompute from the facet; its address is {identity}")
     return register
+
+
+def _qualify(namespace: str, ref: str) -> str:
+    return ref if "/" in ref else f"{namespace}/{ref}"
+
+
+def register_entry_keys(contract: DomainContract) -> frozenset[str]:
+    """Every typed register-coverage key owed by `contract` across `DECLARATION_FAMILIES`.
+
+    Distinct from succession keys: estimands qualify their inner target
+    (`estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`),
+    measurements address each declared sort without double-prefixing external
+    sort references, and aspects expand each declared aspect sort while empty
+    aspect lists contribute no address.
+    """
+    if type(contract) is not DomainContract:
+        raise MalformedRecord("register_entry_keys requires a DomainContract")
+    namespace = contract.namespace
+    keys: set[str] = set()
+    for kind, attr in DECLARATION_FAMILIES:
+        if kind == "estimand":
+            for target in contract.estimands:
+                target_kind, _, local_name = target.partition(":")
+                keys.add(f"estimand:{target_kind}:{namespace}/{local_name}")
+        elif kind == "measurement":
+            for measurement_decl in contract.measurements.values():
+                keys.add(f"measurement:{_qualify(namespace, measurement_decl.sort)}")
+        elif kind == "aspect":
+            for aspect_decl in contract.aspects.values():
+                for aspect_sort in aspect_decl.aspect_sorts:
+                    keys.add(f"aspect:{_qualify(namespace, aspect_sort)}")
+        else:
+            for name in getattr(contract, attr):
+                keys.add(f"{kind}:{namespace}/{name}")
+    return frozenset(keys)

@@ -887,7 +887,12 @@ class TestSuccession:
             parse(document, predecessor=genesis)
 
     def test_succession_keys_are_typed(self, genesis):
+        from beliefs.contract.domain import DECLARATION_FAMILIES
+        from beliefs.register import register_entry_keys
+
         tags = {key.split(":")[0] for key, _ in genesis._declarations()}
+        assert len(DECLARATION_FAMILIES) == 21
+        assert tags == {kind for kind, _ in DECLARATION_FAMILIES}
         assert tags == {
             "sort",
             "dimension",
@@ -917,6 +922,13 @@ class TestSuccession:
         assert {"instantiation:promotes", "bridge:promotes"} <= keys
         assert {"estimand:instantiation:promotes", "estimand:bridge:promotes"} <= keys
         assert "duration-convention:mean-month" in keys
+        assert "aspect:energy" in keys
+
+        # Register coverage keys qualify inner estimand targets and expand aspect sorts.
+        reg_keys = register_entry_keys(genesis)
+        assert {"estimand:instantiation:testing/promotes", "estimand:bridge:testing/promotes"} <= reg_keys
+        assert "aspect:testing/energy-aspect" in reg_keys
+        assert "aspect:testing/energy" not in reg_keys
 
     def test_un_retiring_an_instantiation_is_refused(self, parse, testing_document, genesis):
         retired = successor_document(testing_document, genesis)

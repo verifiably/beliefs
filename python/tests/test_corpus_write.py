@@ -1390,7 +1390,12 @@ class TestTheAssumptionsRegister:
     """The register mints through `add` (design §9.1) and the analysis-spec
     door refuses a cited register that is not current (§9.3, case 11)."""
 
-    PROSE: ClassVar[dict[str, str]] = {"collapses": "c", "licenses": "l", "not_established": "n"}
+    PROSE: ClassVar[dict[str, Any]] = {
+        "collapses": "c",
+        "licenses": "l",
+        "not_established": "n",
+        "status": "provisional",
+    }
 
     def _register(self, describes=None, *, entries=None):
         from fixtures_cut3 import TESTING_PROFILE
