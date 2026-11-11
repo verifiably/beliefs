@@ -10,7 +10,7 @@ import inspect
 from dataclasses import replace
 
 import pytest
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import dependency_evidence, typed_applicability, typed_estimand, typed_target
 from profiles import pins_for
 
 from beliefs.closure import Closure, RetractionEnumeration, build_closure
@@ -98,6 +98,8 @@ def closure_kwargs() -> dict:
     consulted = (("science", "sci-id-1"), ("testing", "testing-id-1"))
     return {
         "proposition": "p1",
+        "key": a1.key(),
+        "dependencies": dependency_evidence((a1, a2)),
         "assessments": (a1, a2),
         "runs": runs,
         "verifications": verifications,
@@ -268,6 +270,8 @@ def test_the_same_binding_resolves_identically_elsewhere():
     parameters = inspect.signature(build_closure).parameters
     assert set(parameters) == {
         "proposition",
+        "key",
+        "dependencies",
         "assessments",
         "runs",
         "verifications",

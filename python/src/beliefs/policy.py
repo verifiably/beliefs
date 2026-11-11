@@ -25,6 +25,7 @@ from typing import final
 
 from beliefs.errors import MalformedRecord
 from beliefs.sealed import sealed
+from beliefs.target import Standing
 
 __all__ = [
     "BELIEF_V1",
@@ -72,6 +73,7 @@ class DirectionalInput:
 
     assessment: str
     sign: int
+    standing: Standing = "empirical"
 
     def __post_init__(self) -> None:
         if self.sign not in (1, -1):

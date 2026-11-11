@@ -18,6 +18,7 @@ from typing import Any, cast
 import pytest
 from authority import FULL
 from domain_facet_fixtures import over_kwargs
+from fixtures_cut3 import only_assessed_key
 from fixtures_cut4 import raw_write
 from test_local_standing import retracts
 from test_snapshot_retraction import S as UNRETAINED
@@ -112,7 +113,17 @@ def _read(world, epoch, profile, a, b, *, identity: str | None = None):
     kwargs = world_kwargs(view, profile, a, b)
     if identity is not None:
         kwargs["context"] = replace(kwargs["context"], producer_snapshot_identity=identity)
-    inputs = gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+    inputs = gather(
+        view,
+        "proposition:p",
+        key=only_assessed_key(
+            view,
+            "proposition:p",
+            profile=({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})["profile"],
+        ),
+        observations={},
+        **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")},
+    )
     return view, inputs
 
 

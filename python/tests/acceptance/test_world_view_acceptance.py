@@ -14,7 +14,7 @@ from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as seed_pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
 from durable_fixture import pinned
-from fixtures_cut3 import TESTING_PROFILE
+from fixtures_cut3 import TESTING_PROFILE, only_assessed_key
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
@@ -410,7 +410,17 @@ def world_kwargs(view, profile, a, b):
 
 
 def gathered(view, kwargs):
-    return gather(view, "proposition:p", **over_kwargs({k: v for k, v in kwargs.items() if k != "availability"}))
+    return gather(
+        view,
+        "proposition:p",
+        key=only_assessed_key(
+            view,
+            "proposition:p",
+            profile=(over_kwargs({k: v for k, v in kwargs.items() if k != "availability"}))["profile"],
+        ),
+        observations={},
+        **over_kwargs({k: v for k, v in kwargs.items() if k != "availability"}),
+    )
 
 
 def test_evaluation_reports_an_absent_corpus_and_attributes_at_the_read_durably(durable_world):

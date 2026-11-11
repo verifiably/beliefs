@@ -12,7 +12,7 @@ import sys
 
 from beliefs import stored
 from beliefs.admission import Admitted, admit
-from beliefs.belief import Availability, SuppliedContext
+from beliefs.belief import Availability, Refused, SuppliedContext
 from beliefs.consulted import CorpusPins
 from beliefs.corpus import ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation
@@ -71,7 +71,7 @@ def evaluate_here(view: ReadView):
     )
 
 
-def pins_negative(view: ReadView) -> None:
+def pins_negative(view: ReadView, key: str) -> None:
     """With biology unpinned, the walk refuses naming it."""
     from beliefs.consulted import consulted_contracts
     from beliefs.errors import ContractDisagreement
@@ -82,6 +82,8 @@ def pins_negative(view: ReadView) -> None:
     inputs = gather(
         view,
         st["proposition_ref"],
+        key=key,
+        observations=observations_from_corpus(view),
         context=context(view),
         profile=vocabulary.profile(),
         resolution=vocabulary.snapshot(),
@@ -90,7 +92,7 @@ def pins_negative(view: ReadView) -> None:
     try:
         consulted_contracts(
             claims={st["proposition_ref"]: inputs.claim} if inputs.claim is not None else {},
-            estimands={a.identity(): a.estimand for a in inputs.assessments},
+            estimands={a.identity(): (a.proposition, a.estimand) for a in inputs.assessments},
             profile=vocabulary.profile(),
             node_corpus=context(view).node_corpus,
             pins={st["corpus_id"]: without},
@@ -127,9 +129,20 @@ def main() -> int:
         )
     minted = writer.add(publication_node(verification, assessment_ref=st["assessment_ref"]))
     view = world.open_writer().read_view
+    result = evaluate_here(view)
+    answer = answers.payload(result)
+    if isinstance(result, Refused) and result.reason.startswith("multiple-assessed-propositions"):
+        findings.record(8, "design-gap", result.reason)
+        state.save(
+            verification_ref=minted.id, admission="not-evaluated: multiple-assessed-propositions", belief_answer=answer
+        )
+        return 2
+    key = stored.assessment_value(view.get(st["assessment_ref"]), profile=vocabulary.profile()).key()
     inputs = gather(
         view,
         st["proposition_ref"],
+        key=key,
+        observations=observations_from_corpus(view),
         context=context(view),
         profile=vocabulary.profile(),
         resolution=vocabulary.snapshot(),
@@ -149,7 +162,7 @@ def main() -> int:
         )
         return 2
     a = inputs.assessments[0]
-    verdict = admit(a, inputs.runs[a.run], observations_from_corpus(view), inputs.verifications)
+    verdict = admit(a, inputs.runs[a.run], observations_from_corpus(view), inputs.verifications, inputs.dependencies)
     admission = "Admitted" if isinstance(verdict, Admitted) else f"AdmissionRefused: {verdict.reason}"
     if (
         not isinstance(verdict, Admitted)
@@ -165,8 +178,7 @@ def main() -> int:
             f"{record.assessment} and the gathered assessment carries {a.identity()}; the audit accepts only the former",
             filed="the assessment/run-record change (one spelling for the run member)",
         )
-    pins_negative(view)
-    answer = answers.payload(evaluate_here(view))
+    pins_negative(view, key)
     findings.record(
         8,
         "closed",

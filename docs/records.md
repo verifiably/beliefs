@@ -1148,8 +1148,10 @@ chain, and a selection that lacks the chain is refused (`closure-incomplete`); t
 
 ## Beliefs
 
-A belief is not a record. `evaluate` takes an exact `PolicyBinding` (a rule identity
-and an implementation identity) and returns one of three answers:
+A belief is not a record. `evaluate` and `evaluate_traced` require a proposition,
+an assessed-proposition `key`, explicit `DependencyEvidence` and an exact
+`PolicyBinding` (a rule identity and an implementation identity). They evaluate
+only that pair and return one of three answers:
 
 - `Belief(value, belief_input_digest, policy_binding)`, whose value is an
   integer; the shipped policy is `science.belief.v1`;
@@ -1172,9 +1174,28 @@ claim, or one that claim does not admit, raises `MalformedRecord`. A read domain
 facet reads its namespace. Every consulted namespace must be pinned by the closure's
 corpora to one identity, the profile's; otherwise the answer is `Refused`.
 
-An assessment counts only when it is admitted. That requires its run to have an
-`observes` input, every input to be held, and its verification state to be
-`admitted`. A `supported` assessment counts `+1`, a `refuted` one `-1`, and an
+`evaluation.claim_view` captures standing, records and acceptance once, evaluates
+all sorted keys separately and reports conversion and synthesis for each pair.
+Pair lookups use the same capture but stay outside the individual belief closures.
+`evaluate_over` and its traced counterpart project this result: zero keys keep the
+empty evaluation, one key forwards its exact trace, and several keys refuse with
+`multiple-assessed-propositions: use claim_view` and admission `NotReached`.
+Composite member identification uses this same trace.
+
+`gather` requires a key and supplied observations. It reads only the selected
+assessments' runs and datasets, plus their frozen dependencies, including
+calibrations under other keys or claims. Attempted missing dependency references
+are declared. The `science.belief-input.v2` closure includes the key, sorted frozen
+dependencies, assessment facet digests, eligibility states, recursive calibration
+runs and verifications, and relevant retractions. Discovery refuses contradictory
+facets for one assessment identity before any run or dependency read. A local
+`ReadView.captured()` freezes records and indexed resolution for replay.
+
+An assessment counts only when it is admitted. Every route requires the matching
+run, every run input held, an admitted verification state and eligible frozen
+dependencies. The empirical route additionally requires an `observes` input.
+Model routes require the declared model procedure and each input digest held;
+calibrated models also require their calibration assessments eligible. A `supported` assessment counts `+1`, a `refuted` one `-1`, and an
 `inconclusive` one `0`.
 
 ## Encoding and parity

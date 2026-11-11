@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 from authority import ACTOR
 from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
-from fixtures_cut3 import MEASUREMENT_RECORDS, frozen_fixture_spec, typed_estimand
+from fixtures_cut3 import MEASUREMENT_RECORDS, frozen_fixture_spec, only_assessed_key, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -274,20 +274,69 @@ def seed_assessed_proposition(writer, proposition_ref: str, *, slug: str, outcom
     observing run, the assessment, and a passed clean-environment
     verification. Returns the dataset address. `typed` carries the estimand
     lane's `estimand=` and `applicability=` values."""
+    from fixtures_cut3 import MEASUREMENT_RECORDS, typed_applicability, typed_target
+
+    if "target" not in typed:
+        typed = {
+            "target": typed_target(
+                estimand=typed["estimand"], applicability=typed_applicability(typed.get("applicability", {}))
+            )
+        }
+    for dependency in typed["target"].dependencies:
+        if not writer.read_view.holds(dependency.id):
+            writer.add(MEASUREMENT_RECORDS.read(dependency.id))
     address = _address("a")
     if not writer.read_view.holds(address):
         writer.add(stored.dataset_node(title="d-a", resources=_resources("a"), empirical_observation=EMPIRICAL))
-    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
+    from fixtures_cut3 import ESTIMATOR_PROCEDURE, spec_draft, spec_rules
+
+    from beliefs.decode import claim_from_stored
+    from beliefs.spec import freeze
+
+    claim, _ = claim_from_stored(
+        writer.read_view.get(proposition_ref), profile=writer.profile, snapshot=build_snapshot(readable={})
+    )
+    from beliefs.procedure import procedure_from_stored
+
+    estimator = ESTIMATOR_PROCEDURE
+    if "testing/estimator" not in writer.profile.procedure_kinds:
+        declaration = procedure_from_stored(MEASUREMENT_RECORDS.read(ESTIMATOR_PROCEDURE))
+        estimator = MEASUREMENT_RECORDS.put_procedure(
+            replace(
+                declaration, kind=next(k for k, v in writer.profile.procedure_kinds.items() if not v.fills_within_model)
+            )
+        )
+    frozen = freeze(
+        spec_draft(
+            target=proposition_ref,
+            estimand=typed["target"].estimand,
+            applicability=typed["target"].applicability,
+            input_roles=(SpecInput("observes", address, "observation"),),
+        ),
+        held_rules=spec_rules(),
+        profile=writer.profile,
+        claim=claim,
+        records=MEASUREMENT_RECORDS,
+        rule_procedures={"median-difference/v1": estimator},
+    )
+    for dependency in frozen.assessed_target.dependencies:
+        if not writer.read_view.holds(dependency.id):
+            writer.add(MEASUREMENT_RECORDS.read(dependency.id))
+    spec_node = stored.analysis_spec_node(frozen)
+    if not writer.read_view.holds(spec_node.id):
+        writer.add(spec_node)
+    typed = {"target": frozen.assessed_target}
+    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=frozen.identity, observes=[address]))
     assessment = writer.add(
         stored.assessment_node(
             slug,
             title=slug,
-            spec=f"spec-{slug}",
+            spec=frozen.identity,
             run=run.id,
             proposition=proposition_ref,
             outcome=outcome,
-            interpretation_rule="rule-1",
-            **typed,
+            interpretation_rule=frozen.interpretation_rule,
+            target=frozen.assessed_target,
         )
     )
     value = stored.assessment_value(writer.read_view.get(assessment.id), profile=writer.profile)
@@ -397,7 +446,17 @@ def test_evaluate_over_maps_a_profile_pin_mismatch_to_refused(corpus_fixture):
 def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
 
-    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
+    inputs = gather(
+        corpus_fixture.view,
+        corpus_fixture.proposition,
+        key=only_assessed_key(
+            corpus_fixture.view,
+            corpus_fixture.proposition,
+            profile=(over_kwargs(corpus_fixture.gather_kwargs))["profile"],
+        ),
+        observations={},
+        **over_kwargs(corpus_fixture.gather_kwargs),
+    )
     assert inputs.claim is not None
     # π_claim accepts it — the brand chain survived the restore — and it
     # projects back to exactly the facet the stored proposition carries.
@@ -413,14 +472,30 @@ def test_the_restored_claim_is_the_one_the_proposition_node_carries(corpus_fixtu
 def test_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
 
-    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
+    inputs = gather(
+        corpus_fixture.view,
+        corpus_fixture.proposition,
+        key=only_assessed_key(
+            corpus_fixture.view,
+            corpus_fixture.proposition,
+            profile=(over_kwargs(corpus_fixture.gather_kwargs))["profile"],
+        ),
+        observations={},
+        **over_kwargs(corpus_fixture.gather_kwargs),
+    )
     assert set(inputs.read_trace) <= inputs.declared_refs()
-    assert {kind for kind, _ in inputs.read_trace} == set(READ_KINDS) - {
-        "retraction",
-        "contract",
-        "producer-snapshot",
-    }, "every corpus-read kind is exercised"
+    assert {kind for kind, _ in inputs.read_trace} == {
+        "assessment",
+        "proposition",
+        "run",
+        "verification",
+        "dataset",
+        "procedure",
+    }
+    assert {kind for kind, _ in inputs.read_trace} <= set(READ_KINDS)
     answer = evaluate(
+        key=inputs.key,
+        dependencies=inputs.dependencies,
         proposition=corpus_fixture.proposition,
         records=inputs.records(),
         availability=corpus_fixture.availability,
@@ -436,7 +511,17 @@ def test_every_read_through_the_resolver_is_inside_the_declared_closure(corpus_f
 def test_the_records_are_already_proposition_scoped(corpus_fixture):
     from domain_facet_fixtures import over_kwargs
 
-    inputs = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
+    inputs = gather(
+        corpus_fixture.view,
+        corpus_fixture.proposition,
+        key=only_assessed_key(
+            corpus_fixture.view,
+            corpus_fixture.proposition,
+            profile=(over_kwargs(corpus_fixture.gather_kwargs))["profile"],
+        ),
+        observations={},
+        **over_kwargs(corpus_fixture.gather_kwargs),
+    )
     assert all(a.proposition == corpus_fixture.proposition for a in inputs.assessments)
     assert {a.identity() for a in inputs.assessments} == {a.identity() for a in corpus_fixture.assessments}
     assert set(inputs.runs) == {a.run for a in inputs.assessments}
@@ -454,13 +539,34 @@ def test_an_unrelated_verification_read_fails_containment(corpus_fixture, monkey
     different proposition; the digest is unchanged and the check fails."""
     from beliefs import evaluation
 
-    honest = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
+    corpus_fixture = replace(corpus_fixture, view=corpus_fixture.view.captured())
+    honest = gather(
+        corpus_fixture.view,
+        corpus_fixture.proposition,
+        key=only_assessed_key(
+            corpus_fixture.view,
+            corpus_fixture.proposition,
+            profile=(over_kwargs(corpus_fixture.gather_kwargs))["profile"],
+        ),
+        observations={},
+        **over_kwargs(corpus_fixture.gather_kwargs),
+    )
     monkeypatch.setattr(evaluation, "_verification_selected", lambda value, ids: True)
     resolve = corpus_fixture.view.resolve
     monkeypatch.setattr(
         corpus_fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref)
     )
-    leaky = gather(corpus_fixture.view, corpus_fixture.proposition, **over_kwargs(corpus_fixture.gather_kwargs))
+    leaky = gather(
+        corpus_fixture.view,
+        corpus_fixture.proposition,
+        key=only_assessed_key(
+            corpus_fixture.view,
+            corpus_fixture.proposition,
+            profile=(over_kwargs(corpus_fixture.gather_kwargs))["profile"],
+        ),
+        observations={},
+        **over_kwargs(corpus_fixture.gather_kwargs),
+    )
 
     assert {v.ref for v in leaky.verifications} > {v.ref for v in honest.verifications}
     assert leaky.closure().digest() == honest.closure().digest()
@@ -490,7 +596,15 @@ def test_a_proposition_with_no_claim_record_still_reaches_its_assessments_estima
     from domain_facet_fixtures import over_kwargs
 
     inputs = gather(
-        claimless_fixture.view, claimless_fixture.proposition, **over_kwargs(claimless_fixture.gather_kwargs)
+        claimless_fixture.view,
+        claimless_fixture.proposition,
+        key=only_assessed_key(
+            claimless_fixture.view,
+            claimless_fixture.proposition,
+            profile=(over_kwargs(claimless_fixture.gather_kwargs))["profile"],
+        ),
+        observations={},
+        **over_kwargs(claimless_fixture.gather_kwargs),
     )
     assert inputs.claim is None
     assert dict(inputs.records().claims) == {}
@@ -539,18 +653,40 @@ def test_assessment_estimand_naming_another_claim_is_malformed(tmp_path):
         ]
 
     with pytest.raises(MalformedRecord, match="not admitted for the claim of the proposition it targets") as caught:
-        gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
+        gather(
+            fixture.view,
+            fixture.proposition,
+            key=only_assessed_key(
+                fixture.view, fixture.proposition, profile=(over_kwargs(fixture.gather_kwargs))["profile"]
+            ),
+            observations={},
+            **over_kwargs(fixture.gather_kwargs),
+        )
     assert "different claim" in str(caught.value)
 
 
 def test_a_divergent_assesses_edge_is_selected_before_decode(divergent_fixture):
     from beliefs.errors import MalformedRecord
 
-    inputs = gather(divergent_fixture.view, divergent_fixture.proposition, **divergent_fixture.gather_kwargs)
+    inputs = gather(
+        divergent_fixture.view,
+        divergent_fixture.proposition,
+        key=only_assessed_key(
+            divergent_fixture.view, divergent_fixture.proposition, profile=(divergent_fixture.gather_kwargs)["profile"]
+        ),
+        observations={},
+        **divergent_fixture.gather_kwargs,
+    )
     assert inputs.assessments == () and inputs.claim is None
     assert not any(kind == "assessment" for kind, _ in inputs.read_trace)
     with pytest.raises(MalformedRecord, match="assesses edge"):
-        gather(divergent_fixture.view, OTHER_PROPOSITION_REF, **divergent_fixture.gather_kwargs)
+        gather(
+            divergent_fixture.view,
+            OTHER_PROPOSITION_REF,
+            key=divergent_fixture.assessments[0].key(),
+            observations={},
+            **divergent_fixture.gather_kwargs,
+        )
 
 
 def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
@@ -562,7 +698,15 @@ def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
     consumes no other role's declaration. Tracing one would record a read the
     digest cannot move for."""
     fixture = _fixture(tmp_path, PROPOSITION_REF, reads=True)
-    inputs = gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
+    inputs = gather(
+        fixture.view,
+        fixture.proposition,
+        key=only_assessed_key(
+            fixture.view, fixture.proposition, profile=(over_kwargs(fixture.gather_kwargs))["profile"]
+        ),
+        observations={},
+        **over_kwargs(fixture.gather_kwargs),
+    )
     run_a = inputs.runs["run-a"]
     assert {i.role for i in run_a.inputs} == {"observes", "reads"}
     assert ("dataset", _address("e")) not in inputs.read_trace
@@ -572,7 +716,15 @@ def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
     node = fixture.view.get(_address("e"))
     node.facets[stored.DATASET_FACET]["resources"][0]["name"] = "renamed auxiliary"
     raw_write(tmp_path, stored.stamp_semantic_identity(node))
-    changed = gather(reopen(tmp_path), fixture.proposition, **over_kwargs(fixture.gather_kwargs))
+    changed = gather(
+        reopen(tmp_path),
+        fixture.proposition,
+        key=only_assessed_key(
+            reopen(tmp_path), fixture.proposition, profile=(over_kwargs(fixture.gather_kwargs))["profile"]
+        ),
+        observations={},
+        **over_kwargs(fixture.gather_kwargs),
+    )
     assert inputs.runs["run-a"] != changed.runs["run-a"]
     assert inputs.closure().digest() == changed.closure().digest()
 
@@ -622,6 +774,8 @@ def test_the_closure_fields_are_build_closure_s_keywords_in_order():
     required = [name for name, parameter in parameters.items() if parameter.default is inspect.Parameter.empty]
     expected = [
         "proposition",
+        "key",
+        "dependencies",
         "assessments",
         "runs",
         "verifications",
@@ -657,7 +811,13 @@ def test_gather_never_selects_a_production_verification(production_pair, request
     writer.adopt_manifest(profile=pins_for(PROFILE))
     node = writer.add(publication_node(production))
     fixture = _fixture(writer, PROPOSITION_REF)
-    inputs = gather(fixture.view, PROPOSITION_REF, **over_kwargs(fixture.gather_kwargs))
+    inputs = gather(
+        fixture.view,
+        PROPOSITION_REF,
+        key=only_assessed_key(fixture.view, PROPOSITION_REF, profile=(over_kwargs(fixture.gather_kwargs))["profile"]),
+        observations={},
+        **over_kwargs(fixture.gather_kwargs),
+    )
     assert node.id not in {v.ref for v in inputs.verifications}
 
 

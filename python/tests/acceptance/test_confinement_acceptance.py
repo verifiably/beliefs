@@ -15,6 +15,7 @@ from fixtures_cut3 import (
     SNAKEFILE_DETERMINISTIC,
     SNAKEFILE_TREE,
     TREE_MEMBERS,
+    dependency_evidence,
     freeze_context,
     interp,
     lay_tree,
@@ -180,6 +181,8 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
         pins={"c1": pins_for(PROFILE)},
     )
     outcome = evaluate(
+        key=(records).assessments[0].key(),
+        dependencies=dependency_evidence((records).assessments),
         proposition=assessment.proposition,
         records=records,
         availability=availability,
@@ -197,7 +200,13 @@ def admission_of(minted: RunMinted, verification):
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
     assert isinstance(assessment, AssessmentValue), assessment
     run_value = run_record(minted.run)
-    return admit(assessment, run_value, observations_for(run_value), (verification,))
+    return admit(
+        assessment,
+        run_value,
+        observations_for(run_value),
+        (verification,),
+        dependencies=dependency_evidence((assessment,)),
+    )
 
 
 def test_a_bundled_file_edited_after_capture_yields_no_run_and_the_engine_never_starts(

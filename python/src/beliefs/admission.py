@@ -1,14 +1,10 @@
-"""The admission gate: where a constructed assessment meets eligibility.
+"""Route-specific admission over frozen targets and explicitly supplied evidence.
 
-The predicate over values: an `assesses` edge is admissible only if
-its run has at least one `observes` input, **all** inputs are held under the
-observations supplied to this call, and the assessment is in the admitted
-verification state. `reads` inputs never confer eligibility, in any
-quantity. A refusal is an **outcome**, not an error — the reasons stay
-distinct so no gate can silently cover for another.
-
-The gate takes declarations and observations and derives heldness itself; it
-accepts no state value, because no API accepts an authored `held`.
+Every route checks the run, heldness of every run input, verification and frozen
+normative dependencies. Empirical assessments also require observes inputs;
+model routes require the model and its declared input digests held. Recursive
+calibration eligibility is supplied by the captured dependency evidence.
+Refusal reasons retain their ordered, stable prefixes.
 """
 
 from __future__ import annotations
@@ -18,6 +14,9 @@ from dataclasses import dataclass
 from typing import final
 
 from beliefs.dataset import ByteObservation, DatasetDeclaration, Held, admission_state, dataset_address
+from beliefs.eligibility import Eligible
+from beliefs.evidence import DependencyEvidence
+from beliefs.procedure import Procedure
 from beliefs.record import AssessmentValue, RunValue
 from beliefs.sealed import sealed
 from beliefs.stored import typed_ref
@@ -48,6 +47,7 @@ def admit(
     run: RunValue,
     observations: Mapping[str, tuple[ByteObservation, ...]],
     verifications: tuple[Verification, ...],
+    dependencies: DependencyEvidence,
 ) -> Admitted | AdmissionRefused:
     """The gate, in a fixed order the evaluator's absence-reasons rely on:
     run-mismatch, then observes-presence, then heldness of every input, then verification state."""
@@ -59,7 +59,7 @@ def admit(
         return AdmissionRefused(
             uid, f"run-mismatch: assessment names {typed_ref('run', assessment.run)!r}, given {run.ref!r}"
         )
-    if not any(i.role == "observes" for i in run.inputs):
+    if assessment.standing == "empirical" and not any(i.role == "observes" for i in run.inputs):
         return AdmissionRefused(uid, "no-observes-input: reads inputs never confer eligibility, in any quantity")
     for run_input in run.inputs:
         address = dataset_address(run_input.dataset)
@@ -71,6 +71,22 @@ def admit(
             )
     if lifecycle_state(tuple(v for v in verifications if v.assessment == uid)) != ADMITTED:
         return AdmissionRefused(uid, "not-admitted-verification-state: only clean-environment passes are admitted")
+    if assessment.standing != "empirical":
+        model = dependencies.records.get(assessment.model or "")
+        held = {o.digest for observations_at in observations.values() for o in observations_at}
+        if (
+            not isinstance(model, Procedure)
+            or model.inputs is None
+            or not all(digest in held for digest in (*model.inputs.datasets, *model.inputs.code))
+        ):
+            return AdmissionRefused(uid, "model-not-held: model procedure or input digest is not held")
+    for dependency in assessment.dependencies:
+        if not isinstance(dependencies.closure.verdicts.get(dependency.id), Eligible):
+            return AdmissionRefused(uid, f"dependency-ineligible: {dependency.id}")
+        if dependency.facet_digest is not None:
+            basis = dependencies.assessments.get(dependency.id)
+            if basis is None or basis.facet_digest() != dependency.facet_digest:
+                return AdmissionRefused(uid, f"dependency-ineligible: frozen facet mismatch {dependency.id}")
     return Admitted(uid)
 
 

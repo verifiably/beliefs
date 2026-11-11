@@ -19,7 +19,7 @@ from typing import TypedDict, cast
 
 import pytest
 import yaml
-from fixtures_cut3 import UNCONSULTED, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import UNCONSULTED, dependency_evidence, typed_applicability, typed_estimand, typed_target
 from profiles import biology, pins_for
 
 from beliefs.applicability import ScopedRestriction, build_applicability
@@ -44,6 +44,7 @@ from beliefs.contract import domain, load_base_contract
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
 from beliefs.estimand import RoleTermLevels, ValueReference
+from beliefs.evidence import DependencyEvidence
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.profile import ProfileSpec, compile_profile
@@ -154,6 +155,8 @@ def _fifty_inconclusive_records() -> Records:
 
 class _Scenario(TypedDict):
     proposition: str
+    key: str
+    dependencies: DependencyEvidence
     records: Records
     availability: Availability
     context: SuppliedContext
@@ -196,6 +199,8 @@ def scenario(**overrides: object) -> _Scenario:
         "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
         "profile": PROFILE,
     }
+    kwargs["key"] = a1.key()
+    kwargs["dependencies"] = dependency_evidence(records.assessments)
     kwargs.update(overrides)
     return cast(_Scenario, kwargs)
 
@@ -353,8 +358,8 @@ class TestNoMagnitudeBearingRead:
         baseline = evaluate(**scenario())
         kwargs = scenario()
         a1, a2 = kwargs["records"].assessments
-        records = replace(kwargs["records"], assessments=(replace(a1, **overrides), a2))
-        mutated = evaluate(**scenario(records=records))
+        records = replace(kwargs["records"], assessments=(replace(a1, **overrides), replace(a2, **overrides)))
+        mutated = evaluate(**scenario(records=records, key=records.assessments[0].key()))
         assert isinstance(baseline, Belief) and isinstance(mutated, Belief)
         assert mutated.value == baseline.value
         assert mutated.belief_input_digest != baseline.belief_input_digest
@@ -370,6 +375,8 @@ class TestBeliefIsAComputedView:
         parameters = inspect.signature(evaluate).parameters
         assert set(parameters) == {
             "proposition",
+            "key",
+            "dependencies",
             "records",
             "availability",
             "context",
@@ -666,6 +673,8 @@ class TestTheEstimandWalk:
             _Scenario,
             {
                 "proposition": proposition,
+                "key": a1.key(),
+                "dependencies": dependency_evidence((a1, a2)),
                 "records": records,
                 "availability": availability,
                 "context": context,

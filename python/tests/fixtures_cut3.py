@@ -452,6 +452,8 @@ def planned(family, outputs=(), is_checkpoint=False, wildcards=()):
 def closure_kwargs(assessments, runs):
     return {
         "proposition": "prop-1",
+        "key": assessments[0].key() if assessments else "",
+        "dependencies": dependency_evidence(assessments),
         "assessments": assessments,
         "runs": runs,
         "verifications": (),
@@ -931,3 +933,93 @@ def frozen_fixture_spec(target, inputs, *, estimand=None, claim=TESTING_CLAIM, p
         records=MEASUREMENT_RECORDS,
         rule_procedures={"median-difference/v1": ESTIMATOR_PROCEDURE},
     )
+
+
+def dependency_evidence(assessments):
+    """Construct explicit held normative evidence for portable value fixtures."""
+    from beliefs.dependencies import read_record
+    from beliefs.eligibility import closure_eligibility
+    from beliefs.evidence import DependencyEvidence
+
+    ids = tuple(sorted({d.id for a in assessments for d in a.dependencies}))
+    eligibility = closure_eligibility(ids, MEASUREMENT_RECORDS, TESTING_PROFILE)
+    return DependencyEvidence(
+        eligibility,
+        {id: read_record(MEASUREMENT_RECORDS, id) for id in eligibility.reads if MEASUREMENT_RECORDS.holds(id)},
+        {},
+        {},
+    )
+
+
+def only_assessed_key(view, proposition, *, profile=TESTING_PROFILE):
+    """Explicit key for one-target fixtures, derived from their frozen wire value.
+
+    No strict decoder is invoked here: tests instrument that decoder to check
+    production discovery order. Malformed/retracted records are tested with the
+    known key of the fixture's original assessment instead.
+    """
+    import json
+
+    from beliefs import stored
+    from beliefs.identity import v1
+
+    wanted = view.resolve(proposition) or proposition
+    keys = set()
+    for node in view.iter_stored():
+        if node.kind != "assessment" or not any(
+            r.predicate == stored.ASSESSES and (view.resolve(r.target) or r.target) == wanted for r in node.relations
+        ):
+            continue
+        facet = node.facets[stored.ASSESSMENT_FACET]
+        typed = json.loads(facet["typed"], parse_float=Decimal)
+        target = {name: typed[name] for name in ("estimand", "applicability", "dependencies", "model") if name in typed}
+        keys.add(
+            v1.digest(
+                "science.assessed-proposition.v1",
+                {
+                    "claim": typed["estimand"]["claim"],
+                    "target": target,
+                    "interpretation_rule": facet["interpretation_rule"],
+                    "standing": facet["standing"],
+                },
+            )
+        )
+    assert len(keys) <= 1, "fixture requires an explicitly selected key"
+    return next(iter(keys)) if keys else ""
+
+
+def mint_fixture_spec(writer, target, inputs, *, claim, estimand, applicability=None):
+    """Mint a real frozen fixture spec and its declarations before its run."""
+    from dataclasses import replace
+
+    from beliefs import stored
+    from beliefs.procedure import procedure_from_stored
+
+    estimator = ESTIMATOR_PROCEDURE
+    if "testing/estimator" not in writer.profile.procedure_kinds:
+        declaration = procedure_from_stored(MEASUREMENT_RECORDS.read(estimator))
+        estimator = MEASUREMENT_RECORDS.put_procedure(
+            replace(
+                declaration, kind=next(k for k, v in writer.profile.procedure_kinds.items() if not v.fills_within_model)
+            )
+        )
+    spec = freeze(
+        spec_draft(
+            target=target,
+            estimand=estimand,
+            input_roles=tuple(inputs),
+            applicability=typed_applicability() if applicability is None else applicability,
+        ),
+        held_rules=spec_rules(),
+        profile=writer.profile,
+        claim=claim,
+        records=MEASUREMENT_RECORDS,
+        rule_procedures={"median-difference/v1": estimator},
+    )
+    for entry in spec.assessed_target.dependencies:
+        if not writer.read_view.holds(entry.id):
+            writer.add(MEASUREMENT_RECORDS.read(entry.id))
+    node = stored.analysis_spec_node(spec)
+    if not writer.read_view.holds(node.id):
+        writer.add(node)
+    return spec

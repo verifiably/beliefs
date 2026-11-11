@@ -17,7 +17,13 @@ from atoms.chain.model import (
     decode_entry,
 )
 from authority import ACTOR, FULL
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import (
+    TESTING_CLAIM,
+    TESTING_PROFILE,
+    dependency_evidence,
+    mint_fixture_spec,
+    typed_estimand,
+)
 from fixtures_cut4 import path_for, reopen
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
@@ -31,8 +37,10 @@ from beliefs.corpus import CorpusWriter, run_value, standing_in_local_view, supe
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import BundleMemberHeld, ImportRefused, RetractionTargetIneligible
 from beliefs.lineage import LineageSnapshot
+from beliefs.projection import project_claim
 from beliefs.report import ImportedRecords, RecordImportEntry, _mint_report
 from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
+from beliefs.spec import SpecInput
 from beliefs.verification import ADMITTED, INVALIDATED, NOT_ADMITTED, Verification, lifecycle_state
 
 
@@ -211,7 +219,7 @@ def _retraction(target, event: str):
 
 def _mint_assessment_pair(writer: CorpusWriter):
     proposition_node = writer.add(
-        stored.proposition_node("direction", title="direction", claim={"operator": "affects"})
+        stored.proposition_node("direction", title="direction", claim=project_claim(TESTING_CLAIM))
     )
     found = []
     for slug, outcome, digest in (
@@ -225,11 +233,18 @@ def _mint_assessment_pair(writer: CorpusWriter):
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
         )
+        spec = mint_fixture_spec(
+            writer,
+            proposition_node.id,
+            (SpecInput("observes", dataset.id, "observation"),),
+            claim=TESTING_CLAIM,
+            estimand=typed_estimand(),
+        )
         run = writer.add(
             stored.run_node(
                 f"direction-{slug}",
                 title=slug,
-                spec=f"analysis-spec:{slug}",
+                spec=spec.identity,
                 observes=(dataset.id,),
             )
         )
@@ -238,12 +253,12 @@ def _mint_assessment_pair(writer: CorpusWriter):
                 stored.assessment_node(
                     f"direction-{slug}",
                     title=slug,
-                    spec=f"analysis-spec:{slug}",
+                    spec=spec.identity,
                     run=run.id,
                     proposition=proposition_node.id,
                     outcome=outcome,
-                    interpretation_rule="rule:threshold",
-                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+                    interpretation_rule=spec.interpretation_rule,
+                    target=spec.assessed_target,
                 )
             )
         )
@@ -253,6 +268,24 @@ def _mint_assessment_pair(writer: CorpusWriter):
 def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
     from test_belief import scenario
 
+    from beliefs.claim import Qualifier, Referent, build_claim
+
+    adult = build_claim(
+        TESTING_PROFILE,
+        operator=TESTING_CLAIM.operator,
+        roles=TESTING_CLAIM.roles,
+        qualifiers={"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))},
+        layer=TESTING_CLAIM.layer,
+        polarity=TESTING_CLAIM.polarity,
+    )
+    all_humans = build_claim(
+        TESTING_PROFILE,
+        operator=TESTING_CLAIM.operator,
+        roles=TESTING_CLAIM.roles,
+        qualifiers={"testing/population": Qualifier("universal", Referent("testing/cohort", "EX:all-humans"))},
+        layer=TESTING_CLAIM.layer,
+        polarity=TESTING_CLAIM.polarity,
+    )
     observed = durable_writer.add(
         stored.dataset_node(
             title="scope observed",
@@ -260,31 +293,38 @@ def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
-    run = durable_writer.add(
-        stored.run_node(
-            "scope-run",
-            title="scope run",
-            spec="analysis-spec:scope",
-            observes=(observed.id,),
-        )
-    )
     predecessor = durable_writer.add(
         stored.proposition_node(
             "in-adults",
             title="in adults",
-            claim={"operator": "affects", "qualifiers": {"population": "adults"}},
+            claim=project_claim(adult),
+        )
+    )
+    frozen = mint_fixture_spec(
+        durable_writer,
+        predecessor.id,
+        (SpecInput("observes", observed.id, "observation"),),
+        claim=adult,
+        estimand=typed_estimand(claim=adult),
+    )
+    run = durable_writer.add(
+        stored.run_node(
+            "scope-run",
+            title="scope run",
+            spec=frozen.identity,
+            observes=(observed.id,),
         )
     )
     assessment = durable_writer.add(
         stored.assessment_node(
             "scope-assessment",
             title="scope assessment",
-            spec="analysis-spec:scope",
+            spec=frozen.identity,
             run=run.id,
             proposition=predecessor.id,
             outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=frozen.interpretation_rule,
+            target=frozen.assessed_target,
         )
     )
     assessment_value = stored.assessment_value(assessment, profile=TESTING_PROFILE)
@@ -326,6 +366,8 @@ def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
             node_corpus={value.identity(): ("c1",)},
         )
         return evaluate(
+            key=(records).assessments[0].key(),
+            dependencies=dependency_evidence((records).assessments),
             proposition=predecessor.id,
             records=records,
             availability=availability,
@@ -342,7 +384,7 @@ def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
         stored.proposition_node(
             "in-all-humans",
             title="in all humans",
-            claim={"operator": "affects", "qualifiers": {"population": "all-humans"}},
+            claim=project_claim(all_humans),
         ),
         of=predecessor.id,
     )

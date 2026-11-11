@@ -15,7 +15,16 @@ from authority import ACTOR
 from confinement_fixtures import confined_receipt, instance
 from dataset_fixtures import pinned_for
 from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO, over_kwargs
-from fixtures_cut3 import TESTING_CLAIM, closure_with, freeze_context, planned, spec_draft, spec_rules, traced
+from fixtures_cut3 import (
+    TESTING_CLAIM,
+    closure_with,
+    freeze_context,
+    only_assessed_key,
+    planned,
+    spec_draft,
+    spec_rules,
+    traced,
+)
 from fixtures_cut3 import TESTING_PROFILE as PROFILE
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
@@ -259,10 +268,27 @@ def admission_over(writer, proposition_ref: str, original: RunClosure):
     view = writer.read_view
     kwargs = evaluation_kwargs(view)
     gathered = {k: v for k, v in kwargs.items() if k != "availability"}
-    inputs = gather(view, proposition_ref, **over_kwargs(gathered))
+    answer = evaluate_over(view, proposition_ref, **over_kwargs(kwargs))
+    from beliefs.belief import Refused
+
+    if isinstance(answer, Refused):
+        return None, answer
+    inputs = gather(
+        view,
+        proposition_ref,
+        key=only_assessed_key(view, proposition_ref, profile=(over_kwargs(gathered))["profile"]),
+        observations={},
+        **over_kwargs(gathered),
+    )
     a = next(a for a in inputs.assessments if a.run == original.address())
-    verdict = admit(a, inputs.runs[a.run], kwargs["availability"].observations, inputs.verifications)
-    return verdict, evaluate_over(view, proposition_ref, **over_kwargs(kwargs))
+    verdict = admit(
+        a,
+        inputs.runs[a.run],
+        kwargs["availability"].observations,
+        inputs.verifications,
+        dependencies=inputs.dependencies,
+    )
+    return verdict, answer
 
 
 def self_consistent_forgery(writer, node: Node, *, mutate) -> Node:

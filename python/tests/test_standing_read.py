@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR, FULL
+from fixtures_cut3 import only_assessed_key
 from nodes.core.write_plan import DefaultExecutor
 from profiles import WITH_BIOLOGY, pins_for
 from test_local_standing import assessment, retracts
@@ -114,7 +115,15 @@ def gathered(writer, profile, view=None):
     view = view or fresh(writer)
     kwargs = over_kwargs(kwargs_for(view, profile))
     return kwargs, gather(
-        view, "proposition:p", **over_kwargs({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+        view,
+        "proposition:p",
+        key=only_assessed_key(
+            view,
+            "proposition:p",
+            profile=(over_kwargs({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")}))["profile"],
+        ),
+        observations={},
+        **over_kwargs({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")}),
     )
 
 
@@ -171,6 +180,8 @@ class TestSubtractionAtTheRead:
             gather(
                 writer.read_view,
                 "proposition:p",
+                key=only_assessed_key(writer.read_view, "proposition:p", profile=profile),
+                observations={},
                 context=pre,
                 profile=profile,
                 resolution=kwargs["resolution"],
@@ -199,7 +210,13 @@ class TestTheAmendedG8Clause:
         kwargs, inputs = gathered(writer, profile)
         identity = stored.assessment_reference(writer.read_view.get(A1)).identity()
         a1 = next(a for a in inputs.assessments if a.identity() == identity)
-        gate = admit(a1, inputs.runs[a1.run], kwargs["availability"].observations, inputs.verifications)
+        gate = admit(
+            a1,
+            inputs.runs[a1.run],
+            kwargs["availability"].observations,
+            inputs.verifications,
+            dependencies=inputs.dependencies,
+        )
         state = lifecycle_state(tuple(v for v in inputs.verifications if v.assessment == identity))
         answer = evaluate_over(fresh(writer), "proposition:p", **over_kwargs(kwargs))
         assert isinstance(answer, Belief)
@@ -340,7 +357,15 @@ def test_subtracted_assessments_and_verifications_are_never_decoded(tmp_path):
         raw_write(writer.root, node)
         raw_write(writer.root, stored.stamp_semantic_identity(retracts(node, ref)))
     inputs = gather(
-        fresh(writer), "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")}
+        fresh(writer),
+        "proposition:p",
+        key=only_assessed_key(
+            fresh(writer),
+            "proposition:p",
+            profile=({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})["profile"],
+        ),
+        observations={},
+        **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")},
     )
     assert len(inputs.assessments) == 1
     assert not inputs.verifications
@@ -358,7 +383,17 @@ def test_a_found_retraction_missing_from_the_local_index_is_unreadable(tmp_path)
     raw_write(writer.root, retraction)
     assert (retraction.id, RETRACTION_UPHELD) in local_retraction_enumeration(view).found
     with pytest.raises(RetractionUnreadable) as refused:
-        gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+        gather(
+            view,
+            "proposition:p",
+            key=only_assessed_key(
+                view,
+                "proposition:p",
+                profile=({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})["profile"],
+            ),
+            observations={},
+            **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")},
+        )
     assert refused.value.ref == retraction.id
     assert isinstance(refused.value.__cause__, RefError)
     assert refused.value.cause == str(refused.value.__cause__)

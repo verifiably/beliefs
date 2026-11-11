@@ -15,8 +15,8 @@ import yaml
 from authority import ACTOR, FULL
 from dataset_fixtures import pinned as seed_pinned
 from durable_fixture import basis, route
+from fixtures_cut3 import mint_fixture_spec
 from fixtures_cut3 import report as sample_report
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut6 import OTHER_PINS, PINS
 from fixtures_cut15 import SNAKEFILE_CONSTANT_PRODUCTION, run_workflow
 from nodes.core.errors import RefError
@@ -25,6 +25,8 @@ from nodes.core.node import Node
 from nodes.core.relations import Relation
 from profiles import BASE, WITH_BIOLOGY, WITH_BIOLOGY_OTHER, pins_for
 from test_belief import scenario as belief_scenario
+from test_composite_boundary import _claim as fixture_claim
+from test_composite_boundary import _estimand as fixture_estimand
 from test_source_address import entry, raw_source
 from test_world_epoch import derivation_bindings
 
@@ -45,8 +47,10 @@ from beliefs.errors import (
 from beliefs.identity import v1
 from beliefs.lineage import certify
 from beliefs.production import mint_dataset
+from beliefs.projection import project_claim
 from beliefs.recipe import RecipeInput
 from beliefs.runrecord import run_ref
+from beliefs.spec import SpecInput
 from beliefs.world import WorldConfig, derive, epoch, registry, rules
 from beliefs.world.logmodel import IntentEntryView, RegisteredEntryView, WellFormedView
 
@@ -597,19 +601,27 @@ def test_consolidates_retraction_replicas_without_touching_the_counter(durable_f
                 empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
             )
         )
-        run = corpus.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]))
-        proposition = corpus.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        claim = fixture_claim("EX:a", "EX:b")
+        proposition = corpus.add(stored.proposition_node("p1", title="p1", claim=project_claim(claim)))
+        frozen = mint_fixture_spec(
+            corpus,
+            proposition.id,
+            (SpecInput("observes", observed.id, "observation"),),
+            claim=claim,
+            estimand=fixture_estimand(claim),
+        )
+        run = corpus.add(stored.run_node("r1", title="r1", spec=frozen.identity, observes=[observed.id]))
         targets.append(
             corpus.add(
                 stored.assessment_node(
                     "a1",
                     title="a1",
-                    spec="analysis-spec:s1",
+                    spec=frozen.identity,
                     run=run.id,
                     proposition=proposition.id,
                     outcome="supported",
-                    interpretation_rule="rule:threshold",
-                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+                    interpretation_rule=frozen.interpretation_rule,
+                    target=frozen.assessed_target,
                 )
             )
         )
@@ -749,26 +761,37 @@ def test_boundary_reresolution_refuses_both_create_only_calls_after_real_move(du
         )
     )
     destination.add(observed)
-    run = source.add(stored.run_node("producer", title="producer", spec="analysis-spec:p", observes=[observed.id]))
+    claim = fixture_claim("EX:a", "EX:b")
+    proposition = source.add(stored.proposition_node("claim", title="claim", claim=project_claim(claim)))
+    destination.add(proposition)
+    frozen = mint_fixture_spec(
+        source,
+        proposition.id,
+        (SpecInput("observes", observed.id, "observation"),),
+        claim=claim,
+        estimand=fixture_estimand(claim),
+    )
+    for dependency in frozen.assessed_target.dependencies:
+        destination.add(source.read_view.get(dependency.id))
+    destination.add(stored.analysis_spec_node(frozen))
+    run = source.add(stored.run_node("producer", title="producer", spec=frozen.identity, observes=[observed.id]))
     destination.add(run)
-    proposition = source.add(stored.proposition_node("claim", title="claim", claim={"operator": "affects"}))
     # The destination holds the assessment's `assesses` target as it holds its run:
     # the composite-claims boundary refuses an `assesses` edge whose target resolves nowhere on
     # every write path, relocation included, so that a record arriving second cannot
     # establish an edge the boundary would have refused (`corpus.py`,
     # `_refuse_assesses_target_kind`). The test below is about re-resolving the
     # *retraction* target after a real move, and is unchanged by it.
-    destination.add(proposition)
     target = source.add(
         stored.assessment_node(
             "target",
             title="target",
-            spec="analysis-spec:p",
+            spec=frozen.identity,
             run=run.id,
             proposition=proposition.id,
             outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=frozen.interpretation_rule,
+            target=frozen.assessed_target,
         )
     )
     target_identity = stored.stored_semantic_hash(target)

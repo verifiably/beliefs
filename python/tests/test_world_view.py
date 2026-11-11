@@ -10,6 +10,7 @@ import pytest
 from authority import FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
+from fixtures_cut3 import only_assessed_key
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
 from nodes.core.errors import RefError
@@ -581,6 +582,8 @@ def test_the_two_installation_split_evaluates_as_one_corpus(tmp_path):
     inputs = gather(
         view,
         "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=profile),
+        observations={},
         context=kwargs["context"],
         profile=profile,
         resolution=kwargs["resolution"],
@@ -614,6 +617,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],
@@ -637,6 +642,8 @@ class TestEvaluationOverTheWorld:
                 return gather(
                     view,
                     "proposition:p",
+                    key=only_assessed_key(view, "proposition:p", profile=profile),
+                    observations={},
                     context=context,
                     profile=profile,
                     resolution=kwargs["resolution"],
@@ -644,6 +651,8 @@ class TestEvaluationOverTheWorld:
                 )
             if consumer == "evaluate":
                 return evaluate(
+                    key=inputs.key,
+                    dependencies=inputs.dependencies,
                     proposition="proposition:p",
                     records=inputs.records(),
                     context=replace(context, node_corpus=inputs.node_corpus),
@@ -681,6 +690,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],
@@ -712,6 +723,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile_with()),
+            observations={},
             context=kwargs["context"],
             profile=profile_with(),
             resolution=kwargs["resolution"],
@@ -765,6 +778,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],
@@ -803,6 +818,8 @@ class TestEvaluationOverTheWorld:
             gather(
                 view,
                 "proposition:p",
+                key=only_assessed_key(view, "proposition:p", profile=profile),
+                observations={},
                 context=supplied,
                 profile=profile,
                 resolution=kwargs["resolution"],
@@ -827,6 +844,8 @@ class TestEvaluationOverTheWorld:
         gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],
@@ -845,6 +864,8 @@ class TestEvaluationOverTheWorld:
             gather(
                 view,
                 "proposition:p",
+                key=only_assessed_key(view, "proposition:p", profile=profile),
+                observations={},
                 context=kwargs["context"],
                 profile=profile,
                 resolution=kwargs["resolution"],
@@ -879,6 +900,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],
@@ -911,6 +934,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],
@@ -945,6 +970,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=context,
             profile=profile,
             resolution=kwargs["resolution"],
@@ -966,6 +993,8 @@ class TestEvaluationOverTheWorld:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],

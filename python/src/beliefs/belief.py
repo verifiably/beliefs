@@ -195,12 +195,13 @@ def admitted(
     runs: Mapping[str, RunValue],
     observations: Mapping[str, tuple[ByteObservation, ...]],
     verifications: tuple[Verification, ...],
+    dependencies: DependencyEvidence,
 ) -> tuple[tuple[AssessmentValue, ...], tuple[AssessmentValue, ...]]:
     """Step 5's gate, once: `(eligible, unheld_only)` over the identity-collapsed pool."""
     eligible: list[AssessmentValue] = []
     unheld_only: list[AssessmentValue] = []
     for a in distinct:
-        admission = admit(a, runs[a.run], observations, verifications)
+        admission = admit(a, runs[a.run], observations, verifications, dependencies)
         if isinstance(admission, Admitted):
             eligible.append(a)
         elif isinstance(admission, AdmissionRefused) and admission.reason.startswith("input-not-held"):
@@ -341,6 +342,8 @@ def standing_roots(assessment: AssessmentValue, run: RunValue, dependencies: Dep
 def evaluate_traced(
     *,
     proposition: str,
+    key: str,
+    dependencies: DependencyEvidence,
     records: Records,
     availability: Availability,
     context: SuppliedContext,
@@ -351,6 +354,8 @@ def evaluate_traced(
     """Evaluate selected inputs and accompany every answer with its selection."""
     answer, admission = _evaluate_traced(
         proposition=proposition,
+        key=key,
+        dependencies=dependencies,
         records=records,
         availability=availability,
         context=context,
@@ -366,6 +371,8 @@ def evaluate_traced(
 def _evaluate_traced(
     *,
     proposition: str,
+    key: str,
+    dependencies: DependencyEvidence,
     records: Records,
     availability: Availability,
     context: SuppliedContext,
@@ -392,7 +399,13 @@ def _evaluate_traced(
     # digested closure member must come from what this derivation reads, not
     # from whatever else the caller happened to pass in `records.claims`. A
     # proposition with no claim record consults only the base contract.
-    matched = tuple(a for a in records.assessments if a.proposition == proposition)
+    candidates = tuple(a for a in records.assessments if a.proposition == proposition)
+    facets_by_id: dict[str, str] = {}
+    for a in candidates:
+        previous = facets_by_id.setdefault(a.identity(), a.facet_digest())
+        if previous != a.facet_digest():
+            return Refused(f"assessment-identity-contradicted: {a.identity()} has disagreeing records"), NotReached()
+    matched = tuple(a for a in candidates if a.key() == key)
     for row in records.observed_facets:
         namespace = row.key.partition("/")[0]
         if profile.activated_contracts.get(namespace) != row._contract_identity:
@@ -504,7 +517,11 @@ def _evaluate_traced(
             )
 
     eligible, unheld_only = admitted(
-        distinct, runs=records.runs, observations=availability.observations, verifications=records.verifications
+        distinct,
+        runs=records.runs,
+        observations=availability.observations,
+        verifications=records.verifications,
+        dependencies=dependencies,
     )
     reached = Reached(frozenset(a.identity() for a in eligible))
 
@@ -524,11 +541,16 @@ def _evaluate_traced(
     # pool onto its identities, so these records are distinct by identity and
     # the graph carries no second vertex and no self-edge for a genuine twin.
     graph_inputs = directional
-    vertices = tuple(DirectionalInput(assessment=a.identity(), sign=OUTCOME_SIGNS[a.outcome]) for a in graph_inputs)
+    vertices = tuple(
+        DirectionalInput(assessment=a.identity(), sign=OUTCOME_SIGNS[a.outcome], standing=a.standing)
+        for a in graph_inputs
+    )
     edges: list[tuple[str, str]] = []
     for a, b in itertools.combinations(graph_inputs, 2):
         certification = certify(
-            context.snapshot, _observes_roots(records.runs[a.run]), _observes_roots(records.runs[b.run])
+            context.snapshot,
+            standing_roots(a, records.runs[a.run], dependencies),
+            standing_roots(b, records.runs[b.run], dependencies),
         )
         if certification.state != "independent":
             edges.append((a.identity(), b.identity()))
@@ -540,6 +562,8 @@ def _evaluate_traced(
     # 9. The belief input closure, and the answer it accompanies.
     closure = build_closure(
         proposition=proposition,
+        key=key,
+        dependencies=dependencies,
         assessments=records.assessments,
         runs=records.runs,
         verifications=records.verifications,
@@ -557,6 +581,8 @@ def _evaluate_traced(
 def evaluate(
     *,
     proposition: str,
+    key: str,
+    dependencies: DependencyEvidence,
     records: Records,
     availability: Availability,
     context: SuppliedContext,
@@ -568,6 +594,8 @@ def evaluate(
     projection of `evaluate_traced`, so the answer cannot differ from it."""
     return evaluate_traced(
         proposition=proposition,
+        key=key,
+        dependencies=dependencies,
         records=records,
         availability=availability,
         context=context,

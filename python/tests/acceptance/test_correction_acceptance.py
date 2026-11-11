@@ -9,7 +9,7 @@ import pytest
 from authority import ACTOR, FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import only_assessed_key, typed_estimand
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.node import Node
@@ -78,11 +78,23 @@ def _seed(writer, *, conflict=False, outcomes=("supported", "refuted")):
                 basis=basis if side == "a" else None,
             )
         )
+        from fixtures_cut3 import TESTING_CLAIM, mint_fixture_spec
+
+        from beliefs.spec import SpecInput
+
+        addresses = [dataset.id, dataset_ref("one")] if conflict and side == "a" else [dataset.id]
+        spec = mint_fixture_spec(
+            writer,
+            "proposition:p",
+            tuple(SpecInput("observes", ref, "observation") for ref in addresses),
+            claim=TESTING_CLAIM,
+            estimand=typed_estimand(),
+        )
         run = writer.add(
             stored.run_node(
                 f"run-{side}",
                 title=side,
-                spec=f"spec-{side}",
+                spec=spec.identity,
                 observes=[dataset.id, dataset_ref("one")] if conflict and side == "a" else [dataset.id],
             )
         )
@@ -90,12 +102,12 @@ def _seed(writer, *, conflict=False, outcomes=("supported", "refuted")):
             stored.assessment_node(
                 f"a-{index}",
                 title=side,
-                spec=f"spec-{side}",
+                spec=spec.identity,
                 run=run.id,
                 proposition="proposition:p",
                 outcome=outcome,
-                interpretation_rule="rule-1",
-                target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+                interpretation_rule=spec.interpretation_rule,
+                target=spec.assessed_target,
             )
         )
         writer.add(verification_for(assessment, scope="clean-environment", verdict="passed", slug=f"v-{index}"))
@@ -117,7 +129,15 @@ def _read(writer):
                 dataset_ref("one"): (ByteObservation(digest=pinned("one")[0]["digest"], location="repo://data"),),
             },
         )
-    inputs = gather(view, "proposition:p", **{k: v for k, v in kwargs.items() if k != "availability"})
+    inputs = gather(
+        view,
+        "proposition:p",
+        key=only_assessed_key(
+            view, "proposition:p", profile=({k: v for k, v in kwargs.items() if k != "availability"})["profile"]
+        ),
+        observations={},
+        **{k: v for k, v in kwargs.items() if k != "availability"},
+    )
     answer = evaluate_over(view, "proposition:p", **kwargs)
     return inputs, answer
 
@@ -145,7 +165,7 @@ def test_retiring_one_conflicting_route_certifies_over_the_survivor(durable_writ
         run.spec: {dataset_address(entry.dataset) for entry in run.inputs if entry.role == "observes"}
         for run in before.runs.values()
     }
-    assert observed == {"spec-a": set(roots[0]), "spec-b": set(roots[1])}
+    assert set(map(frozenset, observed.values())) == set(map(frozenset, roots))
     assert certify(before.snapshot, *roots).state == "not-certified"
     assert isinstance(answer, Belief) and answer.value == 1
     writer.retract(_route(writer, "one", dataset_ref("d-a")))
@@ -198,7 +218,17 @@ def _world(durable_world):
 def _world_read(world, epoch, a, b, profile, proposition="proposition:p"):
     view = open_world_view(world, epoch)
     kwargs = world_kwargs(view, profile, a, b)
-    return view, gather(view, proposition, **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+    return view, gather(
+        view,
+        proposition,
+        key=only_assessed_key(
+            view,
+            proposition,
+            profile=({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})["profile"],
+        ),
+        observations={},
+        **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")},
+    )
 
 
 def test_an_uncovered_retraction_moves_nothing_and_coverage_is_a_digest_member(durable_world):
@@ -227,6 +257,10 @@ def test_an_in_coverage_move_leaves_the_digest_and_moves_the_receipts(durable_wo
         move(alpha, beta, ref, **MOVE_FIELDS)
     first = publish(world, (a, b), hold_shipped(world))
     _, before = _world_read(world, first, a, b, profile)
+    value = stored.assessment_value(target, profile=profile)
+    for reference in (stored.typed_ref("analysis-spec", value.spec), *(d.id for d in value.dependencies)):
+        if not beta.read_view.holds(reference):
+            move(alpha, beta, reference, **MOVE_FIELDS)
     move(alpha, beta, target.id, **MOVE_FIELDS)
     second = publish(world, (a, b), hold_shipped(world))
     _, after = _world_read(world, second, a, b, profile)
@@ -319,16 +353,30 @@ def test_a_retracted_verification_leaves_the_read_set(durable_writer):
 def test_the_enumeration_is_the_views_and_input_scoped(durable_world):
     world, _roots, _epoch, a, b, profile, (alpha, _beta) = _world(durable_world)
     alpha.add(stored.proposition_node("q", title="q", claim=CLAIM_FACET))
+    from fixtures_cut3 import TESTING_CLAIM, mint_fixture_spec
+
+    from beliefs.spec import SpecInput
+
+    other_spec = mint_fixture_spec(
+        alpha,
+        "proposition:q",
+        (SpecInput("observes", dataset_ref("d-a"), "observation"),),
+        claim=TESTING_CLAIM,
+        estimand=typed_estimand(),
+    )
+    other_run = alpha.add(
+        stored.run_node("other", title="other", spec=other_spec.identity, observes=(dataset_ref("d-a"),))
+    )
     other = alpha.add(
         stored.assessment_node(
             "other",
             title="other",
-            spec="spec-a",
-            run="run:run-a",
+            spec=other_spec.identity,
+            run=other_run.id,
             proposition="proposition:q",
             outcome="supported",
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=other_spec.interpretation_rule,
+            target=other_spec.assessed_target,
         )
     )
     unrelated = alpha.retract(retracts(other, "unrelated"))
@@ -371,7 +419,17 @@ def test_an_unreadable_found_retraction_refuses(durable_writer):
     raw_write(writer.root, node)
     assert (node.id, RETRACTION_UPHELD) in local_retraction_enumeration(view).found
     with pytest.raises(RetractionUnreadable) as refused:
-        gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+        gather(
+            view,
+            "proposition:p",
+            key=only_assessed_key(
+                view,
+                "proposition:p",
+                profile=({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})["profile"],
+            ),
+            observations={},
+            **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")},
+        )
     assert refused.value.ref == node.id and isinstance(refused.value.__cause__, RefError)
     assert refused.value.cause == str(refused.value.__cause__)
 

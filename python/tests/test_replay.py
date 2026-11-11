@@ -22,6 +22,7 @@ from fixtures_cut3 import (
     SNAKEFILE_SEED_VIOLATING,
     closure_kwargs,
     closure_with,
+    dependency_evidence,
     freeze_context,
     planned,
     seed_plan,
@@ -775,9 +776,9 @@ def test_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
     far = {address: (ByteObservation(digest=D_IN, location="https://mirror.example/data"),)}
     kwargs = closure_kwargs((assessment,), {"run-1": run})
     before_digest = build_closure(**kwargs).digest()
-    before_admission = admit(assessment, run, local, admitting)
+    before_admission = admit(assessment, run, local, admitting, dependencies=dependency_evidence((assessment,)))
     after_digest = build_closure(**kwargs).digest()
-    after_admission = admit(assessment, run, far, admitting)
+    after_admission = admit(assessment, run, far, admitting, dependencies=dependency_evidence((assessment,)))
     assert after_digest == before_digest
     assert not {"observations", "availability", "resolvable"} & set(inspect.signature(build_closure).parameters)
     assert after_admission == before_admission

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 from domain_facet_fixtures import over_kwargs
+from fixtures_cut3 import only_assessed_key
 from test_audit import writer  # noqa: F401 - the fixture
 from test_evaluation import CLAIM_FACET, OTHER_GENE, PHENO
 from verification_fixtures import PROFILE, admission_over, evaluation_kwargs, publish_corpus
@@ -22,7 +23,15 @@ from beliefs.verify import _mint_verification, publication_node
 def _gathered(writer, proposition_ref):  # noqa: F811 - the imported fixture, used here by parameter name
     view = writer.read_view
     return gather(
-        view, proposition_ref, **over_kwargs({k: v for k, v in evaluation_kwargs(view).items() if k != "availability"})
+        view,
+        proposition_ref,
+        key=only_assessed_key(
+            view,
+            proposition_ref,
+            profile=(over_kwargs({k: v for k, v in evaluation_kwargs(view).items() if k != "availability"}))["profile"],
+        ),
+        observations={},
+        **over_kwargs({k: v for k, v in evaluation_kwargs(view).items() if k != "availability"}),
     )
 
 

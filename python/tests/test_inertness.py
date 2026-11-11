@@ -4,7 +4,15 @@ import dataclasses
 import inspect
 from pathlib import Path
 
-from fixtures_cut3 import D_IN, closure_kwargs, report, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import (
+    D_IN,
+    closure_kwargs,
+    dependency_evidence,
+    report,
+    typed_applicability,
+    typed_estimand,
+    typed_target,
+)
 
 import beliefs
 from beliefs.admission import Admitted, admit
@@ -39,7 +47,7 @@ def test_adding_and_removing_reports_leaves_belief_admission_and_eligibility_byt
     assert address is not None
     kwargs = closure_kwargs((assessment,), {"run-1": run})
     before_digest = build_closure(**kwargs).digest()
-    before_admission = admit(assessment, run, observations, admitting)
+    before_admission = admit(assessment, run, observations, admitting, dependencies=dependency_evidence((assessment,)))
     # The test asserts admission is *unchanged*; two equal refusals satisfy that
     # vacuously, so the scenario has to be admitted for the row to say anything.
     assert isinstance(before_admission, Admitted), before_admission
@@ -47,7 +55,7 @@ def test_adding_and_removing_reports_leaves_belief_admission_and_eligibility_byt
     reports = {r.identity(): r for r in (report(), report(event_token="tok-2"))}
     assert reports  # The reports exist and reference nothing that protects them.
     after_digest = build_closure(**kwargs).digest()
-    after_admission = admit(assessment, run, observations, admitting)
+    after_admission = admit(assessment, run, observations, admitting, dependencies=dependency_evidence((assessment,)))
     after_state = admission_state(d, observations[address])
     assert after_digest == before_digest  # Byte-unchanged, not merely equal-valued.
     assert after_admission == before_admission

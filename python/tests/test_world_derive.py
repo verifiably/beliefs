@@ -20,6 +20,7 @@ import hashlib
 from dataclasses import dataclass, fields
 
 import pytest
+from fixtures_cut3 import dependency_evidence
 
 from beliefs.closure import RetractionEnumeration, build_closure
 from beliefs.errors import AddressMapConflict, RuleNonconformant
@@ -338,6 +339,8 @@ class TestSnapshotIsSemanticNotPositional:
 def belief_digest(snapshot: derive.ProducerSnapshot) -> str:
     """One proposition's belief-input digest with this snapshot supplied."""
     return build_closure(
+        key="",
+        dependencies=dependency_evidence(()),
         proposition="proposition:one",
         assessments=(),
         runs={},

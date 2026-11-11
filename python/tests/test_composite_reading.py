@@ -6,6 +6,7 @@ from dataclasses import replace
 
 import pytest
 from domain_facet_fixtures import over_kwargs
+from fixtures_cut3 import only_assessed_key
 from profiles import pins_for
 from test_composite_boundary import GENE, SNAPSHOT, A, _build, _claim, _estimand, _proposition, _writer
 from test_evaluation import _observations  # the held byte observations helper, keyed by dataset address
@@ -75,7 +76,7 @@ def test_rows_equal_the_wrapper_answers_and_columns_share_one_admission(corpus):
     for ref, row in by_ref.items():
         assert row.belief == evaluate_over(w.read_view, ref, **over_kwargs(_inputs(w, dataset_address)))
     assert isinstance(by_ref["proposition:ab"].belief, Belief) and by_ref["proposition:ab"].identification == (
-        "EX:observational",
+        "biology/randomized",
     )
     assert (
         by_ref["proposition:bc"].belief == NoBelief("no-eligible-assessment")
@@ -162,7 +163,7 @@ def test_two_inconclusive_admitted_assessments_keep_their_terms(corpus):
     minted = w.add(stored.composite_node(_build(w, ["proposition:bc"]), title="g"))
     row = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address)).rows[0]
     assert row.belief == NoBelief("no-directional-outcome")
-    assert row.identification == ("EX:observational",)
+    assert row.identification == ("biology/randomized",)
 
 
 def test_the_reading_admits_each_member_once_and_never_calls_admit_itself(corpus, monkeypatch):
@@ -306,7 +307,7 @@ def test_the_identification_column_reads_only_the_assessments_naming_the_member(
     monkeypatch.setattr(stored, "assessment_value", counting)
     reading = read_composite(w.read_view, minted.id, **_inputs(w, dataset_address))
 
-    assert reading.rows[0].identification == ("EX:observational",)
+    assert reading.rows[0].identification == ("biology/randomized",)
     assert not (set(decoded) & unrelated)
 
 
@@ -372,6 +373,8 @@ def test_a_pre_grammar_assessment_elsewhere_is_not_decoded(corpus):
     gathered = gather(
         view,
         "proposition:ab",
+        key=only_assessed_key(view, "proposition:ab", profile=inputs["profile"]),
+        observations={},
         context=inputs["context"],
         profile=inputs["profile"],
         resolution=inputs["resolution"],
@@ -379,7 +382,7 @@ def test_a_pre_grammar_assessment_elsewhere_is_not_decoded(corpus):
     )
     assert len(gathered.assessments) == 1
     row = read_composite(view, minted.id, **inputs).rows[0]
-    assert isinstance(row.belief, Belief) and row.identification == ("EX:observational",)
+    assert isinstance(row.belief, Belief) and row.identification == ("biology/randomized",)
 
 
 def test_a_retracted_support_reaches_the_composite_member(corpus):
@@ -425,4 +428,31 @@ def test_identification_never_decodes_a_retracted_malformed_assessment(corpus, s
         assert expected == NoBelief("no-eligible-assessment")
     row = read_composite(view, minted.id, **inputs).rows[0]
     assert row.belief == expected
-    assert row.identification == (("EX:observational",) if surviving else ())
+    assert row.identification == (("biology/randomized",) if surviving else ())
+
+
+def test_multiple_assessed_keys_refuse_member_identification(corpus):
+    import uuid
+
+    from fixtures_cut4 import raw_write, reopen
+
+    from beliefs.estimand import estimand_from_stored, estimand_projection
+    from beliefs.target import target_projection
+
+    w, dataset_address, *_ = corpus
+    composite = w.add(stored.composite_node(_build(w, ["proposition:ab"]), title="g"))
+    node = w.read_view.get("assessment:a-ab").model_copy(deep=True)
+    node.uid = uuid.uuid4().hex
+    node.id = "assessment:another-target"
+    node.relations = [r.model_copy(update={"source": node.id}) for r in node.relations]
+    value = stored.assessment_value(node, profile=w.profile)
+    projection = estimand_projection(value.estimand)
+    projection["uncertainty"] = "standard-error"
+    target = replace(value.target, estimand=estimand_from_stored(projection, profile=w.profile))
+    node.facets[stored.ASSESSMENT_FACET]["typed"] = v1.encode(target_projection(target)).decode()
+    node.facets[stored.ASSESSMENT_FACET]["spec"] = "other-spec"
+    raw_write(w.root, stored.stamp_semantic_identity(node))
+    row = read_composite(reopen(w.root), composite.id, **_inputs(w, dataset_address)).rows[0]
+    assert isinstance(row.belief, Refused) and row.belief.reason == "multiple-assessed-propositions: use claim_view"
+    assert row.identification == NotReached()
+    assert row.projection()["identification"] == "not-reached"

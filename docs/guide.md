@@ -213,6 +213,12 @@ documents stay in place as the record the recreation reads.
    neither way. A fresh process re-derives the same answer from the records on
    disk.
 
+For a claim with several assessed targets, use `evaluation.claim_view` to see one
+answer per key and the pairwise conversion and synthesis verdicts. The one-answer
+`evaluate_over` convenience refuses that case; it forwards the exact answer when
+there is one key. Supply the same observations to an explicit keyed `gather` and
+to evaluation.
+
 That answer is the scientific result, not a failure: the data in hand do not
 separate the two stages. Another admitted, independent assessment that points one
 way would move the answer.

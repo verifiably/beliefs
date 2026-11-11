@@ -8,6 +8,7 @@ import pytest
 # These checks fail if acceptance is applied after correction validation/folding.
 from authority import ACTOR
 from domain_facet_fixtures import LOCAL_CORPUS_ID, over_kwargs, profile_with
+from fixtures_cut3 import only_assessed_key
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from test_belief import scenario
@@ -44,11 +45,18 @@ def test_complete_report(tmp_path):
     policy = belief.AcceptancePolicy(
         lambda c, r: seen.append((c, r)) or r not in {"assessment:a-3", "verification:v-3"}, "policy"
     )
-    inputs = gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs, acceptance=policy)
+    inputs = gather(
+        fixture.view,
+        PROPOSITION_REF,
+        key=fixture.assessments[0].key(),
+        observations={},
+        **fixture.gather_kwargs,
+        acceptance=policy,
+    )
     assert inputs.acceptance == belief.AcceptanceContext(
         "policy", ((LOCAL_CORPUS_ID, "assessment:a-3"), (LOCAL_CORPUS_ID, "verification:v-3")), True
     )
-    assert len(seen) == len(set(seen)) == 6
+    assert len(seen) == len(set(seen)) == 8
     assert set(inputs.read_trace) <= inputs.declared_refs()
 
 
@@ -85,7 +93,7 @@ def test_late_error(tmp_path, monkeypatch):
     answer, admission = evaluate_over_traced(fixture.view, PROPOSITION_REF, **fixture.kwargs, acceptance=policy)
     assert isinstance(answer, belief.Refused) and answer.reason == "consulted-contracts-disagree: late sentinel"
     assert answer.acceptance == belief.AcceptanceContext("policy", ((LOCAL_CORPUS_ID, "assessment:a-3"),), True)
-    assert admission == belief.NotReached() and len(seen) == len(set(seen)) == 6
+    assert admission == belief.NotReached() and len(seen) == len(set(seen)) == 8
 
 
 def test_late_absence(tmp_path):
@@ -113,7 +121,14 @@ def test_supplied_context(tmp_path, monkeypatch):
     monkeypatch.setattr(type(fixture.view), "resolve", unexpected)
     for policy in (None, belief.AcceptancePolicy(unexpected, "real")):
         with pytest.raises(MalformedRecord, match="supplied-acceptance-context"):
-            gather(fixture.view, PROPOSITION_REF, **{**fixture.gather_kwargs, "context": context}, acceptance=policy)
+            gather(
+                fixture.view,
+                PROPOSITION_REF,
+                key=fixture.assessments[0].key(),
+                observations={},
+                **{**fixture.gather_kwargs, "context": context},
+                acceptance=policy,
+            )
 
 
 def test_closure_statement(tmp_path):
@@ -121,7 +136,14 @@ def test_closure_statement(tmp_path):
 
     def run(statement, reject=()):
         policy = belief.AcceptancePolicy(lambda _c, r: r not in reject, statement)
-        inputs = gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs, acceptance=policy)
+        inputs = gather(
+            fixture.view,
+            PROPOSITION_REF,
+            key=fixture.assessments[0].key(),
+            observations={},
+            **fixture.gather_kwargs,
+            acceptance=policy,
+        )
         answer, _ = evaluate_over_traced(fixture.view, PROPOSITION_REF, **fixture.kwargs, acceptance=policy)
         assert isinstance(answer, belief.Belief)
         assert inputs.closure().digest() == answer.belief_input_digest
@@ -134,7 +156,9 @@ def test_closure_statement(tmp_path):
     assert first.value == second.value == irrelevant.value
     assert first.belief_input_digest != second.belief_input_digest
     assert first.belief_input_digest == irrelevant.belief_input_digest
-    unrestricted = gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs)
+    unrestricted = gather(
+        fixture.view, PROPOSITION_REF, key=fixture.assessments[0].key(), observations={}, **fixture.gather_kwargs
+    )
     assert "acceptance_policy" not in unrestricted.closure().projection
 
 
@@ -145,10 +169,17 @@ def test_two_policies(tmp_path):
         policy = belief.AcceptancePolicy(
             lambda c, r, rejected=rejected: seen.append((c, r)) or r not in rejected, "same"
         )
-        inputs = gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs, acceptance=policy)
+        inputs = gather(
+            fixture.view,
+            PROPOSITION_REF,
+            key=fixture.assessments[0].key(),
+            observations={},
+            **fixture.gather_kwargs,
+            acceptance=policy,
+        )
         assert inputs.acceptance is not None
         assert inputs.acceptance.excluded == ((LOCAL_CORPUS_ID, rejected[0]),)
-    assert len(seen) == 12 and len(set(seen)) == 6
+    assert len(seen) == 16 and len(set(seen)) == 8
     world, roots, published = split_evaluation_world(tmp_path / "world", beta_refs=())
     root = snapshot_retraction(open_world_view(world, published).producer_snapshot_identity())
     raw_write(roots[ALPHA], root)
@@ -250,7 +281,12 @@ def test_rejected_malformed_verification_and_local_correction(tmp_path, monkeypa
 
     monkeypatch.setattr(stored, "verification_value", decode)
     inputs = gather(
-        reopen(tmp_path), PROPOSITION_REF, **fixture.gather_kwargs, acceptance=_policy(verification.id, correction.id)
+        reopen(tmp_path),
+        PROPOSITION_REF,
+        key=only_assessed_key(reopen(tmp_path), PROPOSITION_REF, profile=(fixture.gather_kwargs)["profile"]),
+        observations={},
+        **fixture.gather_kwargs,
+        acceptance=_policy(verification.id, correction.id),
     )
     assert inputs.acceptance is not None and inputs.acceptance.complete
     assert not inputs.retractions.found
@@ -270,6 +306,8 @@ def test_canonical_correction_alias_decides_once(tmp_path, monkeypatch):
     inputs = gather(
         view,
         PROPOSITION_REF,
+        key=only_assessed_key(view, PROPOSITION_REF, profile=profile_with()),
+        observations={},
         context=kwargs["context"],
         profile=profile_with(),
         resolution=kwargs["resolution"],
@@ -367,7 +405,14 @@ def test_malformed_assessment(tmp_path, monkeypatch):
         return original(node, **kwargs)
 
     monkeypatch.setattr(stored, "assessment_value", decode)
-    inputs = gather(reopen(tmp_path), PROPOSITION_REF, **fixture.gather_kwargs, acceptance=_policy(twin.id))
+    inputs = gather(
+        reopen(tmp_path),
+        PROPOSITION_REF,
+        key=fixture.assessments[0].key(),
+        observations={},
+        **fixture.gather_kwargs,
+        acceptance=_policy(twin.id),
+    )
     assert len(inputs.assessments) == 2
 
 
@@ -384,6 +429,8 @@ def test_canonical_holder(tmp_path):
     gather(
         view,
         PROPOSITION_REF,
+        key=only_assessed_key(view, PROPOSITION_REF, profile=profile_with()),
+        observations={},
         context=kwargs["context"],
         profile=profile_with(),
         resolution=kwargs["resolution"],
@@ -407,10 +454,24 @@ def test_manifest_preflight(tmp_path, monkeypatch):
     manifest = tmp_path / "corpus.yaml"
     manifest.unlink()
     with pytest.raises(ManifestMissing):
-        gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs, acceptance=_policy())
+        gather(
+            fixture.view,
+            PROPOSITION_REF,
+            key=fixture.assessments[0].key(),
+            observations={},
+            **fixture.gather_kwargs,
+            acceptance=_policy(),
+        )
     manifest.write_text("not: a manifest")
     with pytest.raises(ManifestMalformed):
-        gather(fixture.view, PROPOSITION_REF, **fixture.gather_kwargs, acceptance=_policy())
+        gather(
+            fixture.view,
+            PROPOSITION_REF,
+            key=fixture.assessments[0].key(),
+            observations={},
+            **fixture.gather_kwargs,
+            acceptance=_policy(),
+        )
 
 
 def test_accepted_attribution(tmp_path):
@@ -558,6 +619,8 @@ def _gather_world(view, reject=(), *, context=None):
     return gather(
         view,
         "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=profile),
+        observations={},
         profile=profile,
         context=kwargs["context"] if context is None else context,
         resolution=kwargs["resolution"],
@@ -828,6 +891,8 @@ def _gather_with(view, policy, *, context=None):
     return gather(
         view,
         "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=profile),
+        observations={},
         profile=profile,
         context=kwargs["context"] if context is None else context,
         resolution=kwargs["resolution"],
@@ -1009,6 +1074,8 @@ def test_policy_validation(tmp_path):
             gather(
                 view,
                 "proposition:p",
+                key=only_assessed_key(view, "proposition:p", profile=profile_with()),
+                observations={},
                 context=kwargs["context"],
                 profile=profile_with(),
                 resolution=kwargs["resolution"],
@@ -1023,6 +1090,8 @@ def test_policy_validation(tmp_path):
         gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile_with()),
+            observations={},
             context=kwargs["context"],
             profile=profile_with(),
             resolution=kwargs["resolution"],

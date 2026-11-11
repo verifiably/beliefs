@@ -6,7 +6,8 @@ reported as `not-present` (world-index territory) nor as `not-member` (a
 finding nobody's look supports).
 """
 
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
+import pytest
+from fixtures_cut3 import TESTING_PROFILE, dependency_evidence, typed_applicability, typed_estimand, typed_target
 
 from beliefs.admission import AdmissionRefused, Admitted, admit, vocabulary_availability
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
@@ -54,19 +55,37 @@ ADMITTING = (Verification(ref="v1", assessment=assessment().identity(), scope="c
 class TestHeldObservesInputs:
     def test_a_held_observes_input_admits(self):
         d = dataset()
-        result = admit(assessment(), run(RunInput(role="observes", dataset=d)), held(d), ADMITTING)
+        result = admit(
+            assessment(),
+            run(RunInput(role="observes", dataset=d)),
+            held(d),
+            ADMITTING,
+            dependencies=dependency_evidence((assessment(),)),
+        )
         assert isinstance(result, Admitted)
 
     def test_a_declared_input_is_refused(self):
         d = dataset()
-        result = admit(assessment(), run(RunInput(role="observes", dataset=d)), {}, ADMITTING)
+        result = admit(
+            assessment(),
+            run(RunInput(role="observes", dataset=d)),
+            {},
+            ADMITTING,
+            dependencies=dependency_evidence((assessment(),)),
+        )
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("input-not-held")
 
     def test_a_curation_note_input_is_refused(self):
         # "so is one whose input carries no digest" — the no-digest case.
         d = dataset(digest=None)
-        result = admit(assessment(), run(RunInput(role="observes", dataset=d)), {}, ADMITTING)
+        result = admit(
+            assessment(),
+            run(RunInput(role="observes", dataset=d)),
+            {},
+            ADMITTING,
+            dependencies=dependency_evidence((assessment(),)),
+        )
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("input-not-held")
 
@@ -77,6 +96,7 @@ class TestHeldObservesInputs:
             run(RunInput(role="observes", dataset=d), RunInput(role="reads", dataset=aux)),
             held(d),
             ADMITTING,
+            dependencies=dependency_evidence((assessment(),)),
         )
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("input-not-held")
@@ -91,6 +111,7 @@ class TestReadsOnlyInputs:
             run(RunInput(role="reads", dataset=corpus), RunInput(role="reads", dataset=ontology)),
             held(corpus, ontology),
             ADMITTING,
+            dependencies=dependency_evidence((assessment(),)),
         )
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("no-observes-input")
@@ -98,7 +119,13 @@ class TestReadsOnlyInputs:
     def test_qa_state_does_not_rescue_it(self):
         # Regardless of verification state: the gate refuses before reading it.
         corpus = dataset()
-        result = admit(assessment(), run(RunInput(role="reads", dataset=corpus)), held(corpus), ADMITTING)
+        result = admit(
+            assessment(),
+            run(RunInput(role="reads", dataset=corpus)),
+            held(corpus),
+            ADMITTING,
+            dependencies=dependency_evidence((assessment(),)),
+        )
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("no-observes-input")
 
@@ -107,13 +134,19 @@ class TestTheGateReadsItsArguments:
     def test_a_run_that_is_not_the_assessments_run_is_refused(self):
         d = dataset()
         other = RunValue(ref="run:run-2", spec="spec-1", inputs=(RunInput(role="observes", dataset=d),))
-        result = admit(assessment(), other, held(d), ADMITTING)
+        result = admit(assessment(), other, held(d), ADMITTING, dependencies=dependency_evidence((assessment(),)))
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("run-mismatch")
 
     def test_the_verification_state_gates_last(self):
         d = dataset()
-        result = admit(assessment(), run(RunInput(role="observes", dataset=d)), held(d), ())
+        result = admit(
+            assessment(),
+            run(RunInput(role="observes", dataset=d)),
+            held(d),
+            (),
+            dependencies=dependency_evidence((assessment(),)),
+        )
         assert isinstance(result, AdmissionRefused)
         assert result.reason.startswith("not-admitted-verification-state")
 
@@ -153,7 +186,125 @@ def test_admit_matches_a_typed_run_ref_to_the_bare_member():
         target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     other = RunValue(ref="run:r2", spec="s", inputs=())
-    refused = admit(assessment, other, {}, ())
+    refused = admit(assessment, other, {}, (), dependencies=dependency_evidence((assessment,)))
     assert isinstance(refused, AdmissionRefused) and refused.reason.startswith("run-mismatch")
     same = RunValue(ref="run:r1", spec="s", inputs=())
-    assert admit(assessment, same, {}, ()).reason.startswith("no-observes-input")  # type: ignore[union-attr]
+    refused = admit(assessment, same, {}, (), dependencies=dependency_evidence((assessment,)))
+    assert isinstance(refused, AdmissionRefused) and refused.reason.startswith("no-observes-input")
+
+
+def test_model_without_observes_and_missing_model_input(tmp_path):
+    from dataclasses import replace
+
+    from fixtures_cut3 import freeze_context, spec_draft, spec_rules, typed_estimand
+    from fixtures_cut4 import raw_write, reopen
+    from test_evaluation import PROPOSITION_REF, _fixture
+    from test_standing import model_context
+
+    from beliefs import stored
+    from beliefs.belief import Belief
+    from beliefs.claim import Referent, build_claim
+    from beliefs.evaluation import evaluate_over, gather
+    from beliefs.lineage import LineageSnapshot
+    from beliefs.procedure import ModelInputs, procedure_from_stored
+    from beliefs.projection import project_claim
+    from beliefs.spec import freeze
+
+    fixture = _fixture(tmp_path, PROPOSITION_REF)
+    records, model, claim = model_context()
+    code, data = "sha256:" + "d" * 64, "sha256:" + "c" * 64
+    model = stored.procedure_node(replace(procedure_from_stored(model), inputs=ModelInputs((data,), (code,))))
+    records.nodes[model.id] = model
+    claim = build_claim(
+        TESTING_PROFILE,
+        operator=claim.operator,
+        roles={**claim.roles, "within-model": Referent("testing/procedure-spec", model.id)},
+        layer=claim.layer,
+        polarity=claim.polarity,
+    )
+    spec = freeze(
+        spec_draft(
+            target="proposition:model",
+            standing="model",
+            model=model.id,
+            input_roles=(),
+            estimand=typed_estimand(claim=claim, records=records),
+        ),
+        held_rules=spec_rules(),
+        **{**freeze_context(), "records": records, "claim": claim},
+    )
+    for node in records.nodes.values():
+        if not fixture.view.holds(node.id):
+            raw_write(tmp_path, node)
+    a_node = stored.assessment_node(
+        "model",
+        title="model",
+        spec=spec.identity,
+        run="run:model",
+        proposition="proposition:model",
+        outcome="supported",
+        interpretation_rule=spec.interpretation_rule,
+        target=spec.assessed_target,
+    )
+    a = stored.assessment_value(a_node, profile=TESTING_PROFILE)
+    for node in (
+        stored.proposition_node("model", title="model", claim=project_claim(claim)),
+        stored.run_node("model", title="model", spec=spec.identity),
+        a_node,
+        stored.verification_node(
+            "model",
+            title="model",
+            assessment=a.identity(),
+            assessment_ref=a_node.id,
+            scope="clean-environment",
+            verdict="passed",
+        ),
+    ):
+        raw_write(tmp_path, node)
+    view = reopen(tmp_path)
+    observations = {"model inputs": (ByteObservation(data, "repo://model"), ByteObservation(code, "repo://code"))}
+    context = replace(fixture.context, snapshot=LineageSnapshot(tuple(sorted((model.id, code, data))), {}, {}))
+    inputs = gather(
+        view, a.proposition, key=a.key(), observations=observations, **{**fixture.gather_kwargs, "context": context}
+    )
+    assert isinstance(admit(a, inputs.runs[a.run], observations, inputs.verifications, inputs.dependencies), Admitted)
+    answer = evaluate_over(
+        view,
+        a.proposition,
+        **{
+            **fixture.kwargs,
+            "context": context,
+            "availability": replace(fixture.availability, observations=observations),
+        },
+    )
+    assert isinstance(answer, Belief), answer
+    unheld = {"model inputs": observations["model inputs"][:1]}
+    missing = gather(
+        view, a.proposition, key=a.key(), observations=unheld, **{**fixture.gather_kwargs, "context": context}
+    )
+    refused = admit(a, missing.runs[a.run], unheld, missing.verifications, missing.dependencies)
+    assert isinstance(refused, AdmissionRefused) and refused.reason.startswith("model-not-held")
+    refused_answer = evaluate_over(
+        view,
+        a.proposition,
+        **{**fixture.kwargs, "context": context, "availability": replace(fixture.availability, observations=unheld)},
+    )
+    from beliefs.belief import NoBelief
+
+    assert isinstance(refused_answer, NoBelief)
+    assert refused_answer.reason == "no-eligible-assessment"
+
+
+@pytest.mark.parametrize("standing", ["empirical", "model", "calibrated-model"])
+def test_all_routes_require_every_run_input_held(standing):
+    from dataclasses import replace
+
+    from fixtures_cut3 import YIELDING_PROCEDURE
+
+    value = assessment()
+    if standing != "empirical":
+        value = replace(value, target=replace(value.target, standing=standing, model=YIELDING_PROCEDURE))
+    observed, read = dataset(), dataset(D2)
+    execution = run(RunInput("observes", observed), RunInput("reads", read))
+    result = admit(value, execution, held(observed), ADMITTING, dependency_evidence((value,)))
+    assert isinstance(result, AdmissionRefused) and result.reason.startswith("input-not-held")

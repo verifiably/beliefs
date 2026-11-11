@@ -397,6 +397,17 @@ address is not minted again. Two different sets of identical bytes give one data
 two act reports, each naming its own log. No step scans the stored records once per
 member.
 
+## Reading admission
+
+After publishing a verification, reopen the read view before evaluating its effect.
+`evaluation.claim_view` evaluates every assessed key separately. The one-answer
+convenience refuses several keys. For explicit diagnostics, select the named
+assessment's `key()`, pass it and the same supplied observations to `gather`, then
+pass `inputs.dependencies` alongside the run, observations and verifications to
+`admission.admit`. Evaluation uses the assessment's frozen target, without reading
+its spec or fetching dataset bytes. Admission checks the declared standing route;
+all run inputs must be held, including model runs with no `observes` input.
+
 ## Verification
 
 A verification compares two runs and is published through an ordinary `add`:

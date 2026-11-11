@@ -331,6 +331,8 @@ class ReadView:
             )
         self._corpus = corpus
         self._base_pin_stamp: tuple[int, int] | None = None
+        self._capture: _CapturedCheckView | None = None
+        self._captured_corpus_id: str | None = None
 
     @classmethod
     def opened_at(cls, root: Path) -> ReadView:
@@ -339,11 +341,30 @@ class ReadView:
         hand to any module."""
         return cls(Corpus(Path(root)))
 
+    def captured(self) -> ReadView:
+        """Freeze this invocation's local records and manifest identity."""
+        if self._capture is not None:
+            return self
+        self._require_base_pin()
+        result = ReadView(self._corpus)
+        result._captured_corpus_id = self.corpus_id
+        records = tuple(n.model_copy(deep=True) for n in self.iter_stored())
+        addresses = {
+            ref: canonical
+            for n in records
+            for ref in (n.id, *n.deprecated_ids)
+            if (canonical := self.resolve(ref)) is not None
+        }
+        result._capture = _CapturedCheckView(records, addresses=addresses)
+        return result
+
     @property
     def corpus_id(self) -> str:
         """The readable manifest's corpus identity."""
         from beliefs.world import load_manifest
 
+        if self._captured_corpus_id is not None:
+            return self._captured_corpus_id
         return load_manifest(self._corpus.store.root).corpus_id
 
     # --- resolution ---------------------------------------------------------
@@ -351,6 +372,8 @@ class ReadView:
     def resolve(self, ref: str) -> str | None:
         """The live id a ref names — through a deprecated id as `nodes`
         resolves one — or `None` when the corpus holds no such node."""
+        if self._capture is not None:
+            return self._capture.resolve(ref)
         uid = self._corpus.index.resolve_uid(ref)
         return None if uid is None else self._corpus.index.by_uid[uid].id
 
@@ -372,6 +395,10 @@ class ReadView:
         preceded it — the bound, inherited here rather than
         papered over.
         """
+        if self._capture is not None:
+            if self._capture.resolve(ref) is None:
+                raise RefError(f"no node resolves ref {ref!r}")
+            return self._validated(self._capture.get(ref)).model_copy(deep=True)
         self._require_base_pin()
         return self._validated(self._corpus.get(ref))
 
@@ -396,11 +423,31 @@ class ReadView:
             )
         self._base_pin_stamp = stamp
 
+    def _captured_edges(self, ref: str, *, inbound: bool) -> list[ResolvedEdge]:
+        assert self._capture is not None
+        canonical = self.resolve(ref)
+        if canonical is None:
+            raise RefError(f"no node resolves ref {ref!r}")
+        edges: list[ResolvedEdge] = []
+        for node in self._capture.iter_stored():
+            for relation in node.relations:
+                source = self.resolve(relation.source)
+                target = self.resolve(relation.target)
+                if (target if inbound else source) == canonical:
+                    edges.append(
+                        ResolvedEdge(
+                            relation.model_copy(deep=True),
+                            None if source is None else self._capture.get(source).uid,
+                            None if target is None else self._capture.get(target).uid,
+                        )
+                    )
+        return edges
+
     def outbound(self, ref: str) -> list[ResolvedEdge]:
-        return self._corpus.outbound(ref)
+        return self._corpus.outbound(ref) if self._capture is None else self._captured_edges(ref, inbound=False)
 
     def inbound(self, ref: str) -> list[ResolvedEdge]:
-        return self._corpus.inbound(ref)
+        return self._corpus.inbound(ref) if self._capture is None else self._captured_edges(ref, inbound=True)
 
     def producers(self, dataset: str, *, aliases: tuple[str, ...] = ()) -> tuple[str, ...]:
         """Ids of every stored record holding a `produces` edge that names `dataset`
@@ -429,9 +476,14 @@ class ReadView:
         the members admitted at open, so a record written behind the boundary
         since then is invisible to it — and a stored record the check has not
         seen is exactly what this read exists to reach."""
-        yield from self._corpus.store.all_nodes()
+        if self._capture is not None:
+            yield from (n.model_copy(deep=True) for n in self._capture.iter_stored())
+        else:
+            yield from self._corpus.store.all_nodes()
 
     def live_id(self, uid: str) -> str:
+        if self._capture is not None:
+            return next(n.id for n in self._capture.iter_stored() if n.uid == uid)
         return self._corpus.index.by_uid[uid].id
 
     @staticmethod

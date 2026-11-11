@@ -24,9 +24,9 @@ Source assertions have no parameter here at all. Nothing filters, projects or
 digests a `SourceAssertion`: source assertions are never digested, and
 a test that adds one as a member must fail.
 
-Heldness is **not** a member: it selects the shape of the evaluator's answer
-(whether a `held`-eligible input is even available to weigh), never the
-answer's value, so it has nothing here to be a read of (the arm restriction).
+Run-input byte observations are not projected. Captured dependency eligibility
+is projected, including model-input heldness and recursive calibration state,
+so a changed dependency verdict changes this closure.
 
 `binding` is a plain `(rule identity, implementation identity)` pair, not
 `PolicyBinding` — that type belongs to the evaluator. This module digests
@@ -41,6 +41,9 @@ from types import MappingProxyType
 from typing import final
 
 from beliefs.dataset import dataset_address
+from beliefs.dependencies import dependencies_projection
+from beliefs.eligibility import Ineligible
+from beliefs.evidence import DependencyEvidence
 from beliefs.facet_read import FacetRead
 from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot, snapshot_projection
@@ -58,7 +61,7 @@ __all__ = [
     "build_closure",
 ]
 
-BELIEF_INPUT_DOMAIN = "science.belief-input.v1"
+BELIEF_INPUT_DOMAIN = "science.belief-input.v2"
 
 RETRACTION_OVERTURNED = "overturned"
 RETRACTION_UPHELD = "upheld"
@@ -101,6 +104,8 @@ class Closure:
 def build_closure(
     *,
     proposition: str,
+    key: str,
+    dependencies: DependencyEvidence,
     assessments: tuple[AssessmentValue, ...],
     runs: Mapping[str, RunValue],
     verifications: tuple[Verification, ...],
@@ -132,8 +137,8 @@ def build_closure(
     `producer_snapshot_identity`, `retractions`, `consulted`, `binding`, and
     `observed_facets` (the reader's rows, always present).
     """
-    ours = tuple(a for a in assessments if a.proposition == proposition)
-    identities = {a.identity() for a in ours}
+    ours = tuple(a for a in assessments if a.proposition == proposition and a.key() == key)
+    identities = {a.identity() for a in (*ours, *dependencies.assessments.values())}
     relevant_verifications = tuple(v for v in verifications if v.assessment in identities)
     active_refs = {v.ref for v in active(relevant_verifications)}
 
@@ -145,12 +150,35 @@ def build_closure(
     observes = sorted(
         address
         for a in ours
-        for run_input in runs[a.run].inputs
+        for run_input in runs.get(a.run, RunValue("run:absent", "absent", ())).inputs
         if run_input.role == "observes"
         if (address := dataset_address(run_input.dataset)) is not None
     )
 
     projection: dict[str, object] = {
+        "key": key,
+        "dependencies": {
+            "frozen": dependencies_projection(
+                tuple(sorted({d.id: d for a in ours for d in a.dependencies}.values(), key=lambda d: d.id))
+            ),
+            "states": [
+                [
+                    id,
+                    "ineligible" if isinstance(verdict, Ineligible) else "eligible",
+                    verdict.reason if isinstance(verdict, Ineligible) else "",
+                    list(verdict.concerns) if isinstance(verdict, Ineligible) else [],
+                ]
+                for id, verdict in sorted(dependencies.closure.verdicts.items())
+            ],
+            "reads": list(dependencies.closure.reads),
+            "assessments": [
+                [ref, a.identity(), a.facet_digest()] for ref, a in sorted(dependencies.assessments.items())
+            ],
+            "runs": [
+                [ref, r.spec, [[i.role, dataset_address(i.dataset) or ""] for i in r.inputs]]
+                for ref, r in sorted(dependencies.runs.items())
+            ],
+        },
         "assessment_facets": [list(pair) for pair in assessment_facets],
         "propositions": list(propositions),
         "verifications": [list(row) for row in verification_rows],

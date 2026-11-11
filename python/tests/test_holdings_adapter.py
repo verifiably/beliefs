@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fixtures_cut3 import typed_target
+from fixtures_cut3 import dependency_evidence, typed_target
 
 from beliefs.admission import AdmissionRefused, admit
 from beliefs.dataset import (
@@ -94,7 +94,13 @@ def test_adapter_absence_is_refused_by_the_admission_gate():
     address = dataset_address(declared)
     assert isinstance(answer, DatasetAnswer) and address is not None
 
-    result = admit(assessment, run, {address: answer.observations}, (verification,))
+    result = admit(
+        assessment,
+        run,
+        {address: answer.observations},
+        (verification,),
+        dependencies=dependency_evidence((assessment,)),
+    )
 
     assert isinstance(result, AdmissionRefused)
     assert result.reason.startswith("input-not-held")

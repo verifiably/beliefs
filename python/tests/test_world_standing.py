@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 from authority import ACTOR, FULL
 from domain_facet_fixtures import over_kwargs, profile_with
+from fixtures_cut3 import only_assessed_key
 from fixtures_cut4 import raw_write
 from test_local_standing import retracts
 from test_local_standing import retracts as counter_of
@@ -62,6 +63,8 @@ def evaluation(world, published, profile):
     inputs = gather(
         view,
         "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=profile),
+        observations={},
         context=kwargs["context"],
         profile=profile,
         resolution=kwargs["resolution"],
@@ -98,6 +101,8 @@ class TestTheEpochsEnumerationReachesBelief:
             gather(
                 view,
                 "proposition:p",
+                key=only_assessed_key(view, "proposition:p", profile=profile),
+                observations={},
                 context=context,
                 profile=profile,
                 resolution=kwargs["resolution"],
@@ -148,6 +153,12 @@ class TestCoverage:
         move(alpha, beta, "proposition:p", **MOVE_FIELDS)
         first = publish(world, (ALPHA, BETA), hold_shipped(world))
         _view, before, _answer = evaluation(world, first, profile)
+        from beliefs import stored as records
+
+        value = records.assessment_value(target, profile=profile)
+        for reference in (records.typed_ref("analysis-spec", value.spec), *(d.id for d in value.dependencies)):
+            if not beta.read_view.holds(reference):
+                move(alpha, beta, reference, **MOVE_FIELDS)
         move(alpha, beta, target.id, **MOVE_FIELDS)
         second = publish(world, (ALPHA, BETA), hold_shipped(world))
         _view, after, _answer = evaluation(world, second, profile)
@@ -302,6 +313,8 @@ def test_v2_fold_world(tmp_path):
     inputs = gather(
         view,
         "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=profile),
+        observations={},
         context=replace(kwargs["context"], snapshot=lineage_snapshot(view, (target.id,))),
         profile=profile,
         resolution=kwargs["resolution"],
@@ -366,6 +379,10 @@ def test_a_retraction_target_in_an_absent_corpus_answers_absence(tmp_path):
     move(alpha, beta, dataset_ref("d-a"), **MOVE_FIELDS)
     move(alpha, beta, "run:run-a", **MOVE_FIELDS)
     move(alpha, beta, "proposition:p", **MOVE_FIELDS)
+    value = stored.assessment_value(target, profile=profile)
+    for reference in (stored.typed_ref("analysis-spec", value.spec), *(d.id for d in value.dependencies)):
+        if not beta.read_view.holds(reference):
+            move(alpha, beta, reference, **MOVE_FIELDS)
     move(alpha, beta, target.id, **MOVE_FIELDS)
     published = publish(world, (ALPHA, BETA), hold_shipped(world))
     make_absent(roots, BETA)
@@ -464,7 +481,17 @@ def test_a_found_retraction_in_a_damaged_carrier_refuses_as_corpus_damaged(tmp_p
     # retraction the query would otherwise find — so this refuses as `CorpusDamaged`
     # directly rather than as a `RetractionUnreadable` wrapping one.
     with pytest.raises(CorpusDamaged) as refused:
-        gather(view, "proposition:p", **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})
+        gather(
+            view,
+            "proposition:p",
+            key=only_assessed_key(
+                view,
+                "proposition:p",
+                profile=({k: kwargs[k] for k in ("context", "profile", "resolution", "binding")})["profile"],
+            ),
+            observations={},
+            **{k: kwargs[k] for k in ("context", "profile", "resolution", "binding")},
+        )
     assert refused.value.ref == f"producer-snapshot:{view.producer_snapshot_identity()}"
     assert refused.value.corpus_id == BETA
 
@@ -507,6 +534,8 @@ class TestTheSnapshotTarget:
         inputs = gather(
             view,
             "proposition:p",
+            key=only_assessed_key(view, "proposition:p", profile=profile),
+            observations={},
             context=kwargs["context"],
             profile=profile,
             resolution=kwargs["resolution"],
@@ -550,6 +579,8 @@ class TestTheSnapshotTarget:
             gather(
                 view,
                 "proposition:p",
+                key=only_assessed_key(view, "proposition:p", profile=profile),
+                observations={},
                 context=kwargs["context"],
                 profile=profile,
                 resolution=kwargs["resolution"],

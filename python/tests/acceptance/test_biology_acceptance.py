@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from authority import FULL
 from domain_facet_fixtures import BIOLOGY_CLAIM, PROPOSITION_REF, kwargs_for, over_kwargs, profile_with, seed
+from fixtures_cut3 import only_assessed_key
 from profiles import pins_for
 from test_session_acceptance import adopted
 
@@ -33,7 +34,13 @@ def test_the_facet_read_is_consulted_over_bytes_the_engine_committed(work_direct
     assert isinstance(result, Belief)
     reopened = open_corpus(root, authority=FULL, profile=profile).read_view
     gathered_kwargs = {k: v for k, v in kwargs_for(reopened, profile).items() if k != "availability"}
-    inputs = gather(reopened, PROPOSITION_REF, **over_kwargs(gathered_kwargs))
+    inputs = gather(
+        reopened,
+        PROPOSITION_REF,
+        key=only_assessed_key(reopened, PROPOSITION_REF, profile=(over_kwargs(gathered_kwargs))["profile"]),
+        observations={},
+        **over_kwargs(gathered_kwargs),
+    )
     assert inputs.claim is not None and inputs.claim.operator == "biology/affects"
     assert [row.key for row in inputs.observed_facets] == ["biology/gene-axis"]
     assert "biology" in dict(inputs.consulted)

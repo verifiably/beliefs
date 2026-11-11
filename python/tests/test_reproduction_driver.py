@@ -840,3 +840,101 @@ def test_a_missing_prior_archive_raises(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "PRIOR", tmp_path / "absent.cut22")
     with pytest.raises(RuntimeError, match="MM30_CUT22_ARCHIVE"):
         rederive.prior_state()
+
+
+@pytest.mark.parametrize("multiple", [False, True])
+def test_step8_evaluates_after_mint_and_reopen_before_diagnostics(tmp_path, monkeypatch, multiple):
+    from dataclasses import replace
+
+    from fixtures_cut3 import TESTING_PROFILE, typed_estimand
+    from fixtures_cut4 import raw_write
+    from reproduction import belief as driver
+    from test_stored import _testing_writer
+    from verification_fixtures import evaluation_kwargs, publish_corpus
+
+    from beliefs import stored
+    from beliefs.identity import v1
+    from beliefs.replay import CONTENT_EQUALITY
+    from beliefs.runrecord import run_ref
+    from beliefs.target import target_projection
+
+    writer = _testing_writer(tmp_path / "corpus")
+    published = publish_corpus(writer)
+    if multiple:
+        node = published.assessment.model_copy(deep=True)
+        import uuid
+
+        node.uid = uuid.uuid4().hex
+        node.id = "assessment:second-key"
+        node.relations = [r.model_copy(update={"source": node.id}) for r in node.relations]
+        value = stored.assessment_value(node, profile=TESTING_PROFILE)
+        target = replace(value.target, estimand=typed_estimand(uncertainty="standard-error"))
+        node.facets[stored.ASSESSMENT_FACET]["typed"] = v1.encode(target_projection(target)).decode()
+        # Give the second key its own identity and verification target.
+        node.facets[stored.ASSESSMENT_FACET]["spec"] = "other-spec"
+        raw_write(writer.root, stored.stamp_semantic_identity(node))
+        from authority import FULL
+        from nodes.core.write_plan import DefaultExecutor
+
+        from beliefs.corpus import CorpusWriter
+
+        writer = CorpusWriter(writer.root, DefaultExecutor, authority=FULL, profile=TESTING_PROFILE)
+    st = {
+        "proposition_ref": published.proposition.id,
+        "assessment_ref": published.assessment.id,
+        "original_run_ref": run_ref(published.original.address()),
+        "replayed_run_ref": run_ref(published.replayed.address()),
+        "assessment_identity_derived": published.derived.assessment,
+        "assessment_identity_stored": published.derived_value.identity(),
+    }
+    saved, findings_seen, events = {}, [], []
+
+    def opened():
+        events.append("open")
+        return writer
+
+    monkeypatch.setattr(driver.world, "open_writer", opened)
+    monkeypatch.setattr(driver.state, "load", lambda: st)
+    monkeypatch.setattr(driver.state, "save", lambda **values: saved.update(values))
+    monkeypatch.setattr(driver.spec, "frozen", lambda: published.frozen)
+    monkeypatch.setattr(driver.spec, "EQUIVALENCE", CONTENT_EQUALITY)
+    monkeypatch.setattr(driver.vocabulary, "profile", lambda: TESTING_PROFILE)
+    kwargs = evaluation_kwargs(writer.read_view)
+    monkeypatch.setattr(driver.vocabulary, "snapshot", lambda: kwargs["resolution"])
+    monkeypatch.setattr(driver, "availability", lambda view: kwargs["availability"])
+    monkeypatch.setattr(driver, "context", lambda view: evaluation_kwargs(view)["context"])
+    monkeypatch.setattr(driver, "observations_from_corpus", lambda view: kwargs["availability"].observations)
+    monkeypatch.setattr(driver.findings, "record", lambda *a, **kw: findings_seen.append(a))
+    actual_evaluate = driver.evaluate_here
+
+    def evaluate_after_mint(view):
+        assert events.count("open") >= 2
+        assert any(n.kind == "verification" for n in view.iter_stored())
+        events.append("evaluate")
+        return actual_evaluate(view)
+
+    monkeypatch.setattr(driver, "evaluate_here", evaluate_after_mint)
+    actual_gather = driver.gather
+
+    def diagnostic(*args, **kwargs):
+        assert "evaluate" in events
+        events.append("gather")
+        return actual_gather(*args, **kwargs)
+
+    monkeypatch.setattr(driver, "gather", diagnostic)
+    monkeypatch.setattr(driver, "pins_negative", lambda view, key: events.append(("pins", key)))
+    code = driver.main()
+    assert events.index("evaluate") > events.index("open")
+    if multiple:
+        assert code == 2
+        assert saved["belief_answer"] == {"kind": "Refused", "reason": "multiple-assessed-propositions: use claim_view"}
+        assert saved["admission"] == "not-evaluated: multiple-assessed-propositions"
+        assert any(
+            row[0:2] == (8, "design-gap") and "multiple-assessed-propositions" in row[2] for row in findings_seen
+        )
+        assert "gather" not in events
+    else:
+        assert code == 0 and saved["admission"] == "Admitted"
+        assert saved["belief_answer"]["kind"] == "Belief" and saved["belief_answer"]["value"] == 1
+        assert events.index("evaluate") < events.index("gather")
+        assert ("pins", published.derived_value.key()) in events

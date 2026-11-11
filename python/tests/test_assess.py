@@ -16,6 +16,7 @@ from fixtures_cut3 import (
     READS_ADDRESS,
     closure,
     closure_kwargs,
+    dependency_evidence,
     freeze_context,
     interp,
     recipe,
@@ -453,6 +454,7 @@ def test_zero_observes_inputs_admit_nothing_at_any_quantity_of_reads():
         bridged,
         observations_for(bridged),
         admitting_for(bridged),
+        dependencies=dependency_evidence((assessment_over(bridged),)),
     )
     assert isinstance(verdict, AdmissionRefused)
     assert verdict.reason.startswith("no-observes-input")

@@ -262,8 +262,9 @@ describe("the base contract's declarations", () => {
   });
   it("refuses a base contract without the estimand grammar", () => {
     const document = parse(SHIPPED);
-    delete document.estimand_grammar;
+    document.estimand_grammar = undefined;
     const missing = stringify(document);
+    expect(parse(missing)).not.toHaveProperty("estimand_grammar");
     expect(() => parseBaseContract(missing, "<missing>")).toThrow(/estimand_grammar/);
   });
 });
@@ -505,7 +506,7 @@ describe("compileProfile resolves the v2 declarations", () => {
     expect(claimDimensions(compiled, "testing/correlates-with")).toEqual(["testing/population"]);
     expect(claimDimensions(compiled, "testing/promotes")).toEqual(["testing/population"]);
     expect(claimDimensions(compiled, "testing/measured-by")).toEqual([]);
-    expect(compiled.dimensions["testing/follow-up"].appliesTo).toEqual(["testing/affects"]);
+    expect(compiled.dimensions["testing/follow-up"].appliesTo).toEqual(["testing/affects", "testing/correlates-with"]);
     expect(() => claimDimensions(compiled, "testing/nowhere")).toThrow(/no operator/);
   });
 

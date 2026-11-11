@@ -7,6 +7,7 @@ import pytest
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import over_kwargs
+from fixtures_cut3 import only_assessed_key
 from fixtures_cut4 import raw_write
 from nodes.core.relations import Relation
 from test_local_standing import retracts
@@ -50,6 +51,12 @@ def inputs(case, acceptance):
     return gather(
         view,
         "proposition:p",
+        key=only_assessed_key(
+            view,
+            "proposition:p",
+            profile=({key: kwargs[key] for key in ("context", "profile", "resolution", "binding")})["profile"],
+        ),
+        observations={},
         **{key: kwargs[key] for key in ("context", "profile", "resolution", "binding")},
         acceptance=acceptance,
     )
@@ -163,8 +170,22 @@ def test_node_and_route_corrections(case):
     kwargs = world_kwargs(view, profile, a, b)
     kwargs["context"] = replace(kwargs["context"], snapshot=lineage_snapshot(view, (dataset.id,)))
     args = {key: kwargs[key] for key in ("context", "profile", "resolution", "binding")}
-    kept = gather(view, "proposition:p", **args, acceptance=policy(route.id))
-    retired = gather(view, "proposition:p", **args, acceptance=policy())
+    kept = gather(
+        view,
+        "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=(args)["profile"]),
+        observations={},
+        **args,
+        acceptance=policy(route.id),
+    )
+    retired = gather(
+        view,
+        "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=(args)["profile"]),
+        observations={},
+        **args,
+        acceptance=policy(),
+    )
     assert len(effective_routes(kept.snapshot, dataset.id)) == 1
     assert effective_routes(retired.snapshot, dataset.id) == ()
 

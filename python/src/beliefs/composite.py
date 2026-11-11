@@ -8,8 +8,6 @@ is the one classification the constructor, the write boundary and the audit
 share, so the three cannot disagree about what a member contributes.
 """
 
-# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
-
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping, Sequence

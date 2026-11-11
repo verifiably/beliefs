@@ -39,7 +39,7 @@ import pytest
 import yaml
 from authority import FULL
 from domain_facet_fixtures import over_kwargs
-from fixtures_cut3 import carry_registers, typed_applicability, typed_target
+from fixtures_cut3 import carry_registers, typed_applicability
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.relations import Relation
 from profiles import FIXTURE, WITH_BIOLOGY, biology, pins_for
@@ -50,7 +50,7 @@ from test_evaluation import EMPIRICAL, _address, _resources
 from beliefs import audit as audit_module
 from beliefs import stored
 from beliefs.audit import NO_EVIDENCE, audit_corpus, check_composite, check_supersedes_kinds
-from beliefs.belief import Belief, NoBelief, NotReached
+from beliefs.belief import Belief, NoBelief, NotReached, Refused
 from beliefs.claim import Member, Referent, build_claim
 from beliefs.composite import CompositeError, CompositeNode, build_composite, read_composite
 from beliefs.contract import parse_base_contract, parse_domain_contract
@@ -149,7 +149,7 @@ def _widened_profile():
 
 def _estimand_with(claim, identification: str):
     from domain_facet_fixtures import estimand_for
-    from fixtures_cut3 import MEASUREMENT_RECORDS, typed_applicability
+    from fixtures_cut3 import MEASUREMENT_RECORDS
 
     e = estimand_for(project_claim(claim))
     value, _ = build_estimand(
@@ -179,17 +179,26 @@ def _seed_assessment(writer, proposition_ref: str, *, slug: str, letter: str, ou
         writer.add(
             stored.dataset_node(title=f"d-{letter}", resources=_resources(letter), empirical_observation=EMPIRICAL)
         )
-    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
+    from fixtures_cut3 import mint_fixture_spec
+
+    from beliefs.decode import claim_from_stored
+    from beliefs.spec import SpecInput
+
+    claim, _ = claim_from_stored(writer.read_view.get(proposition_ref), profile=writer.profile, snapshot=UNCONSULTED)
+    spec = mint_fixture_spec(
+        writer, proposition_ref, (SpecInput("observes", address, "observation"),), claim=claim, estimand=estimand
+    )
+    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=spec.identity, observes=[address]))
     assessment = writer.add(
         stored.assessment_node(
             slug,
             title=slug,
-            spec=f"spec-{slug}",
+            spec=spec.identity,
             run=run.id,
             proposition=proposition_ref,
             outcome=outcome,
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=estimand, applicability=typed_applicability()),
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
         )
     )
     value = stored.assessment_value(writer.read_view.get(assessment.id), profile=writer.profile)
@@ -207,33 +216,48 @@ def _seed_assessment(writer, proposition_ref: str, *, slug: str, letter: str, ou
 
 
 def _typed_assessment(writer, slug: str, target: str):
-    """Otherwise valid evidence: an attested, held-shaped dataset, an observing
-    run, and an assessment typed under the fixture profile. Only the `assesses`
-    target is in question — the eligibility predicate admits it."""
+    """Hold real declarations for the valid fixture claim, then give the
+    assessment an invalid assesses target to exercise the target-kind guard."""
     address = _address("a")
     if not writer.read_view.holds(address):
         writer.add(stored.dataset_node(title="d-a", resources=_resources("a"), empirical_observation=EMPIRICAL))
-    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=f"spec-{slug}", observes=[address]))
+    from fixtures_cut3 import mint_fixture_spec
+
+    from beliefs.spec import SpecInput
+
+    claim = _claim("EX:a", "EX:b")
+    spec = mint_fixture_spec(
+        writer,
+        "proposition:ab",
+        (SpecInput("observes", address, "observation"),),
+        claim=claim,
+        estimand=_estimand(claim),
+    )
+    run = writer.add(stored.run_node(f"run-{slug}", title=slug, spec=spec.identity, observes=[address]))
     return stored.assessment_node(
         slug,
         title=slug,
-        spec=f"spec-{slug}",
+        spec=spec.identity,
         run=run.id,
         proposition=target,
         outcome="supported",
-        interpretation_rule="rule-1",
-        target=typed_target(estimand=_estimand(_claim("EX:a", "EX:b")), applicability=typed_applicability()),
+        interpretation_rule=spec.interpretation_rule,
+        target=spec.assessed_target,
     )
 
 
 def _vitest(module: str) -> None:
-    completed = subprocess.run(
-        ["npx", "vitest", "run", module],
-        cwd=TS_ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    from tempfile import TemporaryDirectory
+
+    with TemporaryDirectory(prefix="beliefs-vitest-") as home:
+        completed = subprocess.run(
+            ["npx", "--no-install", "vitest", "run", module],
+            cwd=TS_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+            env={"PATH": os.environ["PATH"], "HOME": home},
+        )
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
 
@@ -965,7 +989,9 @@ def test_reading_equals_the_wrapper(corpora):
     assert absent_row.belief == evaluate_over(writer.read_view, "proposition:ab", **over_kwargs(absent_arguments))
     assert isinstance(absent_row.belief, NoBelief) and absent_row.belief.reason == "unavailable-corpus-absent"
 
-    # --- the admitted set is not the digest's keyed set ---------------------
+    _assert_one_admission(writer, minted.id, address)
+
+    # Different identification targets are distinct keys, including an unheld one.
     _seed_assessment(
         writer,
         "proposition:ab",
@@ -979,7 +1005,11 @@ def test_reading_equals_the_wrapper(corpora):
     assert only_a_row.belief == evaluate_over(
         writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address))
     )
-    assert only_a_row.identification == ("biology/randomized",)  # the `b`-held assessment is keyed, not admitted
+    assert (
+        isinstance(only_a_row.belief, Refused)
+        and only_a_row.belief.reason == "multiple-assessed-propositions: use claim_view"
+    )
+    assert only_a_row.identification == NotReached()
 
     # --- two admitted `inconclusive` assessments keep their terms -----------
     inconclusive = _seeded(corpora())
@@ -1001,11 +1031,8 @@ def test_reading_equals_the_wrapper(corpora):
     )
     two_way = inconclusive.add(stored.composite_node(_build(inconclusive, ["proposition:bc"]), title="i"))
     row = read_composite(inconclusive.read_view, two_way.id, **_inputs(inconclusive, address_i)).rows[0]
-    assert row.belief == NoBelief("no-directional-outcome")
-    assert row.identification == ("biology/experimental", "biology/randomized")
-
-    # --- one admission per member, and no `admit` of the reading's own ------
-    _assert_one_admission(writer, minted.id, address)
+    assert isinstance(row.belief, Refused) and row.belief.reason == "multiple-assessed-propositions: use claim_view"
+    assert row.identification == NotReached()
 
     # --- a memberless composite, and an unresolvable member ----------------
     memberless, _ = build_composite(
@@ -1057,7 +1084,7 @@ def _assert_one_admission(writer, ref: str, address: str) -> None:
         belief_module.admitted, belief_module.admit = original_admitted, original_admit
         admission_module.admit = original_admit
     assert admitted_calls == [1, 1], admitted_calls  # one per member, from the evaluator
-    assert admit_calls == [1, 1], admit_calls  # `ab`'s two distinct assessments; `bc` has none
+    assert admit_calls == [1], admit_calls  # `ab` has one assessment at this check; `bc` has none
 
 
 def test_composite_supersession_family_and_refusal_paths(corpora, base_contract):

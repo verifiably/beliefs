@@ -15,21 +15,18 @@ from __future__ import annotations
 
 import pytest
 from authority import ACTOR
-from durable_fixture import PROPOSITION, RULE, SPEC
+from durable_fixture import PROPOSITION
 from fixtures_cut3 import (
     D_OUT,
     TESTING_PROFILE,
+    dependency_evidence,
     freeze_context,
     recipe,
     spec_draft,
     spec_rules,
-    typed_applicability,
-    typed_estimand,
-    typed_target,
 )
 from fixtures_cut3 import closure as run_closure
 from fixtures_cut4 import raw_write, reopen
-from profiles import BASE
 
 from beliefs import stored
 from beliefs.admission import admit
@@ -45,6 +42,17 @@ OBSERVED_DIGEST = "sha256:" + "1a" * 32
 ASSESSMENT = "assessment:a1"
 RUN = "run:r1"
 RAW = stored.dataset_node(title="raw", resources=[{"name": "matrix", "digest": OBSERVED_DIGEST}]).id
+
+
+from fixtures_cut3 import MEASUREMENT_RECORDS, TESTING_CLAIM, carry_registers, frozen_fixture_spec
+from profiles import pins_for
+
+from beliefs.projection import project_claim
+from beliefs.spec import SpecInput
+
+FROZEN = frozen_fixture_spec(PROPOSITION, (SpecInput("observes", RAW, "observation"),))
+SPEC = FROZEN.identity
+RULE = FROZEN.interpretation_rule
 
 
 # --- the pieces both rows read the store through ------------------------------
@@ -78,6 +86,8 @@ def belief_digest(view, proposition: str = PROPOSITION) -> str:
         if view.holds(stored.typed_ref("run", value.run))
     }
     return build_closure(
+        key=(assessments)[0].key() if (assessments) else "",
+        dependencies=dependency_evidence(assessments),
         proposition=proposition,
         assessments=assessments,
         runs=runs,
@@ -109,15 +119,21 @@ def mint_assessment(writer, *, outcome: str, slug_name: str = "a1"):
             proposition=PROPOSITION,
             outcome=outcome,
             interpretation_rule=RULE,
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            target=FROZEN.assessed_target,
         )
     )
 
 
 def mint_run_and_proposition(writer):
+    writer.adopt_manifest(profile=pins_for(TESTING_PROFILE))
+    carry_registers(writer)
+    writer.add(stored.proposition_node("p1", title="p1", claim=project_claim(TESTING_CLAIM)))
+    for dependency in FROZEN.assessed_target.dependencies:
+        if not writer.read_view.holds(dependency.id):
+            writer.add(MEASUREMENT_RECORDS.read(dependency.id))
+    writer.add(stored.analysis_spec_node(FROZEN))
     writer.add(observed_dataset())
     writer.add(stored.run_node("r1", title="r1", spec=SPEC, observes=[RAW]))
-    writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
 
 
 def passed_verification_under_a_tolerance():
@@ -179,7 +195,9 @@ class TestTheGenuineAvailabilityTransition:
         address = dataset_address(stored.dataset_declaration(view.get(RAW)))
         assert address is not None  # the fixture pins the dataset, so it has one
         observations = {address: (ByteObservation(digest=OBSERVED_DIGEST, location=location),)}
-        return admit(assessment, run, observations, verifications_of(view))
+        return admit(
+            assessment, run, observations, verifications_of(view), dependencies=dependency_evidence((assessment,))
+        )
 
     def test_the_verification_is_passed_under_the_declared_tolerance(self, stored_verification):
         assert stored_verification.verdict == "passed"
@@ -207,7 +225,7 @@ class TestTheGenuineAvailabilityTransition:
         # so there is nothing for unavailability to turn into a verdict.
         view = reopen(durable_root)
         assert stored.verification_value(view.get("verification:v1")).verdict == "passed"
-        assert corpus_check(view, BASE) == ()
+        assert corpus_check(view, TESTING_PROFILE) == ()
 
 
 class TestR19deTheReadSideNegatives:
@@ -246,14 +264,14 @@ class TestR19deTheReadSideNegatives:
                 verdict="passed",
             ),
         )
-        assert corpus_check(reopen(durable_root), BASE) == ()
+        assert corpus_check(reopen(durable_root), TESTING_PROFILE) == ()
 
     def test_a_self_consistent_raw_written_run_is_not_detected(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
         raw_write(durable_root, stored.run_node("smuggled", title="smuggled", spec=SPEC, observes=[RAW]))
         view = reopen(durable_root)
         assert view.holds("run:smuggled")
-        assert corpus_check(view, BASE) == ()
+        assert corpus_check(view, TESTING_PROFILE) == ()
 
     def test_an_unaudited_verification_is_indistinguishable_from_a_genuine_one(self, durable_writer, durable_root):
         mint_run_and_proposition(durable_writer)
@@ -287,7 +305,7 @@ class TestR19deTheReadSideNegatives:
         forged_fields = view.get(forged.id).facets
         assert genuine_fields[stored.VERIFICATION_FACET] == forged_fields[stored.VERIFICATION_FACET]
         assert genuine_fields[stored.SEMANTIC_IDENTITY_FACET] == forged_fields[stored.SEMANTIC_IDENTITY_FACET]
-        assert corpus_check(view, BASE) == ()
+        assert corpus_check(view, TESTING_PROFILE) == ()
 
 
 class TestTheForgeryAtTheCorrectAddress:
@@ -310,7 +328,7 @@ class TestTheForgeryAtTheCorrectAddress:
             proposition=PROPOSITION,
             outcome="supported",  # what the forger wants it to say
             interpretation_rule=RULE,
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            target=FROZEN.assessed_target,
         )
         raw_write(durable_root, forgery)  # the basis is (spec, run, proposition): the same address
         return correct
@@ -323,7 +341,7 @@ class TestTheForgeryAtTheCorrectAddress:
         assert stored.assessment_value(view.get(ASSESSMENT), profile=TESTING_PROFILE).outcome == "supported"
 
     def test_the_corpus_check_reports_nothing(self, forged, durable_root):
-        assert corpus_check(reopen(durable_root), BASE) == ()
+        assert corpus_check(reopen(durable_root), TESTING_PROFILE) == ()
 
     def test_a_digest_over_assessment_identities_alone_would_have_missed_it(self, forged, durable_root):
         # The identity is `(spec, run, proposition)` and the forgery changes
@@ -341,7 +359,7 @@ class TestTheForgeryAtTheCorrectAddress:
                     proposition=PROPOSITION,
                     outcome="refuted",
                     interpretation_rule=RULE,
-                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+                    target=FROZEN.assessed_target,
                 ),
                 profile=TESTING_PROFILE,
             ).identity()
@@ -357,7 +375,7 @@ class TestTheForgeryAtTheCorrectAddress:
                     proposition=PROPOSITION,
                     outcome="refuted",
                     interpretation_rule=RULE,
-                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+                    target=FROZEN.assessed_target,
                 ),
                 profile=TESTING_PROFILE,
             ).facet_digest()

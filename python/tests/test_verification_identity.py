@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 from test_evaluation import CLAIM_FACET
-from test_relocation import _writer
+from test_stored import _testing_writer
 from verification_fixtures import publish_corpus
 
 from beliefs import stored
@@ -26,7 +26,7 @@ from beliefs.verify import admission_record
 
 @pytest.fixture()
 def writer(tmp_path):
-    return _writer(tmp_path / "corpus")
+    return _testing_writer(tmp_path / "corpus")
 
 
 def test_one_identity_admits_over_the_corpus_and_audits_clean(writer):

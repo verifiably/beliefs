@@ -49,7 +49,15 @@ from atoms.coordinator.commands import inspect_chain_detached
 from atoms.fs.linux import LinuxBackend
 from authority import FULL
 from domain_facet_fixtures import over_kwargs
-from fixtures_cut3 import TESTING_PROFILE, carry_registers, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import (
+    TESTING_PROFILE,
+    carry_registers,
+    dependency_evidence,
+    only_assessed_key,
+    typed_applicability,
+    typed_estimand,
+    typed_target,
+)
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
@@ -498,6 +506,8 @@ def test_the_managed_holdings_delete_ends_heldness_and_changes_admission(certifi
 
     def answer_for(held: DatasetAnswer):
         return evaluate(
+            key=(records).assessments[0].key(),
+            dependencies=dependency_evidence((records).assessments),
             proposition=PROPOSITION,
             records=records,
             availability=Availability(
@@ -531,7 +541,11 @@ def test_the_managed_holdings_delete_ends_heldness_and_changes_admission(certifi
     assert isinstance(state, Declared)
     assert [finding.outcome for finding in state.findings] == ["no-matching-observation-in-coverage"]
     eligibility = admit(
-        records.assessments[0], records.runs["run-a"], {address: after.observations}, records.verifications
+        records.assessments[0],
+        records.runs["run-a"],
+        {address: after.observations},
+        records.verifications,
+        dependencies=dependency_evidence((records.assessments[0],)),
     )
     assert isinstance(eligibility, AdmissionRefused) and eligibility.reason.startswith("input-not-held")
     assert answer_for(after) == NoBelief("unavailable-input-unheld"), "admission changed; belief is not recomputed"
@@ -1016,14 +1030,27 @@ def test_containment_over_a_durable_corpus(durable_writer):
     read that never crosses `gather` is still invisible here."""
     fixture = _fixture(_adopted(durable_writer), PROPOSITION_REF)
 
-    honest = gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
+    honest = gather(
+        fixture.view,
+        fixture.proposition,
+        key=only_assessed_key(
+            fixture.view, fixture.proposition, profile=(over_kwargs(fixture.gather_kwargs))["profile"]
+        ),
+        observations={},
+        **over_kwargs(fixture.gather_kwargs),
+    )
     assert set(honest.read_trace) <= honest.declared_refs()
-    assert {kind for kind, _ in honest.read_trace} == set(evaluation.READ_KINDS) - {
-        "retraction",
-        "contract",
-        "producer-snapshot",
-    }, "every corpus-read kind is exercised"
+    assert {kind for kind, _ in honest.read_trace} == {
+        "assessment",
+        "proposition",
+        "run",
+        "verification",
+        "dataset",
+        "procedure",
+    }
     answer = evaluate(
+        key=honest.key,
+        dependencies=honest.dependencies,
         proposition=fixture.proposition,
         records=honest.records(),
         availability=fixture.availability,
@@ -1041,7 +1068,15 @@ def test_containment_over_a_durable_corpus(durable_writer):
         patch.setattr(
             fixture.view, "resolve", lambda ref: "assessment:a-1" if ref == "assessment:a-3" else resolve(ref)
         )
-        leaky = gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
+        leaky = gather(
+            fixture.view,
+            fixture.proposition,
+            key=only_assessed_key(
+                fixture.view, fixture.proposition, profile=(over_kwargs(fixture.gather_kwargs))["profile"]
+            ),
+            observations={},
+            **over_kwargs(fixture.gather_kwargs),
+        )
 
     assert {v.ref for v in leaky.verifications} > {v.ref for v in honest.verifications}
     assert leaky.closure().digest() == honest.closure().digest()

@@ -16,6 +16,7 @@ from authority import ACTOR
 from dataset_fixtures import dataset_ref
 from domain_facet_fixtures import kwargs_for, profile_with, seed_nodes
 from domain_facet_fixtures import testing_contract as _testing_contract
+from fixtures_cut3 import only_assessed_key
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.node import new_uid
 from profiles import biology
@@ -153,6 +154,8 @@ def _gather(view, acceptance=None):
     return gather(
         view,
         "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=PROFILE),
+        observations={},
         context=context,
         profile=PROFILE,
         resolution=kwargs["resolution"],

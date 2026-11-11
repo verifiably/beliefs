@@ -14,7 +14,7 @@ from authority import ACTOR, FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import CLAIM_FACET, profile_with
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import MEASUREMENT_RECORDS, freeze_context, frozen_fixture_spec
+from fixtures_cut3 import MEASUREMENT_RECORDS, freeze_context, frozen_fixture_spec, only_assessed_key
 from fixtures_cut3 import report as acquisition_report
 from nodes.core.errors import RefError
 from nodes.core.write_plan import DefaultExecutor
@@ -471,7 +471,7 @@ def test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses(roots):
         "binding": PolicyBinding(rule=BELIEF_V1_RULE, implementation=BELIEF_V1.identity),
     }
     with pytest.raises(InputOutsideCorpus) as refused:
-        gather(view, p.id, **read)
+        gather(view, p.id, key=only_assessed_key(view, p.id, profile=(read)["profile"]), observations={}, **read)
     assert refused.value.run == run.id and refused.value.inputs == (run.id,)
     availability = Availability(
         observations={}, implementations={BELIEF_V1.identity: BELIEF_V1}, fixtures={BELIEF_V1_RULE: BELIEF_V1_FIXTURES}

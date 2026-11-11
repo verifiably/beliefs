@@ -8,9 +8,9 @@ pool by contract, and a resolver that read the pool would record reads the
 digest legitimately omits. `declared_refs` mirrors `build_closure`'s
 filtering member for member, and containment is `read_trace ⊆ declared_refs`.
 
-`read_trace` records values **handed out**, not lookups attempted: a key that
-resolves to nothing yields no value and traces nothing, which is why a
-proposition carrying no claim record needs no declaration for the attempt.
+`read_trace` records selected values handed out and attempted dependency reads,
+including missing frozen references. A missing optional claim yields no value;
+its lookup is distinct from a required dependency attempt.
 
 **The bound is real and stays stated:** the containment check is bounded by this resolver.
 A read that never crosses it — a module-level constant, an environment
@@ -33,6 +33,7 @@ the untraced hand-out, and the digest that does not move with it.
 
 from __future__ import annotations
 
+import itertools
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from types import MappingProxyType
@@ -54,18 +55,24 @@ from beliefs.belief import (
     Refused,
     SuppliedContext,
     evaluate_traced,
+    standing_roots,
 )
 from beliefs.claim import Claim
 from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, Closure, RetractionEnumeration, build_closure
+from beliefs.comparability import ComparabilitySnapshot
 from beliefs.consulted import consulted_contracts
 from beliefs.corpus import ReadView, _absence_of, retraction_standing, run_value
-from beliefs.dataset import dataset_address
+from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.decode import claim_from_stored
+from beliefs.dependencies import Record, dependency_closure, read_record
+from beliefs.eligibility import AssessmentEligibilityReader, ClosureEligibility, Ineligible, closure_eligibility
 from beliefs.errors import (
     CaptureDrift,
     ContractDisagreement,
     ContractMismatch,
     CorpusDamaged,
+    DependencyCycle,
+    DependencyNotHeld,
     FacetPayloadRefused,
     FacetUndeclared,
     InputOutsideCorpus,
@@ -76,20 +83,41 @@ from beliefs.errors import (
     RetractionUnreadable,
     ScienceError,
 )
+from beliefs.evidence import DependencyEvidence
 from beliefs.facet_read import FACET_READ_DOMAIN, FacetRead, read_observed_facets
 from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot, absences, retire
+from beliefs.measurement import Observable
 from beliefs.policy import PolicyBinding
 from beliefs.profile import ProfileSpec
+from beliefs.proxy_model import ProxyModel, proxy_from_stored
 from beliefs.record import AssessmentValue, RunValue
 from beliefs.resolution import ResolutionSnapshot
 from beliefs.sealed import sealed
+from beliefs.target_comparison import (
+    AssessedProposition,
+    ConversionVerdict,
+    SynthesisVerdict,
+    TargetUnknown,
+    convertibility,
+    synthesis,
+)
 from beliefs.verification import Verification
 
 if TYPE_CHECKING:
     from beliefs.world.view import WorldReadView
 
-__all__ = ["READ_KINDS", "EvaluationInputs", "ReadRef", "evaluate_over", "evaluate_over_traced", "gather"]
+__all__ = [
+    "READ_KINDS",
+    "ClaimView",
+    "EvaluationInputs",
+    "PairVerdict",
+    "ReadRef",
+    "claim_view",
+    "evaluate_over",
+    "evaluate_over_traced",
+    "gather",
+]
 
 ReadRef: TypeAlias = tuple[str, str]
 READ_KINDS = (
@@ -101,6 +129,11 @@ READ_KINDS = (
     "retraction",
     "contract",
     "producer-snapshot",
+    "procedure",
+    "referent-mapping",
+    "proxy-model",
+    "classification-rule",
+    "assumptions-register",
 )
 
 
@@ -111,6 +144,8 @@ class EvaluationInputs:
     """`build_closure`'s argument set, plus what was read to obtain it."""
 
     proposition: str
+    key: str
+    dependencies: DependencyEvidence
     assessments: tuple[AssessmentValue, ...]
     runs: Mapping[str, RunValue]
     verifications: tuple[Verification, ...]
@@ -132,6 +167,8 @@ class EvaluationInputs:
     def closure(self) -> Closure:
         return build_closure(
             proposition=self.proposition,
+            key=self.key,
+            dependencies=self.dependencies,
             assessments=self.assessments,
             runs=self.runs,
             verifications=self.verifications,
@@ -150,13 +187,20 @@ class EvaluationInputs:
         and **not** every verification — declaring those would admit a read
         of an unrelated run or verification that the digest omits, and the containment check
         would pass on exactly the code it exists to catch."""
-        ours = tuple(a for a in self.assessments if a.proposition == self.proposition)
-        ids = {a.identity() for a in ours}
+        ours = tuple(a for a in self.assessments if a.proposition == self.proposition and a.key() == self.key)
+        ids = {a.identity() for a in (*ours, *self.dependencies.assessments.values())}
         refs: set[ReadRef] = set()
         refs.update(("assessment", identity) for identity in ids)
         if ours:
             refs.update(("proposition", a.proposition) for a in ours)
-        refs.update(("run", a.run) for a in ours)
+        refs.update(("run", a.run) for a in (*ours, *self.dependencies.assessments.values()))
+        refs.update((ref.partition(":")[0], ref) for ref in self.dependencies.closure.reads)
+        refs.update(
+            ("dataset", address)
+            for run in self.dependencies.runs.values()
+            for entry in run.inputs
+            if entry.role == "observes" and (address := dataset_address(entry.dataset)) is not None
+        )
         # The predicate is spelled out here rather than calling
         # `_verification_selected`: the sabotage flips that one predicate, and
         # a declaration sharing it would widen with the read it must catch.
@@ -234,6 +278,8 @@ def _absent_inputs(
     `unavailable-corpus-absent`."""
     return EvaluationInputs(
         proposition=proposition,
+        key="",
+        dependencies=DependencyEvidence(ClosureEligibility({}, ()), {}, {}, {}),
         assessments=(),
         runs={},
         verifications=(),
@@ -334,61 +380,56 @@ def _check_filtered_world_standing(
             raise RetractionResolutionDisagreement(ref, receipt[ref], computed)
 
 
-def gather(
+class _RunRefused(MalformedRecord):
+    pass
+
+
+class _DiscoveryRefused(MalformedRecord):
+    pass
+
+
+@dataclass(frozen=True)
+class _Discovery:
+    view: ReadView | WorldReadView
+    assessments: tuple[AssessmentValue, ...]
+    enumeration: RetractionEnumeration
+    facets: Mapping[str, Mapping[str, object]]
+    subtracted: set[str]
+    retired: Mapping[str, set[str]]
+    history: tuple[tuple[str, str], ...]
+    absent: tuple[tuple[str, str], ...]
+    attribution: Mapping[str, set[str]]
+    proposition_refs: tuple[str, ...]
+    visited: set[str]
+    assessment_refs: Mapping[str, str]
+    verification_targets: set[str]
+    world: bool
+    local_corpus: str | None
+
+
+def _discover(
     view: ReadView | WorldReadView,
     proposition: str,
     *,
     context: SuppliedContext,
-    profile: ProfileSpec,
-    resolution: ResolutionSnapshot,
     binding: PolicyBinding,
-    acceptance: AcceptancePolicy | None = None,
-) -> EvaluationInputs:
-    """Gather once through the shared resolver with invocation-owned selection."""
-    return _gather(
-        view,
-        proposition,
-        context=context,
-        profile=profile,
-        resolution=resolution,
-        binding=binding,
-        selection=_AcceptanceSelection(acceptance),
-    )
-
-
-def _gather(
-    view: ReadView | WorldReadView,
-    proposition: str,
-    *,
-    context: SuppliedContext,
     profile: ProfileSpec,
-    resolution: ResolutionSnapshot,
-    binding: PolicyBinding,
     selection: _AcceptanceSelection,
-) -> EvaluationInputs:
-    """Resolve one proposition's belief inputs from a corpus, tracing each
-    value at the moment it is handed out.
-
-    Standing is decided here, before any assessment is read: the retraction enumeration is the view's — the
-    bound epoch's for a world read, the corpus's own fold for a corpus-local
-    read — never the caller's; every found retraction is dereferenced and the
-    fold recomputed over what it names; a node-arm target of a standing
-    retraction is skipped before it is decoded; a route-arm target retires
-    its route in the lineage snapshot. Dereferencing a retraction outside the
-    closure is a lookup; membership is decided by relation edges.
-    """
+) -> _Discovery:
     from beliefs.corpus import CorpusWriter, local_retraction_enumeration
     from beliefs.world.view import WorldReadView
 
-    world = isinstance(view, WorldReadView)
     if context.acceptance is not None:
         raise MalformedRecord("supplied-acceptance-context")
-    if world and context.node_corpus:
+    if isinstance(view, WorldReadView) and context.node_corpus:
         raise MalformedRecord(
             "node_corpus is derived from a world read and must be supplied empty; a caller may not relocate a record"
         )
     if context.snapshot.retired:
         raise MalformedRecord("a supplied lineage snapshot carries no retirement; a caller may not pre-retire a route")
+    if type(view) is ReadView:
+        view = view.captured()
+    world = isinstance(view, WorldReadView)
     counts = None if selection.policy is None else selection.counts
     local_corpus = view.corpus_id if counts is not None and not world else None
     absent: list[tuple[str, str]] = []
@@ -454,9 +495,22 @@ def _gather(
             raise RetractionUnreadable(ref, str(caught)) from caught
         facets[canonical] = facet
     if absent:
-        return replace(
-            _absent_inputs(proposition, context, enumeration, tuple(sorted(set(absent))), tuple(trace), binding, world),
-            acceptance=selection.report,
+        return _Discovery(
+            view,
+            (),
+            enumeration,
+            facets,
+            set(),
+            {},
+            history,
+            tuple(sorted(set(absent))),
+            {},
+            (),
+            set(),
+            {},
+            set(),
+            world,
+            local_corpus,
         )
     standing = retraction_standing(view, facets)
     if counts is not None and world:
@@ -482,6 +536,7 @@ def _gather(
             retired.setdefault(target["resolved"], set()).add(target["route_identity"])
         # a snapshot arm names no node and no route
 
+    assessment_refs: dict[str, str] = {}
     attribution: dict[str, set[str]] = {}
     matched: list[AssessmentValue] = []
     proposition_refs: list[str] = []
@@ -507,19 +562,119 @@ def _gather(
         visited.add(node.id)
         if node.id in subtracted:
             continue  # a standing retraction names it: a lookup, never decoded
-        value = stored.assessment_value(node, profile=profile)
+        try:
+            value = stored.assessment_value(node, profile=profile)
+        except MalformedRecord as exc:
+            raise _DiscoveryRefused(f"unclassifiable-assessment: {node.id}: {exc}") from exc
         if value.proposition != proposition:
             raise MalformedRecord(
                 f"{node.id}: the assesses edge names {proposition!r} but the facet names {value.proposition!r}"
             )
+        previous = next((a for a in matched if a.identity() == value.identity()), None)
+        if previous is not None and previous.facet_digest() != value.facet_digest():
+            raise _DiscoveryRefused(f"assessment-identity-contradicted: {value.identity()} has disagreeing records")
+        assessment_refs[node.id] = value.identity()
         matched.append(value)
         if world:
             accepting = holders if decisions is None else tuple(h for h, d in zip(holders, decisions) if d)
             attribution.setdefault(value.identity(), set()).update(cast(tuple[str, ...], accepting))
         trace.append(("assessment", value.identity()))
         proposition_refs.extend(targets)
-    ids = frozenset(a.identity() for a in matched)
+    # Every holder decision is invocation-wide, including sibling verifications.
+    if counts is not None:
+        for holders, node in view._mapped_holders() if world else (((local_corpus,), n) for n in view.iter_stored()):
+            if node.kind in {
+                "verification",
+                "procedure",
+                "referent-mapping",
+                "proxy-model",
+                "classification-rule",
+                "assumptions-register",
+            }:
+                for holder in holders:
+                    counts(cast(str, holder), node.id)
+    selection.finish()
+    return _Discovery(
+        view,
+        tuple(matched),
+        enumeration,
+        facets,
+        subtracted,
+        retired,
+        history,
+        (),
+        attribution,
+        tuple(proposition_refs),
+        visited,
+        assessment_refs,
+        verification_targets,
+        world,
+        local_corpus,
+    )
 
+
+def gather(
+    view: ReadView | WorldReadView,
+    proposition: str,
+    *,
+    key: str,
+    observations: Mapping[str, tuple[ByteObservation, ...]],
+    context: SuppliedContext,
+    profile: ProfileSpec,
+    resolution: ResolutionSnapshot,
+    binding: PolicyBinding,
+    acceptance: AcceptancePolicy | None = None,
+) -> EvaluationInputs:
+    """Resolve exactly one key from a single captured claim discovery."""
+    selection = _AcceptanceSelection(acceptance)
+    discovery = _discover(view, proposition, context=context, binding=binding, profile=profile, selection=selection)
+    return _gather(
+        discovery,
+        proposition,
+        key=key,
+        context=context,
+        profile=profile,
+        resolution=resolution,
+        binding=binding,
+        selection=selection,
+        observations=observations,
+    )
+
+
+def _gather(
+    discovery: _Discovery,
+    proposition: str,
+    *,
+    key: str,
+    context: SuppliedContext,
+    profile: ProfileSpec,
+    resolution: ResolutionSnapshot,
+    binding: PolicyBinding,
+    selection: _AcceptanceSelection,
+    observations: Mapping[str, tuple[ByteObservation, ...]],
+) -> EvaluationInputs:
+    from beliefs.world.view import WorldReadView
+
+    view = discovery.view
+    world, local_corpus = discovery.world, discovery.local_corpus
+    enumeration, facets = discovery.enumeration, discovery.facets
+    subtracted, retired, history = discovery.subtracted, discovery.retired, discovery.history
+    if discovery.absent:
+        return replace(
+            _absent_inputs(proposition, context, enumeration, discovery.absent, (), binding, world),
+            key=key,
+            acceptance=selection.report,
+        )
+    counts = None if selection.policy is None else selection.counts
+    matched = tuple(a for a in discovery.assessments if a.key() == key)
+    ids = frozenset(a.identity() for a in matched)
+    visited = {ref for ref, identity in discovery.assessment_refs.items() if identity in ids}
+    visited.update(discovery.visited - discovery.assessment_refs.keys())
+    verification_targets = discovery.verification_targets
+    attribution = {id: holders for id, holders in discovery.attribution.items() if id in ids}
+    proposition_refs = discovery.proposition_refs if matched else ()
+    trace: list[ReadRef] = [("assessment", a.identity()) for a in matched]
+    absent: list[tuple[str, str]] = []
     # --- runs and observed facets: unchanged from the baseline ------------------
     runs: dict[str, RunValue] = {}
     observed: dict[tuple[str, str, str], FacetRead] = {}
@@ -531,14 +686,19 @@ def _gather(
             corpus_id = _absence_of(view, ref)
             if corpus_id is not None:
                 absent.append((ref, corpus_id))
-            elif not world:
+            else:
                 # The refusal reaches the run itself: a session
                 # writes an assessment over a read mount's run, so a corpus-local read
                 # refuses it, never skipping a run `evaluate` then indexes.
                 raise InputOutsideCorpus(a.identity(), ref, (ref,))
             continue
-        run_node = view.get(ref)
-        runs[a.run] = run_value(view, ref)
+        try:
+            run_node = view.get(ref)
+            if run_node.kind != "run" or stored.run_spec(run_node) is None:
+                raise MalformedRecord(f"{ref}: expected a run with a declared spec")
+            runs[a.run] = run_value(view, ref)
+        except MalformedRecord as exc:
+            raise _RunRefused(f"malformed-input: {exc}") from exc
         trace.append(("run", a.run))
         if isinstance(view, WorldReadView):
             attribution.setdefault(ref, set()).update(_captured_holders(view, ref))
@@ -563,16 +723,36 @@ def _gather(
             if isinstance(view, WorldReadView):
                 attribution.setdefault(address, set()).update(_captured_holders(view, target))
             for row in (
-                _facets_held_to_capture(profile, view, target) if world else read_observed_facets(profile, view, target)
+                _facets_held_to_capture(profile, view, target)
+                if isinstance(view, WorldReadView)
+                else read_observed_facets(profile, view, target)
             ):
                 observed[(row.address, row.key, row.payload_digest)] = row
+    reader = _CapturedComparisonRecords(discovery, selection, profile, observations)
+    dependencies = reader.evidence(matched)
+    trace.extend(reader.trace)
+    absent.extend(reader.absent)
     snapshot = retire(context.snapshot, retired)
+    roots: set[str] = set()
+    for assessment in matched:
+        if assessment.run not in runs:
+            continue
+        try:
+            roots.update(standing_roots(assessment, runs[assessment.run], dependencies))
+        except (DependencyNotHeld, DependencyCycle):
+            pass  # admission reports the missing dependency; its attempted read remains declared
+    if len({a.key() for a in discovery.assessments}) > 1:
+        snapshot = _key_snapshot(snapshot, tuple(sorted(roots)))
     absent.extend((entry.ref, entry.corpus_id) for entry in absences(snapshot))
     rows = tuple(observed[key] for key in sorted(observed))
 
     verifications: list[Verification] = []
     verification_ids: set[str] = set()
-    candidates = view._mapped_holders() if world else (((local_corpus,), node) for node in view.iter_stored())
+    candidates = (
+        view._mapped_holders()
+        if isinstance(view, WorldReadView)
+        else (((local_corpus,), node) for node in view.iter_stored())
+    )
     for holders, node in candidates:
         if node.kind != "verification":
             continue
@@ -591,6 +771,10 @@ def _gather(
             verifications.append(value)
             trace.append(("verification", value.ref))
 
+    verifications.extend(reader.verifications.values())
+    verifications = list({v.ref: v for v in verifications}.values())
+    visited.update(dependencies.closure.reads)
+    verification_ids.update(reader.verification_ids)
     # --- the closure's enumeration: this proposition's inputs, transitively
     scope = visited | verification_ids | set(snapshot.bases)
     taken: set[str] = set()
@@ -601,8 +785,8 @@ def _gather(
             if ref in taken:
                 continue
             target = cast(Mapping[str, str], facet["target"])
-            key = None if target["arm"] == "snapshot" else target["resolved"]  # a snapshot arm is never in scope
-            if key is not None and (key in scope or key in taken):
+            target_key = None if target["arm"] == "snapshot" else target["resolved"]  # a snapshot arm is never in scope
+            if target_key is not None and (target_key in scope or target_key in taken):
                 taken.add(ref)
                 grew = True
     scoped = RetractionEnumeration(
@@ -643,6 +827,8 @@ def _gather(
     )
     return EvaluationInputs(
         proposition=proposition,
+        key=key,
+        dependencies=dependencies,
         assessments=tuple(matched),
         runs=runs,
         verifications=tuple(verifications),
@@ -660,6 +846,419 @@ def _gather(
     )
 
 
+def _key_snapshot(snapshot: LineageSnapshot, roots: tuple[str, ...]) -> LineageSnapshot:
+    """Project only lineage reachable from this key's standing roots."""
+    reached: set[str] = set()
+    pending = list(roots)
+    while pending:
+        ref = pending.pop()
+        if ref in reached:
+            continue
+        reached.add(ref)
+        basis = snapshot.bases.get(ref)
+        if basis is not None:
+            pending.extend(r.resolved_ancestor for r in basis.routes if r.resolved_ancestor is not None)
+    return LineageSnapshot(
+        roots,
+        {k: v for k, v in snapshot.bases.items() if k in reached},
+        {k: v for k, v in snapshot.producers.items() if k in reached},
+        {k: v for k, v in snapshot.not_present.items() if k in reached},
+        {k: v for k, v in snapshot.retired.items() if k in reached},
+    )
+
+
+def _capture_identity(
+    discovery: _Discovery,
+    context: SuppliedContext,
+    selection: _AcceptanceSelection,
+    observations: Mapping[str, tuple[ByteObservation, ...]],
+) -> str:
+    from beliefs.lineage import snapshot_projection
+
+    view = discovery.view
+    return v1.digest(
+        "science.claim-view.v1",
+        {
+            "producer_snapshot": context.producer_snapshot_identity,
+            "observation_digests": sorted({o.digest for values in observations.values() for o in values}),
+            "records": sorted(
+                [n.id, v1.digest("science.captured-record.v1", n.model_dump_json(exclude_none=True))]
+                for n in view.iter_stored()
+            ),
+            "lineage": snapshot_projection(retire(context.snapshot, discovery.retired)),
+            "retractions": [list(pair) for pair in discovery.enumeration.found],
+            "absent": [list(pair) for pair in discovery.absent],
+            "acceptance": []
+            if selection.report is None
+            else [selection.report.statement, [list(pair) for pair in selection.report.excluded]],
+        },
+    )
+
+
+class _CapturedComparisonRecords:
+    """Measurement and assessment reads from one captured fold, never specs or bytes.
+
+    Each keyed gather owns a reader; pair comparison owns a separate reader over
+    the same capture, so its lookup reads cannot widen a keyed belief closure.
+    """
+
+    def __init__(
+        self,
+        discovery: _Discovery,
+        selection: _AcceptanceSelection,
+        profile: ProfileSpec,
+        observations: Mapping[str, tuple[ByteObservation, ...]],
+    ) -> None:
+        self.discovery, self.selection, self.profile = discovery, selection, profile
+        self.view = discovery.view
+        self.digests = frozenset(o.digest for values in observations.values() for o in values)
+        self.reads: set[str] = set()
+        self.trace: list[ReadRef] = []
+        self.assessments: dict[str, AssessmentValue] = {}
+        self.runs: dict[str, RunValue] = {}
+        self.verifications: dict[str, Verification] = {}
+        self.verification_ids: set[str] = set()
+        self.absent: list[tuple[str, str]] = []
+        self.assessment_eligibility = AssessmentEligibilityReader(self, profile, self.run_of, self.verifications_of)
+
+    def _attempt(self, id: str) -> None:
+        self.reads.add(id)
+        self.trace.append((id.partition(":")[0], id))
+        absent = _absence_of(self.view, id)
+        if absent is not None:
+            self.absent.append((id, absent))
+
+    def _accepted(self, id: str) -> bool:
+        if self.selection.policy is None:
+            return True
+        from beliefs.world.view import WorldReadView
+
+        holders = _captured_holders(self.view, id) if isinstance(self.view, WorldReadView) else (self.view.corpus_id,)
+        decisions = [self.selection.counts(holder, self.view.resolve(id) or id) for holder in holders]
+        return any(decisions)
+
+    def holds(self, id: str) -> bool:
+        self._attempt(id)
+        return self.view.holds(id) and self._accepted(id)
+
+    def read(self, id: str) -> Node:
+        if not self.holds(id):
+            raise DependencyNotHeld(f"dependency not held: {id}")
+        node = self.view.get(id)
+        if node.kind == "assessment":
+            self.assessments[id] = stored.assessment_value(node, profile=self.profile)
+        return node
+
+    def retraction_in_force(self, id: str) -> bool:
+        return (self.view.resolve(id) or id) in self.discovery.subtracted
+
+    def observation_held(self, digest: str) -> bool:
+        return digest in self.digests
+
+    def run_of(self, id: str) -> RunValue:
+        ref = stored.typed_ref("run", id)
+        self.trace.append(("run", id))
+        if not self.view.holds(ref):
+            absent = _absence_of(self.view, ref)
+            if absent is not None:
+                self.absent.append((ref, absent))
+            raise DependencyNotHeld(f"calibration run not held: {ref}")
+        if self.retraction_in_force(ref):
+            raise DependencyNotHeld(f"calibration run retracted: {ref}")
+        for role in stored.INPUT_ROLES:
+            for target in stored.inputs_of(self.view.get(ref), role):
+                self._attempt(target)
+                if not self.view.holds(target) or self.retraction_in_force(target):
+                    raise DependencyNotHeld(f"calibration input not held: {target}")
+        value = run_value(self.view, ref)
+        self.runs[ref] = value
+        for entry in value.inputs:
+            address = dataset_address(entry.dataset)
+            if entry.role == "observes" and address is not None:
+                self.trace.append(("dataset", address))
+        return value
+
+    def verifications_of(self, identity: str) -> tuple[Verification, ...]:
+        selected: list[Verification] = []
+        for node in self.view.iter_stored():
+            if node.kind != "verification":
+                continue
+            # Membership is relation-first, before decoding unrelated facets.
+            targets = [r.target for r in node.relations if r.predicate == stored.VERIFIES]
+            if not any(
+                (self.view.resolve(ref) or ref) in self.assessments
+                and self.assessments[self.view.resolve(ref) or ref].identity() == identity
+                for ref in targets
+            ):
+                continue
+            self.verification_ids.add(node.id)
+            if self.retraction_in_force(node.id) or not self._accepted(node.id):
+                continue
+            value = stored.verification_value(self.view.get(node.id))
+            if value.assessment == identity:
+                self.verifications[value.ref] = value
+                self.trace.append(("verification", value.ref))
+                selected.append(value)
+        return tuple(selected)
+
+    def eligibility(self, id: str) -> ClosureEligibility:
+        return closure_eligibility(
+            (id,),
+            self,
+            self.profile,
+            assessments=self.assessment_eligibility,
+            assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
+                ref, records=self, profile=self.profile
+            ),
+        )
+
+    def evidence(self, assessments: tuple[AssessmentValue, ...]) -> DependencyEvidence:
+        frozen = tuple(sorted({d.id: d for a in assessments for d in a.dependencies}.values(), key=lambda d: d.id))
+        result = closure_eligibility(
+            (d.id for d in frozen),
+            self,
+            self.profile,
+            assessments=self.assessment_eligibility,
+            assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
+                ref, records=self, profile=self.profile
+            ),
+        )
+        verdicts = dict(result.verdicts)
+        for assessment in assessments:
+            try:
+                actual = dependency_closure(
+                    (d.id for d in assessment.dependencies),
+                    self,
+                    self.profile,
+                    assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
+                        ref, records=self, profile=self.profile
+                    ),
+                )
+                if actual != assessment.dependencies:
+                    for dependency in assessment.dependencies:
+                        verdicts[dependency.id] = Ineligible("frozen-dependency-mismatch")
+            except (DependencyNotHeld, DependencyCycle):
+                pass  # closure eligibility records the failed traversal
+        records: dict[str, Record] = {}
+        for id in tuple(sorted(self.reads)):
+            if (
+                id.partition(":")[0]
+                in {"procedure", "referent-mapping", "proxy-model", "classification-rule", "assumptions-register"}
+                and self.view.holds(id)
+                and self._accepted(id)
+            ):
+                records[id] = read_record(self, id)
+        return DependencyEvidence(
+            ClosureEligibility(verdicts, tuple(sorted(self.reads))), records, self.assessments, self.runs
+        )
+
+    def _proxies(self) -> tuple[tuple[str, ProxyModel], ...]:
+        return tuple(
+            (n.id, proxy_from_stored(self.view.get(n.id)))
+            for n in self.view.iter_stored()
+            if n.kind == "proxy-model" and self._accepted(n.id) and not self.retraction_in_force(n.id)
+        )
+
+    def crosswalks(self, a: str, b: str) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                id
+                for id, proxy in self._proxies()
+                if {proxy.source.procedure, proxy.target.scale_of} == {a, b} and proxy.crosswalk is not None
+            )
+        )
+
+    def observable_proxies(self, a: Observable, b: Observable) -> tuple[str, ...]:
+        return tuple(
+            sorted(
+                id
+                for id, proxy in self._proxies()
+                if proxy.target.observable is not None
+                and (
+                    (proxy.source.observable == a and proxy.target.observable == b)
+                    or (proxy.source.observable == b and proxy.target.observable == a)
+                )
+            )
+        )
+
+
+@dataclass(frozen=True)
+class PairVerdict:
+    left: str
+    right: str
+    convertibility: ConversionVerdict
+    synthesis: SynthesisVerdict
+
+
+@dataclass(frozen=True)
+class ClaimView:
+    proposition: str
+    snapshot: str | None
+    beliefs: Mapping[str, Belief | NoBelief | Refused]
+    pairs: tuple[PairVerdict, ...]
+    claim_answer: NoBelief | Refused | None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "beliefs", MappingProxyType(dict(self.beliefs)))
+
+
+_EvaluationTrace: TypeAlias = tuple[Belief | NoBelief | Refused, Admission, EvaluationInputs | None]
+
+
+@dataclass(frozen=True)
+class _ClaimEvaluation:
+    view: ClaimView
+    traces: Mapping[str, _EvaluationTrace]
+    claim_trace: _EvaluationTrace | None
+    acceptance: AcceptanceContext | None
+
+
+def _evaluate_claim(
+    view: ReadView | WorldReadView,
+    proposition: str,
+    *,
+    availability: Availability,
+    context: SuppliedContext,
+    profile: ProfileSpec,
+    resolution: ResolutionSnapshot,
+    binding: object,
+    acceptance: AcceptancePolicy | None = None,
+) -> _ClaimEvaluation:
+    selection = _AcceptanceSelection(acceptance)
+    snapshot_identity: str | None = None
+
+    def failure(answer: NoBelief | Refused) -> _ClaimEvaluation:
+        answer = replace(answer, acceptance=selection.report)
+        return _ClaimEvaluation(
+            ClaimView(proposition, snapshot_identity, {}, (), answer),
+            {},
+            (answer, NotReached(), None),
+            selection.report,
+        )
+
+    if not isinstance(binding, PolicyBinding):
+        return failure(Refused(f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair"))
+    try:
+        discovery = _discover(view, proposition, context=context, binding=binding, profile=profile, selection=selection)
+        snapshot_identity = _capture_identity(discovery, context, selection, availability.observations)
+        keys = sorted({a.key() for a in discovery.assessments})
+        traces: dict[str, _EvaluationTrace] = {}
+        for key in keys or [""]:
+            try:
+                inputs = _gather(
+                    discovery,
+                    proposition,
+                    key=key,
+                    context=context,
+                    profile=profile,
+                    resolution=resolution,
+                    binding=binding,
+                    selection=selection,
+                    observations=availability.observations,
+                )
+            except InputOutsideCorpus as exc:
+                traces[key] = Refused(f"input-outside-corpus: {exc}", acceptance=selection.report), NotReached(), None
+                continue
+            except _RunRefused as exc:
+                traces[key] = Refused(str(exc), acceptance=selection.report), NotReached(), None
+                continue
+            if inputs.absent:
+                corpora = ", ".join(sorted({id for _, id in inputs.absent}))
+                return failure(
+                    NoBelief("unavailable-corpus-absent", detail=f"inputs recorded in absent corpora: {corpora}")
+                )
+            selected_context = replace(
+                context, node_corpus=inputs.node_corpus, snapshot=inputs.snapshot, acceptance=inputs.acceptance
+            )
+            answer, admission = evaluate_traced(
+                proposition=proposition,
+                key=key,
+                dependencies=inputs.dependencies,
+                records=inputs.records(),
+                availability=availability,
+                context=selected_context,
+                retractions=inputs.retractions,
+                binding=binding,
+                profile=profile,
+            )
+            traces[key] = answer, admission, inputs
+        if not keys:
+            answer, admission, inputs = traces[""]
+            assert isinstance(answer, (NoBelief, Refused))
+            return _ClaimEvaluation(
+                ClaimView(proposition, snapshot_identity, {}, (), answer),
+                {},
+                (answer, admission, inputs),
+                selection.report,
+            )
+        pairs: list[PairVerdict] = []
+        comparison_records = _CapturedComparisonRecords(discovery, selection, profile, availability.observations)
+        comparison = ComparabilitySnapshot(profile, comparison_records, comparison_records.eligibility)
+        for left, right in itertools.combinations(keys, 2):
+            a_inputs, b_inputs = traces[left][2], traces[right][2]
+            if a_inputs is None or b_inputs is None:
+                unknown = TargetUnknown("keyed inputs unavailable", snapshot_identity)
+                pairs.append(PairVerdict(left, right, unknown, unknown))
+                continue
+            a, b = a_inputs.assessments[0], b_inputs.assessments[0]
+            if a_inputs.claim is None or b_inputs.claim is None:
+                conversion = TargetUnknown("claim referents unavailable", snapshot_identity)
+                combined = conversion
+            else:
+                first = AssessedProposition(a_inputs.claim, a.target, a.interpretation_rule)
+                second = AssessedProposition(b_inputs.claim, b.target, b.interpretation_rule)
+                conversion = convertibility(
+                    first, second, profile=profile, snapshot=comparison, snapshot_identity=snapshot_identity
+                )
+                combined = synthesis(
+                    first,
+                    second,
+                    profile=profile,
+                    snapshot=comparison,
+                    snapshot_identity=snapshot_identity,
+                    observable_proxies=comparison_records.observable_proxies,
+                )
+            pairs.append(PairVerdict(left, right, conversion, combined))
+        return _ClaimEvaluation(
+            ClaimView(proposition, snapshot_identity, {key: traces[key][0] for key in keys}, tuple(pairs), None),
+            MappingProxyType(traces),
+            None,
+            selection.report,
+        )
+    except ContractDisagreement as exc:
+        return failure(Refused(f"consulted-contracts-disagree: {exc}"))
+    except (ContractMismatch, FacetUndeclared, _DiscoveryRefused) as exc:
+        return failure(Refused(str(exc)))
+    except FacetPayloadRefused as exc:
+        return failure(Refused(f"facet-payload-refused: {exc}"))
+    except InputOutsideCorpus as exc:
+        return failure(Refused(f"input-outside-corpus: {exc}"))
+
+
+def claim_view(
+    view: ReadView | WorldReadView,
+    proposition: str,
+    *,
+    availability: Availability,
+    context: SuppliedContext,
+    profile: ProfileSpec,
+    resolution: ResolutionSnapshot,
+    binding: object,
+    acceptance: AcceptancePolicy | None = None,
+) -> ClaimView:
+    """Evaluate each assessed key once, then compare pairs without pooling them."""
+    return _evaluate_claim(
+        view,
+        proposition,
+        availability=availability,
+        context=context,
+        profile=profile,
+        resolution=resolution,
+        binding=binding,
+        acceptance=acceptance,
+    ).view
+
+
 def _evaluate_over_inputs(
     view: ReadView | WorldReadView,
     proposition: str,
@@ -670,68 +1269,22 @@ def _evaluate_over_inputs(
     resolution: ResolutionSnapshot,
     binding: object,
     acceptance: AcceptancePolicy | None = None,
-) -> tuple[Belief | NoBelief | Refused, Admission, EvaluationInputs | None]:
-    """`evaluate`'s step-1 guard first, then `gather`, then `evaluate_traced`,
-    carrying the admission and its gathered inputs.
-
-    The guard runs before anything is read: without it the wrapper would open
-    the corpus, or crash projecting `.rule` off a `None` or a string, before
-    `evaluate` ever got to refuse — turning a clean refusal into reads and an
-    exception. Every answer this wrapper gives itself precedes step 5, so it
-    is `NotReached`; only the evaluator's own answer carries a set."""
-    selection = _AcceptanceSelection(acceptance)
-    if not isinstance(binding, PolicyBinding):
-        return (
-            Refused(
-                f"binding-not-exact: {binding!r} is not a PolicyBinding(rule, implementation) pair",
-                acceptance=selection.report,
-            ),
-            NotReached(),
-            None,
-        )
-    try:
-        inputs = _gather(
-            view,
-            proposition,
-            context=context,
-            profile=profile,
-            resolution=resolution,
-            binding=binding,
-            selection=selection,
-        )
-    except ContractDisagreement as exc:
-        return Refused(f"consulted-contracts-disagree: {exc}", acceptance=selection.report), NotReached(), None
-    except ContractMismatch as exc:
-        return Refused(str(exc), acceptance=selection.report), NotReached(), None
-    except FacetPayloadRefused as exc:
-        return Refused(f"facet-payload-refused: {exc}", acceptance=selection.report), NotReached(), None
-    except FacetUndeclared as exc:
-        return Refused(str(exc), acceptance=selection.report), NotReached(), None
-    except InputOutsideCorpus as exc:
-        return Refused(f"input-outside-corpus: {exc}", acceptance=selection.report), NotReached(), None
-    if inputs.absent:
-        corpora = ", ".join(sorted({corpus_id for _, corpus_id in inputs.absent}))
-        return (
-            NoBelief(
-                "unavailable-corpus-absent",
-                detail=f"inputs recorded in absent corpora: {corpora}",
-                acceptance=selection.report,
-            ),
-            NotReached(),
-            None,
-        )
-    context = replace(context, node_corpus=inputs.node_corpus, snapshot=inputs.snapshot, acceptance=inputs.acceptance)
-    answer, admission = evaluate_traced(
-        proposition=proposition,
-        records=inputs.records(),
+) -> _EvaluationTrace:
+    result = _evaluate_claim(
+        view,
+        proposition,
         availability=availability,
         context=context,
-        retractions=inputs.retractions,
-        binding=binding,
         profile=profile,
+        resolution=resolution,
+        binding=binding,
+        acceptance=acceptance,
     )
-
-    return answer, admission, inputs
+    if result.claim_trace is not None:
+        return result.claim_trace
+    if len(result.traces) == 1:
+        return next(iter(result.traces.values()))
+    return Refused("multiple-assessed-propositions: use claim_view", acceptance=result.acceptance), NotReached(), None
 
 
 def evaluate_over_traced(

@@ -19,7 +19,7 @@ from coordination_fixtures import pins_for
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import CLAIM_FACET, kwargs_for, over_kwargs, profile_with, seed_nodes
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import MEASUREMENT_RECORDS, carry_registers
+from fixtures_cut3 import MEASUREMENT_RECORDS, carry_registers, only_assessed_key
 from profiles import biology
 from test_mount_citations import assessment, frozen_over, run_over
 from test_session_acceptance import fresh
@@ -320,6 +320,8 @@ def test_belief_over_the_world_matches_one_corpus_durably(corpora):
     inputs = gather(
         view,
         "proposition:p",
+        key=only_assessed_key(view, "proposition:p", profile=TYPED),
+        observations={},
         context=context,
         profile=TYPED,
         resolution=kwargs["resolution"],
@@ -328,6 +330,8 @@ def test_belief_over_the_world_matches_one_corpus_durably(corpora):
     local_inputs = gather(
         local,
         "proposition:p",
+        key=only_assessed_key(local, "proposition:p", profile=TYPED),
+        observations={},
         context=local_kwargs["context"],
         profile=TYPED,
         resolution=local_kwargs["resolution"],
@@ -391,6 +395,8 @@ def test_local_read_of_the_split_refuses_durably(corpora):
         gather(
             view,
             q.id,
+            key=only_assessed_key(view, q.id, profile=W_PROFILE),
+            observations={},
             context=kwargs["context"],
             profile=W_PROFILE,
             resolution=kwargs["resolution"],
