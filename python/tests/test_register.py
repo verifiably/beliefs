@@ -124,7 +124,9 @@ def test_identity_is_content_addressed():
     successor = register(previous=register_identity(one))
     assert register_identity(successor) != register_identity(one)
     assert "previous" not in register_projection(one)  # absent, never null
-    assert register_projection(one)["entries"]["sort:testing/population"]["status"] == "provisional"
+    projected_entries = register_projection(one)["entries"]
+    assert isinstance(projected_entries, dict)
+    assert projected_entries["sort:testing/population"]["status"] == "provisional"
 
 
 def test_typed_keys_do_not_collide(tmp_path):

@@ -1,0 +1,83 @@
+contract: general
+version: 1
+lineage: genesis
+
+sorts: {}
+dimensions: {}
+
+templates:
+  covaries-with:
+    definition: Measured quantities of two bearers vary together within a stated population and conditioning scheme.
+    roles:
+      parties:
+        arity: many
+        min: 2
+        max: 2
+        coefficients: false
+    sign_apt: true
+    layers: [statistical]
+    forms: [polar, 'null']
+  changes-under-intervention:
+    definition: Setting the intervention bearer changes a measured quantity of the response bearer under stated conditions.
+    roles:
+      intervention:
+        arity: one
+      response:
+        arity: one
+    sign_apt: true
+    layers: [causal]
+    forms: [polar, 'null']
+    edge:
+      cause: intervention
+      effect: response
+
+quantity_kinds:
+  relative-abundance:
+    definition: Abundance of a named component relative to a procedure-specified reference total after that procedure's weighting or normalization.
+    dimension: dimensionless
+
+transformations:
+  identity:
+    definition: The fixed map f(x)=x on real values.
+    kind: identity
+    domain: real
+    fixed: true
+    invertible: true
+
+functionals:
+  probability-of-superiority:
+    definition: P(X>Y)+0.5 P(X=Y), with X drawn from the comparison level and Y from the baseline.
+    form: contrast
+    arity: two
+    response_transformation: invariant-strictly-increasing
+    reversal: complement
+    response_reversal: complement
+    exchange: not-applicable
+    ties: midrank
+    output: dimensionless
+    domain: unit-interval
+    'null': half
+    increment: none
+    uncertainty: exact
+    parameters: not-applicable
+
+identification_classes:
+  observational:
+    definition: Statistical comparison without a claimed intervention-identification license.
+    licenses_layers: [statistical]
+
+designs:
+  independent-groups:
+    definition: An analysis design that treats observations in its compared groups as independent sampling units.
+
+selection_mechanisms:
+  cohort-enrolment:
+    definition: Inclusion through membership in a specified enrolled cohort and its documented eligibility process.
+
+procedure_kinds:
+  assay:
+    definition: A specified procedure producing measurements from empirical material or observations.
+    fills_within_model: false
+  estimator:
+    definition: A specified computation producing an estimate or analysis output from inputs.
+    fills_within_model: false

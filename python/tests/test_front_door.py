@@ -84,7 +84,7 @@ def test_one_preserves_arguments_and_records_the_run(tmp_path: Path) -> None:
     assert checkout.just(*command).returncode != 0
 
 
-_HYGIENE = ["ops-check", "ops-docs", "check-doc-links", "tasks"]
+_HYGIENE = ["ops-check", "ops-docs", "check-doc-links", "check-shipped-contracts", "tasks"]
 _CHECK_CODE = ["uv", "uv", "uv", "npm", "npm"]
 _BROAD_CHILDREN = {
     "hook-pre-commit": {"check-code"},

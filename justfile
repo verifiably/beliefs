@@ -45,7 +45,7 @@ fast_cmd := py_fast_cmd + " && " + ts_fast_cmd
 test_cmd := py_test_cmd + " && " + ts_test_cmd
 # Focused pytest selection, relative to python/. Override one_cmd for Vitest (AGENTS.md).
 one_cmd := "cd python && uv run --frozen pytest"
-hygiene_cmd := "python3 tools/ops-check && python3 tools/ops-docs check && python3 python/tools/check_doc_links.py"
+hygiene_cmd := "python3 tools/ops-check && python3 tools/ops-docs check && python3 python/tools/check_doc_links.py && (cd python && uv run --frozen python tools/check_shipped_contracts.py)"
 # The always-run checks (protected under tt policy) and the code checks (broad).
 check_hygiene_cmd := hygiene_cmd + " && tasks check"
 check_code_cmd := py_check_cmd + " && " + ts_check_cmd

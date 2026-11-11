@@ -481,8 +481,18 @@ carry none of the three; succession compares `external`. A corpus manifest pins 
 activated contract by content identity. A writer whose profile disagrees with
 those pins is refused.
 
-No domain contract ships with the package under base v2:
-`shipped_domain_contract(namespace)` refuses every namespace.
+The package ships one genesis domain contract, `general` (`domains/general/DOMAIN.yaml`
+and its byte-identical packaged copy `python/src/beliefs/domains/general/DOMAIN.yaml`),
+together with its canonical assumptions register (`domains/general/REGISTER.json` and
+`python/src/beliefs/domains/general/REGISTER.json`). `shipped_domain_contract("general")`
+parses the contract against the shipped base, and `shipped_assumptions_register("general")`
+decodes the canonical register projection while verifying its `describes` digest and
+complete `register_entry_keys(contract)` coverage. Both helpers refuse every other
+namespace with `ProfileError`. `shipped_base()` activates no domain contract: consumers
+activate `general` explicitly in `compile_profile`. Distribution validation
+(`python/tools/check_shipped_contracts.py`, run under `just check-hygiene`) rejects
+non-`general` declarations in the numerical tables and shared methodological tables
+except reviewed field-specific `functional` or `procedure-kind` classifications.
 
 ## Coordination contract
 

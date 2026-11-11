@@ -251,6 +251,7 @@ class TestNoSecondAuthoredOperatorArtifact:
         public_functions = [name for name in profile_module.__all__ if name.islower()]
         assert public_functions == [
             "compile_profile",
+            "shipped_assumptions_register",
             "shipped_base",
             "shipped_base_contract",
             "shipped_coordination",
@@ -258,10 +259,9 @@ class TestNoSecondAuthoredOperatorArtifact:
         ]
 
 
-def test_shipped_domain_contract_ships_nothing():
-    # No pack ships under base v2 (P6): the loader stays and refuses every
-    # namespace, so the package resource path is valid and empty.
-    for namespace in ("biology", "testing", "chemistry", "biology/../biology", "biology.bad"):
+def test_shipped_domain_contract_ships_general_and_refuses_other_namespaces():
+    assert shipped_domain_contract("general").namespace == "general"
+    for namespace in ("biology", "testing", "chemistry", "biology/../biology", "biology.bad", "../general"):
         with pytest.raises(ProfileError, match="ships no domain contract"):
             shipped_domain_contract(namespace)
 

@@ -36,7 +36,7 @@ from fractions import Fraction
 from functools import cache
 from importlib import resources
 from types import MappingProxyType
-from typing import ClassVar, Literal, cast, final
+from typing import TYPE_CHECKING, ClassVar, Literal, cast, final
 
 from nodes.core.node import Node
 from nodes.core.registry import KindSpec, Registry, Violation
@@ -77,6 +77,9 @@ from beliefs.identity import v1
 from beliefs.patterns import IdentifierClass
 from beliefs.sealed import sealed
 
+if TYPE_CHECKING:
+    from beliefs.register import AssumptionsRegister
+
 __all__ = [
     "CompiledAggregationRule",
     "CompiledAspects",
@@ -107,6 +110,7 @@ __all__ = [
     "CompiledUnit",
     "ProfileSpec",
     "compile_profile",
+    "shipped_assumptions_register",
     "shipped_base",
     "shipped_base_contract",
     "shipped_coordination",
@@ -166,9 +170,8 @@ def _shipped_coordination(version: int) -> CoordinationContract:
 def shipped_domain_contract(namespace: str) -> DomainContract:
     """Parse a domain contract carried by this package, against the shipped base.
 
-    No pack ships under base v2: every contract is a genesis there, and a field's
-    first v2 pack is its own design act. So the resource directory is empty and
-    this refuses every namespace with ``ProfileError`` until one ships."""
+    This package ships ``general``, the shared cross-domain genesis contract;
+    activation remains explicit through ``compile_profile``."""
     from beliefs.contract.document import parse_document
     from beliefs.contract.domain import parse_domain_contract
 
@@ -184,6 +187,52 @@ def shipped_domain_contract(namespace: str) -> DomainContract:
     return parse_domain_contract(
         parse_document(text, source=source), source=source, base=shipped_base_contract(), predecessor=None
     )
+
+
+@cache
+def shipped_assumptions_register(namespace: str) -> AssumptionsRegister:
+    """Decode the canonical assumptions register carried by this package for ``namespace``."""
+    import json
+
+    from beliefs.errors import MalformedRecord
+    from beliefs.register import register_entry_keys, register_from_projection
+
+    source = f"beliefs/domains/{namespace}/REGISTER.json"
+    if type(namespace) is not str:
+        raise ProfileError(f"this package ships no assumptions register for namespace {namespace!r} ({source})")
+    try:
+        _name(namespace, "namespace")
+    except MalformedContract:
+        raise ProfileError(
+            f"this package ships no assumptions register for namespace {namespace!r} ({source})"
+        ) from None
+    resource = resources.files("beliefs").joinpath(f"domains/{namespace}/REGISTER.json")
+    if not resource.is_file():
+        raise ProfileError(f"this package ships no assumptions register for namespace {namespace!r} ({source})")
+    try:
+        contract = shipped_domain_contract(namespace)
+    except (ProfileError, MalformedContract) as exc:
+        raise ProfileError(f"{source}: broken domain contract binding for {namespace!r}: {exc}") from exc
+    try:
+        payload = json.loads(resource.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ProfileError(f"{source}: invalid JSON resource: {exc}") from exc
+    try:
+        register = register_from_projection(payload, source=source)
+    except MalformedRecord as exc:
+        raise ProfileError(str(exc)) from exc
+    expected_describes = f"{namespace}:{contract.content_identity}"
+    if register.describes != expected_describes:
+        raise ProfileError(f"{source}: describes {register.describes!r}, expected {expected_describes!r}")
+    expected_keys = register_entry_keys(contract)
+    actual_keys = frozenset(register.entries)
+    if actual_keys != expected_keys:
+        missing = sorted(expected_keys - actual_keys)
+        extra = sorted(actual_keys - expected_keys)
+        raise ProfileError(
+            f"{source}: entry coverage mismatch against {namespace!r} (missing={missing}, extra={extra})"
+        )
+    return register
 
 
 @cache

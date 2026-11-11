@@ -25,6 +25,8 @@ _STUB = r"""
 import json, os, pathlib, sys
 name = NAME
 args = sys.argv[1:]
+if name == "uv" and args[:4] == ["run", "--frozen", "python", "tools/check_shipped_contracts.py"]:
+    name = "check-shipped-contracts"
 root = pathlib.Path(os.environ["FIXTURE_ROOT"])
 if name == "tasks" and args != ["check"]:
     print(json.dumps({"project": {"root": str(root), "prefix": "fixture", "linked": False}}))

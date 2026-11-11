@@ -30,7 +30,7 @@ python/tests/         the test suite; tests/acceptance/ is run by `just test-acc
 python/tools/         fixture generators, the acceptance runner, the mm30 reproduction driver
 ts/                   @verifiably/beliefs: the TypeScript mirror of the shared encoding
 fixtures/             the parity corpus both test suites read and neither writes
-contracts/, domains/  the normative base contract; domain packs (none ship under base v2)
+contracts/, domains/  the normative base contract; shipped domain packs and canonical registers (`general`)
 tools/                vendored ops tools (tt, ops-check, ops-docs); never edited here
 ```
 
@@ -52,11 +52,12 @@ The kernel's main areas, under `python/src/beliefs/`:
 
 `python/src/beliefs/contracts/science/` holds the packaged copy of
 `contracts/science/CONTRACT.yaml`. `test_shipped_base.py` fails unless the pair is
-byte-identical: edit the root file, then copy it. `python/src/beliefs/domains/` is
-the packaged domain-pack directory and is empty: no pack ships under base v2. The
-coordination contracts live only in the package. The names `science.identity.v1`,
-`science.belief.v1` and `contract: science` are rule and contract identities, not
-the package name, and stay as they are.
+byte-identical: edit the root file, then copy it. `python/src/beliefs/domains/` holds
+the packaged copies of `domains/<namespace>/{DOMAIN.yaml,REGISTER.json}` (currently
+`general`), verified byte-identical by `test_shipped_general.py` and
+`python/tools/check_shipped_contracts.py`. The coordination contracts live only in the
+package. The names `science.identity.v1`, `science.belief.v1` and `contract: science`
+are rule and contract identities, not the package name, and stay as they are.
 
 ## Gates and focused runs
 
@@ -67,7 +68,7 @@ records each run.
 |---|---|
 | `just test-one <args>` | A focused pytest selection, paths relative to `python/`: a file, `file::test`, or `-k "expr"` |
 | `just --set one_cmd "cd ts && npx --no-install vitest run" test-one <filter> -t "<name>"` | A focused Vitest selection, filters relative to `ts/` |
-| `just check-hygiene` | ops-check, `ops-docs check`, the document link and anchor check, and `tasks check` |
+| `just check-hygiene` | ops-check, `ops-docs check`, the document link and anchor check, the shipped-contract and register check, and `tasks check` |
 | `just check-code` | ruff check, ruff format --check, pyright, tsc and biome |
 | `just check` | `check-hygiene`, then `check-code` |
 | `just test-fast` | All Python tests in parallel, plus the TypeScript tests Vitest selects as changed |
@@ -288,9 +289,15 @@ change), and add the kind to `KIND_ACTS` as above.
    identity, and retire identifiers instead of removing them
    ([contracts.md](contracts.md#succession-and-retirement)).
 
-No pack ships with beliefs under base v2: `shipped_domain_contract(namespace)`
-reads `python/src/beliefs/domains/<namespace>/DOMAIN.yaml` as a genesis contract,
-and that directory is empty, so it refuses every namespace.
+The package ships `general` under `domains/general/` and
+`python/src/beliefs/domains/general/`: `shipped_domain_contract("general")` parses
+`DOMAIN.yaml` against the shipped base, and `shipped_assumptions_register("general")`
+decodes `REGISTER.json` and checks its `describes` digest and complete typed key
+coverage. Every other namespace refuses with `ProfileError`. Field packs keep sorts,
+instantiations and bridges in their own namespace and activate `general` explicitly;
+`python/tools/check_shipped_contracts.py` rejects non-`general` declarations in the
+shared numerical and methodological tables across shipped and current reproduction
+contract sources.
 
 ## When a check fails
 
