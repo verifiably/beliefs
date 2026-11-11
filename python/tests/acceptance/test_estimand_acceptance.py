@@ -357,3 +357,25 @@ def test_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora)
         stored.assessment_value(unvalidated[pre_grammar_assessment.id], profile=TESTING_PROFILE)
     with pytest.raises(PreGrammarSpec, match="pre-grammar spec"):
         stored.analysis_spec_value(unvalidated[pre_grammar_spec.id], profile=TESTING_PROFILE)
+
+
+def test_baseline_sort_roleless_template_and_disjoint_scope_refuse():
+    from beliefs.estimand import RoleTermLevels
+    from beliefs.restriction import co_scope
+
+    with pytest.raises(EstimandError):
+        typed_estimand(
+            bindings={
+                "response": typed_estimand().bindings["response"],
+                "grouping": RoleTermLevels(
+                    "cause", None, (Referent("testing/entity", "EX:a"), Referent("testing/outcome", "EX:b"))
+                ),
+            }
+        )
+    document = _testing_document()
+    document["templates"]["affects"]["roles"] = {}
+    with pytest.raises(MalformedContract):
+        domain.parse_domain_contract(document, source="<roleless>", base=shipped_base_contract(), predecessor=None)
+    left = {"testing/follow-up": IntervalRestriction("testing/hour", Fraction(0), Fraction(1), True, True)}
+    right = {"testing/follow-up": IntervalRestriction("testing/hour", Fraction(2), Fraction(3), True, True)}
+    assert co_scope(left, right, TESTING_PROFILE) == "disjoint"

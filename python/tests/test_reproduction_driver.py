@@ -938,3 +938,16 @@ def test_step8_evaluates_after_mint_and_reopen_before_diagnostics(tmp_path, monk
         assert saved["belief_answer"]["kind"] == "Belief" and saved["belief_answer"]["value"] == 1
         assert events.index("evaluate") < events.index("gather")
         assert ("pins", published.derived_value.key()) in events
+
+
+def test_mann_whitney_normalized_u_counts_half_ties():
+    from math import sqrt
+
+    a, baseline = [1, 2], [2, 3]
+    z, _p = _assoc().mann_whitney(a, baseline)
+    n_a, n_b = len(a), len(baseline)
+    sigma = sqrt(n_a * n_b * (n_a + n_b + 1) / 12)
+    u = z * sigma + n_a * n_b / 2
+    pairwise = sum((x > y) + 0.5 * (x == y) for x in a for y in baseline) / (n_a * n_b)
+    assert pairwise == 0.125
+    assert u / (n_a * n_b) == pytest.approx(pairwise, abs=1e-15)

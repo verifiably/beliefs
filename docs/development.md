@@ -170,6 +170,15 @@ a v1 document, so the first step that compiles that profile or types the claim
 fails. The documents stay in place for the recreation that follows a biology v2
 pack and an mm30 v2 contract.
 
+New authors freeze an explicit `standing` with typed estimand and applicability,
+including an evidence mode for each `SpecInput`. They hold the frozen normative
+dependencies before publishing a spec or assessment. A model route names its
+model procedure; calibrated-model also freezes its qualified empirical basis.
+The belief step mints the verification, reopens the view and then evaluates the
+claim. One assessed key returns its answer; multiple keys produce a
+`multiple-assessed-propositions` finding and exit 2. Use `claim_view` to inspect
+the answers and comparisons for every key instead of choosing one implicitly.
+
 ## The claim-identity parity fixture
 
 `fixtures/claim-identity-v2.json` is the cross-language oracle for `π_claim` and
