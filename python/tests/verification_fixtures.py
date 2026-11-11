@@ -15,8 +15,8 @@ from authority import ACTOR
 from confinement_fixtures import confined_receipt, instance
 from dataset_fixtures import pinned_for
 from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO, over_kwargs
+from fixtures_cut3 import TESTING_CLAIM, closure_with, freeze_context, planned, spec_draft, spec_rules, traced
 from fixtures_cut3 import TESTING_PROFILE as PROFILE
-from fixtures_cut3 import closure_with, freeze_context, planned, spec_draft, spec_rules, traced
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -32,12 +32,13 @@ from beliefs.evaluation import evaluate_over, gather
 from beliefs.evidence import DerivationEvidence
 from beliefs.identity import v1
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+from beliefs.projection import project_claim
 from beliefs.recipe import RunClosure, job_key
 from beliefs.record import AssessmentValue
 from beliefs.replay import CONTENT_EQUALITY, CodeLineageCertification
 from beliefs.resolution import build_snapshot
 from beliefs.runrecord import run_ref
-from beliefs.spec import FrozenSpec, freeze
+from beliefs.spec import FrozenSpec, SpecInput, freeze
 from beliefs.verify import AssessmentVerification, build_verification
 
 CONTRACT = "science:" + "c" * 64
@@ -64,7 +65,16 @@ def frozen_for(target: str) -> FrozenSpec:
     """The spec's target is the proposition's corpus ref, as the reproduction
     set it: the stored assessment's `proposition` and the derived one then
     spell the same string."""
-    return freeze(spec_draft(target=target), held_rules=spec_rules(), **freeze_context())
+    return freeze(
+        spec_draft(
+            target=target,
+            input_roles=tuple(
+                SpecInput(i.role, i.dataset, "observation") for i in closure_with(**_PARTS).recipe.inputs
+            ),
+        ),
+        held_rules=spec_rules(),
+        **freeze_context(),
+    )
 
 
 def conforming_closure(frozen: FrozenSpec, *, token: str, confined: bool = False, outputs=None) -> RunClosure:
@@ -152,7 +162,7 @@ def publish_corpus(
     """A proposition, the two runs and their datasets, the stored assessment
     over the original, the verification derived from the pair, and — with
     `publish` — its record through `writer.add`."""
-    proposition = writer.add(stored.proposition_node(slug, title=slug, claim=claim or {"operator": "affects"}))
+    proposition = writer.add(stored.proposition_node(slug, title=slug, claim=claim or project_claim(TESTING_CLAIM)))
     frozen = frozen_for(proposition.id)
     from fixtures_cut3 import MEASUREMENT_RECORDS
 
@@ -160,6 +170,7 @@ def publish_corpus(
         for entry in frozen.assessed_target.dependencies:
             if not writer.read_view.holds(entry.id):
                 writer.add(MEASUREMENT_RECORDS.read(entry.id))
+    writer.add(stored.analysis_spec_node(frozen))
     original, replayed = clean_pair(frozen, agreeing=agreeing, qualifying=qualifying)
     mint_datasets(writer, original)
     writer.add(run_record(original))
@@ -313,26 +324,8 @@ def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception],
     no_edge = good.model_copy(deep=True, update={"relations": []})
     stored.stamp_semantic_identity(no_edge)
     wrong_target = publication_node(derived, assessment_ref="assessment:absent")
-    other_proposition = writer.add(stored.proposition_node("p-other", title="p-other", claim={"operator": "affects"}))
-    # Spelled from the same derived value as the real assessment, optionals included,
-    # so it audits clean and imports; only its proposition differs, which the audit's
-    # comparison excludes. Its identity differs by that member.
-    value = published.derived_value
-    optional = {
-        n: getattr(value, n) for n in ("estimates", "uncertainty", "curves", "target") if getattr(value, n) is not None
-    }
-    other = writer.add(
-        stored.assessment_node(
-            "a-other",
-            title="a-other",
-            spec=published.frozen.identity,
-            run=run_ref(published.original.address()),
-            proposition=other_proposition.id,
-            outcome=value.outcome,
-            interpretation_rule=value.interpretation_rule,
-            **optional,
-        )
-    )
+    # A second genuinely authored assessment carries another execution identity.
+    other = publish_corpus(writer, slug="p-other").assessment
     other_identity = publication_node(derived, assessment_ref=other.id)
     return [
         (stale_id, MalformedRecord, "recomputed identity"),

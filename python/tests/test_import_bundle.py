@@ -7,7 +7,7 @@ from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
-from fixtures_cut3 import freeze_context, spec_draft, spec_rules, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import freeze_context, spec_draft, spec_rules
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -401,20 +401,28 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(tmp_path, monkeypat
         resources=[{"name": "data", "digest": "sha256:" + "ab" * 32}],
         empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
-    run = stored.run_node("run", title="run", spec="analysis-spec:s", observes=[dataset.id])
-    proposition = prop("claim")
+    from domain_facet_fixtures import CLAIM_FACET
+    from fixtures_cut3 import MEASUREMENT_RECORDS, frozen_fixture_spec
+
+    from beliefs.spec import SpecInput
+
+    proposition = stored.proposition_node("claim", title="claim", claim=CLAIM_FACET)
+    frozen = frozen_fixture_spec(proposition.id, (SpecInput("observes", dataset.id, "observation"),))
+    run = stored.run_node("run", title="run", spec=frozen.identity, observes=[dataset.id])
     assessment = stored.assessment_node(
         "assessment",
         title="assessment",
-        spec="analysis-spec:s",
+        spec=frozen.identity,
         run=run.id,
         proposition=proposition.id,
         outcome="supported",
-        interpretation_rule="rule:threshold",
-        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+        interpretation_rule=frozen.interpretation_rule,
+        target=frozen.assessed_target,
     )
-
-    report = import_records(writer_with_port, [assessment, run, proposition, dataset])
+    prerequisites = [MEASUREMENT_RECORDS.read(d.id) for d in frozen.assessed_target.dependencies]
+    report = import_records(
+        writer_with_port, [assessment, run, proposition, dataset, stored.analysis_spec_node(frozen), *prerequisites]
+    )
 
     outcome = report.entries[0].outcome
     assert isinstance(outcome, ImportedRecords)

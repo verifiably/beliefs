@@ -8,7 +8,13 @@ from typing import Any
 
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
-from fixtures_cut3 import MEASUREMENT_RECORDS, UNCONSULTED, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import (
+    MEASUREMENT_RECORDS,
+    UNCONSULTED,
+    frozen_fixture_spec,
+    typed_applicability,
+    typed_estimand,
+)
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from profiles import biology, pins_for
@@ -36,6 +42,7 @@ from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, Policy
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract
 from beliefs.resolution import build_snapshot
+from beliefs.spec import SpecInput
 from beliefs.world import registry
 from beliefs.world.view import WorldReadView
 
@@ -238,35 +245,52 @@ def seed_nodes(
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
+    specs = []
+    for letter in ("a", "b"):
+        inputs = (
+            SpecInput(
+                "observes",
+                "dataset:missing" if observes_missing and letter == "a" else dataset_ref("d-" + letter),
+                "observation",
+            ),
+        )
+        specs.append(
+            frozen_fixture_spec(
+                proposition, inputs, estimand=estimand, claim=_claim_of(facet), profile=profile_with(crossing=True)
+            )
+        )
+    dependencies = {d.id for spec in specs for d in spec.assessed_target.dependencies}
+    nodes.extend(MEASUREMENT_RECORDS.read(id) for id in sorted(dependencies))
+    nodes.extend(stored.analysis_spec_node(spec) for spec in specs)
     nodes.append(
         stored.run_node(
             "run-a",
             title="run-a",
-            spec="spec-a",
+            spec=specs[0].identity,
             observes=["dataset:d-missing" if observes_missing else dataset_ref("d-a")],
         )
     )
-    nodes.append(stored.run_node("run-b", title="run-b", spec="spec-b", observes=[dataset_ref("d-b")]))
+    nodes.append(stored.run_node("run-b", title="run-b", spec=specs[1].identity, observes=[dataset_ref("d-b")]))
     assessments = [
         stored.assessment_node(
             "a-1",
             title="a-1",
-            spec="spec-a",
+            spec=specs[0].identity,
             run="run:run-a",
             proposition=proposition,
             outcome=outcomes[0],
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=estimand, applicability=typed_applicability()),
+            interpretation_rule=specs[0].interpretation_rule,
+            target=specs[0].assessed_target,
         ),
         stored.assessment_node(
             "a-2",
             title="a-2",
-            spec="spec-b",
+            spec=specs[1].identity,
             run="run:run-b",
             proposition=proposition,
             outcome=outcomes[1],
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=estimand, applicability=typed_applicability()),
+            interpretation_rule=specs[1].interpretation_rule,
+            target=specs[1].assessed_target,
         ),
     ]
     nodes.extend(assessments)

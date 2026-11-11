@@ -19,7 +19,7 @@ from types import SimpleNamespace
 from typing import TypedDict
 
 import pytest
-from fixtures_cut3 import carry_registers, freeze_context, spec_draft, spec_rules
+from fixtures_cut3 import TESTING_CLAIM, carry_registers, freeze_context, spec_draft, spec_rules
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.node import Node
 from test_audit import (
@@ -38,6 +38,7 @@ from beliefs.assess import build_assessment
 from beliefs.audit import DerivationEvidence, audit_corpus
 from beliefs.corpus import CorpusWriter, corpus_check
 from beliefs.errors import ImportRefused
+from beliefs.projection import project_claim
 from beliefs.recipe import ResultManifest
 from beliefs.record import AssessmentValue
 from beliefs.replay import CONTENT_EQUALITY
@@ -172,7 +173,10 @@ def _two_runs(corpus, *, mount: bool, agreeing: bool) -> SimpleNamespace:
     module, so both suites build the pair through one construction.
     """
     writer = _writer_for(corpus)
-    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
+    carry_registers(writer)
+    target = writer.add(stored.proposition_node("p1", title="p1", claim=project_claim(TESTING_CLAIM)))
+    frozen = freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context())
+    writer.add(stored.analysis_spec_node(frozen))
     evidence = _evidence(frozen)
     original = assessment_closure(frozen, token="tok-original")
     replayed = assessment_closure(frozen, token="tok-replayed", result=None if agreeing else DISAGREEING_RESULT)
@@ -212,7 +216,6 @@ def derived(tmp_path):
     verdict is `passed` and any other stored verdict is a contradiction."""
     namespace = _two_runs(tmp_path / "corpus", mount=True, agreeing=True)
     assert namespace.verification.verdict == "passed"
-    carry_registers(namespace.writer)  # so a clean audit has no register-missing warning to report
     return namespace
 
 
@@ -223,7 +226,6 @@ def derived_unmounted(tmp_path):
     runs are absent and is contradicted the moment they are mounted."""
     namespace = _two_runs(tmp_path / "corpus", mount=False, agreeing=False)
     assert namespace.verification.verdict == "failed"
-    carry_registers(namespace.writer)  # so a clean audit has no register-missing warning to report
     return namespace
 
 
@@ -429,7 +431,7 @@ class TestAssessmentExplicitImport:
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
         )
         assert isinstance(genuine, AssessmentValue)
-        proposition = derived.writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        proposition = derived.writer.read_view.get("proposition:p1")
         forged = _assessment_node_from(
             genuine,
             slug="forged",
@@ -446,7 +448,7 @@ class TestAssessmentExplicitImport:
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
         )
         assert isinstance(genuine, AssessmentValue)
-        proposition = derived.writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        proposition = derived.writer.read_view.get("proposition:p1")
         node = _assessment_node_from(genuine, slug="a1", proposition=proposition.id, outcome=genuine.outcome)
         derived.writer.import_bundle([node], evidence=derived.evidence, **IMPORT_FIELDS)
         assert derived.writer.read_view.get(node.id).kind == "assessment"
@@ -456,7 +458,7 @@ class TestAssessmentExplicitImport:
             derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
         )
         assert isinstance(genuine, AssessmentValue)
-        proposition = derived.writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        proposition = derived.writer.read_view.get("proposition:p1")
         forged = _assessment_node_from(
             genuine,
             slug="forged",
@@ -483,11 +485,15 @@ def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
     plus `extra` — so a target that carries another identity *resolves* in the
     destination's union view and is refused for the identity, not for absence."""
     view = source.read_view
-    runs = [
-        view.get(stored.typed_ref("run", published.derived.original)),
-        view.get(stored.typed_ref("run", published.derived.replayed)),
+    wanted = {published.assessment.id} | {
+        r.target for n in extra for r in n.relations if r.predicate == stored.VERIFIES
+    }
+    others = [
+        n
+        for n in view.iter_stored()
+        if n.kind in {"dataset", "proposition", "assessment", "analysis-spec", "run"}
+        and (n.kind != "assessment" or n.id in wanted)
     ]
-    others = [n for n in view.iter_stored() if n.kind in {"dataset", "proposition", "assessment"}]
     dependencies = {
         entry.id
         for node in others
@@ -495,7 +501,7 @@ def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
         for entry in stored.assessment_value(node, profile=source.profile).dependencies
     }
     normative = [view.get(id) for id in sorted(dependencies)]
-    return (*normative, *others, *runs, *extra)
+    return (*normative, *others, *extra)
 
 
 @pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)

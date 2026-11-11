@@ -7,7 +7,6 @@ from typing import Any, cast
 import pytest
 import test_stored
 from authority import FULL
-from fixtures_cut3 import freeze_context, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
@@ -357,7 +356,7 @@ def test_proxy_scale_target_requires_authority_and_accepts_held_authority(tmp_pa
 def test_proxy_checks_source_and_calibration_transfer_particulars(tmp_path):
     writer = _testing_writer(tmp_path / "corpus")
     source = writer.add(stored.procedure_node(procedure()))
-    basis = held_calibration(writer, tmp_path / "run")
+    basis = held_calibration(writer, tmp_path / "run", source=source)
     value = proxy(source=ProxySource(OBS, source.id), basis=basis)
     assert proxy_from_stored(writer.add(stored.proxy_model_node(value))) == value
     bad_source = replace(value, source=ProxySource(replace(OBS, quantity_kind="testing/unknown"), source.id))
@@ -372,45 +371,31 @@ def test_proxy_checks_source_and_calibration_transfer_particulars(tmp_path):
     assert proxy_from_stored(writer.add(stored.proxy_model_node(value))) == value
 
 
-def held_calibration(writer, work, *, outcome="supported", applicability=None):
-    """Carry a real interim spec/run/assessment derivation into the held fixture."""
-    from fixtures_cut3 import interp, memory_assessment, spec_draft, spec_rules, typed_applicability
+def held_calibration(writer, work, *, source, outcome="supported", applicability=None) -> Calibration:
+    """Hold a frozen empirical association facet for structural qualification."""
+    from test_standing import calibration_context
 
-    from beliefs.assess import AssessmentFinding, build_assessment
-    from beliefs.boundary import RunMinted
-    from beliefs.spec import freeze
+    from beliefs.applicability import Applicability
 
-    spec = freeze(
-        spec_draft(applicability=typed_applicability(applicability)), held_rules=spec_rules(), **freeze_context()
-    )
-    raw_write(writer.root, stored.analysis_spec_node(spec))
-    executed = memory_assessment(work, spec=spec)
-    assert isinstance(executed, RunMinted), executed
-    assessment = build_assessment(executed.run, specs={spec.identity: spec}, implementations=interp(outcome))
-    assert not isinstance(assessment, AssessmentFinding), assessment
-    node = stored.assessment_node(
-        assessment.identity(),
-        title="Calibration evidence",
-        spec=assessment.spec,
-        run=stored.typed_ref("run", assessment.run),
-        proposition=assessment.proposition,
-        outcome=assessment.outcome,
-        interpretation_rule=assessment.interpretation_rule,
-        target=typed_target(estimand=assessment.estimand, applicability=assessment.applicability),
-        estimates=assessment.estimates,
-        uncertainty=assessment.uncertainty,
-        curves=assessment.curves,
-    )
-    raw_write(writer.root, node)
+    records, _, assessment, proxy_value = calibration_context(scope=Applicability(applicability or {}), source=source)
+    assessment.facets["assessment"]["outcome"] = outcome
+    stored.stamp_semantic_identity(assessment)
+    value = stored.assessment_value(assessment, profile=writer.profile)
+    for dependency in value.dependencies:
+        raw_write(writer.root, records.read(dependency.id))
+    raw_write(writer.root, assessment)
     writer._reconstruct()
-    return Calibration(OBS, (node.id,), (assessment.interpretation_rule,), None)
+    assert isinstance(proxy_value.basis, Calibration)
+    return proxy_value.basis
 
 
 @pytest.mark.parametrize("outcome", ["refuted", "inconclusive"])
 def test_a_calibration_needs_supported_assessments(tmp_path, outcome):
     writer = _testing_writer(tmp_path / "corpus")
     value = held_values(writer)[2]
-    basis = held_calibration(writer, tmp_path / "run", outcome=outcome)
+    basis = held_calibration(
+        writer, tmp_path / "run", source=writer.read_view.get(value.source.procedure), outcome=outcome
+    )
     with pytest.raises(errors.MeasurementRecordRefused, match="calibration-not-supported"):
         writer.add(build("proxy-model", replace(value, basis=basis)))
 
@@ -434,7 +419,9 @@ def test_a_calibration_scope_narrower_than_validity_refuses(tmp_path, assessment
         if assessment_stage is None
         else {"testing/stage": ScopedRestriction("generic", TermRestriction("testing/stage", assessment_stage))}
     )
-    basis = held_calibration(writer, tmp_path / "run", applicability=applicability)
+    basis = held_calibration(
+        writer, tmp_path / "run", source=writer.read_view.get(value.source.procedure), applicability=applicability
+    )
     validity = {} if validity_stage is None else {"testing/stage": TermRestriction("testing/stage", validity_stage)}
     node = build("proxy-model", replace(value, basis=basis, validity=validity))
     if admitted:
@@ -458,7 +445,7 @@ def test_a_v1_term_on_an_interval_dimension_refuses_at_authoring(tmp_path):
 def test_a_qualified_proxy_mints(tmp_path):
     writer = _testing_writer(tmp_path / "corpus")
     value = held_values(writer)[2]
-    basis = held_calibration(writer, tmp_path / "run")
+    basis = held_calibration(writer, tmp_path / "run", source=writer.read_view.get(value.source.procedure))
     transfer = AssumptionInstance(
         "testing/calibration-transfer",
         {"proxy": "model", "calibrated_observable": "energy", "target_observable": "without aspect"},
@@ -476,16 +463,16 @@ def test_a_calibration_needs_held_assessments(tmp_path, empty):
         writer.add(build("proxy-model", replace(value, basis=basis)))
 
 
-def test_a_calibration_needs_a_held_spec(tmp_path):
+def test_calibration_qualification_uses_the_frozen_target_without_a_spec(tmp_path):
     writer = _testing_writer(tmp_path / "corpus")
     value = held_values(writer)[2]
-    basis = held_calibration(writer, tmp_path / "run")
+    basis = held_calibration(writer, tmp_path / "run", source=writer.read_view.get(value.source.procedure))
     assessment = writer.read_view.get(basis.assessments[0])
     assessment.facets["assessment"]["spec"] = "f" * 64
+    stored.stamp_semantic_identity(assessment)
     raw_write(writer.root, assessment)
     writer._reconstruct()
-    with pytest.raises(errors.MeasurementRecordRefused, match="calibration"):
-        writer.add(build("proxy-model", replace(value, basis=basis)))
+    assert writer.add(build("proxy-model", replace(value, basis=basis))).id
 
 
 @pytest.mark.parametrize("reverse_yields", [False, True])
@@ -509,7 +496,7 @@ def test_scale_calibration_transfer_uses_all_authority_yields(
             ),
         )
     )
-    basis = held_calibration(writer, tmp_path / "run")
+    basis = held_calibration(writer, tmp_path / "run", source=source)
     transfer = (
         AssumptionInstance(
             "testing/calibration-transfer",
@@ -572,7 +559,9 @@ def test_calibration_reads_assessments_and_specs_through_read_mounts(tmp_path, o
     local = _testing_writer(tmp_path / "local")
     value = held_values(local)[2]
     remote = _testing_writer(tmp_path / "remote")
-    basis = held_calibration(remote, tmp_path / "run", outcome=outcome)
+    basis = held_calibration(
+        remote, tmp_path / "run", source=local.read_view.get(value.source.procedure), outcome=outcome
+    )
     writer = CorpusWriter(
         local.root,
         DefaultExecutor,

@@ -127,7 +127,7 @@ def test_producers_are_unique_sorted_and_ignore_other_edges(tmp_path):
 
 
 def test_eligibility_is_existential_and_reports_invalidity(tmp_path):
-    from beliefs.corpus import eligibility_refusal
+    from beliefs.corpus import _empirical_eligibility_outcome
 
     good = acquired("good")
     bad = acquired("bad", retrieval="act-report:" + "0" * 64)
@@ -143,10 +143,11 @@ def test_eligibility_is_existential_and_reports_invalidity(tmp_path):
     )
     run = stored.run_node("r", title="r", spec="analysis-spec:s", observes=["dataset:missing", bad.id])
     view = seed(tmp_path / "bad", bad, run)
-    reason = eligibility_refusal(view, assessment, BASE)
+    outcome = _empirical_eligibility_outcome(view, assessment, BASE)
+    reason = None if outcome is None else outcome.reason
     assert reason is not None and "dataset:missing: unresolved" in reason and "facet-retrieval-unresolved" in reason
     run = stored.run_node("r", title="r", spec="analysis-spec:s", observes=[bad.id, good.id])
-    assert eligibility_refusal(seed(tmp_path / "good", bad, good, run), assessment, BASE) is None
+    assert _empirical_eligibility_outcome(seed(tmp_path / "good", bad, good, run), assessment, BASE) is None
 
 
 def test_even_a_malformed_lineage_basis_is_not_absent(tmp_path):
@@ -218,7 +219,7 @@ def _chain(*, ancestor=None):
 
 
 def _outcome(tmp_path, observed, *nodes):
-    from beliefs.corpus import eligibility_outcome
+    from beliefs.corpus import _empirical_eligibility_outcome as eligibility_outcome
 
     run = lineage.analysis("r", observed)
     view = seed(tmp_path, run, *nodes)

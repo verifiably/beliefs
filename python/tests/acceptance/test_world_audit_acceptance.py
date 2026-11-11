@@ -13,6 +13,7 @@ import yaml
 from authority import FULL
 from dataset_fixtures import dataset_ref
 from durable_fixture import pinned
+from fixtures_cut3 import TESTING_PROFILE
 from fixtures_cut4 import raw_write
 from profiles import BASE
 from test_relocation_rows import _belief_digest
@@ -275,7 +276,7 @@ def test_a_validating_retained_receipt_suppresses_a_refuted_own_snapshot_durably
     assert read.validate_receipt(world, published, "producer").outcome == "validated"
     assert read.validate_receipt(world, forged, "producer").outcome == "refuted"
 
-    audit = audit_world(world, forged, evidence=original.evidence, profile=BASE)
+    audit = audit_world(world, forged, evidence=original.evidence, profile=TESTING_PROFILE)
 
     assert [(f.code, f.ref) for f in audit.world if f.code.startswith("receipt-")] == [
         ("receipt-refuted", forged.packaging_identity)
@@ -464,11 +465,13 @@ def test_the_default_open_still_refuses_and_no_state_identity_is_taken_over_a_re
 
 
 def verification_world(durable_world):
-    _cid, _root, writer = durable_world.corpus()
+    _cid, _root, writer = durable_world.corpus(TESTING_PROFILE)
     original = publish_corpus(writer, publish=True)
     assert original.node is not None
     nodes = tuple(writer.read_view.iter_stored())
-    world = durable_world(tuple(n for n in nodes if n.kind != "run"), tuple(n for n in nodes if n.kind == "run"))
+    world = durable_world(
+        tuple(n for n in nodes if n.kind != "run"), tuple(n for n in nodes if n.kind == "run"), profile=TESTING_PROFILE
+    )
     return original, world
 
 
@@ -488,7 +491,7 @@ def test_drift_absence_and_unreachable_recomputation_are_findings_durably(chain,
     ]
     original, (world, roots, published, a, b) = verification_world(durable_world)
     damage(roots[b], "parse-error")
-    findings = audit_world(world, published, evidence=NO_EVIDENCE, profile=BASE).corpora[a]
+    findings = audit_world(world, published, evidence=NO_EVIDENCE, profile=TESTING_PROFILE).corpora[a]
     assert original.node is not None
     assert any(f.code == "derivation-unreachable" and f.ref == original.node.id and f.detail == b for f in findings)
 

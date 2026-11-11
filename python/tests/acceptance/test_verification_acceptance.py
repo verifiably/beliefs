@@ -15,10 +15,12 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 from authority import FULL
-from profiles import WITH_BIOLOGY
+from fixtures_cut3 import TESTING_PROFILE
+from profiles import pins_for
 from test_evaluation import CLAIM_FACET
 from test_session_acceptance import DIGEST, adopted, attended, chain, intents, registrations
 from verification_fixtures import admission_over, forgeries, publish_corpus
@@ -38,15 +40,22 @@ TESTS = Path(__file__).resolve().parents[1]
 
 
 def _fresh_process(script: str) -> dict:
-    env = {**os.environ, "PYTHONPATH": os.pathsep.join([str(TESTS), str(TESTS / "acceptance")])}
-    completed = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, check=False)
+    with TemporaryDirectory(prefix="verification-child-") as home:
+        env = {
+            "PATH": os.environ.get("PATH", os.defpath),
+            "HOME": home,
+            "USER": "test-user",
+            "PYTHONPATH": os.pathsep.join([str(TESTS), str(TESTS / "acceptance")]),
+        }
+        completed = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env, check=False)
+
     assert completed.returncode == 0, completed.stderr
     return json.loads(completed.stdout.strip().splitlines()[-1])
 
 
 def _session_over(work_directory):
-    root = adopted(work_directory, "corpus")
-    session, _ = attended(work_directory, root)
+    root = adopted(work_directory, "corpus", pins=pins_for(TESTING_PROFILE), profile=TESTING_PROFILE)
+    session, _ = attended(work_directory, root, profile=TESTING_PROFILE)
     writer = session.scoped(KINDS, "A")
     session.claim_invocation("A", "mint", DIGEST)
     return root, session, writer
@@ -55,16 +64,16 @@ def _session_over(work_directory):
 def test_a_published_verification_is_recoverable_in_a_fresh_process_with_the_runs_gone(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
-        published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
+        published = publish_corpus(open_corpus(root, authority=FULL, profile=TESTING_PROFILE), claim=CLAIM_FACET)
         node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
-        library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
+        library = open_corpus(root, authority=FULL, profile=TESTING_PROFILE)
         library.delete(stored.typed_ref("run", published.derived.original))
         library.delete(stored.typed_ref("run", published.derived.replayed))
     finally:
         session.close()
     report = _fresh_process(
-        "import json; from authority import FULL; from profiles import WITH_BIOLOGY; from beliefs.root import open_corpus; from beliefs.verify import decode_verification\n"
-        f"view = open_corpus({str(root)!r}, authority=FULL, profile=WITH_BIOLOGY).read_view; d = decode_verification(view.get({node.id!r}))\n"
+        "import json; from authority import FULL; from fixtures_cut3 import TESTING_PROFILE; from beliefs.root import open_corpus; from beliefs.verify import decode_verification\n"
+        f"view = open_corpus({str(root)!r}, authority=FULL, profile=TESTING_PROFILE).read_view; d = decode_verification(view.get({node.id!r}))\n"
         "assert not view.holds(f'run:{d.original}') and not view.holds(f'run:{d.replayed}')\n"
         "print(json.dumps({'identity': d.identity(), 'report': d.report.identity(), 'scope': d.scope, 'verdict': d.verdict, 'basis': json.dumps(d.basis(), default=lambda r: r.identity(), sort_keys=True)}))",
     )
@@ -77,29 +86,29 @@ def test_a_published_verification_is_recoverable_in_a_fresh_process_with_the_run
 def test_admission_over_the_corpus_and_the_belief_moves_with_the_record(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
-        published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
+        published = publish_corpus(open_corpus(root, authority=FULL, profile=TESTING_PROFILE), claim=CLAIM_FACET)
         _, before = admission_over(
-            open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original
+            open_corpus(root, authority=FULL, profile=TESTING_PROFILE), published.proposition.id, published.original
         )
         assert isinstance(before, NoBelief)
         node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
         verdict, belief = admission_over(
-            open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original
+            open_corpus(root, authority=FULL, profile=TESTING_PROFILE), published.proposition.id, published.original
         )
         assert isinstance(verdict, Admitted) and isinstance(belief, Belief)
         digest_here = belief.belief_input_digest
         writer.delete(node.id)
         _, after = admission_over(
-            open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), published.proposition.id, published.original
+            open_corpus(root, authority=FULL, profile=TESTING_PROFILE), published.proposition.id, published.original
         )
         assert isinstance(after, NoBelief)
         writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
     finally:
         session.close()
     report = _fresh_process(
-        "import json; from authority import FULL; from profiles import WITH_BIOLOGY; from beliefs.root import open_corpus; from verification_fixtures import admission_over\n"
+        "import json; from authority import FULL; from fixtures_cut3 import TESTING_PROFILE; from beliefs.root import open_corpus; from verification_fixtures import admission_over\n"
         "from beliefs.runrecord import decode_run_closure\n"
-        f"w = open_corpus({str(root)!r}, authority=FULL, profile=WITH_BIOLOGY); original = decode_run_closure(w.read_view.get({stored.typed_ref('run', published.derived.original)!r}))\n"
+        f"w = open_corpus({str(root)!r}, authority=FULL, profile=TESTING_PROFILE); original = decode_run_closure(w.read_view.get({stored.typed_ref('run', published.derived.original)!r}))\n"
         f"verdict, belief = admission_over(w, {published.proposition.id!r}, original); print(json.dumps({{'digest': belief.belief_input_digest}}))",
     )
     assert report["digest"] == digest_here
@@ -108,7 +117,7 @@ def test_admission_over_the_corpus_and_the_belief_moves_with_the_record(work_dir
 def test_a_superseding_failed_verification_invalidates_through_the_session(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
-        published = publish_corpus(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY), claim=CLAIM_FACET)
+        published = publish_corpus(open_corpus(root, authority=FULL, profile=TESTING_PROFILE), claim=CLAIM_FACET)
         derived = published.derived
         writer.add(publication_node(derived, assessment_ref=published.assessment.id))
         failed = _mint_verification(
@@ -125,7 +134,7 @@ def test_a_superseding_failed_verification_invalidates_through_the_session(work_
         successor = writer.add(publication_node(failed, assessment_ref=published.assessment.id))
     finally:
         session.close()
-    view = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view
+    view = open_corpus(root, authority=FULL, profile=TESTING_PROFILE).read_view
     values = tuple(stored.verification_value(n) for n in view.iter_stored() if n.kind == "verification")
     assert lifecycle_state(values) == INVALIDATED and {v.ref for v in active(values)} == {successor.id}
 
@@ -133,10 +142,10 @@ def test_a_superseding_failed_verification_invalidates_through_the_session(work_
 def test_each_forgery_is_refused_with_the_head_unchanged_and_no_intent(work_directory):
     root, session, writer = _session_over(work_directory)
     try:
-        library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
+        library = open_corpus(root, authority=FULL, profile=TESTING_PROFILE)
         published = publish_corpus(library, claim=CLAIM_FACET)
         cases = forgeries(library, published)  # helper records first, then the baseline
-        open_corpus(root, authority=FULL, profile=WITH_BIOLOGY).read_view  # a settled, non-writing probe  # noqa: B018
+        _ = open_corpus(root, authority=FULL, profile=TESTING_PROFILE).read_view  # settled, non-writing probe
         head_before = chain(root).tip
         intents_before, registrations_before = len(intents(root)), len(registrations(root))
         acts_before = len(session.invocation_acts("A"))

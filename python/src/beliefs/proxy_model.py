@@ -276,8 +276,10 @@ def check_crosswalk(proxy: ProxyModel, source: Procedure, authority: Procedure) 
 
 
 def qualify_calibration(proxy: ProxyModel, read: Callable[[str], Node], profile: ProfileSpec) -> None:
-    """Qualify supported held interim assessments against the proxy's whole scope."""
-    from beliefs.stored import analysis_spec_value, assessment_value, typed_ref
+    """Check the immutable empirical agreement and coverage of each basis."""
+    from beliefs.estimand import MeasuredBinding
+    from beliefs.procedure import procedure_from_stored
+    from beliefs.stored import assessment_value
 
     basis = proxy.basis
     if not isinstance(basis, Calibration):
@@ -286,16 +288,39 @@ def qualify_calibration(proxy: ProxyModel, read: Callable[[str], Node], profile:
         raise CalibrationNotQualified("calibration-not-supported: calibration requires assessments")
     for address in basis.assessments:
         try:
-            node = read(address)
-            if node.kind != "assessment":
-                raise CalibrationNotQualified(f"calibration-not-supported: {address!r} is not an assessment")
-            assessment = assessment_value(node, profile=profile)
-            if assessment.outcome != "supported":
-                raise CalibrationNotQualified(f"calibration-not-supported: {address!r} is {assessment.outcome}")
-            spec = analysis_spec_value(read(typed_ref("analysis-spec", assessment.spec)), profile=profile)
-            applicability = spec.applicability.restrictions()
-            if co_scope(applicability, proxy.validity, profile) not in {"equal", "broader"}:
+            assessment = assessment_value(read(address), profile=profile)
+            if assessment.outcome != "supported" or assessment.standing != "empirical":
+                raise CalibrationNotQualified("calibration-not-supported: basis must be supported and empirical")
+            e = assessment.estimand
+            functional = profile.functionals[e.functional].declaration
+            variables = e.bindings.get("variables")
+            if (
+                e.form != "association"
+                or functional.arity != "two"
+                or not isinstance(variables, tuple)
+                or len(variables) != 2
+            ):
+                raise CalibrationNotQualified("calibration-shape: empirical association of arity two required")
+            bindings = [binding for _, binding in variables]
+            if any(
+                not isinstance(binding, MeasuredBinding) or binding.measure.observable != basis.calibrated
+                for binding in bindings
+            ):
+                raise CalibrationNotQualified(
+                    "calibration-observable: agreement must measure the calibrated observable"
+                )
+            source = [b for b in bindings if b.measure.procedure == proxy.source.procedure]
+            others = [b for b in bindings if b.measure.procedure != proxy.source.procedure]
+            if len(source) != 1 or len(others) != 1:
+                raise CalibrationNotQualified("calibration-source: one variable must name the proxy source procedure")
+            other = procedure_from_stored(read(others[0].measure.procedure))
+            if profile.procedure_kinds[other.kind].fills_within_model:
+                raise CalibrationNotQualified(
+                    "calibration-empirical-side: another model is not an empirical measurement"
+                )
+            if assessment.interpretation_rule not in basis.rules:
+                raise CalibrationNotQualified("calibration-rule: interpretation rule is not an allowed tolerance")
+            if co_scope(assessment.applicability.restrictions(), proxy.validity, profile) not in {"equal", "broader"}:
                 raise CalibrationNotQualified(f"calibration-scope-overstated: assessment {address!r}")
         except ScienceError as exc:
             raise CalibrationNotQualified(str(exc)) from exc
-    # plan 2 (beliefs-f68a32): standing, v2 estimand shape and interpretation-rule qualification.

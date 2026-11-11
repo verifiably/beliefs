@@ -17,7 +17,15 @@ from dataclasses import replace
 import pytest
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import (
+    MEASUREMENT_RECORDS,
+    TESTING_CLAIM,
+    TESTING_PROFILE,
+    frozen_fixture_spec,
+    typed_applicability,
+    typed_estimand,
+    typed_target,
+)
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
 from nodes.core.node import Node
@@ -28,6 +36,9 @@ from beliefs import stored
 from beliefs.corpus import LineageAdjacency, ReadView, RelationAdjacency, corpus_check, derived_from, lineage_snapshot
 from beliefs.errors import SemanticHashMissing, SemanticHashStale
 from beliefs.lineage import certify
+from beliefs.projection import project_claim
+from beliefs.register import AssumptionsRegister
+from beliefs.spec import SpecInput
 from beliefs.traversal import LineageEntry, RelationEntry, closure
 from beliefs.world import CorpusManifest, manifest_bytes
 
@@ -278,19 +289,40 @@ def observed_dataset(seed="raw"):
 
 def admissible_corpus(tmp_path, extra: tuple[Node, ...] = (), **run_kwargs):
     dataset = observed_dataset()
-    run = stored.run_node("r1", title="r1", spec="analysis-spec:s1", **({"observes": [dataset.id]} | run_kwargs))
+    roles = {"observes": [dataset.id], **run_kwargs}
+    inputs = tuple(
+        SpecInput(role, ref, "observation" if role == "observes" else "literature-extraction")
+        for role in stored.INPUT_ROLES
+        for ref in sorted(set(roles.get(role, ())))
+    )
+    spec = frozen_fixture_spec("proposition:p1", inputs)
+    run = stored.run_node("r1", title="r1", spec=spec.identity, **roles)
     assessment = stored.assessment_node(
         "a1",
         title="a1",
-        spec="analysis-spec:s1",
+        spec=spec.identity,
         run=run.id,
         proposition="proposition:p1",
         outcome="supported",
-        interpretation_rule="rule:threshold",
-        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+        interpretation_rule=spec.interpretation_rule,
+        target=spec.assessed_target,
     )
-    proposition = stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
-    return seed(tmp_path, dataset, run, assessment, proposition, *extra)
+    proposition = stored.proposition_node("p1", title="p1", claim=project_claim(TESTING_CLAIM))
+    register = stored.assumptions_register_node(
+        AssumptionsRegister("testing:" + TESTING_PROFILE.activated_contracts["testing"], None, {})
+    )
+    return seed(
+        tmp_path,
+        dataset,
+        run,
+        assessment,
+        proposition,
+        stored.analysis_spec_node(spec),
+        register,
+        *(MEASUREMENT_RECORDS.read(d.id) for d in spec.assessed_target.dependencies),
+        *extra,
+        pins=pins_for(TESTING_PROFILE),
+    )
 
 
 class TestTheFacadesNodeReadPath:
@@ -419,39 +451,23 @@ class TestTheCorpusCheck:
     def test_eligibility_keeps_the_existential_rule(self, tmp_path):
         good = observed_dataset()
         bad = stored.dataset_node(title="b", resources=PINNED, empirical_observation={"boundary": "x"})
-        view = seed(
-            tmp_path,
-            good,
-            bad,
-            stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[good.id, bad.id]),
-            stored.assessment_node(
-                "a1",
-                title="a1",
-                spec="analysis-spec:s1",
-                run="run:r1",
-                proposition="proposition:p1",
-                outcome="supported",
-                interpretation_rule="rule:threshold",
-                target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
-            ),
-            stored.proposition_node("p1", title="p1", claim={"operator": "affects"}),
-        )
-        codes = [f.code for f in corpus_check(view, BASE)]
+        view = admissible_corpus(tmp_path, extra=(bad,), observes=(good.id, bad.id))
+        codes = [f.code for f in corpus_check(view, TESTING_PROFILE)]
         assert "eligibility-unmet" not in codes and codes == ["facet-payload-malformed"]
 
     def test_a_valid_record_is_reported_by_nothing(self, tmp_path):
-        assert corpus_check(admissible_corpus(tmp_path), BASE) == ()
+        assert corpus_check(admissible_corpus(tmp_path), TESTING_PROFILE) == ()
 
     def test_an_assesses_edge_whose_run_has_no_observes_input_is_reported_eligibility_unmet(self, tmp_path):
         view = admissible_corpus(tmp_path, observes=[])
-        findings = corpus_check(view, BASE)
+        findings = corpus_check(view, TESTING_PROFILE)
         assert [(f.severity, f.code, f.ref, f.detail) for f in findings] == [
             ("error", "eligibility-unmet", "assessment:a1", "proposition:p1")
         ]
 
     def test_reads_inputs_confer_no_eligibility_in_any_quantity(self, tmp_path):
         view = admissible_corpus(tmp_path, observes=[], reads=[dataset_ref("raw"), dataset_ref("raw")])
-        assert [f.code for f in corpus_check(view, BASE)] == ["eligibility-unmet"]
+        assert [f.code for f in corpus_check(view, TESTING_PROFILE)] == ["eligibility-unmet"]
 
     def test_an_observes_input_without_the_empirical_observation_facet_is_reported(self, tmp_path):
         plain = stored.dataset_node(title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}])
@@ -543,14 +559,14 @@ class TestTheCorpusCheck:
         stale.facets[stored.DATASET_FACET]["resources"] = []
         admissible_corpus(tmp_path, observes=[])
         raw_write(tmp_path, stale)
-        findings = corpus_check(reopen(tmp_path), BASE)
+        findings = corpus_check(reopen(tmp_path), TESTING_PROFILE)
         assert [f.sort_key for f in findings] == sorted(f.sort_key for f in findings)
         assert {f.ref for f in findings} == {"assessment:a1", dataset_ref("raw")}
 
 
 def test_a_dataset_the_corpus_does_not_hold_is_eligibility_unresolved(tmp_path):
     view = admissible_corpus(tmp_path, observes=[dataset_ref("elsewhere")])
-    findings = corpus_check(view, BASE)
+    findings = corpus_check(view, TESTING_PROFILE)
     assert [(f.severity, f.code, f.ref, f.detail) for f in findings] == [
         ("warning", "eligibility-unresolved", "assessment:a1", dataset_ref("elsewhere"))
     ]
@@ -562,7 +578,7 @@ def test_an_unheld_run_is_eligibility_unresolved(tmp_path):
     node = view.get("assessment:a1").model_copy(deep=True)
     node.facets[stored.ASSESSMENT_FACET]["run"] = "run:elsewhere"
     raw_write(view._corpus.store.root, stored.stamp_semantic_identity(node))
-    findings = corpus_check(reopen(view._corpus.store.root), BASE)
+    findings = corpus_check(reopen(view._corpus.store.root), TESTING_PROFILE)
     assert ("warning", "eligibility-unresolved", "assessment:a1", "run:elsewhere") in [
         (f.severity, f.code, f.ref, f.detail) for f in findings
     ]
@@ -571,7 +587,9 @@ def test_an_unheld_run_is_eligibility_unresolved(tmp_path):
 def test_one_held_invalid_and_one_unheld_dataset_is_unresolved(tmp_path):
     plain = stored.dataset_node(title="plain", resources=[{"name": "x", "digest": "sha256:" + "ef" * 32}])
     view = admissible_corpus(tmp_path, observes=[plain.id, dataset_ref("elsewhere")], extra=(plain,))
-    assert [(f.severity, f.code) for f in corpus_check(view, BASE)] == [("warning", "eligibility-unresolved")]
+    assert [(f.severity, f.code) for f in corpus_check(view, TESTING_PROFILE)] == [
+        ("warning", "eligibility-unresolved")
+    ]
 
 
 class TestTheSnapshotWalk:
@@ -877,13 +895,11 @@ def test_corpus_check_accepts_derived_dataset_and_warns_unresolved_when_ancestor
     d0 = lineage.acquired("d0")
     d1 = lineage.derived("d1", lineage.route("run:p1", d0.id))
     p1 = lineage.production("p1", d0.id, d1.id)
-    proposition = stored.proposition_node("p1", title="p1", claim={"operator": "affects"})
 
     def checked(root, observed, *nodes):
-        run = lineage.analysis("r1", observed)
         return [
             (f.severity, f.code, f.ref, f.detail)
-            for f in corpus_check(seed(root, run, lineage.assessment_over("a1", run.id), proposition, *nodes), BASE)
+            for f in corpus_check(admissible_corpus(root, observes=(observed,), extra=nodes), TESTING_PROFILE)
         ]
 
     assert checked(tmp_path / "complete", d1.id, d0, d1, p1) == []

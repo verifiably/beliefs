@@ -1943,7 +1943,7 @@ def _dataset_standing_outcome(
     return None
 
 
-def eligibility_outcome(
+def _empirical_eligibility_outcome(
     view: EligibilityView,
     node: Node,
     profile: ProfileSpec,
@@ -1987,6 +1987,160 @@ def eligibility_outcome(
         f"no observes input of {run_ref!r} has empirical standing ({'; '.join(reasons)})",
         tuple(dict.fromkeys(unresolved)),
     )
+
+
+class _StandingRecords:
+    def __init__(self, view: EligibilityView) -> None:
+        self.view = view
+        fold = view.retraction_fold_view()
+        facets = {n.id: CorpusWriter._validated_retraction(n) for n in fold.iter_stored() if n.kind == "retraction"}
+        self.standing = retraction_standing(fold, facets)
+
+    def holds(self, id: str) -> bool:
+        return self.view.holds(id)
+
+    def read(self, id: str) -> Node:
+        if not self.holds(id):
+            from beliefs.errors import DependencyNotHeld
+
+            raise DependencyNotHeld(f"standing-unresolved: {id}")
+        return self.view.get(id)
+
+    def retraction_in_force(self, id: str) -> bool:
+        return not self.standing.get(id, True)
+
+    def observation_held(self, digest: str) -> bool:
+        return any(
+            n.kind == "dataset"
+            and not self.retraction_in_force(n.id)
+            and any(r.digest == digest for r in stored.dataset_declaration(n).resources)
+            for n in self.view.retraction_fold_view().iter_stored()
+        )
+
+    def crosswalks(self, a: str, b: str) -> tuple[str, ...]:
+        return ()
+
+
+def _standing_claim(node: Node, profile: ProfileSpec):
+    from beliefs.decode import claim_from_stored
+    from beliefs.resolution import build_snapshot
+
+    return claim_from_stored(node, profile=profile, snapshot=build_snapshot(readable={}))[0]
+
+
+def standing_outcome(
+    view: EligibilityView,
+    node: Node,
+    profile: ProfileSpec,
+    *,
+    judge: EligibilityView | None = None,
+    reports: Callable[[str], ReportView | None] | None = None,
+) -> EligibilityOutcome | None:
+    from beliefs.dependencies import dependency_closure
+    from beliefs.eligibility import AssessmentEligibilityReader, Eligible
+    from beliefs.errors import DependencyNotHeld
+    from beliefs.spec import SPEC_INPUT_ROLES
+    from beliefs.standing import check_standing, check_within_model
+
+    if node.kind not in {"proposition", "assessment"}:
+        return None
+    if node.kind == "proposition":
+        facet = node.facets.get(stored.PROPOSITION_FACET)
+        if not isinstance(facet, dict) or "within-model" not in facet.get("roles", {}):
+            return None
+    try:
+        records = _StandingRecords(view)
+        if node.kind == "proposition":
+            check_within_model(_standing_claim(node, profile), profile=profile, records=records)
+            return None
+        if node.kind != "assessment":
+            return None
+        value = stored.assessment_value(node, profile=profile)
+        spec_ref = stored.typed_ref("analysis-spec", value.spec)
+        if not view.holds(spec_ref):
+            return EligibilityOutcome(f"standing-unresolved: {spec_ref}", (spec_ref,))
+        spec = stored.analysis_spec_value(view.get(spec_ref), profile=profile)
+        claim = _standing_claim(records.read(value.proposition), profile)
+        run = records.read(stored.typed_ref("run", value.run))
+        if stored.semantic_hash_missing(run) or stored.semantic_hash_disagrees(run):
+            return None  # The corpus check diagnoses this unreadable neighbour at its own ref.
+        if stored.run_spec(run) != spec.identity or value.target != spec.assessed_target:
+            return EligibilityOutcome("standing-route-mismatch: assessment, run and frozen spec disagree")
+
+        def run_of(id: str) -> RunValue:
+            run_node = records.read(stored.typed_ref("run", id))
+            inputs = tuple(
+                RunInput(role, stored.dataset_declaration(records.read(ref)))
+                for role in stored.INPUT_ROLES
+                for ref in stored.inputs_of(run_node, role)
+            )
+            return RunValue(run_node.id, stored.run_spec(run_node) or "", inputs)
+
+        def verifications_of(id: str):
+            return tuple(
+                stored.verification_value(n)
+                for n in view.retraction_fold_view().iter_stored()
+                if n.kind == "verification"
+                and not records.retraction_in_force(n.id)
+                and stored.verification_value(n).assessment == id
+            )
+
+        eligibility = AssessmentEligibilityReader(records, profile, run_of, verifications_of)
+        # Recompute the frozen closure, binding every calibration's actual facet.
+        frozen = dependency_closure(
+            (d.id for d in value.dependencies),
+            records,
+            profile,
+            assessment_dependency=lambda id: stored.frozen_assessment_dependency(id, records=records, profile=profile),
+        )
+        if frozen != value.dependencies:
+            return EligibilityOutcome("standing-route-mismatch: frozen-dependency-mismatch")
+        actual_inputs = {
+            (role, stored.dataset_address_of(records.read(ref)))
+            for role in SPEC_INPUT_ROLES
+            for ref in stored.inputs_of(run, role)
+        }
+        if actual_inputs != {(i.role, i.dataset) for i in spec.input_roles}:
+            return EligibilityOutcome("standing-route-mismatch: run inputs do not match the frozen spec")
+        observed = {stored.dataset_address_of(records.read(ref)): ref for ref in stored.inputs_of(run, stored.OBSERVES)}
+
+        def empirical(input):
+            ref = observed.get(input.dataset)
+            return (
+                ref is not None and _dataset_standing_outcome(view, ref, profile, judge=judge, reports=reports) is None
+            )
+
+        check_standing(
+            spec,
+            claim,
+            profile=profile,
+            records=records,
+            empirical=empirical,
+            assessments=lambda id: isinstance(eligibility(id), Eligible),
+        )
+        return None
+    except DependencyNotHeld as error:
+        return EligibilityOutcome(f"standing-unresolved: {error}", (str(error),))
+    except ScienceError as error:
+        return EligibilityOutcome(f"standing-unmet: {error}")
+
+
+def eligibility_outcome(
+    view: EligibilityView,
+    node: Node,
+    profile: ProfileSpec,
+    *,
+    judge: EligibilityView | None = None,
+    reports: Callable[[str], ReportView | None] | None = None,
+) -> EligibilityOutcome | None:
+    if node.kind != "assessment" and any(r.predicate == stored.ASSESSES for r in node.relations):
+        return _empirical_eligibility_outcome(view, node, profile, judge=judge, reports=reports)
+    facet = node.facets.get(stored.ASSESSMENT_FACET)
+    if isinstance(facet, dict) and facet.get("standing") == "empirical":
+        empirical = _empirical_eligibility_outcome(view, node, profile, judge=judge, reports=reports)
+        if empirical is not None:
+            return empirical
+    return standing_outcome(view, node, profile, judge=judge, reports=reports)
 
 
 def eligibility_refusal(
@@ -2047,7 +2201,7 @@ class _EligibilityReader(Protocol):
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None: ...
 
 
-ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved"})
+ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved", "standing-unmet", "standing-unresolved"})
 
 
 _WHOLE_READERS: Mapping[str, tuple[str, Callable[[Node], object]]] = MappingProxyType(
@@ -2251,7 +2405,7 @@ def _record_findings(
             findings.append(
                 Finding(
                     severity="warning",
-                    code="eligibility-unresolved",
+                    code="standing-unresolved" if outcome.reason.startswith("standing-") else "eligibility-unresolved",
                     ref=node.id,
                     detail=", ".join(outcome.unresolved),
                     message=f"{node.id}: eligibility rests on {', '.join(outcome.unresolved)}, which this read does not hold; audit_world judges it",
@@ -2259,12 +2413,16 @@ def _record_findings(
             )
         elif outcome is not None:
             reason = outcome.reason
+            if node.kind == "proposition":
+                findings.append(Finding("error", "standing-unmet", node.id, "within-model", reason))
             for relation in node.relations:
                 if relation.predicate == stored.ASSESSES:
                     findings.append(
                         Finding(
                             severity="error",
-                            code="eligibility-unmet",
+                            code="standing-unmet"
+                            if outcome.reason.startswith(("standing-", "calibration-"))
+                            else "eligibility-unmet",
                             ref=node.id,
                             detail=relation.target,
                             message=f"{node.id}: assesses {relation.target!r} but {reason}",
@@ -4341,6 +4499,7 @@ class CorpusWriter:
         self._refuse_already_minted(node)
         self._refuse_source(node, provenance=provenance)
         self._refuse_dataset_basis(node)
+        self._refuse_assesses_target_kind(node, view=view)
         self._refuse_ineligible(node, view=view)
         if stored.display_facet_malformed(node):
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
@@ -4358,7 +4517,6 @@ class CorpusWriter:
             )
         reading = self._view if view is None else view
         self._refuse_supersedes_same_kind(node, view=reading)
-        self._refuse_assesses_target_kind(node, view=reading)
         if node.kind == "composite":
             self._refuse_composite(node, view=reading)
         self._refuse_governed_stamp(node)

@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import pytest
 from domain_facet_fixtures import over_kwargs
-from fixtures_cut3 import typed_target
 from test_audit import writer  # noqa: F401 - the fixture
 from test_evaluation import CLAIM_FACET, OTHER_GENE, PHENO
 from verification_fixtures import PROFILE, admission_over, evaluation_kwargs, publish_corpus
@@ -117,7 +116,7 @@ def test_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(writer
             proposition=published.proposition.id,
             outcome=disagreeing_outcome,
             interpretation_rule=value.interpretation_rule,
-            target=typed_target(estimand=value.estimand, applicability=value.applicability),
+            target=value.target,
         )
     )
     assert stored.assessment_value(twin, profile=PROFILE).identity() == value.identity()

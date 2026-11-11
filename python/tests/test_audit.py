@@ -10,6 +10,8 @@ from authority import ACTOR
 from closure_fixtures import make_closure
 from dataset_fixtures import pinned, pinned_for
 from fixtures_cut3 import (
+    MEASUREMENT_RECORDS,
+    TESTING_CLAIM,
     TESTING_PROFILE,
     carry_registers,
     freeze_context,
@@ -88,6 +90,20 @@ def _bystander(writer) -> str:
     return node.id
 
 
+def _audit_target(writer):
+    if writer.read_view.holds("proposition:p1"):
+        return writer.read_view.get("proposition:p1")
+    return writer.add(stored.proposition_node("p1", title="p1", claim=project_claim(TESTING_CLAIM)))
+
+
+def _hold_spec(writer, spec):
+    for dependency in spec.assessed_target.dependencies:
+        if not writer.read_view.holds(dependency.id):
+            writer.add(MEASUREMENT_RECORDS.read(dependency.id))
+    if not writer.read_view.holds("analysis-spec:" + spec.identity):
+        writer.add(stored.analysis_spec_node(spec))
+
+
 def _derived_run(writer):
     """A real, decodable assessment run and the frozen spec it was run under.
 
@@ -95,7 +111,9 @@ def _derived_run(writer):
     replaced with the frozen spec's own — `build_assessment` and `_resolve_rule`
     both read the **recipe's** bindings, not the spec's.
     """
-    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
+    target = _audit_target(writer)
+    frozen = freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context())
+    _hold_spec(writer, frozen)
     closure = assessment_closure(frozen)
     add_observed_datasets(writer, closure)
     run = writer.add(run_publication(closure))
@@ -109,9 +127,14 @@ def assessment_closure(frozen, *, token: str = "tok", result: ResultManifest | N
     both are covered by the closure address, so either yields a distinct run —
     a replay that agrees (same result) or one that does not.
     """
+    from beliefs.recipe import RecipeInput
+
     base = make_closure(shape="assessment", token=token)
     recipe = replace(
         base.recipe,
+        inputs=tuple(
+            RecipeInput(i.role, i.dataset, pinned_for(i.dataset)[0]["digest"], i.exclusion) for i in frozen.input_roles
+        ),
         spec_identity=frozen.identity,
         rule_bindings=tuple((b.rule, b.implementation) for b in frozen.rule_bindings),
     )
@@ -215,18 +238,26 @@ def _eligible_assessment(writer) -> Node:
             title="raw", resources=PINNED, empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR}
         )
     )
-    run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
-    proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+    from beliefs.spec import SpecInput
+
+    proposition = _audit_target(writer)
+    spec = freeze(
+        spec_draft(target=proposition.id, input_roles=(SpecInput("observes", dataset.id, "observation"),)),
+        held_rules=spec_rules(),
+        **freeze_context(),
+    )
+    _hold_spec(writer, spec)
+    run = writer.add(stored.run_node("r1", title="r1", spec=spec.identity, observes=[dataset.id]))
     return writer.add(
         stored.assessment_node(
             "a1",
             title="a1",
-            spec="analysis-spec:s1",
+            spec=spec.identity,
             run=run.id,
             proposition=proposition.id,
             outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
         )
     )
 
@@ -641,7 +672,7 @@ class TestTheAuditReportsAndNeverRaises:
             )
         )
         run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
-        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        proposition = _audit_target(writer)
         # `outcome="maybe"` is outside the closed set (the closed set is opaque): the
         # typed constructor refuses it at mint, so the malformed record is
         # written behind the boundary — self-consistent (restamped), never
@@ -664,6 +695,7 @@ class TestTheAuditReportsAndNeverRaises:
         assert {(f.code, f.ref) for f in findings} == {
             ("semantic-hash-missing", bystander),
             ("derivation-malformed", node.id),
+            ("standing-unmet", node.id),
         }
 
     def test_an_assessment_naming_a_dataset_production_run(self, writer):
@@ -695,7 +727,7 @@ class TestTheAuditReportsAndNeverRaises:
                 produces=(dataset.id,),
             )
         )
-        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        proposition = _audit_target(writer)
         node = stored.assessment_node(
             "a1",
             title="a1",
@@ -835,7 +867,7 @@ class TestAssessmentComparisonNamespaces:
         evidence = _interpretation_evidence(frozen)
         derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
         assert isinstance(derived, AssessmentValue)
-        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+        proposition = _audit_target(writer)
         node = writer.add(
             stored.assessment_node(
                 "a1",
@@ -858,19 +890,19 @@ class TestAssessmentComparisonNamespaces:
         evidence = _interpretation_evidence(frozen)
         derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
         assert isinstance(derived, AssessmentValue)
-        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
-        node = writer.add(
-            stored.assessment_node(
-                "a1",
-                title="a1",
-                spec="analysis-spec:forged",
-                run=runrecord.run_ref(derived.run),
-                proposition=proposition.id,
-                outcome="refuted",
-                interpretation_rule=derived.interpretation_rule,
-                **_stated_optionals(derived),
-            )
+        proposition = _audit_target(writer)
+        node = stored.assessment_node(
+            "a1",
+            title="a1",
+            spec="analysis-spec:forged",
+            run=runrecord.run_ref(derived.run),
+            proposition=proposition.id,
+            outcome="refuted",
+            interpretation_rule=derived.interpretation_rule,
+            **_stated_optionals(derived),
         )
+        raw_write(writer.root, node)
+        writer._reconstruct()
         outcome = audit.check_assessment(writer.read_view, node, evidence=evidence, profile=writer.profile)
         assert outcome.checked and outcome.contradiction is not None
         assert outcome.contradiction.code == "assessment-derivation-contradicted"
@@ -888,7 +920,7 @@ def test_a_well_formed_assessment_is_admitted_by_audit_and_by_import(writer, tmp
     evidence = _interpretation_evidence(frozen)
     derived = build_assessment(closure, specs=evidence.specs, implementations=evidence.implementations)
     assert isinstance(derived, AssessmentValue)
-    proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+    proposition = _audit_target(writer)
     assessment = writer.add(
         stored.assessment_node(
             "a1",
@@ -908,6 +940,7 @@ def test_a_well_formed_assessment_is_admitted_by_audit_and_by_import(writer, tmp
     target.import_bundle(
         [
             *datasets,
+            writer.read_view.get("analysis-spec:" + frozen.identity),
             *(writer.read_view.get(d.id) for d in frozen.assessed_target.dependencies),
             run,
             proposition,
@@ -1265,7 +1298,6 @@ def test_the_audit_reaches_the_same_verdict_with_specs_restored_from_the_corpus(
     # than `publish_corpus`'s bare `{"operator": "affects"}` default.
     published = publish_corpus(writer, publish=True, claim=project_claim(TESTING_CLAIM))
     assert published.node is not None
-    writer.add(stored.analysis_spec_node(published.frozen))
     specs, findings = stored_specs(writer.read_view, profile=writer.profile)
     assert not findings and set(specs) == {published.frozen.identity}
     from dataclasses import replace

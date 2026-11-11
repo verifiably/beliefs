@@ -336,9 +336,11 @@ def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_a
     from beliefs.identity import v1
 
     scratch = tmp_path / "scratch"
-    writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=BASE)
-    writer.adopt_manifest(profile=pins_for(BASE))
-    published = publish_corpus(writer, publish=True, store_dependencies=False)
+    from fixtures_cut3 import TESTING_PROFILE
+
+    writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=TESTING_PROFILE)
+    writer.adopt_manifest(profile=pins_for(TESTING_PROFILE))
+    published = publish_corpus(writer, publish=True)
     assert published.node is not None
     forged = self_consistent_forgery(
         writer, published.node, mutate=lambda facet: facet.__setitem__("verdict", "failed")

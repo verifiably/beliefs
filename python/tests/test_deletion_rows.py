@@ -28,7 +28,11 @@ from typing import Any
 
 import pytest
 from authority import ACTOR
-from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import (
+    MEASUREMENT_RECORDS,
+    carry_registers,
+    frozen_fixture_spec,
+)
 from fixtures_cut4 import path_for
 from nodes.core.node import Node
 from profiles import pins_for
@@ -66,6 +70,7 @@ from beliefs.profile import compile_profile
 from beliefs.projection import claim_identity
 from beliefs.record import AssessmentValue
 from beliefs.resolution import build_snapshot
+from beliefs.spec import SpecInput
 from beliefs.verification import ADMITTED, INVALIDATED, NOT_ADMITTED, lifecycle_state
 
 
@@ -226,24 +231,31 @@ def _records(
                 basis=basis if address == DERIVED else None,
             ),
         )
+        inputs = (SpecInput("observes", address, "observation"),)
+        if basis is not None and address == DERIVED:
+            inputs += (SpecInput("observes", ACQUISITION_WITNESS, "observation"),)
+        spec = frozen_fixture_spec(PROPOSITION_REF, inputs)
+        for dependency in spec.assessed_target.dependencies:
+            records["dependency-" + dependency.id] = ("add", MEASUREMENT_RECORDS.read(dependency.id))
+        records["spec-" + letter] = ("add", stored.analysis_spec_node(spec))
         records[f"run-{letter}"] = (
             "add",
             stored.run_node(
                 f"run-{letter}",
                 title=f"run-{letter}",
-                spec=f"spec-{letter}",
+                spec=spec.identity,
                 observes=[address, ACQUISITION_WITNESS] if basis is not None and address == DERIVED else [address],
             ),
         )
         assessment = stored.assessment_node(
             f"a-{index}",
             title=f"a-{index}",
-            spec=f"spec-{letter}",
+            spec=spec.identity,
             run=f"run:run-{letter}",
             proposition=PROPOSITION_REF,
             outcome="supported",
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
         )
         records[f"a-{index}"] = ("add", assessment)
         verification = stored.verification_node(
@@ -757,9 +769,14 @@ def test_admission_order_leaves_every_identity_and_the_digest_unchanged(tmp_path
     records admitted in two orders leave every stored identity and the belief
     digest exactly where they were."""
     records = _records(retraction_chain=True)
-    assert set(ORDER_A) == set(records), "the declared orders cover the builder's record set"
-    first = _admit(tmp_path / "first", records, ORDER_A)
-    second = _admit(tmp_path / "second", records, ORDER_B)
+    prerequisites = tuple(sorted(k for k in records if k.startswith(("dependency-", "spec-"))))
+    assert set(ORDER_A) | set(prerequisites) == set(records), "the declared orders cover the builder's record set"
+
+    def ordered(order):
+        return ("p", "q", *prerequisites, *(k for k in order if k not in {"p", "q"}))
+
+    first = _admit(tmp_path / "first", records, ordered(ORDER_A))
+    second = _admit(tmp_path / "second", records, ordered(ORDER_B))
 
     identities = [
         {node.id: stored.stored_semantic_hash(node) for node in scenario.view.iter_stored()}

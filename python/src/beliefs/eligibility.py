@@ -3,7 +3,7 @@
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import TypeAlias
+from typing import TYPE_CHECKING, TypeAlias
 
 from nodes.core.node import Node
 
@@ -21,8 +21,13 @@ from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
 from beliefs.proxy_model import Calibration, ProxyModel
 
+if TYPE_CHECKING:
+    from beliefs.record import RunValue
+    from beliefs.verification import Verification
+
 __all__ = [
     "AssessmentEligibility",
+    "AssessmentEligibilityReader",
     "ClosureEligibility",
     "Eligible",
     "Ineligible",
@@ -167,3 +172,76 @@ def closure_eligibility(
         first = next((member for member in sorted(members) if isinstance(members[member], Ineligible)), None)
         verdicts[id] = Eligible() if first is None else Ineligible(f"dependency-ineligible: {first}")
     return ClosureEligibility(MappingProxyType(verdicts), tuple(sorted(observed.reads)))
+
+
+@dataclass
+class AssessmentEligibilityReader:
+    """One recursive snapshot walk shared across claims and keys.
+
+    The boundary supplies captured runs and active verification records; this
+    reader never resolves a spec or fetches an observed dataset's bytes.
+    """
+
+    records: HeldRecords
+    profile: ProfileSpec
+    run_of: Callable[[str], "RunValue"]
+    verifications_of: Callable[[str], tuple["Verification", ...]]
+    _active: set[str] = field(default_factory=set)
+    _memo: dict[str, Eligible | Ineligible] = field(default_factory=dict)
+
+    def __call__(self, id: str) -> Eligible | Ineligible:
+        from beliefs import stored
+        from beliefs.errors import ScienceError
+        from beliefs.verification import ADMITTED, lifecycle_state
+
+        if id in self._active:
+            return Ineligible("cycle", (id,))
+        if id in self._memo:
+            return self._memo[id]
+        if not self.records.holds(id) or self.records.retraction_in_force(id):
+            return Ineligible("basis-not-held-or-retracted", (id,))
+        self._active.add(id)
+        try:
+            value = stored.assessment_value(self.records.read(id), profile=self.profile)
+            frozen = dependency_closure(
+                (d.id for d in value.dependencies),
+                self.records,
+                self.profile,
+                assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
+                    ref, records=self.records, profile=self.profile
+                ),
+            )
+            if frozen != value.dependencies:
+                return Ineligible("frozen-dependency-mismatch", (id,))
+            run = self.run_of(value.run)
+            if run.ref != stored.typed_ref("run", value.run):
+                verdict = Ineligible("run-mismatch")
+            elif value.standing == "empirical" and not any(i.role == "observes" for i in run.inputs):
+                verdict = Ineligible("no-observes-input")
+            elif any(not i.dataset.resources for i in run.inputs) or not all(
+                d is not None and self.records.observation_held(d)
+                for i in run.inputs
+                for resource in i.dataset.resources
+                for d in (resource.digest,)
+            ):
+                verdict = Ineligible("input-not-held")
+            elif lifecycle_state(self.verifications_of(value.identity())) != ADMITTED:
+                verdict = Ineligible("not-admitted-verification-state")
+            else:
+                closure = closure_eligibility(
+                    (d.id for d in value.dependencies),
+                    self.records,
+                    self.profile,
+                    assessments=self,
+                    assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
+                        ref, records=self.records, profile=self.profile
+                    ),
+                )
+                first = next((ref for ref, v in closure.verdicts.items() if isinstance(v, Ineligible)), None)
+                verdict = Eligible() if first is None else Ineligible("dependency-ineligible", (first,))
+            self._memo[id] = verdict
+            return verdict
+        except ScienceError as error:
+            return Ineligible(str(error), (id,))
+        finally:
+            self._active.difference_update((id,))

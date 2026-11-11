@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 from authority import ACTOR
 from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import MEASUREMENT_RECORDS, frozen_fixture_spec, typed_estimand
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -34,10 +34,13 @@ from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.estimand import Estimand
 from beliefs.evaluation import READ_KINDS, EvaluationInputs, evaluate_over, gather
+from beliefs.identity import v1
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.projection import claim_identity, project_claim
 from beliefs.record import AssessmentValue
 from beliefs.resolution import ResolutionSnapshot, build_snapshot
+from beliefs.spec import SpecInput
+from beliefs.target import target_projection
 
 # --- the claim the proposition node carries --------------------------------
 #
@@ -128,7 +131,7 @@ def _seed(
 
     `estimand` replaces the two matched assessments' estimand (default
     `typed_estimand()`, built for `CLAIM_FACET`'s claim)."""
-    matched_estimand = estimand if estimand is not None else typed_estimand()
+    matched_estimand = typed_estimand()
     nodes: list[Node] = [
         stored.proposition_node("p", title="p", claim=CLAIM_FACET),
         stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET),
@@ -141,7 +144,26 @@ def _seed(
                 empirical_observation=EMPIRICAL,
             )
         )
+    specs = {}
+    from domain_facet_fixtures import _claim_of
+
     for letter in ("a", "b", "c"):
+        claim = _claim_of(OTHER_CLAIM_FACET if letter == "c" else CLAIM_FACET)
+        e = typed_estimand(claim=claim) if letter == "c" else matched_estimand
+        inputs = (SpecInput("observes", _address(letter), "observation"),)
+        if reads and letter == "a":
+            inputs += (SpecInput("reads", _address("e"), "literature-extraction"),)
+        spec = frozen_fixture_spec(
+            OTHER_PROPOSITION_REF if letter == "c" else proposition_ref,
+            inputs,
+            estimand=e,
+            claim=claim,
+            profile=PROFILE,
+        )
+        specs[letter] = spec
+        held_ids = {n.id for n in nodes}
+        nodes.extend(MEASUREMENT_RECORDS.read(d.id) for d in spec.assessed_target.dependencies if d.id not in held_ids)
+        nodes.append(stored.analysis_spec_node(spec))
         nodes.append(
             stored.dataset_node(
                 title=f"d-{letter}",
@@ -153,7 +175,7 @@ def _seed(
             stored.run_node(
                 f"run-{letter}",
                 title=f"run-{letter}",
-                spec=f"spec-{letter}",
+                spec=spec.identity,
                 observes=[_address(letter)],
                 # A `reads` input on `run-a` only: `run_value` hands out its
                 # declaration for every role, and the resolver traces none but
@@ -166,35 +188,43 @@ def _seed(
         stored.assessment_node(
             "a-1",
             title="a-1",
-            spec="spec-a",
+            spec=specs["a"].identity,
             run="run:run-a",
             proposition=proposition_ref,
             outcome="supported",
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=matched_estimand, applicability=typed_applicability()),
+            interpretation_rule=specs["a"].interpretation_rule,
+            target=specs["a"].assessed_target,
         ),
         stored.assessment_node(
             "a-2",
             title="a-2",
-            spec="spec-b",
+            spec=specs["b"].identity,
             run="run:run-b",
             proposition=proposition_ref,
             outcome="supported",
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=matched_estimand, applicability=typed_applicability()),
+            interpretation_rule=specs["b"].interpretation_rule,
+            target=specs["b"].assessed_target,
         ),
         # The unrelated one: its own proposition, run, dataset and verification.
         stored.assessment_node(
             "a-3",
             title="a-3",
-            spec="spec-c",
+            spec=specs["c"].identity,
             run="run:run-c",
             proposition=OTHER_PROPOSITION_REF,
             outcome="refuted",
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=specs["c"].interpretation_rule,
+            target=specs["c"].assessed_target,
         ),
     ]
+    if estimand is not None:
+        if isinstance(corpus, CorpusWriter):
+            raise AssertionError("an estimand naming another claim is raw corruption")
+        for index, letter in enumerate(("a", "b")):
+            assessments[index].facets[stored.ASSESSMENT_FACET]["typed"] = v1.encode(
+                {**target_projection(replace(specs[letter].assessed_target, estimand=estimand))}
+            ).decode()
+            stored.stamp_semantic_identity(assessments[index])
     if assesses_target is not None:
         # A raw write nothing downstream checks: the facet still says
         # `proposition_ref`, so `assessment_value` matches, but the `assesses`
@@ -531,20 +561,20 @@ def test_a_reads_input_declaration_crosses_gather_untraced(tmp_path):
     because the closure declares dataset refs only under `observes` and
     consumes no other role's declaration. Tracing one would record a read the
     digest cannot move for."""
-    plain = _fixture(tmp_path / "plain", PROPOSITION_REF)
-    with_reads = _fixture(tmp_path / "with-reads", PROPOSITION_REF, reads=True)
-
-    inputs = gather(with_reads.view, with_reads.proposition, **over_kwargs(with_reads.gather_kwargs))
+    fixture = _fixture(tmp_path, PROPOSITION_REF, reads=True)
+    inputs = gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
     run_a = inputs.runs["run-a"]
-    assert {i.role for i in run_a.inputs} == {"observes", "reads"}, "the declaration really was handed out"
-
+    assert {i.role for i in run_a.inputs} == {"observes", "reads"}
     assert ("dataset", _address("e")) not in inputs.read_trace
     assert set(inputs.read_trace) <= inputs.declared_refs()
-
-    honest = gather(plain.view, plain.proposition, **over_kwargs(plain.gather_kwargs))
-    assert inputs.closure().digest() == honest.closure().digest(), (
-        "the closure consumes no `reads` declaration; if this moves, the untraced hand-out is a real gap"
-    )
+    # Change only a reads declaration's resource name. Its content address and
+    # the frozen input/mode stay fixed; authoring another spec would change identity.
+    node = fixture.view.get(_address("e"))
+    node.facets[stored.DATASET_FACET]["resources"][0]["name"] = "renamed auxiliary"
+    raw_write(tmp_path, stored.stamp_semantic_identity(node))
+    changed = gather(reopen(tmp_path), fixture.proposition, **over_kwargs(fixture.gather_kwargs))
+    assert inputs.runs["run-a"] != changed.runs["run-a"]
+    assert inputs.closure().digest() == changed.closure().digest()
 
 
 def test_the_no_belief_and_refused_arms_still_gather_and_assert_no_containment(corpus_fixture, monkeypatch):
@@ -612,16 +642,19 @@ from test_verify import production_pair  # noqa: F401 - the module-scoped fixtur
 
 
 def test_gather_never_selects_a_production_verification(production_pair, request, tmp_path):  # noqa: F811
+    from authority import FULL
     from domain_facet_fixtures import over_kwargs
-    from test_relocation import _writer
+    from nodes.core.write_plan import DefaultExecutor
     from test_verify import _production_verification
 
+    from beliefs.corpus import CorpusWriter
     from beliefs.verify import publication_node
 
     mark = request.node.get_closest_marker("xdist_group")
     assert mark is not None and mark.args == ("tests/test_evaluation.py",)
     production = _production_verification(production_pair)
-    writer = _writer(tmp_path / "corpus")
+    writer = CorpusWriter(tmp_path / "corpus", DefaultExecutor, authority=FULL, profile=PROFILE)
+    writer.adopt_manifest(profile=pins_for(PROFILE))
     node = writer.add(publication_node(production))
     fixture = _fixture(writer, PROPOSITION_REF)
     inputs = gather(fixture.view, PROPOSITION_REF, **over_kwargs(fixture.gather_kwargs))

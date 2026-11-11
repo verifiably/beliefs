@@ -632,6 +632,32 @@ no relations. The facet's fields are `operation` (one of the operation kinds in
 act's subject and outcome; the `acquisition-set` entry's outcome is described under
 [Acquisition logs](#acquisition-logs). An act report never feeds a belief.
 
+### Declared standing at write boundaries
+
+`standing.check_within_model` requires a held procedure whose declared kind has
+`fills_within_model: true`. Proposition mint, import and corpus checks enforce it.
+An assessment's declared route is checked against its held frozen spec, the target
+claim and the run's complete `observes`/`reads` `(role, dataset)` input set.
+Additional `transforms` lineage edges retain their existing input and lineage checks. An empirical route needs
+an `observes` input of mode `observation` with empirical standing; simulation and
+annotation confer none. A model route names exactly the claim's `within-model`
+procedure, regardless of whether the run also observes data.
+
+A calibrated-model route has no `within-model` claim role. Its model is the proxy's
+source model procedure, its response target observable agrees with the proxy, and
+its applicability is contained in the proxy's validity. The estimand carries the
+proxy's transfer instance when needed and a calibration-transfer instance naming
+the proxy in every case. Each basis assessment must currently be admitted and
+eligible. Recursive eligibility uses one path and memo per captured view, follows
+the frozen dependencies and checks their actual facets, runs, active verifications
+and retractions; it fetches neither a spec nor observed data bytes. A changed basis
+can invalidate a prediction without changing its frozen key.
+
+Corpus diagnostics report `standing-unmet` or `standing-unresolved`. The empirical
+route retains the existing `eligibility-*` diagnostics for missing observed inputs
+or datasets without empirical standing. These write-time checks do not replace
+the belief evaluator's admission checks.
+
 ### Measurement records
 
 `measurement.Observable` holds a quantity kind, bearer sort and optional aspect
@@ -734,15 +760,15 @@ orientations require a strictly positive coefficient; opposite orientations requ
 a strictly negative affine coefficient. A multiplicative crosswalk between opposite
 orientations is always refused (`CrosswalkSignRefused`, `crosswalk-sign`).
 
-A calibration requires at least one held assessment, and every cited assessment must
-have outcome `supported` (`CalibrationNotQualified`, `calibration-not-supported`).
-Each assessment's frozen spec must also be held. Its applicability must be equal to
-or broader than the proxy's validity, comparing the union of both scopes' dimensions:
-an assessment-only restriction narrows the scope; a validity-only restriction
-broadens it. Narrower, overlapping, disjoint and unknown comparisons refuse with
-`calibration-scope-overstated`. Applicability supplies the geometric restrictions
-without dropping its authored quantifiers. Assessment standing, v2 estimand shape
-and interpretation-rule qualification are not checked by this door.
+A calibration requires supported empirical assessments of an association functional
+of arity two. One variable measures the calibrated observable with the proxy's
+source procedure; the other measures that same observable with a nonmodel
+procedure. The interpretation rule must be listed in the calibration's allowed
+rules. Qualification reads the frozen assessed target, without fetching its spec.
+Each assessment's applicability must be equal to or broader than the proxy's
+validity over the union of dimensions. Narrower, overlapping, disjoint and unknown
+comparisons refuse with `calibration-scope-overstated`. Quantifiers remain in
+identity while this comparison uses geometric restrictions.
 
 The source observable, any explicit target observable and any calibrated
 observable must pass the observable checks above. The write door also checks

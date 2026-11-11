@@ -83,7 +83,7 @@ def test_placement_and_quantifier(profile):
     with pytest.raises(UndeclaredDimension):
         checked(profile, "testing/affects", {"testing/unknown": stage()}, authoring=True)
     with pytest.raises(UndeclaredDimension):
-        checked(profile, "testing/correlates-with", {"testing/stage": stage()}, authoring=True)
+        checked(profile, "testing/transforms", {"testing/stage": stage()}, authoring=True)
 
 
 @pytest.mark.parametrize("retired", ["dimension", "sort"])

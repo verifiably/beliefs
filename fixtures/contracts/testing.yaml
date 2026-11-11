@@ -95,13 +95,13 @@ dimensions:
     restriction: { form: interval, quantity_kind: duration }
     restriction_sort: level
     placement: applicability
-    applies_to: [affects]
+    applies_to: [affects, correlates-with]
 
   stage:
     restriction_sort: stage
     restriction: { form: term, sort: stage }
     placement: applicability
-    applies_to: [affects]
+    applies_to: [affects, correlates-with]
   epoch:
     restriction_sort: level
     restriction: { form: time-interval }

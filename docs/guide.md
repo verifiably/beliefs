@@ -95,8 +95,10 @@ means. Each input declares its evidence mode; the spec also fixes standing, an
 optional model and the estimator procedure bound to its interpretation rule. The run cannot override any of it.
 
 A **run** records the recipe, the outputs and the facts of one execution. Its
-inputs have roles: `observes` names held data and is the only role that can make an
-assessment count; `reads` (literature, configuration, ontologies) never can. A
+inputs have roles: `observes` with mode `observation` can confer empirical
+standing; `reads` (literature, configuration, ontologies) never does. The write
+boundary separately validates declared model and calibrated-model routes,
+including the held model procedure and current calibration evidence. A
 confined run sees only its captured code, environment and data, with no network.
 Confinement needs bubblewrap and unprivileged user namespaces on the host.
 

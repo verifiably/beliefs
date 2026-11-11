@@ -14,7 +14,7 @@ from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as seed_pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
 from durable_fixture import pinned
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import TESTING_PROFILE
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
@@ -69,12 +69,27 @@ def durable_world(work_directory):
             # Admission admits assessments only with local prerequisites. Stage those
             # through the durable writer, then remove the copies before publication.
             staging = (
-                tuple(n for n in other if n.kind in ("dataset", "run", "proposition"))
-                if any(n.kind == "assessment" for n in nodes)
+                tuple(
+                    n
+                    for n in other
+                    if n.kind
+                    in (
+                        "dataset",
+                        "run",
+                        "proposition",
+                        "procedure",
+                        "classification-rule",
+                        "proxy-model",
+                        "mapping",
+                        "analysis-spec",
+                    )
+                )
+                if any(n.kind in {"assessment", "analysis-spec"} for n in nodes)
                 else ()
             )
             for node in sorted(
-                (*staging, *nodes), key=lambda n: (n.kind in ("assessment", "verification"), n.kind == "verification")
+                (*staging, *nodes),
+                key=lambda n: {"analysis-spec": 1, "assessment": 2, "verification": 3}.get(n.kind, 0),
             ):
                 node = node.model_copy(deep=True)
                 if node.kind == "dataset" and not node.facets["dataset"]["resources"]:
@@ -336,6 +351,39 @@ def evaluation_world(durable_world, beta_refs=(DATASET_D_A,), *, extra=(), role=
             Relation(source=run.id, predicate=role, target=next(n.id for n in extra if n.title == "d-t"))
         )
         stored.stamp_semantic_identity(run)
+        from fixtures_cut3 import frozen_fixture_spec
+
+        from beliefs.spec import SPEC_INPUT_ROLES, SpecInput
+
+        old_spec = stored.run_spec(run)
+        assert old_spec is not None
+        frozen = frozen_fixture_spec(
+            "proposition:p",
+            tuple(
+                SpecInput(r, ref, "observation" if r == "observes" else "derivation")
+                for r in SPEC_INPUT_ROLES
+                for ref in stored.inputs_of(run, r)
+            ),
+            profile=profile,
+        )
+        run.facets[stored.RUN_FACET]["spec"] = frozen.identity
+        stored.stamp_semantic_identity(run)
+        nodes = [n for n in nodes if n.id != stored.typed_ref("analysis-spec", old_spec)]
+        nodes.append(stored.analysis_spec_node(frozen))
+        changed = {}
+        for node in nodes:
+            if node.kind == "assessment" and stored.typed_ref("run", stored.assessment_reference(node).run) == run.id:
+                before = stored.assessment_reference(node).identity()
+                node.facets[stored.ASSESSMENT_FACET]["spec"] = frozen.identity
+                stored.stamp_semantic_identity(node)
+                changed[before] = stored.assessment_reference(node).identity()
+        for node in nodes:
+            if node.kind == "verification":
+                facet = node.facets[stored.VERIFICATION_FACET]
+                if facet["assessment"] in changed:
+                    facet["assessment"] = changed[facet["assessment"]]
+                    stored.stamp_semantic_identity(node)
+
     return (
         *durable_world(
             tuple(n for n in nodes if n.id not in beta_refs),
@@ -437,16 +485,22 @@ def test_proposition_and_snapshot_absence_are_named_durably(durable_world, targe
 
 
 def test_identical_assessments_consult_both_carriers_durably(durable_world):
+    from domain_facet_fixtures import seed_nodes
+
+    original = stored.assessment_value(
+        next(n for n in seed_nodes() if n.id == "assessment:a-1"), profile=profile_with()
+    )
     twin = stored.assessment_node(
         "a-twin",
         title="twin",
-        spec="spec-a",
-        run="run:run-a",
+        spec=original.spec,
+        run=stored.typed_ref("run", original.run),
         proposition="proposition:p",
         outcome="supported",
-        interpretation_rule="rule-1",
-        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+        interpretation_rule=original.interpretation_rule,
+        target=original.target,
     )
+
     world, _roots, published, a, b, profile = evaluation_world(durable_world, (twin.id,), extra=(twin,))
     view = open_world_view(world, published)
     kwargs = world_kwargs(view, profile, a, b)

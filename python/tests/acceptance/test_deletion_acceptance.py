@@ -724,7 +724,7 @@ def test_retraction_never_removes_its_target_durably(durable_writer):
     """Retraction is additive while a deletion API exists: the operation never
     reaches the delete seam, the target's bytes and address are unchanged, and
     it still resolves — read back from disk after the engine committed."""
-    writer = _adopted(durable_writer)
+    writer = _adopted(open_corpus(durable_writer.root, authority=FULL, profile=WITH_BIOLOGY), pins=PINS)
     target = mint_eligible_assessment(writer)
     before = path_for(writer.root, target.id).read_bytes()
     calls: list[str] = []
@@ -880,7 +880,6 @@ def test_import_validation_and_transition_b_durably(durable_writer):
         derived = _two_runs(_adopted(durable_writer), mount=True, agreeing=True)
         assert derived.verification.verdict == "passed"
         writer = derived.writer
-        carry_registers(writer)  # so a clean check has no register-missing warning to report
 
         forged = stored.verification_node(
             "forged-resolvable",
@@ -912,7 +911,6 @@ def test_import_validation_and_transition_b_durably(durable_writer):
         unmounted = _two_runs(unmounted_writer, mount=False, agreeing=False)
         assert unmounted.verification.verdict == "failed"
         w = unmounted.writer
-        carry_registers(w)  # so a clean audit has no register-missing warning to report
         identity = unmounted.assessment_identity
         transition_forgery = stored.verification_node(
             "forged",
@@ -982,12 +980,11 @@ def test_import_recomputation_and_audit_durably(durable_writer):
     is not refused, not detected on read, and caught **only** under audit."""
     writer = _adopted(durable_writer)
     derived = _two_runs(writer, mount=True, agreeing=True)
-    carry_registers(writer)  # so the corpus check has no register-missing warning to report
     genuine = build_assessment(
         derived.original, specs=derived.evidence.specs, implementations=derived.evidence.implementations
     )
     assert isinstance(genuine, AssessmentValue)
-    proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+    proposition = writer.read_view.get(genuine.proposition)
     flipped = "refuted" if genuine.outcome == "supported" else "supported"
 
     honest = _assessment_node_from(genuine, slug="a1", proposition=proposition.id, outcome=genuine.outcome)
@@ -1084,8 +1081,13 @@ def test_audit_classification_and_admission_order_durably(work_directory):
         }
 
         records = _records(retraction_chain=True)
-        assert set(ORDER_A) == set(ORDER_B) == set(records)
-        ordered = (_admit(first, records, ORDER_A), _admit(second, records, ORDER_B))
+        prerequisites = tuple(sorted(k for k in records if k.startswith(("dependency-", "spec-"))))
+        assert set(ORDER_A) | set(prerequisites) == set(ORDER_B) | set(prerequisites) == set(records)
+
+        def ordered_keys(order):
+            return ("p", "q", *prerequisites, *(k for k in order if k not in {"p", "q"}))
+
+        ordered = (_admit(first, records, ordered_keys(ORDER_A)), _admit(second, records, ordered_keys(ORDER_B)))
         reloaded = tuple(_reloaded(scenario) for scenario in ordered)
 
         identities = [
@@ -1163,7 +1165,7 @@ def test_boundary_reresolution_after_a_durable_delete(durable_writer):
     plan construction and refuse `RelocationTargetMissing` when a real `delete`
     removed the target under them. The absence is produced by `delete` and
     never by a filesystem call."""
-    writer = _adopted(durable_writer)
+    writer = _adopted(open_corpus(durable_writer.root, authority=FULL, profile=WITH_BIOLOGY), pins=PINS)
     target = mint_eligible_assessment(writer)
     record = retraction_for(target, "grounds")
     original_refuse = CorpusWriter._refuse

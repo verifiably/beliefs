@@ -338,20 +338,49 @@ def observed_dataset(seed="raw"):
 
 
 def admissible(writer: CorpusWriter, *, observes=True):
-    dataset = observed_dataset()
-    writer.add(dataset)
-    run = stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id] if observes else [])
-    writer.add(run)
-    writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+    from domain_facet_fixtures import BIOLOGY_CLAIM, _claim_of, estimand_for
+    from fixtures_cut3 import MEASUREMENT_RECORDS, spec_draft, spec_rules
+
+    from beliefs.applicability import Applicability
+    from beliefs.spec import SpecInput, freeze
+
+    dataset_node = observed_dataset()
+    dataset_node.facets[stored.EMPIRICAL_OBSERVATION_FACET]["attested_by"] = writer.authority.actor
+    stored.stamp_semantic_identity(dataset_node)
+    dataset = writer.add(dataset_node)
+    proposition = writer.add(stored.proposition_node("p1", title="p1", claim=BIOLOGY_CLAIM))
+    e = estimand_for(BIOLOGY_CLAIM)
+    draft = spec_draft(
+        target=proposition.id,
+        estimand=e,
+        applicability=Applicability({}),
+        input_roles=(SpecInput("observes", dataset.id, "observation"),),
+    )
+    for dependency in e.dependencies:
+        writer.add(MEASUREMENT_RECORDS.read(dependency.id))
+    from beliefs.estimand import MeasuredBinding
+
+    response = e.bindings["response"]
+    assert isinstance(response, MeasuredBinding)
+    spec = freeze(
+        draft,
+        held_rules=spec_rules(),
+        profile=writer.profile,
+        claim=_claim_of(BIOLOGY_CLAIM),
+        records=MEASUREMENT_RECORDS,
+        rule_procedures={draft.interpretation_rule: response.measure.procedure},
+    )
+    writer.add(stored.analysis_spec_node(spec))
+    run = writer.add(stored.run_node("r1", title="r1", spec=spec.identity, observes=[dataset.id] if observes else []))
     return stored.assessment_node(
         "a1",
         title="a1",
-        spec="analysis-spec:s1",
+        spec=spec.identity,
         run=run.id,
-        proposition="proposition:p1",
+        proposition=proposition.id,
         outcome="supported",
-        interpretation_rule="rule:threshold",
-        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+        interpretation_rule=spec.interpretation_rule,
+        target=spec.assessed_target,
     )
 
 
@@ -604,6 +633,7 @@ class TestTheWriteBoundary:
         assert writer.add(admissible(writer)).id == "assessment:a1"
 
     def test_an_assessment_naming_a_run_this_corpus_does_not_hold_refuses(self, writer):
+        writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
         with pytest.raises(EligibilityUnmet):
             writer.add(
                 stored.assessment_node(

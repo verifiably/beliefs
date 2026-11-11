@@ -84,18 +84,27 @@ the basis and any calibration transfer. A rule in `validated_in` or proxy
 validity, including a union member, must resolve in the supplied view to a
 classification rule whose classes sort matches the dimension declaration. The
 restriction's class terms must fit that sort. Bundle validation uses the view
-that includes the arriving records. A calibration also requires nonempty
-held assessments whose outcomes are all `supported`,
-and held specs whose applicability is equal to or broader than validity over the
-union of dimensions. Quantified applicability supplies its geometric restrictions
-for this comparison. For scale targets,
+that includes the arriving records. A calibration also requires supported empirical two-variable association
+assessments of the calibrated observable: one variable uses the proxy's source
+procedure, the other a nonmodel procedure. Their interpretation rules must be
+allowed by the calibration, and their frozen applicability must cover its validity.
+Qualification reads the frozen target without fetching a spec. For scale targets,
 transfer is required exactly when the calibrated observable is absent from all of
 the authority's yields. Crosswalks require two authorities: matching orientations
 need a positive coefficient, opposite orientations a negative affine coefficient;
 multiplicative conversions cannot flip orientation. These refusals are
-`MeasurementRecordRefused` with the id and clause, including its
-`CalibrationNotQualified` and `CrosswalkSignRefused` subclasses. Standing, v2
-estimand shape and interpretation-rule qualification are outside this door.
+`MeasurementRecordRefused`, including `CalibrationNotQualified` and
+`CrosswalkSignRefused`.
+
+Propositions with `within-model` require a held model-specification procedure.
+Assessment mint and import validate the declared standing route against the held
+spec and matching run inputs. Empirical standing requires observation mode;
+model standing matches the claim's model; calibrated-model standing requires
+qualified, currently admitted basis assessments, covered prediction scope and
+explicit transfer assumptions. The mounted citation view supplies these checks,
+including recursive basis runs, verifications and retractions. See
+[declared standing](records.md#declared-standing-at-write-boundaries).
+
 Scope references must already be resolved: if
 `type_restriction_map` changes their projection, call it before building the record
 ([measurement records](records.md#measurement-records)). Publication staging

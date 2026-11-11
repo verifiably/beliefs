@@ -24,6 +24,10 @@ class ScienceError(Exception):
     """Base for every error this package raises."""
 
 
+class StandingRefused(ScienceError):
+    """Held evidence does not satisfy the explicitly declared standing route."""
+
+
 class MeasurementError(ScienceError):
     """Base for measurement and restriction refusals."""
 

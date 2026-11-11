@@ -918,3 +918,16 @@ def event_estimand(claim, *, profile=TESTING_PROFILE):
         },
         control=Control("testing/observational", (), "testing/independent-groups", "testing/cohort-enrolment"),
     )
+
+
+def frozen_fixture_spec(target, inputs, *, estimand=None, claim=TESTING_CLAIM, profile=TESTING_PROFILE):
+    """Author a fixture's real spec before its run; input modes are explicit."""
+    e = typed_estimand(profile=profile, claim=claim) if estimand is None else estimand
+    return freeze(
+        spec_draft(target=target, estimand=e, input_roles=inputs),
+        held_rules=spec_rules(),
+        profile=profile,
+        claim=claim,
+        records=MEASUREMENT_RECORDS,
+        rule_procedures={"median-difference/v1": ESTIMATOR_PROCEDURE},
+    )

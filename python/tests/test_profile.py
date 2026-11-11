@@ -650,7 +650,9 @@ class TestDimensions:
         assert compiled.claim_dimensions("testing/promotes") == ("testing/population",)
         assert compiled.claim_dimensions("testing/measured-by") == ()
         # `follow-up` applies to `affects` on the applicability side, so it is no claim dimension.
-        assert compiled.dimensions["testing/follow-up"].applies_to == frozenset({"testing/affects"})
+        assert compiled.dimensions["testing/follow-up"].applies_to == frozenset(
+            {"testing/affects", "testing/correlates-with"}
+        )
         with pytest.raises(ProfileError, match="no operator"):
             compiled.claim_dimensions("testing/nowhere")
 

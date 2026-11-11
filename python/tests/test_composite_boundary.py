@@ -281,8 +281,45 @@ class TestSupersession:
         # And a target arriving in the same bundle resolves through the union view. The bundle is rebuilt
         # after `ok` exists, so it carries `run:run-a-z` too — eligibility refuses an assessment whose run
         # is in neither the destination nor the bundle.
-        ok = self._typed_assessment(writer, "a-z", "proposition:ab")
-        bundle = tuple(n for n in writer.read_view.iter_stored() if n.kind in {"proposition", "dataset", "run"}) + (ok,)
+        from fixtures_cut3 import MEASUREMENT_RECORDS, spec_draft, spec_rules
+        from test_evaluation import _address
+
+        from beliefs.estimand import MeasuredBinding
+        from beliefs.spec import SpecInput, freeze
+
+        e = _estimand(_claim("EX:a", "EX:b"))
+        response = e.bindings["response"]
+        assert isinstance(response, MeasuredBinding)
+        spec = freeze(
+            spec_draft(
+                target="proposition:ab", estimand=e, input_roles=(SpecInput("observes", _address("a"), "observation"),)
+            ),
+            held_rules=spec_rules(),
+            profile=writer.profile,
+            claim=_claim("EX:a", "EX:b"),
+            records=MEASUREMENT_RECORDS,
+            rule_procedures={"median-difference/v1": response.measure.procedure},
+        )
+        for dependency in spec.assessed_target.dependencies:
+            if not writer.read_view.holds(dependency.id):
+                writer.add(MEASUREMENT_RECORDS.read(dependency.id))
+        writer.add(stored.analysis_spec_node(spec))
+        run = writer.add(stored.run_node("run-a-z", title="valid", spec=spec.identity, observes=(_address("a"),)))
+        ok = stored.assessment_node(
+            "a-z",
+            title="valid",
+            spec=spec.identity,
+            run=run.id,
+            proposition=spec.target,
+            outcome="supported",
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
+        )
+        bundle = tuple(
+            n
+            for n in writer.read_view.iter_stored()
+            if n.kind in {"proposition", "dataset", "run", "analysis-spec", "procedure"}
+        ) + (ok,)
         other.import_bundle(bundle, **IMPORT)
         assert other.read_view.holds("assessment:a-z") and other.read_view.holds("run:run-a-z")
 

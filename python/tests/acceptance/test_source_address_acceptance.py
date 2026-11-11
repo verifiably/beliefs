@@ -76,8 +76,8 @@ def world(work_directory):
         path = Path(mkdtemp(prefix="source-address-corpus-", dir=work_directory))
         roots.append(path)
         init_corpus_root(path, authority=FULL)
-        writer = open_corpus(path, authority=FULL, profile=BASE)
-        manifest = writer.adopt_manifest(profile=pins_for(BASE))
+        writer = open_corpus(path, authority=FULL, profile=WITH_BIOLOGY)
+        manifest = writer.adopt_manifest(profile=pins_for(WITH_BIOLOGY))
         return manifest.corpus_id, path, writer
 
     a, alpha, left = corpus()

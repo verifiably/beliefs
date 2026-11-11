@@ -211,7 +211,7 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
     # the proposition carries that same claim rather than
     # `publish_corpus`'s bare `{"operator": "affects"}` default.
     published = publish_corpus(writer, claim=project_claim(TESTING_CLAIM))
-    spec_node = writer.add(stored.analysis_spec_node(published.frozen))
+    spec_node = writer.read_view.get(stored.analysis_spec_node(published.frozen).id)
     node = writer.add(publication_node(published.derived, assessment_ref=published.assessment.id))
 
     def unavailable():

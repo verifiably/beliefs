@@ -288,7 +288,7 @@ def dependency_closure(
                 follow(dependency.id)
                 if entries[dependency.id] != dependency:
                     raise MalformedRecord("assessment frozen dependency disagrees with its held record")
-            active.remove(id)
+            active.difference_update((id,))
             entries[id] = entry
             return
         value = read_record(records, id)

@@ -12,9 +12,9 @@ from typing import Any
 import pytest
 from authority import ACTOR, FULL
 from dataset_fixtures import dataset_ref, pinned
-from domain_facet_fixtures import profile_with
+from domain_facet_fixtures import CLAIM_FACET, profile_with
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import freeze_context, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import MEASUREMENT_RECORDS, freeze_context, frozen_fixture_spec
 from fixtures_cut3 import report as acquisition_report
 from nodes.core.errors import RefError
 from nodes.core.write_plan import DefaultExecutor
@@ -37,9 +37,11 @@ from beliefs.errors import (
     ImportRefused,
     MeasurementRecordRefused,
     SemanticHashStale,
+    SignatureRefused,
 )
 from beliefs.profile import compile_profile, shipped_base_contract
 from beliefs.restriction import RuleRestriction
+from beliefs.spec import SpecInput
 from beliefs.verify import decode_verification, publication_node
 
 TYPED = profile_with()
@@ -61,30 +63,46 @@ def observed(seed: str, *, actor: str = ACTOR, retrieval: str | None = None):
     return stored.dataset_node(title=seed, resources=pinned(seed), empirical_observation=payload)
 
 
+def frozen_over(*datasets):
+    return frozen_fixture_spec(
+        "proposition:p",
+        tuple(SpecInput("observes", d if isinstance(d, str) else d.id, "observation") for d in datasets),
+        profile=TYPED,
+    )
+
+
 def run_over(slug: str, *datasets, produces=()):
     return stored.run_node(
         slug,
         title=slug,
-        spec="analysis-spec:s1",
+        spec=frozen_over(*datasets).identity,
         observes=[d if isinstance(d, str) else d.id for d in datasets],
         produces=list(produces),
     )
 
 
 def proposition(slug: str):
-    return stored.proposition_node(slug, title=slug, claim={"operator": "affects"})
+    return stored.proposition_node(slug, title=slug, claim=CLAIM_FACET)
 
 
-def assessment(slug: str, run, prop):
+def assessment(slug: str, run, prop, *, writer=None):
+    frozen = frozen_over(*stored.inputs_of(run, stored.OBSERVES))
+    if writer is not None:
+        for dependency in frozen.assessed_target.dependencies:
+            if not writer.read_view.holds(dependency.id):
+                writer.add(MEASUREMENT_RECORDS.read(dependency.id))
+        node = stored.analysis_spec_node(frozen)
+        if not writer.read_view.holds(node.id):
+            writer.add(node)
     return stored.assessment_node(
         slug,
         title=slug,
-        spec="analysis-spec:s1",
+        spec=frozen.identity,
         run=run.id,
         proposition=prop.id if not isinstance(prop, str) else prop,
         outcome="supported",
-        interpretation_rule="rule:threshold",
-        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+        interpretation_rule=frozen.interpretation_rule,
+        target=frozen.assessed_target,
     )
 
 
@@ -182,7 +200,7 @@ def test_a_citation_of_equal_content_resolves_once_with_every_contract_checked(r
         view.close()
     w = mounted_writer(roots, "m", "m3")
     run, p = w.add(run_over("r", d)), w.add(proposition("p"))
-    held = w.add(assessment("a", run, p))  # the citation of d resolves through W's own copy
+    held = w.add(assessment("a", run, p, writer=w))  # the citation of d resolves through W's own copy
     assert ReadView.opened_at(roots["w"]).holds(held.id)
     raw_write(roots["m3"], d.model_copy(update={"title": "d, revised"}))
     view = citations(roots, "m", "m3")
@@ -289,7 +307,7 @@ def test_an_assessment_over_a_mount_dataset_and_proposition_is_written(roots):
     d, p = m.add(observed("d")), m.add(proposition("p"))
     w = mounted_writer(roots, "m")
     run = w.add(run_over("r", d))
-    held = w.add(assessment("a", run, p))
+    held = w.add(assessment("a", run, p, writer=w))
     assert ReadView.opened_at(roots["w"]).holds(held.id)
     assert not ReadView.opened_at(roots["m"]).holds(held.id)
 
@@ -438,7 +456,7 @@ def test_a_corpus_local_read_of_an_assessment_over_a_mount_run_refuses(roots):
     run = m.add(run_over("r", d))
     w = mounted_writer(roots, "m")
     p = w.add(stored.proposition_node("p", title="p", claim=CLAIM_FACET))
-    w.add(assessment("a", run, p))
+    w.add(assessment("a", run, p, writer=w))
     view = ReadView.opened_at(roots["w"])
     assert not view.holds(run.id)
     read: dict[str, Any] = {
@@ -482,7 +500,7 @@ def test_without_read_mounts_the_writes_refuse_as_today(roots):
     d, p = m.add(observed("d")), m.add(proposition("p"))
     w = adopted(roots["w"])
     run = w.add(run_over("r", d))
-    with pytest.raises(EligibilityUnmet, match="unresolved"):
+    with pytest.raises(SignatureRefused, match="assesses-target-unresolvable"):
         w.add(assessment("a", run, p))
 
 
@@ -610,7 +628,7 @@ def test_a_library_writer_beside_a_mounted_writer_reads_its_own_root_only(roots)
     d, p = m.add(observed("d")), m.add(proposition("p"))
     mounted = mounted_writer(roots, "m")
     run = mounted.add(run_over("r", d))
-    with pytest.raises(EligibilityUnmet):
+    with pytest.raises(SignatureRefused, match="assesses-target-unresolvable"):
         adopted(roots["w"]).add(assessment("a", run, p))
 
 
@@ -700,7 +718,7 @@ def test_session_mount_admits_assessment_over_derived_dataset_with_mount_ancesto
     d1 = w.add(lineage.derived("d1", lineage.route("run:p1", d0.id)))
     w.add(lineage.production("p1", d0.id, d1.id))
     run = w.add(run_over("r", d1))
-    held = w.add(assessment("a", run, p))
+    held = w.add(assessment("a", run, p, writer=w))
     assert ReadView.opened_at(roots["w"]).holds(held.id)
 
 
@@ -748,7 +766,7 @@ def test_import_bundle_and_replace_enforce_lineage_standing(roots):
     w.add(lineage.production("p1", d0.id, d1.id))
     run = w.add(run_over("r", d1))
     p = w.add(proposition("p"))
-    w.import_bundle([assessment("a", run, p)], **IMPORT)
+    w.import_bundle([assessment("a", run, p, writer=w)], **IMPORT)
     assert ReadView.opened_at(roots["w"]).holds("assessment:a")
 
     plain = lineage.plain("d0")

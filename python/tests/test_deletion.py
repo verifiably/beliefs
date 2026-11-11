@@ -10,7 +10,7 @@ from fixtures_cut4 import path_for
 from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
-from profiles import BASE
+from profiles import WITH_BIOLOGY, pins_for
 from test_relocation import _node, _writer
 from test_retract import mint_eligible_assessment
 
@@ -30,7 +30,7 @@ from beliefs.report import OPERATION_KINDS
 
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
-    return _writer(tmp_path / "corpus")
+    return _writer(tmp_path / "corpus", domains=pins_for(WITH_BIOLOGY).domains)
 
 
 def retraction_for(target: Node, ground: str) -> Node:
@@ -97,8 +97,8 @@ def test_delete_removes_exactly_one_record_and_mints_nothing(tmp_path):
     from test_corpus_write import OperationRecorder, Recorder
 
     Recorder.plans = []
-    port = OperationRecorder(tmp_path, authority=FULL, profile=BASE)
-    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=BASE)
+    port = OperationRecorder(tmp_path, authority=FULL, profile=WITH_BIOLOGY)
+    writer = CorpusWriter(tmp_path, Recorder, authority=FULL, operation_port=port, profile=WITH_BIOLOGY)
     kept = writer.add(_node())
     doomed = writer.add(_other_node("doomed"))
     intents_before, executed_before = len(port.intents), len(Recorder.plans)

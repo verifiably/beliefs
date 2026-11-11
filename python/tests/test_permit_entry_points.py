@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 from authority import ACTOR, lacking, narrowed
-from profiles import BASE, pins_for
+from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_permit_boundary import WRITE_ENTRY_POINTS
 
 from beliefs import root as science_root
@@ -79,11 +79,11 @@ def _nothing(_work: Path, _request) -> None:
 # --- corpus-write family, in-memory executor -------------------------------------
 
 
-def _writer(authority: Authority, work: Path, *, port: bool = False) -> CorpusWriter:
+def _writer(authority: Authority, work: Path, *, port: bool = False, profile=BASE) -> CorpusWriter:
     from test_corpus_write import Recorder
 
     if not port:
-        return CorpusWriter(work / "corpus", Recorder, authority=authority, profile=BASE)
+        return CorpusWriter(work / "corpus", Recorder, authority=authority, profile=profile)
     from nodes.core.write_plan import DefaultExecutor
     from test_import_bundle import FakePort
 
@@ -116,13 +116,13 @@ def _corpus_probe(work: Path):
     return (*result, list(FakePort.intents), list(FakePort.executed), list(FakePort.fulfilling))
 
 
-def _prepare_corpus(minter=None, *, port: bool = False):
+def _prepare_corpus(minter=None, *, port: bool = False, profile=BASE):
     """Mint `minter(writer)` under a full authority (or nothing), then reset the recorder."""
 
     def prepare(work: Path, _request) -> None:
         state: dict = {"port": port}
         if minter is not None:
-            state["target"] = minter(_writer(lacking(), work))
+            state["target"] = minter(_writer(lacking(), work, profile=profile))
         if port:
             from test_import_bundle import FakePort
 
@@ -143,7 +143,7 @@ def _add(authority, work):
 def _retract(authority, work):
     from test_retract import retraction_for
 
-    return _writer(authority, work).retract(retraction_for(_STATE[work]["target"]))
+    return _writer(authority, work, profile=WITH_BIOLOGY).retract(retraction_for(_STATE[work]["target"]))
 
 
 def _mint_pair(writer):
@@ -850,7 +850,7 @@ CASES = (
         "corpus-write",
         ("retraction",),
         False,
-        _prepare_corpus(_mint_eligible),
+        _prepare_corpus(_mint_eligible, profile=WITH_BIOLOGY),
         _retract,
         _corpus_probe,
     ),

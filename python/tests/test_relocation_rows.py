@@ -8,13 +8,12 @@ import pytest
 import yaml
 from authority import ACTOR
 from fixtures_cut3 import report as sample_report
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut6 import OTHER_BIOLOGY_ID, PINS
 from nodes.core.errors import RefError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from test_belief import scenario as belief_scenario
-from test_corpus_write import OperationRecorder
+from test_corpus_write import OperationRecorder, admissible
 from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _node, _writer
 from test_source_address import entry, raw_source
 from test_world_epoch import derivation_bindings, make_world, publish
@@ -445,29 +444,7 @@ def test_consolidating_equal_basis_retraction_replicas_leaves_the_counter_retrac
     other_writer = _writer(tmp_path / "other", domains=PINS.domains)
     targets = []
     for writer in (keep_writer, other_writer):
-        observed = writer.add(
-            stored.dataset_node(
-                title="raw",
-                resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
-                empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
-            )
-        )
-        run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[observed.id]))
-        proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
-        targets.append(
-            writer.add(
-                stored.assessment_node(
-                    "a1",
-                    title="a1",
-                    spec="analysis-spec:s1",
-                    run=run.id,
-                    proposition=proposition.id,
-                    outcome="supported",
-                    interpretation_rule="rule:threshold",
-                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
-                )
-            )
-        )
+        targets.append(writer.add(admissible(writer)))
     target_identity = stored.stored_semantic_hash(targets[0])
     assert target_identity is not None
     replica = stored.retraction_node(
@@ -583,37 +560,10 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
     """Through the operation that creates the state."""
     source = _writer(tmp_path / "source", domains=PINS.domains)
     destination = _writer(tmp_path / "destination", domains=PINS.domains)
-    observation = source.add(
-        stored.dataset_node(
-            title="observation",
-            resources=[{"name": "data", "digest": "sha256:" + "d" * 64}],
-            empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
-        )
-    )
-    destination.add(observation)
-    run = source.add(
-        stored.run_node(
-            "producer",
-            title="producer",
-            spec="analysis-spec:producer",
-            observes=[observation.id],
-        )
-    )
-    destination.add(run)
-    proposition = source.add(stored.proposition_node("claim", title="claim", claim={"operator": "affects"}))
-    destination.add(proposition)
-    target = source.add(
-        stored.assessment_node(
-            "target",
-            title="target",
-            spec="analysis-spec:producer",
-            run=run.id,
-            proposition=proposition.id,
-            outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
-        )
-    )
+    target = source.add(admissible(source))
+    for node in sorted(source.read_view.iter_stored(), key=lambda n: n.kind == "analysis-spec"):
+        if node.id != target.id:
+            destination.add(node)
     content_identity = stored.stored_semantic_hash(target)
     assert content_identity is not None
     record = stored.retraction_node(

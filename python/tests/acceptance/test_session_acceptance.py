@@ -18,7 +18,7 @@ import pytest
 from atoms.fs.backend import Backend
 from authority import ACTOR, FULL
 from coordination_fixtures import content_for, coordination_profile, pins_for
-from fixtures_cut3 import freeze_context, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import freeze_context
 from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown
@@ -32,8 +32,9 @@ from session_faults import (
     HaltingPort,
     TracingBackend,
 )
+from test_corpus_write import admissible
 from test_durable_families import proposition
-from test_retract import PINNED, mint_eligible_assessment
+from test_retract import mint_eligible_assessment
 
 from beliefs import root as science_root
 from beliefs import session as session_module
@@ -626,31 +627,22 @@ def state_of(root: Path):
     return _root_state_for(root.resolve(), durable_executor_factory())
 
 
-def assessment_grounds(root: Path) -> None:
-    """The records an eligible assessment needs, minted through the library so the
-    session's own write is the assessment alone."""
-    library = open_corpus(root, authority=FULL, profile=WITH_BIOLOGY)
-    dataset = library.add(
-        stored.dataset_node(
-            title="raw",
-            resources=PINNED,
-            empirical_observation={"locator": "instrument:fixture", "attested_by": FULL.actor},
-        )
-    )
-    library.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
-    library.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
+def assessment_grounds(root: Path) -> Node:
+    """Mint genuine prerequisites through the library, leaving the assessment to the session."""
+    return admissible(open_corpus(root, authority=FULL, profile=WITH_BIOLOGY))
 
 
-def assessment(slug: str) -> Node:
+def assessment(slug: str, template: Node) -> Node:
+    value = stored.assessment_value(template, profile=WITH_BIOLOGY)
     return stored.assessment_node(
         slug,
         title=slug,
-        spec="analysis-spec:s1",
-        run="run:r1",
-        proposition="proposition:p1",
-        outcome="supported",
-        interpretation_rule="rule:threshold",
-        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+        spec=value.spec,
+        run=stored.typed_ref("run", value.run),
+        proposition=value.proposition,
+        outcome=value.outcome,
+        interpretation_rule=value.interpretation_rule,
+        target=value.target,
     )
 
 
@@ -982,14 +974,14 @@ def test_the_halting_backends_skip_count_names_the_records_publish(work_director
 
 def test_continuation_after_unresolved_effects_recovers_before_the_prepare(work_directory):
     root = adopted(work_directory, "halting")
-    assessment_grounds(root)
+    template = assessment_grounds(root)
     session, backend, _ops = halting_session(work_directory, root)
     w = fresh(session, "A", ASSESSMENTS)
-    w.add(assessment("t"))  # commits: the port arms only when a test asks
+    w.add(assessment("t", template))  # commits: the port arms only when a test asks
     backend.arm_next = True
     intents_before = len(intents(root))
     with pytest.raises(ExecutionError):
-        w.add(assessment("staged"))
+        w.add(assessment("staged", template))
     assert backend.halted and state_of(root).unresolved is True
     assert len(intents(root)) == intents_before + 1  # the intent landed; it is the transaction that halted
     view = chain(root)
@@ -1006,14 +998,14 @@ def test_continuation_after_unresolved_effects_recovers_before_the_prepare(work_
     session.close_invocation("A", {"done": []})
     w2 = fresh(session, "B", ASSESSMENTS)
     with pytest.raises(RelocationTargetMissing):
-        w2.retract(session_retraction(assessment("staged"), "proposition:p1", session.actor))
+        w2.retract(session_retraction(assessment("staged", template), "proposition:p1", session.actor))
     assert not (root / "assessment" / "staged.md").exists()
     assert not stage.exists()
     after = chain(root)
     assert not after.pending
     assert not pending_registrations(root)
     assert state_of(root).unresolved is False
-    w2.add(assessment("fresh"))
+    w2.add(assessment("fresh", template))
     session.close()
 
 

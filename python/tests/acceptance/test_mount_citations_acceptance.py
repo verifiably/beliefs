@@ -17,10 +17,11 @@ import pytest
 from authority import FULL
 from coordination_fixtures import pins_for
 from dataset_fixtures import dataset_ref, pinned
-from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed_nodes
+from domain_facet_fixtures import CLAIM_FACET, kwargs_for, over_kwargs, profile_with, seed_nodes
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import MEASUREMENT_RECORDS, carry_registers
 from profiles import biology
+from test_mount_citations import assessment, frozen_over, run_over
 from test_session_acceptance import fresh
 from test_session_mounts_acceptance import library_on, state
 from test_world_receipts import hold_shipped, publish
@@ -52,7 +53,9 @@ W_PROFILE = compile_profile(
     shipped_base_contract(), [_testing_contract(None), biology("fixture")], coordination=shipped_coordination(2)
 )
 AVAILABLE = (_testing_contract(None), biology("fixture"), biology("other"))
-CITING = RequiredCapabilities.for_kinds({"run", "assessment", "proposition", "verification"}, {"run": "run"})
+CITING = RequiredCapabilities.for_kinds(
+    {"run", "assessment", "proposition", "verification", "procedure", "analysis-spec"}, {"run": "run"}
+)
 
 
 def _adopt(base: Path, name: str, profile) -> Path:
@@ -97,28 +100,21 @@ def observed(seed):
     )
 
 
-def assessment(slug, run, prop_id):
-    return stored.assessment_node(
-        slug,
-        title=slug,
-        spec="analysis-spec:s1",
-        run=run.id,
-        proposition=prop_id,
-        outcome="supported",
-        interpretation_rule="rule:threshold",
-        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
-    )
-
-
 def seeded(s):
     m = library_on(s.m, TYPED)
-    return m.add(observed("d")), m.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    from domain_facet_fixtures import CLAIM_FACET
+
+    d = m.add(observed("d"))
+    p = m.add(stored.proposition_node("p", title="p", claim=CLAIM_FACET))
+    frozen = frozen_over(d)
+    for dep in frozen.assessed_target.dependencies:
+        m.add(MEASUREMENT_RECORDS.read(dep.id))
+    m.add(stored.analysis_spec_node(frozen))
+    return d, p
 
 
 def run_then(w, d):
-    return w.add(
-        stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id])
-    )  # observes is not read at write time
+    return w.add(run_over("r", d))  # observes is not read at write time
 
 
 def test_session_cites_a_mount_dataset_and_proposition_durably(corpora):
@@ -136,7 +132,7 @@ def test_session_cites_a_mount_dataset_and_proposition_durably(corpora):
 def test_citation_across_differing_identities_refuses_durably(corpora):
     s = corpora
     d, _p = seeded(s)
-    p2 = library_on(s.m2, TYPED_OTHER).add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
+    p2 = library_on(s.m2, TYPED_OTHER).add(stored.proposition_node("p2", title="p2", claim=CLAIM_FACET))
     session = open_session(s, (s.w, s.m, s.m2))
     w = fresh(session, "A", CITING)
     run = run_then(w, d)
@@ -238,7 +234,12 @@ def _split_seed(s):
     w = fresh(session, "A", CITING)
     for node in nodes:
         if node.id not in in_m:
-            w.add(node)
+            if node.kind == "procedure":
+                library = library_on(s.w, W_PROFILE)
+                if not library.read_view.holds(node.id):
+                    library.add(node)
+            else:
+                w.add(node)
     session.close_invocation("A", {"done": []})
     session.close()
     roots = {ReadView.opened_at(root).corpus_id: root for root in (s.w, s.m)}
@@ -379,7 +380,7 @@ def test_local_read_of_the_split_refuses_durably(corpora):
         own.add(observed(seed))
     session = open_session(s, (s.w, s.m))
     w = fresh(session, "A", CITING)
-    q = w.add(stored.proposition_node("q", title="q", claim={"operator": "affects"}))
+    q = w.add(stored.proposition_node("q", title="q", claim=CLAIM_FACET))
     run = run_then(w, d)
     a = w.add(assessment("a", run, q.id))
     session.close_invocation("A", {"done": []})

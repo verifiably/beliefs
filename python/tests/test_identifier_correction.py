@@ -9,7 +9,7 @@ import pytest
 from authority import ACTOR, FULL, lacking
 from fixtures_cut4 import raw_write
 from nodes.core.write_plan import CreateOp, DeleteOp, ReplaceOp
-from profiles import BASE
+from profiles import BASE, WITH_BIOLOGY
 from test_corpus_write import Recorder
 from test_operation_writes import intents_of, primitive_calls, writer_over
 from test_relocation import _recording_port, _writer
@@ -46,7 +46,7 @@ def writer(request, tmp_path) -> CorpusWriter:
     Recorder.plans.clear()
     callspec = getattr(request.node, "callspec", None)
     root = tmp_path / callspec.id if callspec is not None else tmp_path
-    return CorpusWriter(root / "corpus", Recorder, authority=FULL, profile=BASE)
+    return CorpusWriter(root / "corpus", Recorder, authority=FULL, profile=WITH_BIOLOGY)
 
 
 class TestTheBoundary:
@@ -218,7 +218,9 @@ def minted_a(writer):
 
 class TestTheSeamRefusals:
     def test_source_permit_refuses_before_resolution(self, tmp_path):
-        restricted = CorpusWriter(tmp_path / "restricted", Recorder, authority=lacking(kinds=("source",)), profile=BASE)
+        restricted = CorpusWriter(
+            tmp_path / "restricted", Recorder, authority=lacking(kinds=("source",)), profile=WITH_BIOLOGY
+        )
         before = len(Recorder.plans)
         with pytest.raises(PermitExceeded):
             restricted.correct_identifier("source:nowhere", {"doi": "10.1/x"}, grounds="")

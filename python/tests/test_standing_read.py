@@ -8,9 +8,8 @@ from typing import Any
 
 import pytest
 from authority import ACTOR, FULL
-from fixtures_cut3 import typed_target
 from nodes.core.write_plan import DefaultExecutor
-from profiles import BASE, pins_for
+from profiles import WITH_BIOLOGY, pins_for
 from test_local_standing import assessment, retracts
 
 from beliefs import corpus, stored
@@ -22,23 +21,16 @@ from beliefs.errors import MalformedRecord, ManifestMissing, RetractionUnreadabl
 def adopted(tmp_path: Path, name: str = "corpus") -> CorpusWriter:
     """A corpus with a manifest: `ReadView.corpus_id` reads one, and
     `test_local_standing.seed` writes none."""
-    writer = CorpusWriter(tmp_path / name, DefaultExecutor, authority=FULL, profile=BASE)
-    writer.adopt_manifest(profile=pins_for(BASE))
+    writer = CorpusWriter(tmp_path / name, DefaultExecutor, authority=FULL, profile=WITH_BIOLOGY)
+    writer.adopt_manifest(profile=pins_for(WITH_BIOLOGY))
     return writer
 
 
 def add_assessment(writer: CorpusWriter):
     """Supply the real write boundary's prerequisites for `assessment()`."""
-    dataset = writer.add(
-        stored.dataset_node(
-            title="raw",
-            resources=[{"name": "matrix", "digest": "sha256:" + "ab" * 32}],
-            empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor},
-        )
-    )
-    writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
-    writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
-    return writer.add(assessment())
+    from test_retract import mint_eligible_assessment
+
+    return mint_eligible_assessment(writer)
 
 
 def test_the_local_enumeration_is_empty_with_the_manifest_coverage(tmp_path):
@@ -297,21 +289,37 @@ def verification_for(assessment, *, scope: str, verdict: str, slug: str, superse
 
 
 def test_unrelated_retraction_leaves_the_input_digest_unchanged(tmp_path):
-    from fixtures_cut3 import typed_applicability, typed_estimand
 
     writer, profile = seeded(tmp_path)
     baseline = gathered(writer, profile)[1]
-    writer.add(stored.proposition_node("q", title="q", claim={"operator": "affects"}))
+    from domain_facet_fixtures import _claim_of, estimand_for
+    from fixtures_cut3 import frozen_fixture_spec
+    from test_audit import _hold_spec
+    from test_evaluation import OTHER_CLAIM_FACET
+
+    from beliefs.spec import SpecInput
+
+    q = writer.add(stored.proposition_node("q", title="q", claim=OTHER_CLAIM_FACET))
+    observed = stored.inputs_of(writer.read_view.get("run:run-a"), stored.OBSERVES)
+    spec = frozen_fixture_spec(
+        q.id,
+        tuple(SpecInput("observes", d, "observation") for d in observed),
+        estimand=estimand_for(OTHER_CLAIM_FACET),
+        claim=_claim_of(OTHER_CLAIM_FACET),
+        profile=profile,
+    )
+    _hold_spec(writer, spec)
+    run = writer.add(stored.run_node("other", title="other", spec=spec.identity, observes=observed))
     other = writer.add(
         stored.assessment_node(
             "other",
             title="other",
-            spec="spec-a",
-            run="run:run-a",
-            proposition="proposition:q",
+            spec=spec.identity,
+            run=run.id,
+            proposition=q.id,
             outcome="supported",
-            interpretation_rule="rule-1",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
         )
     )
     writer.retract(retracts(other, "unrelated"))

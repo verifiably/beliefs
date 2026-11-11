@@ -14,7 +14,7 @@ from authority import ACTOR, FULL, narrowed
 from coordination_fixtures import coordination_profile, mounted_root, raw_add, raw_coordination_node
 from dataset_fixtures import pinned
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import TESTING_CLAIM
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_corpus_write import OperationRecorder
@@ -39,6 +39,7 @@ from beliefs.errors import (
 )
 from beliefs.permit import Authority, RequiredCapabilities, WritePermit
 from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination
+from beliefs.projection import project_claim
 from beliefs.session import (
     Claim,
     ClaimDone,
@@ -81,7 +82,7 @@ def make_session(
     ports: list[RecordingPort] = []
 
     def writer_factory(authority: Authority) -> CorpusWriter:
-        port = RecordingPort(authority, corpus_root)
+        port = RecordingPort(authority, corpus_root, profile=BASE)
         ports.append(port)
         return CorpusWriter(corpus_root, DefaultExecutor, authority=authority, operation_port=port, profile=BASE)
 
@@ -836,6 +837,23 @@ def _two_typed_roots(tmp_path, monkeypatch):
     return a.resolve(), b.resolve(), WorldConfig(tmp_path / "world", WORLD, (a, b))
 
 
+def _mounted_analysis(writer, target, dataset):
+    from fixtures_cut3 import MEASUREMENT_RECORDS, freeze_context, spec_draft, spec_rules
+
+    from beliefs.spec import SpecInput, freeze
+
+    spec = freeze(
+        spec_draft(target=target, input_roles=(SpecInput("observes", dataset, "observation"),)),
+        held_rules=spec_rules(),
+        **{**freeze_context(), "profile": V2T},
+    )
+    for dependency in spec.assessed_target.dependencies:
+        if not writer.read_view.holds(dependency.id):
+            writer.add(MEASUREMENT_RECORDS.read(dependency.id))
+    writer.add(stored.analysis_spec_node(spec))
+    return spec
+
+
 def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
     a, b, config = _two_typed_roots(tmp_path, monkeypatch)
     library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
@@ -846,21 +864,22 @@ def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
-    p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    p = library.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    spec = _mounted_analysis(library, p.id, d.id)
     session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={a: V2T, b: V2T})
     w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
     session.claim_invocation("A", "assess", "d" * 64)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+    run = w.add(stored.run_node("r", title="r", spec=spec.identity, observes=[d.id]))
     w.add(
         stored.assessment_node(
             "a",
             title="a",
-            spec="analysis-spec:s1",
+            spec=spec.identity,
             run=run.id,
             proposition=p.id,
             outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
         )
     )
     session.close_invocation("A", {"done": []})
@@ -870,7 +889,7 @@ def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
 def test_a_session_with_no_mounts_refuses_a_citation_into_another_root(tmp_path, monkeypatch):
     """With `mounts=None` the session has no read mounts, so
     the assessment over B's dataset and proposition refuses as a library writer does."""
-    from beliefs.errors import EligibilityUnmet
+    from beliefs.errors import SignatureRefused
 
     a, b, config = _two_typed_roots(tmp_path, monkeypatch)
     library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
@@ -881,22 +900,23 @@ def test_a_session_with_no_mounts_refuses_a_citation_into_another_root(tmp_path,
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
-    p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    p = library.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    spec = _mounted_analysis(library, p.id, d.id)
     session = _open(config, tmp_path, write_root=a, profile=V2T, mounts=None)
     w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
     session.claim_invocation("A", "assess", "d" * 64)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
-    with pytest.raises(EligibilityUnmet, match=f"{d.id}: unresolved"):
+    run = w.add(stored.run_node("r", title="r", spec=spec.identity, observes=[d.id]))
+    with pytest.raises(SignatureRefused, match="assesses-target-unresolvable"):
         w.add(
             stored.assessment_node(
                 "a",
                 title="a",
-                spec="analysis-spec:s1",
+                spec=spec.identity,
                 run=run.id,
                 proposition=p.id,
                 outcome="supported",
-                interpretation_rule="rule:threshold",
-                target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+                interpretation_rule=spec.interpretation_rule,
+                target=spec.assessed_target,
             )
         )
     session.close_invocation("A", {"done": []})
@@ -909,7 +929,7 @@ def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_pa
     alias = tmp_path / "alias-a"
     alias.symlink_to(a)
     library = CorpusWriter(b, DefaultExecutor, authority=FULL, profile=V2T)
-    p = library.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
+    p = library.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
     d = library.add(
         stored.dataset_node(
             title="d",
@@ -917,20 +937,21 @@ def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_pa
             empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
         )
     )
+    spec = _mounted_analysis(library, p.id, d.id)
     session = _open(config, tmp_path, write_root=a, profile=V2T, mounts={alias: V2T, b: V2T})
     w = session.scoped(RequiredCapabilities.for_kinds({"run", "assessment"}, {"run": "run"}), "A")
     session.claim_invocation("A", "assess", "d" * 64)
-    run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s1", observes=[d.id]))
+    run = w.add(stored.run_node("r", title="r", spec=spec.identity, observes=[d.id]))
     w.add(
         stored.assessment_node(
             "a",
             title="a",
-            spec="analysis-spec:s1",
+            spec=spec.identity,
             run=run.id,
             proposition=p.id,
             outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
         )
     )  # cites: opens the mounts
     session.close_invocation("A", {"done": []})

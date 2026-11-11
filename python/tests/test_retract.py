@@ -6,10 +6,9 @@ from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp, DefaultExecutor
-from profiles import BASE
+from profiles import WITH_BIOLOGY
 
 from beliefs import errors, stored
 from beliefs.corpus import ELIGIBLE_RETRACTION_TARGET_KINDS, CorpusWriter, _cycle_edges
@@ -31,7 +30,7 @@ class Recorder:
 @pytest.fixture()
 def writer(tmp_path) -> CorpusWriter:
     Recorder.plans = []
-    return CorpusWriter(tmp_path, Recorder, authority=FULL, profile=BASE)
+    return CorpusWriter(tmp_path, Recorder, authority=FULL, profile=WITH_BIOLOGY)
 
 
 def content_identity(node: Node) -> str:
@@ -41,27 +40,9 @@ def content_identity(node: Node) -> str:
 
 
 def mint_eligible_assessment(writer: CorpusWriter) -> Node:
-    dataset = writer.add(
-        stored.dataset_node(
-            title="raw",
-            resources=PINNED,
-            empirical_observation={"locator": "instrument:fixture", "attested_by": writer.authority.actor},
-        )
-    )
-    run = writer.add(stored.run_node("r1", title="r1", spec="analysis-spec:s1", observes=[dataset.id]))
-    proposition = writer.add(stored.proposition_node("p1", title="p1", claim={"operator": "affects"}))
-    return writer.add(
-        stored.assessment_node(
-            "a1",
-            title="a1",
-            spec="analysis-spec:s1",
-            run=run.id,
-            proposition=proposition.id,
-            outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
-        )
-    )
+    from test_corpus_write import admissible
+
+    return writer.add(admissible(writer))
 
 
 def retraction_for(target: Node, *, reason: str = "defective-code") -> Node:
@@ -81,11 +62,11 @@ def test_a_retraction_naming_another_actor_is_refused(tmp_path):
         tmp_path,
         Recorder,
         authority=narrowed(
-            kinds=("assessment", "dataset", "proposition", "retraction", "run"),
+            kinds=("assessment", "dataset", "proposition", "retraction", "run", "procedure", "analysis-spec"),
             families=("corpus-write",),
             actor="not-tester",
         ),
-        profile=BASE,
+        profile=WITH_BIOLOGY,
     )
     target = mint_eligible_assessment(writer)
     with pytest.raises(errors.ActorMismatch):
@@ -97,9 +78,10 @@ def test_a_retraction_under_its_own_actor_mints(tmp_path):
         tmp_path,
         Recorder,
         authority=narrowed(
-            kinds=("assessment", "dataset", "proposition", "retraction", "run"), families=("corpus-write",)
+            kinds=("assessment", "dataset", "proposition", "retraction", "run", "procedure", "analysis-spec"),
+            families=("corpus-write",),
         ),
-        profile=BASE,
+        profile=WITH_BIOLOGY,
     )
     target = mint_eligible_assessment(writer)
     assert writer.retract(retraction_for(target)).kind == "retraction"
