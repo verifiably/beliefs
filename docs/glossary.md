@@ -91,7 +91,8 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#identity))
 - <a id="convertibility"></a>**Convertibility** — Whether a declared coordinate map
   is admitted by a functional's certificate and current dependency eligibility.
-  It does not establish synthesis permission. ([records](records.md#coordinate-convertibility))
+  Whole-target conversion also requires corresponding variables. It does not
+  establish synthesis permission. ([records](records.md#assessed-target-comparison))
 - <a id="coordination-contract"></a>**Coordination contract** — The contract that
   declares view and coordination kinds (`project`, `task`, `publication` and
   others). ([contracts](contracts.md#coordination-contract))
@@ -271,6 +272,11 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#datasets-sources-and-holdings))
 - <a id="supersession"></a>**Supersession** — A `supersedes` link from a new record to
   the same-kind record it replaces. ([records](records.md#relations))
+- <a id="synthesis-permission"></a>**Synthesis permission** — A read-only verdict
+  on corresponding assessed targets after conversion, observable, procedure,
+  control, scope, reference, interpretation-rule and standing checks. It may
+  require named assumptions and never performs numerical pooling.
+  ([records](records.md#assessed-target-comparison))
 - <a id="target-observable"></a>**Target observable** — The measure's observable
   without a proxy, or the cited proxy's explicit target observable.
   ([records](records.md#binding-aptness))

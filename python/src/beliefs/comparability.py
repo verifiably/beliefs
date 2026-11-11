@@ -62,6 +62,7 @@ __all__ = [
     "compare_mapped",
     "convert",
     "functional_properties",
+    "unit_map",
 ]
 
 CONTEXT = decimal.Context(prec=34)
@@ -203,7 +204,7 @@ class ComparabilitySnapshot:
         self._observe((id,))
         return read_record(self.records, id)
 
-    def _eligibility(self, ids: tuple[str, ...]) -> NotConvertible | None:
+    def check_eligibility(self, ids: tuple[str, ...]) -> NotConvertible | None:
         refused: list[str] = []
         for id in dict.fromkeys(ids):
             result = self.eligibility(id)
@@ -417,7 +418,7 @@ def _oriented(raw: RawMap, forward: bool) -> RawMap:
     return RawMap(raw.kind, 1 / raw.factor, -raw.offset / raw.factor, raw.exact, raw.error, raw.crosswalk)
 
 
-def _unit_map(conversion: CompiledConversion, a_unit: str) -> RawMap:
+def unit_map(conversion: CompiledConversion, a_unit: str) -> RawMap:
     # The declared factor already carries the constant's numerical contribution.
     return _oriented(
         RawMap(
@@ -457,18 +458,18 @@ def _scale_map(
     b_authority, b_reads = _authority(b, snapshot)
     ids = (*a_reads, *b_reads)
     if a_authority is None or b_authority is None:
-        refusal = snapshot._eligibility(ids)
+        refusal = snapshot.check_eligibility(ids)
         if refusal:
             return refusal
         raise MalformedRecord("eligibility admitted a missing or cyclic scale authority")
     if a_authority == b_authority:
-        refusal = snapshot._eligibility(ids)
+        refusal = snapshot.check_eligibility(ids)
         return refusal if refusal else (_identity(), ())
     candidates = set(snapshot.records.crosswalks(a_authority, b_authority))
     if len(candidates) > 1:
         raise AmbiguousCrosswalk("ambiguous direct crosswalks: " + ", ".join(sorted(candidates)))
     if not candidates:
-        refusal = snapshot._eligibility(ids)
+        refusal = snapshot.check_eligibility(ids)
         return refusal if refusal else NotConvertible("no conversion between scales", (a, b))
     id = min(candidates)
     model = snapshot.read(id)
@@ -478,7 +479,7 @@ def _scale_map(
         or {model.source.procedure, model.target.scale_of} != {a_authority, b_authority}
     ):
         raise MalformedRecord("crosswalk index must name a proxy joining the requested authorities")
-    refusal = snapshot._eligibility((*ids, id))
+    refusal = snapshot.check_eligibility((*ids, id))
     if refusal:
         return refusal
     crosswalk = model.crosswalk
@@ -517,7 +518,7 @@ def _raw_map(
             return _identity(), ()
         conversion = snapshot.profile.conversion_between(a.unit, b.unit)
         return (
-            (_unit_map(conversion, a.unit), ())
+            (unit_map(conversion, a.unit), ())
             if conversion
             else NotConvertible("no conversion between units", (a.unit, b.unit))
         )

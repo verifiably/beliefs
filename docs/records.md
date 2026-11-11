@@ -917,6 +917,43 @@ steps compare exactly. Any Decimal coefficient or logarithmic shift returns the
 comparison is then `undecidable`, as it is for `NeedsOperands`. These helpers do
 not decide synthesis permission or apply level-order actions.
 
+#### Assessed-target comparison
+
+`target_comparison.AssessedProposition` combines a typed claim, its frozen
+`AssessedTarget` and the interpretation rule. `convertibility` first checks form,
+functional, named outputs and corresponding variable referents. Group levels must
+match in order or be reversed; increments follow the functional's linear property.
+Rule classes, event anchors, lag windows, enrichment universes and directed
+association order are target meaning, checked before numerical conversion.
+
+Conversions run from A into B. Law independent variables admit identity only,
+before any output action; independent parameters use their own declared coordinates
+once. The returned per-output `Convertible.steps` already compose response flips,
+association-variable actions, group reversal and increment scaling. Existing
+estimate, interval and standard-error application uses those final steps; joint
+covariance uses one call with all final parameter maps. The wrapper maps no payload
+itself and stores no verdict. Crosswalk errors remain recorded assumptions, with
+uncertainty marked `not-carried: crosswalk`.
+
+`synthesis` then checks target observables and eligible observable proxies,
+procedure identity, declared compatibility or the corresponding variable's consumed
+crosswalk, control, co-scope, mapped references, interpretation rule and standing.
+Partially covered proxy validity and unequal overlapping scopes add named
+assumptions. Consumed crosswalk validity is checked against both targets and its
+recorded error is retained; disjoint cover refuses and undecidable cover remains
+unknown. Disjoint target scope also refuses. An eligible fully covering proxy can establish
+an observable bridge even when another candidate is undecidable. A binding's own
+proxy is checked for current eligibility too. Reference equality uses exact
+fractions and endpoint order, returning unknown when a logarithmic or other
+non-rational comparison cannot be proved. Equal rendered decimals never prove it.
+
+The results are `TargetConvertible`, `TargetNotConvertible`, `TargetUnknown`,
+`Permitted`, `PermittedUnder` or `SynthesisRefused`, each with a fixed `kind` and the
+explicit snapshot identity. Assumptions are the canonical union of authored and
+consulted instances. These pure comparisons neither pool estimates nor authorize
+pooling across standing classes. The observable-proxy candidate callable and all
+record/eligibility reads come from the supplied `ComparabilitySnapshot`.
+
 ## Exposure events and reservation assignments
 
 Two world kinds record what has been seen of a question and how its data is held

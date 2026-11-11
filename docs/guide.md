@@ -87,6 +87,10 @@ paths. Estimand authoring uses these measurements and aptness checks and freezes
 its normative record dependencies into the spec and assessment. See
 [measurement records](records.md#measurement-records) and
 [coordinate convertibility](records.md#coordinate-convertibility).
+Whole-target comparison first checks that variables correspond, then applies
+conversion, observable, procedure, control, scope and standing checks. Its read-only
+synthesis verdict carries any additional assumptions; it does not pool results.
+See [assessed-target comparison](records.md#assessed-target-comparison).
 
 An **analysis spec** freezes the plan before anything runs: the target proposition,
 the estimand, the method, the input roles, the interpretation rule that turns
