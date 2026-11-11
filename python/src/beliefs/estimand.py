@@ -25,7 +25,7 @@ from decimal import Decimal
 from types import MappingProxyType
 from typing import cast, final
 
-from beliefs.claim import Claim, Qualifier, Referent, _check_referent, member_key
+from beliefs.claim import Claim, Qualifier, Referent, check_referent, member_key
 from beliefs.contract.base import SUPPORTED_CONTRAST_KINDS, SUPPORTED_SCALES, SUPPORTED_UNCERTAINTY_KINDS
 from beliefs.errors import (
     ContrastRefused,
@@ -487,7 +487,7 @@ def _checked_applicability(
                 f"{dimension!r} restricts to sort {declared.restriction_sort!r}; "
                 f"{qualifier.restriction.term!r} is of sort {qualifier.restriction.sort!r}."
             )
-        _check_referent(
+        check_referent(
             profile, qualifier.restriction, f"the restriction on {dimension!r}", world_kind=None, authoring=False
         )
     return MappingProxyType(dict(qualifiers))

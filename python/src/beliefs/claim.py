@@ -72,7 +72,16 @@ from beliefs.identifiers import not_an_identifier
 from beliefs.profile import CompiledBridge, CompiledRole, CompiledSort, ProfileSpec
 from beliefs.sealed import sealed
 
-__all__ = ["Claim", "Member", "Qualifier", "Referent", "build_claim", "canonical_members", "member_key"]
+__all__ = [
+    "Claim",
+    "Member",
+    "Qualifier",
+    "Referent",
+    "build_claim",
+    "canonical_members",
+    "check_referent",
+    "member_key",
+]
 
 _WITHIN_MODEL = "within-model"
 """The one role the base contract reserves (a closed set under base v2): any
@@ -349,7 +358,7 @@ class Claim:
         for name, value in held.items():
             world_kind = grammar.reserved_roles[name].world_kind if name in reserved else None
             for referent in _referents_of(value):
-                _check_referent(
+                check_referent(
                     profile, referent, f"role {name!r} of {operator!r}", world_kind=world_kind, authoring=authoring
                 )
         for dimension, qualifier in qualifiers.items():
@@ -362,7 +371,7 @@ class Claim:
             # The restriction needs no type check here: `Qualifier` owns that
             # invariant, and it is sealed, so there is no `Qualifier` whose
             # restriction is anything else.
-            _check_referent(
+            check_referent(
                 profile,
                 qualifier.restriction,
                 f"the restriction on {dimension!r}",
@@ -532,7 +541,7 @@ def _members(value: object, role: CompiledRole, where: str) -> tuple[Member, ...
     return canonical_members(items, where=where)
 
 
-def _check_referent(
+def check_referent(
     profile: ProfileSpec, referent: Referent, where: str, *, world_kind: str | None, authoring: bool
 ) -> None:
     """Step (4) for one referent: a declared sort, the reserved world kind where

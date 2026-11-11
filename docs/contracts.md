@@ -324,6 +324,16 @@ How to write, load and ship a domain contract is in
 
 ## Typed restrictions
 
+`beliefs.applicability` wraps each typed restriction with a kernel quantifier.
+`checked` verifies applicability placement, operator permission and the quantifier;
+`build_applicability` also resolves every term and rule-class referent into a
+binding receipt. Authoring refuses retired dimensions and sorts; stored decoding
+retains their historical meaning. `Applicability.restrictions()` supplies the
+operator-free geometry, while the projection preserves quantifiers and
+`rule_ids()` supplies the cited classification rules. Union members are distinct
+and ordered by their canonical encoded projections. `claim.check_referent` is the
+public validation seam shared by these authoring and stored-reader paths.
+
 `beliefs.restriction` types a map of applicability-side dimension terms to restriction
 values, without an operator or quantifiers. It checks each dimension's declared
 form, a term's sort and identifier class, an interval unit's quantity kind, and a
