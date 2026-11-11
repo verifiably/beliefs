@@ -1167,10 +1167,15 @@ the derivation read something it declares. A claim reads its operator's contract
 (and a bridge's template's), the contract of every instantiation admitting it,
 retired ones included, each role referent's sort's contract (`within-model`
 included), and each qualifier's dimension's and restriction sort's contracts. An
-assessment's estimand reads its operator's contract and each of its referents'
-sorts' contracts and, when the proposition it targets has a claim, the contracts of
-the estimand declarations that admit it for that claim. An estimand naming another
-claim, or one that claim does not admit, raises `MalformedRecord`. A read domain
+assessment's complete target reads its operator and template, admitting estimand
+declarations when its claim is available, all measured bindings and output units,
+functional, control, assumptions and applicability vocabulary. Calendar scope
+reads its named convention, conversion and both endpoint units. Transitive frozen
+dependency terms include authority validation units, procedure kinds and
+calibration target terms. `assessed_target_contracts` walks these values without
+opening a corpus; `consulted_contracts(targets=...)` pairs each target with its
+proposition's claim. A target naming a different claim or not admitted for that
+claim raises `MalformedRecord`. A read domain
 facet reads its namespace. Every consulted namespace must be pinned by the closure's
 corpora to one identity, the profile's; otherwise the answer is `Refused`.
 

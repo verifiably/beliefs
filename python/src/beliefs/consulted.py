@@ -8,37 +8,36 @@ explicit facet-read arm. What an artefact reads is a collector's answer (§10):
 `claim_contracts` for a claim — its operator (and a bridge's template), every
 instantiation admitting it, each role referent's sort (`within-model`
 included), each qualifier's dimension and restriction sort — and
-`estimand_contracts` for an estimand — its operator, each referent's sort and,
-with its claim in hand, the estimand declarations that admit it. Every
+`assessed_target_contracts` for the complete frozen target, including copied
+dependency terms and, with its claim, the declarations admitting its estimand. Every
 collector sees every artefact, paired with the claim the caller associates with
 it, and returns nothing for one it does not read. Resolution runs against
 supplied per-corpus pins; the agreement rule refuses a closure whose corpora
 disagree.
 """
 
-# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
-
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import final
 
 from beliefs.claim import Claim, Member, Referent
 from beliefs.errors import ContractDisagreement, ContractMismatch, EstimandError, MalformedRecord
-from beliefs.estimand import Estimand, admit_estimand
-from beliefs.estimand import _referents as estimand_referents
+from beliefs.estimand import admit_estimand
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
+from beliefs.target import AssessedTarget, target_terms
 
 __all__ = [
     "BASE_NAMESPACE",
     "Collector",
     "CorpusPins",
+    "assessed_target_contracts",
     "claim_contracts",
     "consulted_contracts",
-    "estimand_contracts",
 ]
 
 BASE_NAMESPACE = "science"
@@ -58,13 +57,13 @@ class CorpusPins:
         object.__setattr__(self, "domains", MappingProxyType(dict(self.domains)))
 
 
-Collector = Callable[[object, ProfileSpec, Claim | None], frozenset[str]]
+Collector = Callable[[object, ProfileSpec, Claim | None], AbstractSet[str]]
 """What one artefact of a derivation reads: `(artefact, profile, claim) -> namespaces`.
 
 `claim` is the claim the walk pairs the artefact with — a claim itself, or the
 claim of an assessment's target proposition, `None` when that target has none.
 The artefact is typed `object` so that every collector is one `Callable`; a
-collector narrows it by `isinstance` and returns `frozenset()` for an artefact
+collector narrows it by `isinstance` and returns an empty set for an artefact
 it does not read."""
 
 
@@ -98,37 +97,37 @@ def claim_contracts(artefact: object, profile: ProfileSpec, claim: Claim | None)
     return frozenset(read)
 
 
-def estimand_contracts(artefact: object, profile: ProfileSpec, claim: Claim | None) -> frozenset[str]:
-    """The namespaces an estimand reads: its operator's contract and each
-    referent's sort, always; with `claim` in hand, the contracts of the
-    estimand declarations that admit it for that claim
-    (`admit_estimand(…, authoring=False)`), whose identity guard is then the
-    check of `estimand.claim`. With no claim, no declaration is reached, so a
-    declaration unrelated to the derivation never joins the set (P5)."""
-    if not isinstance(artefact, Estimand):
-        return frozenset()
-    read = {profile.operator(artefact.operator).contract}
-    read |= {profile.sorts[referent.sort].contract for referent in estimand_referents(artefact).values()}
+def assessed_target_contracts(artefact: object, profile: ProfileSpec, claim: Claim | None = None) -> set[str]:
+    """Read every frozen target term, plus its operator's template and admitting declarations.
+
+    Transitive record terms were copied during freezing. This collector neither
+    resolves those records nor reads a world to rediscover their vocabulary.
+    """
+    if not isinstance(artefact, AssessedTarget):
+        return set()
+    read = {term.partition("/")[0] for term in target_terms(artefact, profile)}
+    operator = profile.operator(artefact.estimand.operator)
+    read.update((operator.contract, profile.template_of(operator).contract))
     if claim is not None:
-        read |= admit_estimand(profile, artefact, claim, authoring=False)
-    return frozenset(read)
+        read.update(admit_estimand(profile, artefact.estimand, claim, authoring=False))
+    return read
 
 
 def consulted_contracts(
     *,
     claims: Mapping[str, Claim],
-    estimands: Mapping[str, tuple[str, Estimand]] = MappingProxyType({}),
+    targets: Mapping[str, tuple[str, AssessedTarget]] = MappingProxyType({}),
     profile: ProfileSpec,
     node_corpus: Mapping[str, tuple[str, ...]],
     pins: Mapping[str, CorpusPins],
     closure_nodes: tuple[str, ...],
     facets_read: Mapping[str, tuple[str, ...]] = MappingProxyType({}),
-    collectors: tuple[Collector, ...] = (claim_contracts, estimand_contracts),
+    collectors: tuple[Collector, ...] = (claim_contracts, assessed_target_contracts),
 ) -> tuple[tuple[str, str], ...]:
     """The consulted set, as sorted ``(namespace, identity)`` pairs.
 
-    ``claims`` is keyed by proposition ref; ``estimands`` by assessment identity,
-    each value the assessment's ``(target proposition ref, estimand)``. Each
+    ``claims`` is keyed by proposition ref; ``targets`` by assessment identity,
+    each value the assessment's ``(target proposition ref, assessed target)``. Each
     claim is paired with itself and each estimand with ``claims.get(target)``,
     never with the claim its own ``claim`` field names: that field is what
     admission judges. Every collector runs over every paired artefact. An
@@ -166,7 +165,9 @@ def consulted_contracts(
     # Each domain contract only if actually read: what every collector reads
     # over every artefact, each paired with its claim, plus the facet reads.
     paired: list[tuple[str, object, Claim | None]] = [(ref, claim, claim) for ref, claim in claims.items()]
-    paired.extend((assessment, estimand, claims.get(target)) for assessment, (target, estimand) in estimands.items())
+    paired.extend(
+        (assessment, assessed, claims.get(proposition)) for assessment, (proposition, assessed) in targets.items()
+    )
     read: set[str] = set()
     for key, artefact, claim in paired:
         for collector in collectors:

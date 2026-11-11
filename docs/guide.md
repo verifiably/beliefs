@@ -217,7 +217,8 @@ For a claim with several assessed targets, use `evaluation.claim_view` to see on
 answer per key and the pairwise conversion and synthesis verdicts. The one-answer
 `evaluate_over` convenience refuses that case; it forwards the exact answer when
 there is one key. Supply the same observations to an explicit keyed `gather` and
-to evaluation.
+to evaluation. Contract collection reads the complete frozen target, including
+its dependency vocabulary, without reopening those records.
 
 That answer is the scientific result, not a failure: the data in hand do not
 separate the two stages. Another admitted, independent assessment that points one

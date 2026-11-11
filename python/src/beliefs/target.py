@@ -10,11 +10,12 @@ from beliefs.errors import MalformedRecord
 from beliefs.estimand import (
     AxisLevels,
     Estimand,
+    IncrementBinding,
     LagBinding,
-    _referents,
     binding_roots,
     estimand_from_stored,
     estimand_projection,
+    estimand_referents,
     measured_bindings,
 )
 from beliefs.profile import ProfileSpec
@@ -81,7 +82,7 @@ def target_terms(value: AssessedTarget, profile: ProfileSpec) -> frozenset[str]:
         e.control.design,
         e.control.selection,
     }
-    terms.update(r.sort for r in _referents(e).values())
+    terms.update(r.sort for r in estimand_referents(e).values())
 
     def unit(term: str) -> None:
         terms.update((term, profile.units[term].quantity_kind))
@@ -92,7 +93,9 @@ def target_terms(value: AssessedTarget, profile: ProfileSpec) -> frozenset[str]:
         if binding.measure.unit is not None:
             unit(binding.measure.unit)
     for binding in e.bindings.values():
-        if isinstance(binding, LagBinding):
+        if isinstance(binding, IncrementBinding):
+            unit(binding.unit)
+        elif isinstance(binding, LagBinding):
             unit(binding.unit)
             for interval in binding.windows:
                 terms.update(walk(interval, profile).terms)

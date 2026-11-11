@@ -291,7 +291,7 @@ def binding_roots(value: Estimand) -> tuple[str, ...]:
     return tuple(sorted(roots))
 
 
-def _referents(value: Estimand) -> dict[str, Referent]:
+def estimand_referents(value: Estimand) -> dict[str, Referent]:
     result: dict[str, Referent] = {}
     for name, binding in value.bindings.items():
         if (
@@ -492,7 +492,7 @@ def _check_shape(profile: ProfileSpec, value: Estimand, *, claim: Claim | None, 
                 or len({r.sort for r in binding.classes}) != 1
             ):
                 raise ContrastRefused("rule classes are distinct referents of one sort")
-    for label, referent in _referents(value).items():
+    for label, referent in estimand_referents(value).items():
         check_referent(profile, referent, label, world_kind=None, authoring=authoring)
     for binding in measured_bindings(value):
         check_measure(profile, binding.measure)
@@ -674,7 +674,7 @@ def build_estimand(
         }
     )
     outcomes: dict[str, TermOutcome] = {}
-    for label, ref in _referents(value).items():
+    for label, ref in estimand_referents(value).items():
         outcome = snapshot.resolve(profile.sorts[ref.sort], ref.term)
         if outcome.refuses:
             raise UnboundReferent(f"{label}: the referenced term is not a member")

@@ -6,14 +6,16 @@ node→corpus attributions plus per-corpus pins.
 """
 
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 from typing import cast
 
 import pytest
+from fixtures_cut3 import typed_target
 from profiles import WITH_BIOLOGY, biology, pins_for
 
 from beliefs.claim import Referent, build_claim
-from beliefs.consulted import CorpusPins, claim_contracts, consulted_contracts, estimand_contracts
+from beliefs.consulted import CorpusPins, assessed_target_contracts, claim_contracts, consulted_contracts
 from beliefs.contract import domain
 from beliefs.errors import ContractDisagreement, ContractMismatch, MalformedRecord
 from beliefs.estimand import RoleTermLevels
@@ -192,7 +194,7 @@ class TestAgreement:
         parameters = inspect.signature(consulted_contracts).parameters
         assert set(parameters) == {
             "claims",
-            "estimands",
+            "targets",
             "profile",
             "node_corpus",
             "pins",
@@ -213,12 +215,12 @@ def _crossing_document():
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
-def _walk(profile, claims, estimands=None, pins=None):
+def _walk(profile, claims, targets=None, pins=None):
     real = pins_for(profile)
     return dict(
         consulted_contracts(
             claims=claims,
-            estimands=estimands or {},
+            targets={ref: (proposition, typed_target(estimand=e)) for ref, (proposition, e) in (targets or {}).items()},
             profile=profile,
             node_corpus={},
             pins={"c1": pins or CorpusPins(real.science_contract, dict(real.domains))},
@@ -388,15 +390,15 @@ class TestEstimandPairing:
     def test_estimand_declaration_contract_is_consulted_with_claim(self, crossing_profile):
         local = _affects(crossing_profile, ENTITY_LOCAL)
         estimand = _estimand(crossing_profile, local)
-        assert "crossing" in estimand_contracts(estimand, crossing_profile, local)
-        assert "crossing" not in estimand_contracts(estimand, crossing_profile, None)
+        assert "crossing" in assessed_target_contracts(typed_target(estimand=estimand), crossing_profile, local)
+        assert "crossing" not in assessed_target_contracts(typed_target(estimand=estimand), crossing_profile, None)
 
         # `crossing`'s declaration carries exactly these fields, but its
         # instantiation does not admit an entity→outcome claim.
         plain = _affects(crossing_profile)
         over_plain = _estimand(crossing_profile, plain)
-        assert estimand_contracts(over_plain, crossing_profile, plain) == {"testing"}
-        assert estimand_contracts(over_plain, crossing_profile, None) == {"testing"}
+        assert assessed_target_contracts(typed_target(estimand=over_plain), crossing_profile, plain) == {"testing"}
+        assert assessed_target_contracts(typed_target(estimand=over_plain), crossing_profile, None) == {"testing"}
 
     def test_claimless_walk_reaches_no_declaration(self, crossing_profile):
         local = _affects(crossing_profile, ENTITY_LOCAL)
@@ -431,7 +433,7 @@ class TestEstimandPairing:
     def test_collectors_ignore_foreign_artefacts(self, profile, claim):
         estimand = _estimand(profile, claim)
         assert claim_contracts(estimand, profile, None) == frozenset()
-        assert estimand_contracts(claim, profile, claim) == frozenset()
+        assert assessed_target_contracts(claim, profile, claim) == frozenset()
 
     def test_every_collector_runs_over_every_paired_artefact(self, profile, claim):
         estimand = _estimand(profile, claim)
@@ -443,7 +445,7 @@ class TestEstimandPairing:
 
         consulted_contracts(
             claims={"p": claim},
-            estimands={"a1": ("p", estimand), "a2": ("q", estimand)},
+            targets={"a1": ("p", typed_target(estimand=estimand)), "a2": ("q", typed_target(estimand=estimand))},
             profile=profile,
             node_corpus={},
             pins={"c1": pins_for(profile)},
@@ -451,7 +453,7 @@ class TestEstimandPairing:
             collectors=(recording, recording),
         )
         assert sorted(seen) == sorted(
-            [("Claim", "Claim")] * 2 + [("Estimand", "Claim")] * 2 + [("Estimand", "NoneType")] * 2
+            [("Claim", "Claim")] * 2 + [("AssessedTarget", "Claim")] * 2 + [("AssessedTarget", "NoneType")] * 2
         )
 
 
@@ -588,7 +590,7 @@ def test_an_estimand_reaches_a_contract_no_claim_reaches(measured, claim):
     )
     with_estimand = consulted_contracts(
         claims={"p": claim},
-        estimands={"a1": ("p", estimand)},
+        targets={"a1": ("p", typed_target(estimand=estimand))},
         profile=measured,
         node_corpus={},
         pins={"c1": pins},
@@ -623,9 +625,157 @@ def test_an_estimand_under_an_unpinned_namespace_refuses(base_contract, testing_
     with pytest.raises(ContractDisagreement, match="'biology' is consulted but pinned by no corpus"):
         consulted_contracts(
             claims={"p": claim},
-            estimands={"a1": ("p", estimand)},
+            targets={"a1": ("p", typed_target(estimand=estimand))},
             profile=profile,
             node_corpus={},
             pins={"c1": pins_without_biology},
             closure_nodes=(),
         )
+
+
+@pytest.fixture()
+def collector_profile(base_contract, testing_document):
+    from copy import deepcopy
+
+    extra = deepcopy(testing_document)
+    extra["contract"] = "extra"
+    for name in ("tpm", "ktpm"):
+        extra["units"][name]["quantity_kind"] = "testing/abundance"
+    extra["duration_conventions"]["mean-month"]["conversion"] = "testing/mean-month-to-second"
+    return compile_profile(
+        base_contract,
+        [
+            domain.parse_domain_contract(doc, source="<collector>", base=base_contract, predecessor=None)
+            for doc in (testing_document, extra)
+        ],
+    )
+
+
+@pytest.mark.parametrize("field", ["functional", "identification", "design", "selection", "unit", "assumptions"])
+def test_each_target_declaration_contract_is_read_without_a_claim(collector_profile, field):
+    from fixtures_cut3 import typed_target
+
+    from beliefs.consulted import assessed_target_contracts
+    from beliefs.estimand import estimand_from_stored, estimand_projection
+
+    claim = _affects(collector_profile)
+    body = estimand_projection(_estimand(collector_profile, claim))
+    if field == "functional":
+        body["functional"] = "extra/difference-of-means"
+    elif field in {"identification", "design", "selection"}:
+        control = cast(dict, body["control"])
+        control[field] = "extra/" + control[field].partition("/")[2]
+    elif field == "unit":
+        cast(dict, body["bindings"])["response"]["measure"]["unit"] = "extra/tpm"
+    else:
+        body["assumptions"] = [
+            {
+                "kind": "extra/proxy-validity",
+                "particulars": {"record": "fixture", "co_scope": "equal", "dimensions": ""},
+            }
+        ]
+    target = typed_target(estimand=estimand_from_stored(body, profile=collector_profile))
+    assert "extra" in assessed_target_contracts(target, collector_profile, None)
+
+
+def test_complete_duration_and_increment_terms_are_pure(collector_profile, monkeypatch):
+    from fractions import Fraction
+
+    from fixtures_cut3 import RESPONSE, typed_estimand, typed_target
+
+    from beliefs.applicability import Applicability, ScopedRestriction
+    from beliefs.consulted import assessed_target_contracts
+    from beliefs.corpus import ReadView
+    from beliefs.estimand import IncrementBinding
+    from beliefs.restriction import IntervalRestriction
+    from beliefs.target import target_terms
+
+    claim = _affects(collector_profile)
+    app = Applicability(
+        {
+            "testing/follow-up": ScopedRestriction(
+                "generic",
+                IntervalRestriction("testing/calendar-month", Fraction(1), None, True, False, "extra/mean-month"),
+            )
+        }
+    )
+    e = typed_estimand(
+        profile=collector_profile,
+        claim=claim,
+        bindings={
+            "response": RESPONSE,
+            "grouping": IncrementBinding("cause", None, RESPONSE.measure, Decimal(1), "extra/tpm"),
+        },
+    )
+    target = typed_target(estimand=e, applicability=app)
+
+    def fail(*args, **kwargs):
+        pytest.fail("pure target collector read a corpus")
+
+    monkeypatch.setattr(ReadView, "get", fail)
+    assert {
+        "extra/tpm",
+        "extra/mean-month",
+        "testing/mean-month-to-second",
+        "testing/calendar-month",
+        "testing/second",
+    } <= target_terms(target, collector_profile)
+    assert assessed_target_contracts(target, collector_profile, None) == {"testing", "extra"}
+
+
+def test_copied_authority_kind_and_validation_unit_contracts_need_no_reader(collector_profile, monkeypatch):
+    from fractions import Fraction
+
+    from fixtures_cut3 import MEASUREMENT_RECORDS, FixtureRecords, typed_target
+    from test_procedure import procedure
+
+    from beliefs import stored
+    from beliefs.consulted import assessed_target_contracts
+    from beliefs.dependencies import dependency_closure
+    from beliefs.procedure import SameAs, Scale
+    from beliefs.restriction import IntervalRestriction
+
+    records = FixtureRecords()
+    records.nodes.update(MEASUREMENT_RECORDS.nodes)
+    authority = stored.procedure_node(
+        procedure(
+            kind="extra/instrument",
+            scale=Scale(Fraction(0), Fraction(1), "higher-is-more"),
+            validated_in={
+                "testing/follow-up": IntervalRestriction("extra/hour", Fraction(1), Fraction(2), True, False)
+            },
+        )
+    )
+    follower = stored.procedure_node(procedure(scale=SameAs(authority.id)))
+    records.nodes.update({n.id: n for n in (authority, follower)})
+    base = typed_target()
+    closure = dependency_closure((*[d.id for d in base.dependencies], follower.id), records, collector_profile)
+    target = replace(base, dependencies=closure)
+    assert {"extra/instrument", "extra/hour"} <= set(next(d.terms for d in closure if d.id == authority.id))
+    monkeypatch.setattr(records, "read", lambda *_: pytest.fail("collector reread frozen dependency"))
+    assert assessed_target_contracts(target, collector_profile, None) == {"testing", "extra"}
+
+
+def test_claimless_bridge_target_reads_its_template_contract(base_contract, testing_document):
+    document = _crossing_document()
+    document["bridges"] = {
+        "local-affects": {
+            "template": "testing/affects",
+            "mapping": "contextual",
+            "roles": {"cause": ["testing/entity"], "effect": ["testing/outcome"]},
+        }
+    }
+    document["estimands"]["bridge:local-affects"] = {"forms": ["contrast"], "conditioning_sorts": ["testing/entity"]}
+    profile = compile_profile(
+        base_contract,
+        [_parse(base_contract, testing_document, "<testing>"), _parse(base_contract, document, "<bridge>")],
+    )
+    claim = build_claim(
+        profile, operator="crossing/local-affects", roles=ENTITY_OUTCOME, layer="causal", polarity="positive"
+    )
+    e = _estimand(profile, claim)
+    target = typed_target(estimand=e)
+    from beliefs.consulted import assessed_target_contracts
+
+    assert profile.template_of(profile.operator(e.operator)).contract in assessed_target_contracts(target, profile)
+    assert assessed_target_contracts(target, profile) == {"testing", "crossing"}

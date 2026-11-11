@@ -25,7 +25,12 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([records](records.md#binding-aptness))
 - <a id="assessment"></a>**Assessment** — The outcome (`supported`, `refuted` or
   `inconclusive`) of one run of a spec against one proposition, with the typed
-  estimand and estimate. ([records](records.md#specs-runs-and-assessments))
+  assessed target, standing and optional estimates, uncertainty or curves.
+  ([records](records.md#specs-runs-and-assessments))
+- <a id="assessed-proposition"></a>**Assessed proposition** — A claim paired with
+  a complete target, interpretation rule and standing. Its key isolates one belief
+  calculation; `claim_view` lists all keys without pooling them.
+  ([records](records.md#beliefs))
 - <a id="aspect"></a>**Aspect** — A sort and term distinguishing which aspect of
   an observable is measured; the pack must admit its sort for the quantity kind.
   ([contracts](contracts.md#domain-contracts))

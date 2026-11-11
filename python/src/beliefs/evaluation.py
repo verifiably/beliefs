@@ -818,7 +818,7 @@ def _gather(
     )
     consulted = consulted_contracts(
         claims={proposition: claim} if claim is not None else {},
-        estimands={a.identity(): (a.proposition, a.estimand) for a in matched},
+        targets={a.identity(): (a.proposition, a.target) for a in matched},
         profile=profile,
         node_corpus=node_corpus,
         pins=context.pins,

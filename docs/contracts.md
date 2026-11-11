@@ -493,3 +493,15 @@ A practice carries procedure only. It never compiles into a profile.
 
 - **1 — 2026-11-02:** First public statement of the contract document rules, as
   the code at this revision implements them.
+
+
+### Contracts read by an assessed target
+
+`consulted.assessed_target_contracts` collects the namespaces named by a complete
+frozen target, including copied transitive dependency terms. Operator templates
+are read even without a claim. With a claim, its admitting estimand declarations
+are checked too. Measurement, functional, output, control, assumptions and scope
+terms all count; a calendar convention also reads its conversion and endpoint
+units. Authority validation scope and procedure kinds enter through the frozen
+record terms. This traversal takes no world reader; `consulted_contracts` accepts
+`targets=` and applies pin agreement to the resulting namespaces.
