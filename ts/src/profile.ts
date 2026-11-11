@@ -42,6 +42,7 @@ import {
   DomainContract,
   type EstimandGrammar,
   type FacetDecl,
+  type FunctionalDecl,
   type KindDecl,
   type QuantityDimension,
   type QuantityKindDecl,
@@ -63,6 +64,24 @@ export interface CompiledSort {
 }
 
 export type CompiledRestrictionForm = RestrictionForm;
+export interface CompiledFunctional {
+  readonly term: string;
+  readonly contract: string;
+  readonly declaration: FunctionalDecl;
+}
+export interface CompiledIdentificationClass {
+  readonly term: string;
+  readonly contract: string;
+  readonly licensesLayers: readonly string[];
+}
+export interface CompiledDesign {
+  readonly term: string;
+  readonly contract: string;
+}
+export interface CompiledSelectionMechanism {
+  readonly term: string;
+  readonly contract: string;
+}
 export interface CompiledProcedureKind {
   readonly term: string;
   readonly fillsWithinModel: boolean;
@@ -121,6 +140,7 @@ export interface CompiledTemplate {
 
 /** An instantiation with its template and every listed sort resolved to term identifiers (each role's sorted). */
 export interface CompiledInstantiation {
+  readonly kind: "instantiation";
   readonly term: string;
   readonly template: string;
   readonly roles: Readonly<Record<string, readonly string[]>>;
@@ -149,6 +169,7 @@ export type CompiledOperator = CompiledTemplate | CompiledBridge;
  * `bridge:<namespace>/<name>`). `levelSorts` is keyed by role name.
  */
 export interface CompiledEstimandDecl {
+  readonly kind: "instantiation" | "bridge";
   readonly target: string;
   readonly levelSorts: Readonly<Record<string, string>>;
   readonly measureSort: string;
@@ -202,6 +223,10 @@ export class ProfileSpec {
   /** Keyed by the compiled typed address of each declaration's target. */
   readonly estimands: ResolutionTable<CompiledEstimandDecl>;
   readonly durationConventions: ResolutionTable<CompiledDurationConvention>;
+  readonly functionals: ResolutionTable<CompiledFunctional>;
+  readonly identificationClasses: ResolutionTable<CompiledIdentificationClass>;
+  readonly designs: ResolutionTable<CompiledDesign>;
+  readonly selectionMechanisms: ResolutionTable<CompiledSelectionMechanism>;
   readonly procedureKinds: ResolutionTable<CompiledProcedureKind>;
   readonly aggregationRules: ResolutionTable<CompiledAggregationRule>;
   readonly assumptionKinds: ResolutionTable<CompiledAssumptionKind>;
@@ -237,6 +262,10 @@ export class ProfileSpec {
       bridges: ResolutionTable<CompiledBridge>;
       estimands: ResolutionTable<CompiledEstimandDecl>;
       durationConventions: ResolutionTable<CompiledDurationConvention>;
+      functionals: ResolutionTable<CompiledFunctional>;
+      identificationClasses: ResolutionTable<CompiledIdentificationClass>;
+      designs: ResolutionTable<CompiledDesign>;
+      selectionMechanisms: ResolutionTable<CompiledSelectionMechanism>;
       procedureKinds: ResolutionTable<CompiledProcedureKind>;
       aggregationRules: ResolutionTable<CompiledAggregationRule>;
       assumptionKinds: ResolutionTable<CompiledAssumptionKind>;
@@ -280,6 +309,10 @@ export class ProfileSpec {
     this.bridges = frozenTable(Object.entries(parts.bridges));
     this.estimands = frozenTable(Object.entries(parts.estimands));
     this.durationConventions = frozenTable(Object.entries(parts.durationConventions));
+    this.functionals = frozenTable(Object.entries(parts.functionals));
+    this.identificationClasses = frozenTable(Object.entries(parts.identificationClasses));
+    this.designs = frozenTable(Object.entries(parts.designs));
+    this.selectionMechanisms = frozenTable(Object.entries(parts.selectionMechanisms));
     this.procedureKinds = frozenTable(Object.entries(parts.procedureKinds));
     this.aggregationRules = frozenTable(Object.entries(parts.aggregationRules));
     this.assumptionKinds = frozenTable(Object.entries(parts.assumptionKinds));
@@ -466,12 +499,36 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       });
     }
   }
+  const functionals: Record<string, CompiledFunctional> = Object.create(null);
+  const identificationClasses: Record<string, CompiledIdentificationClass> = Object.create(null);
+  const designs: Record<string, CompiledDesign> = Object.create(null);
+  const selectionMechanisms: Record<string, CompiledSelectionMechanism> = Object.create(null);
   const procedureKinds: Record<string, CompiledProcedureKind> = Object.create(null);
   const aggregationRules: Record<string, CompiledAggregationRule> = Object.create(null);
   const assumptionKinds: Record<string, CompiledAssumptionKind> = Object.create(null);
   const measurementDeclarations: CompiledMeasurements[] = [];
   const aspectDeclarations: CompiledAspects[] = [];
   for (const contract of contracts) {
+    for (const [name, declaration] of Object.entries(contract.functionals)) {
+      const resolved = term(contract.namespace, name);
+      functionals[resolved] = Object.freeze({ term: resolved, contract: contract.namespace, declaration });
+    }
+    for (const [name, declaration] of Object.entries(contract.identificationClasses)) {
+      const resolved = term(contract.namespace, name);
+      identificationClasses[resolved] = Object.freeze({
+        term: resolved,
+        contract: contract.namespace,
+        licensesLayers: sorted(declaration.licensesLayers),
+      });
+    }
+    for (const name of Object.keys(contract.designs)) {
+      const resolved = term(contract.namespace, name);
+      designs[resolved] = Object.freeze({ term: resolved, contract: contract.namespace });
+    }
+    for (const name of Object.keys(contract.selectionMechanisms)) {
+      const resolved = term(contract.namespace, name);
+      selectionMechanisms[resolved] = Object.freeze({ term: resolved, contract: contract.namespace });
+    }
     for (const [name, decl] of Object.entries(contract.procedureKinds)) {
       const resolved = term(contract.namespace, name);
       procedureKinds[resolved] = Object.freeze({
@@ -738,6 +795,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       const where = `instantiations.${name}`;
       const template = resolveTemplate(contract, decl.template, `${where}: template`);
       instantiations[term(contract.namespace, name)] = Object.freeze({
+        kind: "instantiation",
         term: term(contract.namespace, name),
         template: template.term,
         roles: compileRoleSorts(contract, decl.roles, template, `${where}: roles`),
@@ -765,6 +823,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       }
       const address = `${kind}:${targetTerm}`;
       estimands[address] = Object.freeze({
+        kind: kind as "instantiation" | "bridge",
         target: address,
         levelSorts: Object.freeze(levelSorts),
         measureSort: resolveSort(contract, decl.measureSort, `${where}: measure_sort`),
@@ -826,6 +885,10 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     bridges,
     estimands,
     durationConventions,
+    functionals,
+    identificationClasses,
+    designs,
+    selectionMechanisms,
     procedureKinds,
     aggregationRules,
     assumptionKinds,

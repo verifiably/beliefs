@@ -304,6 +304,7 @@ describe("compileProfile resolves the v2 declarations", () => {
 
   it("resolves local names to term identifiers", () => {
     expect(compiled.instantiations["testing/affects-entity-entity"]).toEqual({
+      kind: "instantiation",
       term: "testing/affects-entity-entity",
       template: "testing/affects",
       roles: { cause: ["testing/entity"], effect: ["testing/entity", "testing/outcome"] },

@@ -42,6 +42,7 @@ from typing import ClassVar, Literal, Self, cast, final
 
 from beliefs.contract.base import BaseContract
 from beliefs.contract.facets import FacetDecl, parse_facet_declarations
+from beliefs.contract.functional import FunctionalDecl, parse_functional
 from beliefs.errors import MalformedContract, SubclassRefused, SuccessionViolation, UnparsedContract
 from beliefs.identifiers import not_a_canonical_identifier
 from beliefs.identity import v1
@@ -56,11 +57,13 @@ __all__ = [
     "ConstantDecl",
     "ConversionDecl",
     "DatasetBinding",
+    "DesignDecl",
     "DimensionDecl",
     "DomainContract",
     "DurationConventionDecl",
     "EstimandDecl",
     "ExternalRef",
+    "IdentificationClassDecl",
     "InstantiationDecl",
     "MeasurementsDecl",
     "ProcedureKindDecl",
@@ -72,6 +75,7 @@ __all__ = [
     "RunOutputBinding",
     "SchemeBinding",
     "SelectionBinding",
+    "SelectionMechanismDecl",
     "SortBinding",
     "SortDecl",
     "TemplateDecl",
@@ -103,6 +107,10 @@ _CONTRACT_OPTIONAL = frozenset(
         "duration_conventions",
         "estimands",
         "facets",
+        "functionals",
+        "identification_classes",
+        "designs",
+        "selection_mechanisms",
         "procedure_kinds",
         "aggregation_rules",
         "assumption_kinds",
@@ -723,6 +731,34 @@ class TransformationDecl:
         return projection
 
 
+@dataclass(frozen=True)
+class IdentificationClassDecl:
+    name: str
+    licenses_layers: tuple[str, ...]
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"licenses_layers": sorted(self.licenses_layers)}
+
+
+@dataclass(frozen=True)
+class DesignDecl:
+    name: str
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {}
+
+
+@dataclass(frozen=True)
+class SelectionMechanismDecl:
+    name: str
+    retired: ClassVar[bool] = False
+
+    def schema_projection(self) -> dict[str, object]:
+        return {}
+
+
 _Declaration = (
     SortDecl
     | DimensionDecl
@@ -741,6 +777,10 @@ _Declaration = (
     | ConstantDecl
     | ConversionDecl
     | TransformationDecl
+    | FunctionalDecl
+    | IdentificationClassDecl
+    | DesignDecl
+    | SelectionMechanismDecl
 )
 
 
@@ -779,6 +819,10 @@ class DomainContract:
     estimands: Mapping[str, EstimandDecl]
     """Keyed by typed local target, ``instantiation:<name>`` or ``bridge:<name>``."""
     duration_conventions: Mapping[str, DurationConventionDecl]
+    functionals: Mapping[str, FunctionalDecl]
+    identification_classes: Mapping[str, IdentificationClassDecl]
+    designs: Mapping[str, DesignDecl]
+    selection_mechanisms: Mapping[str, SelectionMechanismDecl]
     procedure_kinds: Mapping[str, ProcedureKindDecl]
     aggregation_rules: Mapping[str, AggregationRuleDecl]
     assumption_kinds: Mapping[str, AssumptionKindDecl]
@@ -832,6 +876,10 @@ class DomainContract:
         bridges: dict[str, BridgeDecl],
         estimands: dict[str, EstimandDecl],
         duration_conventions: dict[str, DurationConventionDecl],
+        functionals: dict[str, FunctionalDecl],
+        identification_classes: dict[str, IdentificationClassDecl],
+        designs: dict[str, DesignDecl],
+        selection_mechanisms: dict[str, SelectionMechanismDecl],
         procedure_kinds: dict[str, ProcedureKindDecl],
         aggregation_rules: dict[str, AggregationRuleDecl],
         assumption_kinds: dict[str, AssumptionKindDecl],
@@ -864,6 +912,10 @@ class DomainContract:
             ("bridges", MappingProxyType(dict(bridges))),
             ("estimands", MappingProxyType(dict(estimands))),
             ("duration_conventions", MappingProxyType(dict(duration_conventions))),
+            ("functionals", MappingProxyType(dict(functionals))),
+            ("identification_classes", MappingProxyType(dict(identification_classes))),
+            ("designs", MappingProxyType(dict(designs))),
+            ("selection_mechanisms", MappingProxyType(dict(selection_mechanisms))),
             ("procedure_kinds", MappingProxyType(dict(procedure_kinds))),
             ("aggregation_rules", MappingProxyType(dict(aggregation_rules))),
             ("assumption_kinds", MappingProxyType(dict(assumption_kinds))),
@@ -918,6 +970,10 @@ class DomainContract:
             *((f"bridge:{name}", decl) for name, decl in self.bridges.items()),
             *((f"estimand:{target}", decl) for target, decl in self.estimands.items()),
             *((f"duration-convention:{name}", decl) for name, decl in self.duration_conventions.items()),
+            *((f"functional:{name}", decl) for name, decl in self.functionals.items()),
+            *((f"identification-class:{name}", decl) for name, decl in self.identification_classes.items()),
+            *((f"design:{name}", decl) for name, decl in self.designs.items()),
+            *((f"selection-mechanism:{name}", decl) for name, decl in self.selection_mechanisms.items()),
             *((f"procedure-kind:{name}", decl) for name, decl in self.procedure_kinds.items()),
             *((f"aggregation-rule:{name}", decl) for name, decl in self.aggregation_rules.items()),
             *((f"assumption-kind:{name}", decl) for name, decl in self.assumption_kinds.items()),
@@ -1327,6 +1383,8 @@ def _parse_template(name: str, value: object, where: str, base: BaseContract) ->
             )
         roles[role_name] = _parse_role(role_name, role_body, role_where, base)
 
+    if not roles:
+        raise MalformedContract(f"{where}: a template requires at least one role")
     sign_apt = _bool(body["sign_apt"], f"{where}: sign_apt")
     layers = _closed_list(body["layers"], grammar.layers, f"{where}: layers", what="layer", empty=False)
     forms = _closed_list(body["forms"], grammar.forms, f"{where}: forms", what="form", empty=False)
@@ -1659,6 +1717,28 @@ def parse_domain_contract(
         for name, body in _declarations(root.get("transformations", {}), f"{source}: transformations").items()
     }
 
+    functionals = {
+        name: parse_functional(value)
+        for name, value in _declarations(root.get("functionals", {}), f"{source}: functionals").items()
+    }
+    identification_classes = {}
+    for name, value in _declarations(
+        root.get("identification_classes", {}), f"{source}: identification_classes"
+    ).items():
+        where = f"{source}: identification_classes.{name}"
+        body = _measurement_fields(value, frozenset({"licenses_layers"}), frozenset(), where)
+        identification_classes[name] = IdentificationClassDecl(
+            name, _closed_list(body["licenses_layers"], base.claim_grammar.layers, where, what="layer", empty=False)
+        )
+    designs = {}
+    for name, value in _declarations(root.get("designs", {}), f"{source}: designs").items():
+        _measurement_fields(value, frozenset(), frozenset(), f"{source}: designs.{name}")
+        designs[name] = DesignDecl(name)
+    selection_mechanisms = {}
+    for name, value in _declarations(root.get("selection_mechanisms", {}), f"{source}: selection_mechanisms").items():
+        _measurement_fields(value, frozenset(), frozenset(), f"{source}: selection_mechanisms.{name}")
+        selection_mechanisms[name] = SelectionMechanismDecl(name)
+
     procedure_kinds: dict[str, ProcedureKindDecl] = {}
     aggregation_rules: dict[str, AggregationRuleDecl] = {}
     assumption_kinds: dict[str, AssumptionKindDecl] = {}
@@ -1706,6 +1786,10 @@ def parse_domain_contract(
         bridges=bridges,
         estimands=estimands,
         duration_conventions=duration_conventions,
+        functionals=functionals,
+        identification_classes=identification_classes,
+        designs=designs,
+        selection_mechanisms=selection_mechanisms,
         procedure_kinds=procedure_kinds,
         aggregation_rules=aggregation_rules,
         assumption_kinds=assumption_kinds,

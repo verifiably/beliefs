@@ -36,7 +36,7 @@ from fractions import Fraction
 from functools import cache
 from importlib import resources
 from types import MappingProxyType
-from typing import Literal, final
+from typing import ClassVar, Literal, cast, final
 
 from nodes.core.node import Node
 from nodes.core.registry import KindSpec, Registry, Violation
@@ -64,6 +64,7 @@ from beliefs.contract.domain import (
     _name,
 )
 from beliefs.contract.facets import FieldDecl
+from beliefs.contract.functional import FunctionalDecl
 from beliefs.errors import (
     ContractMismatch,
     DuplicateContribution,
@@ -84,10 +85,13 @@ __all__ = [
     "CompiledConstant",
     "CompiledConversion",
     "CompiledCoordinationKind",
+    "CompiledDesign",
     "CompiledDimension",
     "CompiledDurationConvention",
     "CompiledEstimandDecl",
     "CompiledFacet",
+    "CompiledFunctional",
+    "CompiledIdentificationClass",
     "CompiledInstantiation",
     "CompiledKind",
     "CompiledMeasurements",
@@ -96,6 +100,7 @@ __all__ = [
     "CompiledQuantityKind",
     "CompiledRestrictionForm",
     "CompiledRole",
+    "CompiledSelectionMechanism",
     "CompiledSort",
     "CompiledTemplate",
     "CompiledTransformation",
@@ -217,6 +222,44 @@ class CompiledSort:
                 "pattern": self.identifier_class.pattern,
             }
         return projection
+
+
+@dataclass(frozen=True)
+class CompiledFunctional:
+    term: str
+    contract: str
+    declaration: FunctionalDecl
+
+    def schema_projection(self) -> dict[str, object]:
+        return self.declaration.schema_projection()
+
+
+@dataclass(frozen=True)
+class CompiledIdentificationClass:
+    term: str
+    licenses_layers: tuple[str, ...]
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {"licenses_layers": sorted(self.licenses_layers)}
+
+
+@dataclass(frozen=True)
+class CompiledDesign:
+    term: str
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {}
+
+
+@dataclass(frozen=True)
+class CompiledSelectionMechanism:
+    term: str
+    contract: str
+
+    def schema_projection(self) -> dict[str, object]:
+        return {}
 
 
 @dataclass(frozen=True)
@@ -351,6 +394,7 @@ class CompiledInstantiation:
     """An instantiation with its template and every listed sort resolved to term
     identifiers. Its term is bookkeeping and never enters claim identity."""
 
+    kind: ClassVar[Literal["instantiation"]] = "instantiation"
     term: str
     template: str
     roles: Mapping[str, frozenset[str]]
@@ -359,6 +403,7 @@ class CompiledInstantiation:
 
     def schema_projection(self) -> dict[str, object]:
         return {
+            "kind": self.kind,
             "template": self.template,
             "roles": {role: sorted(sorts) for role, sorts in self.roles.items()},
             "retired": self.retired,
@@ -371,6 +416,7 @@ class CompiledBridge:
     and ``layers`` is the effective set: the declared narrowing, or the
     template's layers when it declares none."""
 
+    kind: ClassVar[Literal["bridge"]] = "bridge"
     term: str
     template: str
     mapping: str
@@ -381,6 +427,7 @@ class CompiledBridge:
 
     def schema_projection(self) -> dict[str, object]:
         return {
+            "kind": self.kind,
             "template": self.template,
             "mapping": self.mapping,
             "roles": {role: sorted(sorts) for role, sorts in self.roles.items()},
@@ -403,6 +450,7 @@ class CompiledEstimandDecl:
     estimand structure around these names.
     """
 
+    kind: Literal["instantiation", "bridge"]
     target: str
     level_sorts: Mapping[str, str]
     """Role name → sort term."""
@@ -413,6 +461,7 @@ class CompiledEstimandDecl:
 
     def schema_projection(self) -> dict[str, object]:
         return {
+            "kind": self.kind,
             "level_sorts": {role: self.level_sorts[role] for role in sorted(self.level_sorts)},
             "measure_sort": self.measure_sort,
             "identification_sort": self.identification_sort,
@@ -598,6 +647,10 @@ class ProfileSpec:
     """Keyed by the compiled typed address of each declaration's target,
     ``instantiation:<namespace>/<name>`` or ``bridge:<namespace>/<name>``."""
     duration_conventions: Mapping[str, CompiledDurationConvention]
+    functionals: Mapping[str, CompiledFunctional]
+    identification_classes: Mapping[str, CompiledIdentificationClass]
+    designs: Mapping[str, CompiledDesign]
+    selection_mechanisms: Mapping[str, CompiledSelectionMechanism]
     procedure_kinds: Mapping[str, CompiledProcedureKind]
     aggregation_rules: Mapping[str, CompiledAggregationRule]
     assumption_kinds: Mapping[str, CompiledAssumptionKind]
@@ -696,6 +749,10 @@ class ProfileSpec:
                 bridges=self.bridges,
                 estimands=self.estimands,
                 duration_conventions=self.duration_conventions,
+                functionals=self.functionals,
+                identification_classes=self.identification_classes,
+                designs=self.designs,
+                selection_mechanisms=self.selection_mechanisms,
                 procedure_kinds=self.procedure_kinds,
                 aggregation_rules=self.aggregation_rules,
                 assumption_kinds=self.assumption_kinds,
@@ -1120,6 +1177,28 @@ def compile_profile(
             raise ProfileError(f"{contract.namespace}: {where} names {term!r}, which no activated contract declares")
         return term
 
+    functionals = {
+        contract.term(name): CompiledFunctional(contract.term(name), contract.namespace, decl)
+        for contract in contracts
+        for name, decl in contract.functionals.items()
+    }
+    identification_classes = {
+        contract.term(name): CompiledIdentificationClass(
+            contract.term(name), tuple(sorted(decl.licenses_layers)), contract.namespace
+        )
+        for contract in contracts
+        for name, decl in contract.identification_classes.items()
+    }
+    designs = {
+        contract.term(name): CompiledDesign(contract.term(name), contract.namespace)
+        for contract in contracts
+        for name in contract.designs
+    }
+    selection_mechanisms = {
+        contract.term(name): CompiledSelectionMechanism(contract.term(name), contract.namespace)
+        for contract in contracts
+        for name in contract.selection_mechanisms
+    }
     procedure_kinds = {
         contract.term(name): CompiledProcedureKind(contract.term(name), decl.fills_within_model, contract.namespace)
         for contract in contracts
@@ -1319,6 +1398,10 @@ def compile_profile(
         bridges=MappingProxyType(dict(bridges)),
         estimands=MappingProxyType(dict(estimands)),
         duration_conventions=MappingProxyType(dict(duration_conventions)),
+        functionals=MappingProxyType(dict(functionals)),
+        identification_classes=MappingProxyType(dict(identification_classes)),
+        designs=MappingProxyType(dict(designs)),
+        selection_mechanisms=MappingProxyType(dict(selection_mechanisms)),
         procedure_kinds=MappingProxyType(dict(procedure_kinds)),
         aggregation_rules=MappingProxyType(dict(aggregation_rules)),
         assumption_kinds=MappingProxyType(dict(assumption_kinds)),
@@ -1364,6 +1447,10 @@ def compile_profile(
         bridges=tables.bridges,
         estimands=tables.estimands,
         duration_conventions=tables.duration_conventions,
+        functionals=tables.functionals,
+        identification_classes=tables.identification_classes,
+        designs=tables.designs,
+        selection_mechanisms=tables.selection_mechanisms,
         procedure_kinds=tables.procedure_kinds,
         aggregation_rules=tables.aggregation_rules,
         assumption_kinds=tables.assumption_kinds,
@@ -1417,6 +1504,10 @@ class _ClaimTables:
     bridges: Mapping[str, CompiledBridge]
     estimands: Mapping[str, CompiledEstimandDecl]
     duration_conventions: Mapping[str, CompiledDurationConvention]
+    functionals: Mapping[str, CompiledFunctional]
+    identification_classes: Mapping[str, CompiledIdentificationClass]
+    designs: Mapping[str, CompiledDesign]
+    selection_mechanisms: Mapping[str, CompiledSelectionMechanism]
     procedure_kinds: Mapping[str, CompiledProcedureKind]
     aggregation_rules: Mapping[str, CompiledAggregationRule]
     assumption_kinds: Mapping[str, CompiledAssumptionKind]
@@ -1474,6 +1565,12 @@ def _projection(
         "bridges": {term: decl.schema_projection() for term, decl in tables.bridges.items()},
         "estimands": {address: decl.schema_projection() for address, decl in tables.estimands.items()},
         "duration_conventions": {term: decl.schema_projection() for term, decl in tables.duration_conventions.items()},
+        "functionals": {term: decl.schema_projection() for term, decl in tables.functionals.items()},
+        "identification_classes": {
+            term: decl.schema_projection() for term, decl in tables.identification_classes.items()
+        },
+        "designs": {term: decl.schema_projection() for term, decl in tables.designs.items()},
+        "selection_mechanisms": {term: decl.schema_projection() for term, decl in tables.selection_mechanisms.items()},
         "procedure_kinds": {term: decl.schema_projection() for term, decl in tables.procedure_kinds.items()},
         "aggregation_rules": {term: decl.schema_projection() for term, decl in tables.aggregation_rules.items()},
         "assumption_kinds": {term: decl.schema_projection() for term, decl in tables.assumption_kinds.items()},
@@ -1724,6 +1821,7 @@ def _compile_estimand(
                 f"declare; its roles are {sorted(template.roles)}"
             )
     return CompiledEstimandDecl(
+        kind=cast(Literal["instantiation", "bridge"], kind),
         target=f"{kind}:{term}",
         level_sorts=MappingProxyType(
             {

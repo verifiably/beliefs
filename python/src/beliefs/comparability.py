@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from fractions import Fraction
 from types import MappingProxyType
-from typing import Literal, TypeAlias, get_args
+from typing import Literal, TypeAlias, cast, get_args
 
 from beliefs.assumptions import AssumptionInstance, check_instance
 from beliefs.dependencies import HeldRecords, Record, read_record
@@ -16,7 +16,7 @@ from beliefs.eligibility import ClosureEligibility, Ineligible
 from beliefs.errors import AmbiguousCrosswalk, DependencyNotHeld, MalformedContract, MalformedRecord, ProfileError
 from beliefs.measurement import Coordinates
 from beliefs.procedure import Procedure, SameAs
-from beliefs.profile import CompiledConversion, CompiledTransformation, ProfileSpec
+from beliefs.profile import CompiledConversion, CompiledFunctional, CompiledTransformation, ProfileSpec
 from beliefs.proxy_model import ProxyModel
 from beliefs.restriction import decimal_projection
 
@@ -61,6 +61,7 @@ __all__ = [
     "apply_standard_error",
     "compare_mapped",
     "convert",
+    "functional_properties",
 ]
 
 CONTEXT = decimal.Context(prec=34)
@@ -149,6 +150,33 @@ class FunctionalProperties:
             ):
                 raise MalformedContract("parameters require named ParameterTyping values")
             object.__setattr__(self, "parameters", MappingProxyType(dict(self.parameters)))
+
+
+def functional_properties(decl: CompiledFunctional) -> FunctionalProperties:
+    value = decl.declaration
+    parameters = (
+        None
+        if value.parameters is None
+        else {
+            name: ParameterTyping(cast(ParameterTypingName, parameter.typing), cast(Domain, parameter.domain))
+            for name, parameter in value.parameters.items()
+        }
+    )
+    return FunctionalProperties(
+        form=cast(Form, value.form),
+        arity=cast(Arity, value.arity),
+        response_transformation=cast(ResponseTransformation, value.response_transformation),
+        reversal=cast(Reversal, value.reversal),
+        response_reversal=cast(ResponseReversal, value.response_reversal),
+        exchange=cast(Exchange, value.exchange),
+        ties=cast(Ties, value.ties),
+        output=cast(Output, value.output),
+        domain=cast(Domain, value.domain),
+        null=cast(Null, value.null),
+        increment=cast(Increment, value.increment),
+        uncertainty=cast(UncertaintyPropagation, value.uncertainty),
+        parameters=parameters,
+    )
 
 
 @dataclass(frozen=True)

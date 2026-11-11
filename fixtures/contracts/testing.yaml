@@ -308,3 +308,157 @@ measurements:
   cohort: []
 aspects:
   energy: [energy-aspect]
+
+functionals:
+  difference-of-means:
+    form: contrast
+    arity: two
+    response_transformation: equivariant-affine
+    reversal: negate
+    response_reversal: negate
+    exchange: not-applicable
+    ties: not-applicable
+    output: response-difference
+    domain: real
+    'null': zero
+    increment: linear
+    uncertainty: exact
+    parameters: not-applicable
+  ratio-of-means:
+    form: contrast
+    arity: two
+    response_transformation: invariant-positive-scaling
+    reversal: reciprocal
+    response_reversal: not-applicable
+    exchange: not-applicable
+    ties: not-applicable
+    output: dimensionless
+    domain: positive
+    'null': one
+    increment: none
+    uncertainty: exact
+    parameters: not-applicable
+  probability-of-superiority:
+    form: contrast
+    arity: two
+    response_transformation: invariant-strictly-increasing
+    reversal: complement
+    response_reversal: complement
+    exchange: not-applicable
+    ties: midrank
+    output: dimensionless
+    domain: unit-interval
+    'null': half
+    increment: none
+    uncertainty: exact
+    parameters: not-applicable
+  hodges-lehmann-shift:
+    form: contrast
+    arity: two
+    response_transformation: equivariant-positive-affine
+    reversal: negate
+    response_reversal: not-applicable
+    exchange: not-applicable
+    ties: midrank
+    output: response-difference
+    domain: real
+    'null': zero
+    increment: none
+    uncertainty: exact
+    parameters: not-applicable
+  log-odds-ratio:
+    form: contrast
+    arity: two
+    response_transformation: fixed
+    reversal: negate
+    response_reversal: not-applicable
+    exchange: not-applicable
+    ties: not-applicable
+    output: dimensionless
+    domain: real
+    'null': zero
+    increment: none
+    uncertainty: exact
+    parameters: not-applicable
+  spearman-correlation:
+    form: association
+    arity: two
+    response_transformation: invariant-strictly-increasing
+    reversal: not-applicable
+    response_reversal: negate
+    exchange: symmetric
+    ties: midrank
+    output: dimensionless
+    domain: signed-unit-interval
+    'null': zero
+    increment: not-applicable
+    uncertainty: recompute
+    parameters: not-applicable
+  transfer-entropy:
+    form: association
+    arity: two
+    response_transformation: invariant-strictly-increasing
+    reversal: not-applicable
+    response_reversal: invariant
+    exchange: directed
+    ties: undefined
+    output: dimensionless
+    domain: nonnegative
+    'null': zero
+    increment: not-applicable
+    uncertainty: none
+    parameters: not-applicable
+  peak-power-fraction:
+    form: quantity
+    arity: one
+    response_transformation: none
+    reversal: not-applicable
+    response_reversal: not-applicable
+    exchange: not-applicable
+    ties: not-applicable
+    output: dimensionless
+    domain: unit-interval
+    'null': none
+    increment: not-applicable
+    uncertainty: none
+    parameters: not-applicable
+  arrhenius:
+    form: law-parameters
+    arity: not-applicable
+    response_transformation: by-parameters
+    reversal: not-applicable
+    response_reversal: not-applicable
+    exchange: not-applicable
+    ties: not-applicable
+    output: declared
+    domain: not-applicable
+    'null': none
+    increment: not-applicable
+    uncertainty: exact
+    parameters:
+      Ea:
+        typing: independent
+        domain: real
+      lnA:
+        typing: response-log-level
+        domain: real
+identification_classes:
+  observational:
+    licenses_layers:
+    - statistical
+  randomized:
+    licenses_layers:
+    - statistical
+    - causal
+  conditional-on-observables:
+    licenses_layers:
+    - statistical
+    - causal
+  instrumental:
+    licenses_layers:
+    - statistical
+    - causal
+designs:
+  independent-groups: {}
+selection_mechanisms:
+  cohort-enrolment: {}

@@ -481,6 +481,107 @@ export interface TransformationDecl {
   readonly invertible: boolean;
 }
 
+export const SUPPORTED_ESTIMAND_FORMS = Object.freeze([
+  "contrast",
+  "quantity",
+  "law-parameters",
+  "event-locked",
+  "association",
+  "enrichment",
+]);
+export const SUPPORTED_ESTIMAND_ARITIES = Object.freeze(["one", "two", "k", "n", "not-applicable"]);
+export const SUPPORTED_ESTIMAND_RESPONSE_TRANSFORMATIONS = Object.freeze([
+  "invariant-strictly-increasing",
+  "equivariant-positive-affine",
+  "equivariant-affine",
+  "invariant-positive-scaling",
+  "fixed",
+  "none",
+  "by-parameters",
+]);
+export const SUPPORTED_ESTIMAND_REVERSALS = Object.freeze([
+  "invariant",
+  "complement",
+  "negate",
+  "reciprocal",
+  "undefined",
+  "not-applicable",
+]);
+export const SUPPORTED_ESTIMAND_RESPONSE_REVERSALS = Object.freeze([
+  "invariant",
+  "complement",
+  "negate",
+  "undefined",
+  "not-applicable",
+]);
+export const SUPPORTED_ESTIMAND_EXCHANGES = Object.freeze(["symmetric", "directed", "not-applicable"]);
+export const SUPPORTED_ESTIMAND_TIES = Object.freeze(["undefined", "midrank", "ignored", "not-applicable"]);
+export const SUPPORTED_ESTIMAND_OUTPUTS = Object.freeze([
+  "response-difference",
+  "response-level",
+  "response-log-level",
+  "dimensionless",
+  "declared",
+]);
+export const SUPPORTED_ESTIMAND_PARAMETER_TYPINGS = Object.freeze([
+  "independent",
+  "response-level",
+  "response-difference",
+  "response-log-level",
+  "dimensionless",
+]);
+export const SUPPORTED_ESTIMAND_DOMAINS = Object.freeze([
+  "real",
+  "nonnegative",
+  "positive",
+  "unit-interval",
+  "signed-unit-interval",
+  "not-applicable",
+]);
+export const SUPPORTED_ESTIMAND_NULLS = Object.freeze(["zero", "one", "half", "none"]);
+export const SUPPORTED_ESTIMAND_INCREMENTS = Object.freeze(["linear", "none", "not-applicable"]);
+export const SUPPORTED_ESTIMAND_UNCERTAINTY_PROPAGATION = Object.freeze(["exact", "recompute", "none"]);
+export const SUPPORTED_ESTIMAND_LEVEL_SOURCES = Object.freeze(["role-terms", "rule-classes", "axis", "roles"]);
+export const SUPPORTED_ESTIMAND_REFERENCE_KINDS = Object.freeze(["value", "null"]);
+export const SUPPORTED_ESTIMAND_RESTRICTION_FORMS = Object.freeze([
+  "term",
+  "interval",
+  "union",
+  "time-interval",
+  "rule",
+]);
+export const SUPPORTED_ESTIMAND_STANDING_CLASSES = Object.freeze(["empirical", "model", "calibrated-model"]);
+
+export interface ParameterDecl {
+  readonly typing: string;
+  readonly domain: string;
+}
+export interface FunctionalDecl {
+  readonly form: string;
+  readonly arity: string;
+  readonly response_transformation: string;
+  readonly reversal: string;
+  readonly response_reversal: string;
+  readonly exchange: string;
+  readonly ties: string;
+  readonly output: string;
+  readonly domain: string;
+  readonly null: string;
+  readonly increment: string;
+  readonly uncertainty: string;
+  readonly parameters: DeclarationTable<ParameterDecl> | "not-applicable";
+}
+export interface IdentificationClassDecl {
+  readonly name: string;
+  readonly licensesLayers: readonly string[];
+}
+export interface DesignDecl {
+  readonly name: string;
+}
+export interface SelectionMechanismDecl {
+  readonly name: string;
+}
+
 export class DomainContract {
   #minted = true;
   readonly namespace: string;
@@ -493,6 +594,10 @@ export class DomainContract {
   /** Keyed by typed local target, `instantiation:<name>` or `bridge:<name>`. */
   readonly estimands: DeclarationTable<EstimandDecl>;
   readonly durationConventions: DeclarationTable<DurationConventionDecl>;
+  readonly functionals: DeclarationTable<FunctionalDecl>;
+  readonly identificationClasses: DeclarationTable<IdentificationClassDecl>;
+  readonly designs: DeclarationTable<DesignDecl>;
+  readonly selectionMechanisms: DeclarationTable<SelectionMechanismDecl>;
   readonly procedureKinds: DeclarationTable<ProcedureKindDecl>;
   readonly aggregationRules: DeclarationTable<AggregationRuleDecl>;
   readonly assumptionKinds: DeclarationTable<AssumptionKindDecl>;
@@ -537,6 +642,10 @@ export class DomainContract {
       bridges: DeclarationTable<BridgeDecl>;
       estimands: DeclarationTable<EstimandDecl>;
       durationConventions: DeclarationTable<DurationConventionDecl>;
+      functionals: DeclarationTable<FunctionalDecl>;
+      identificationClasses: DeclarationTable<IdentificationClassDecl>;
+      designs: DeclarationTable<DesignDecl>;
+      selectionMechanisms: DeclarationTable<SelectionMechanismDecl>;
       procedureKinds: DeclarationTable<ProcedureKindDecl>;
       aggregationRules: DeclarationTable<AggregationRuleDecl>;
       assumptionKinds: DeclarationTable<AssumptionKindDecl>;
@@ -569,6 +678,10 @@ export class DomainContract {
     this.bridges = parts.bridges;
     this.estimands = parts.estimands;
     this.durationConventions = parts.durationConventions;
+    this.functionals = parts.functionals;
+    this.identificationClasses = parts.identificationClasses;
+    this.designs = parts.designs;
+    this.selectionMechanisms = parts.selectionMechanisms;
     this.procedureKinds = parts.procedureKinds;
     this.aggregationRules = parts.aggregationRules;
     this.assumptionKinds = parts.assumptionKinds;
@@ -1347,6 +1460,7 @@ function parseTemplate(name: string, value: unknown, where: string, base: BaseCo
     }
     roleEntries.push([roleName, parseRole(roleName, roleBody, roleWhere, base)]);
   }
+  if (roleEntries.length === 0) throw new MalformedContract(`${where}: a template requires at least one role`);
   const roles = frozenTable(roleEntries);
 
   const signApt = bool(body.sign_apt, `${where}.sign_apt`);
@@ -1453,6 +1567,126 @@ function measurementFields(
   exactFields(body, required, [...optional, "definition", "description"], where);
   if ("definition" in body) canonicalText(body.definition, `${where}.definition`);
   return body;
+}
+
+const FUNCTIONAL_VOCABULARIES: Readonly<Record<string, readonly string[]>> = {
+  form: SUPPORTED_ESTIMAND_FORMS,
+  arity: SUPPORTED_ESTIMAND_ARITIES,
+  response_transformation: SUPPORTED_ESTIMAND_RESPONSE_TRANSFORMATIONS,
+  reversal: SUPPORTED_ESTIMAND_REVERSALS,
+  response_reversal: SUPPORTED_ESTIMAND_RESPONSE_REVERSALS,
+  exchange: SUPPORTED_ESTIMAND_EXCHANGES,
+  ties: SUPPORTED_ESTIMAND_TIES,
+  output: SUPPORTED_ESTIMAND_OUTPUTS,
+  domain: SUPPORTED_ESTIMAND_DOMAINS,
+  null: SUPPORTED_ESTIMAND_NULLS,
+  increment: SUPPORTED_ESTIMAND_INCREMENTS,
+  uncertainty: SUPPORTED_ESTIMAND_UNCERTAINTY_PROPAGATION,
+};
+const FUNCTIONAL_ARITIES: Readonly<Record<string, readonly string[]>> = {
+  contrast: ["two", "k"],
+  quantity: ["one"],
+  "law-parameters": ["not-applicable"],
+  "event-locked": ["two", "k"],
+  association: ["two", "n"],
+  enrichment: ["not-applicable"],
+};
+const FUNCTIONAL_APPLICABLE: Readonly<Record<string, readonly string[]>> = {
+  reversal: ["contrast", "event-locked"],
+  exchange: ["association"],
+  ties: ["contrast", "event-locked", "association"],
+  increment: ["contrast"],
+};
+function functionalTag(value: unknown, choices: readonly string[], where: string): string {
+  if (typeof value !== "string" || !choices.includes(value))
+    throw new MalformedContract(`${where}: invalid property ${shown(value)}`);
+  return value;
+}
+function parseFunctional(value: unknown, where: string): FunctionalDecl {
+  const body = measurementFields(value, [...Object.keys(FUNCTIONAL_VOCABULARIES), "parameters"], ["external"], where);
+  if ("description" in body) canonicalText(body.description, where);
+  if ("external" in body) {
+    const external = mapping(body.external, where);
+    exactFields(external, ["reference", "mapping"], [], where);
+    canonicalText(external.reference, where);
+    functionalTag(external.mapping, ["exact", "narrower", "broader", "contextual"], where);
+  }
+  const values: Record<string, string> = Object.create(null);
+  for (const [key, choices] of Object.entries(FUNCTIONAL_VOCABULARIES))
+    values[key] = functionalTag(body[key], choices, `${where}.${key}`);
+  if (!FUNCTIONAL_ARITIES[values.form].includes(values.arity))
+    throw new MalformedContract(`${where}: arity does not match form`);
+  for (const [key, forms] of Object.entries(FUNCTIONAL_APPLICABLE)) {
+    if (!forms.includes(values.form) && values[key] !== "not-applicable")
+      throw new MalformedContract(`${where}: ${key} is not applicable`);
+    if (
+      ["reversal", "exchange", "increment"].includes(key) &&
+      forms.includes(values.form) &&
+      values[key] === "not-applicable"
+    )
+      throw new MalformedContract(`${where}: ${key} is required`);
+  }
+  const certificate = values.response_transformation;
+  if (
+    ["invariant-strictly-increasing", "equivariant-affine"].includes(certificate) ===
+    (values.response_reversal === "not-applicable")
+  )
+    throw new MalformedContract(`${where}: response reversal does not match certificate`);
+  const declared = values.output === "declared";
+  if (declared !== (certificate === "by-parameters"))
+    throw new MalformedContract(`${where}: declared output needs by-parameters`);
+  let parameters: DeclarationTable<ParameterDecl> | "not-applicable" = "not-applicable";
+  if (declared) {
+    const raw = mapping(body.parameters, where);
+    if (Object.keys(raw).length === 0) throw new MalformedContract(`${where}: parameters must be nonempty`);
+    parameters = frozenTable(
+      Object.entries(raw).map(([name, value]) => {
+        canonicalText(name, where);
+        const parameter = mapping(value, where);
+        exactFields(parameter, ["typing", "domain"], [], where);
+        return [
+          name,
+          Object.freeze({
+            typing: functionalTag(parameter.typing, SUPPORTED_ESTIMAND_PARAMETER_TYPINGS, where),
+            domain: functionalTag(
+              parameter.domain,
+              SUPPORTED_ESTIMAND_DOMAINS.filter((d) => d !== "not-applicable"),
+              where,
+            ),
+          }),
+        ] as const;
+      }),
+    );
+  } else if (body.parameters !== "not-applicable")
+    throw new MalformedContract(`${where}: parameters are not applicable`);
+  if (declared !== (values.domain === "not-applicable"))
+    throw new MalformedContract(`${where}: output domain does not match typing`);
+  if (values.form === "law-parameters" && (!declared || values.null !== "none"))
+    throw new MalformedContract(`${where}: law needs declared parameters and null none`);
+  if (values.form === "enrichment" && certificate !== "fixed")
+    throw new MalformedContract(`${where}: enrichment needs fixed response`);
+  const fixedNull: Readonly<Record<string, string>> = { negate: "zero", complement: "half", reciprocal: "one" };
+  for (const action of [values.reversal, values.response_reversal]) {
+    if (action === "reciprocal" && values.domain !== "positive")
+      throw new MalformedContract(`${where}: reciprocal requires positive domain`);
+    if (values.null !== "none" && Object.hasOwn(fixedNull, action) && values.null !== fixedNull[action])
+      throw new MalformedContract(`${where}: null is not a fixed point`);
+  }
+  return Object.freeze({
+    form: values.form,
+    arity: values.arity,
+    response_transformation: values.response_transformation,
+    reversal: values.reversal,
+    response_reversal: values.response_reversal,
+    exchange: values.exchange,
+    ties: values.ties,
+    output: values.output,
+    domain: values.domain,
+    null: values.null,
+    increment: values.increment,
+    uncertainty: values.uncertainty,
+    parameters,
+  });
 }
 
 function parseQuantityKind(name: string, value: unknown, where: string): QuantityKindDecl {
@@ -1703,6 +1937,10 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
       "duration_conventions",
       "estimands",
       "facets",
+      "functionals",
+      "identification_classes",
+      "designs",
+      "selection_mechanisms",
       "procedure_kinds",
       "aggregation_rules",
       "assumption_kinds",
@@ -1936,6 +2174,41 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     ]),
   );
 
+  const functionals = frozenTable(
+    Object.entries(declarations(document.functionals, `${source}.functionals`)).map(([name, value]) => [
+      name,
+      parseFunctional(value, `${source}.functionals.${name}`),
+    ]),
+  );
+  const identificationClasses = frozenTable(
+    Object.entries(declarations(document.identification_classes, `${source}.identification_classes`)).map(
+      ([name, value]) => {
+        const where = `${source}.identification_classes.${name}`;
+        const body = measurementFields(value, ["licenses_layers"], [], where);
+        return [
+          name,
+          Object.freeze({
+            name,
+            licensesLayers: closedList(body.licenses_layers, base.claimGrammar.layers, where, "layer", false),
+          }),
+        ] as const;
+      },
+    ),
+  );
+  const designs = frozenTable(
+    Object.entries(declarations(document.designs, `${source}.designs`)).map(([name, value]) => {
+      measurementFields(value, [], [], `${source}.designs.${name}`);
+      return [name, Object.freeze({ name })] as const;
+    }),
+  );
+  const selectionMechanisms = frozenTable(
+    Object.entries(declarations(document.selection_mechanisms, `${source}.selection_mechanisms`)).map(
+      ([name, value]) => {
+        measurementFields(value, [], [], `${source}.selection_mechanisms.${name}`);
+        return [name, Object.freeze({ name })] as const;
+      },
+    ),
+  );
   const procedureKinds = frozenTable(
     Object.entries(declarations(document.procedure_kinds, `${source}.procedure_kinds`)).map(([name, value]) => {
       const where = `${source}.procedure_kinds.${name}`;
@@ -1999,6 +2272,10 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     bridges,
     estimands,
     durationConventions,
+    functionals,
+    identificationClasses,
+    designs,
+    selectionMechanisms,
     procedureKinds,
     aggregationRules,
     assumptionKinds,

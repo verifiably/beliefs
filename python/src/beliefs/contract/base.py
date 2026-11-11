@@ -45,6 +45,23 @@ __all__ = [
     "SUPPORTED_CARDINALITIES",
     "SUPPORTED_CONTRAST_KINDS",
     "SUPPORTED_CONVERSION_KINDS",
+    "SUPPORTED_ESTIMAND_ARITIES",
+    "SUPPORTED_ESTIMAND_DOMAINS",
+    "SUPPORTED_ESTIMAND_EXCHANGES",
+    "SUPPORTED_ESTIMAND_FORMS",
+    "SUPPORTED_ESTIMAND_INCREMENTS",
+    "SUPPORTED_ESTIMAND_LEVEL_SOURCES",
+    "SUPPORTED_ESTIMAND_NULLS",
+    "SUPPORTED_ESTIMAND_OUTPUTS",
+    "SUPPORTED_ESTIMAND_PARAMETER_TYPINGS",
+    "SUPPORTED_ESTIMAND_REFERENCE_KINDS",
+    "SUPPORTED_ESTIMAND_RESPONSE_REVERSALS",
+    "SUPPORTED_ESTIMAND_RESPONSE_TRANSFORMATIONS",
+    "SUPPORTED_ESTIMAND_RESTRICTION_FORMS",
+    "SUPPORTED_ESTIMAND_REVERSALS",
+    "SUPPORTED_ESTIMAND_STANDING_CLASSES",
+    "SUPPORTED_ESTIMAND_TIES",
+    "SUPPORTED_ESTIMAND_UNCERTAINTY_PROPAGATION",
     "SUPPORTED_EVIDENCE_MODES",
     "SUPPORTED_FORMS",
     "SUPPORTED_LEVELS_OF_MEASUREMENT",
@@ -168,6 +185,51 @@ SUPPORTED_TRANSFORMATION_DOMAINS = ("real", "nonnegative", "positive", "unit-int
 SUPPORTED_CONVERSION_KINDS = ("multiplicative", "affine")
 SUPPORTED_CARDINALITIES = ("one-to-one", "many-to-one", "one-to-many", "many-to-many")
 SUPPORTED_EVIDENCE_MODES = ("observation", "annotation", "simulation", "derivation", "literature-extraction")
+
+SUPPORTED_ESTIMAND_FORMS = ("contrast", "quantity", "law-parameters", "event-locked", "association", "enrichment")
+SUPPORTED_ESTIMAND_ARITIES = ("one", "two", "k", "n", "not-applicable")
+SUPPORTED_ESTIMAND_RESPONSE_TRANSFORMATIONS = (
+    "invariant-strictly-increasing",
+    "equivariant-positive-affine",
+    "equivariant-affine",
+    "invariant-positive-scaling",
+    "fixed",
+    "none",
+    "by-parameters",
+)
+SUPPORTED_ESTIMAND_REVERSALS = ("invariant", "complement", "negate", "reciprocal", "undefined", "not-applicable")
+SUPPORTED_ESTIMAND_RESPONSE_REVERSALS = ("invariant", "complement", "negate", "undefined", "not-applicable")
+SUPPORTED_ESTIMAND_EXCHANGES = ("symmetric", "directed", "not-applicable")
+SUPPORTED_ESTIMAND_TIES = ("undefined", "midrank", "ignored", "not-applicable")
+SUPPORTED_ESTIMAND_OUTPUTS = (
+    "response-difference",
+    "response-level",
+    "response-log-level",
+    "dimensionless",
+    "declared",
+)
+SUPPORTED_ESTIMAND_PARAMETER_TYPINGS = (
+    "independent",
+    "response-level",
+    "response-difference",
+    "response-log-level",
+    "dimensionless",
+)
+SUPPORTED_ESTIMAND_DOMAINS = (
+    "real",
+    "nonnegative",
+    "positive",
+    "unit-interval",
+    "signed-unit-interval",
+    "not-applicable",
+)
+SUPPORTED_ESTIMAND_NULLS = ("zero", "one", "half", "none")
+SUPPORTED_ESTIMAND_INCREMENTS = ("linear", "none", "not-applicable")
+SUPPORTED_ESTIMAND_UNCERTAINTY_PROPAGATION = ("exact", "recompute", "none")
+SUPPORTED_ESTIMAND_LEVEL_SOURCES = ("role-terms", "rule-classes", "axis", "roles")
+SUPPORTED_ESTIMAND_REFERENCE_KINDS = ("value", "null")
+SUPPORTED_ESTIMAND_RESTRICTION_FORMS = ("term", "interval", "union", "time-interval", "rule")
+SUPPORTED_ESTIMAND_STANDING_CLASSES = ("empirical", "model", "calibrated-model")
 
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
 SUPPORTED_SHAPES = ("dag",)

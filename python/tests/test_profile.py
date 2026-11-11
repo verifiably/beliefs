@@ -70,9 +70,10 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     duration conventions) replaced the operator and edge tables,
     and again when the measurement grammar and its five declaration tables entered the projection,
     and again when the vocabulary, pack and typed dimension tables entered it,
-    and again when the four measurement kinds gained their governed facets."""
+    and again when the four measurement kinds gained their governed facets,
+    and when functional and control declarations entered the schema."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "276efa50277c592f37301afb424d4f3d432896e79c72f8bec6178aa1ed6b8bbc"
+    assert before.compiled_identity == "3fb924891f69f3049ce1f0063f1d88ec7b58266dac943ce64ce05de098d77d7e"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -1113,6 +1114,10 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 bridges={},
                 estimands={},
                 duration_conventions={},
+                functionals={},
+                identification_classes={},
+                designs={},
+                selection_mechanisms={},
                 procedure_kinds={},
                 aggregation_rules={},
                 assumption_kinds={},

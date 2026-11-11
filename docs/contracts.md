@@ -133,7 +133,8 @@ A domain contract requires `contract` (its namespace), `version` (a positive
 integer), `lineage`, `sorts` and `dimensions`. It may add `description`,
 `templates`, `instantiations`, `bridges`, `estimands`, `duration_conventions`,
 `quantity_kinds`, `units`, `constants`, `conversions`, `transformations`,
-`procedure_kinds`, `aggregation_rules`, `assumption_kinds`, `measurements`, `aspects` and
+`procedure_kinds`, `aggregation_rules`, `assumption_kinds`, `functionals`,
+`identification_classes`, `designs`, `selection_mechanisms`, `measurements`, `aspects` and
 `facets`. Any other top-level field is refused, `kinds` and `relations` included,
 and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
 base v2. Its namespace may be neither `science` nor `coordination`. Each table is
@@ -260,6 +261,20 @@ and a list of them may not repeat a value.
   requires `direction` (`increasing` or `decreasing`) and boolean `fixed`, which
   distinguishes a declared map from one depending on the sample. Each kind refuses
   fields belonging only to another kind.
+- **Functionals.** Each row supplies `form`, `arity`, `response_transformation`,
+  `reversal`, `response_reversal`, `exchange`, `ties`, `output`, `domain`,
+  `null`, `increment`, `uncertainty` and `parameters`. Both parsers enforce
+  the closed property vocabularies and form matrix. Declared output requires a
+  by-parameters certificate and named parameters with parameter typings and
+  numerical domains. Other outputs use `parameters: not-applicable`. Null values
+  must be fixed points of the declared reversal actions, and a reciprocal requires
+  a positive domain. Editorial definition, description and external references
+  stay outside the schema projection. Compilation retains the parsed declaration
+  and its namespace for the conversion-property adapter.
+- **Identification classes.** A row requires a nonempty `licenses_layers` list
+  selected from the base's layers. The compiled declaration carries those layers.
+- **Designs and selection mechanisms.** Rows declare names for identity comparisons
+  and accept optional definition and description.
 - **Procedure kinds.** Each `procedure_kinds` row requires boolean
   `fills_within_model`, stating whether the kind fills a within-model role.
 - **Aggregation rules.** An `aggregation_rules` row declares a named rule and
@@ -267,7 +282,7 @@ and a list of them may not repeat a value.
 - **Assumption kinds.** Each `assumption_kinds` row requires non-empty NFC prose
   `collapses` and non-empty `particulars`, a list of distinct field names matching
   `[a-z][a-z0-9_]*`. Particulars are compared as a set in schema projections.
-  These three vocabulary tables accept optional `definition` and `description`;
+  These vocabulary tables accept optional `definition` and `description`;
   neither enters schema or compiled identity, while document identity covers both.
 - **Measurements.** A `measurements` row maps a sort reference to a list of
   distinct quantity-kind references. An empty list explicitly declares that the
@@ -284,7 +299,9 @@ and a list of them may not repeat a value.
   key in a profile is `<namespace>/<name>`.
 
 Estimand declarations, duration conventions, the five numerical measurement tables,
-the three vocabulary tables and the two pack tables carry no `retired`.
+the vocabulary tables and the two pack tables carry no `retired`. Templates
+require at least one role at parse time. Compiled instantiations, bridges and
+estimand declarations carry an explicit declaration kind.
 
 The five measurement tables may be declared by any domain namespace. Their
 references are local names or terms from other activated contracts, resolved in
