@@ -373,3 +373,25 @@ def test_production_graph_uses_calibration_and_model_roots_and_standing(tmp_path
     assert certifications == [(expected, expected)]
     assert {vertex.standing for vertex in graphs[-1].vertices} == {"calibrated-model"}
     assert len(graphs[-1].edges) == 1
+
+
+def test_malformed_calibration_verification_keeps_attempt_declared(tmp_path):
+    from fixtures_cut4 import raw_write
+
+    from beliefs.eligibility import Ineligible
+
+    fixture, basis = calibration_fixture(tmp_path)
+    node = fixture.view.get("verification:basis")
+    node.facets["verification"]["scope"] = "invalid-scope"
+    raw_write(tmp_path, stored.stamp_semantic_identity(node))
+    inputs = gather(
+        reopen(tmp_path),
+        fixture.proposition,
+        key=fixture.assessments[0].key(),
+        observations=fixture.availability.observations,
+        **fixture.gather_kwargs,
+    )
+    assert isinstance(inputs.dependencies.closure.verdicts[basis], Ineligible)
+    assert ("verification", node.id) in inputs.read_trace
+    assert ("verification", node.id) in inputs.declared_refs()
+    assert set(inputs.read_trace) <= inputs.declared_refs()

@@ -392,3 +392,120 @@ def test_rule_citation_survives_round_trip_and_retraction_changes_eligibility(tm
         .digest()
         == before.closure().digest()
     )
+
+
+@pytest.mark.parametrize("change", ["malformed", "retracted"])
+def test_review_sibling_verification_does_not_change_key(tmp_path, change):
+    from test_local_standing import retracts
+
+    fixture = two_keys(tmp_path)
+    selected = fixture.assessments[0].key()
+    before = claim_view(fixture.view, fixture.proposition, **fixture.kwargs).beliefs[selected]
+    node = next(
+        n
+        for n in fixture.view.iter_stored()
+        if n.kind == "verification"
+        and any(r.predicate == stored.VERIFIES and r.target == "assessment:a-2" for r in n.relations)
+    )
+    if change == "malformed":
+        node.facets["verification"]["scope"] = "invalid-scope"
+        raw_write(tmp_path, stored.stamp_semantic_identity(node))
+    else:
+        raw_write(tmp_path, retracts(node, "sibling-verification-retracted"))
+    after = claim_view(reopen(tmp_path), fixture.proposition, **fixture.kwargs)
+    assert after.beliefs[selected] == before
+    assert len(after.beliefs) == 2
+    if change == "malformed":
+        sibling = next(value for key, value in after.beliefs.items() if key != selected)
+        assert isinstance(sibling, Refused) and node.id in sibling.reason
+
+
+def test_review_ambiguous_pair_crosswalk_preserves_keyed_answers(tmp_path, lab):
+    from fractions import Fraction
+
+    from test_target_comparison import crosswalk_targets
+
+    from beliefs.proxy_model import Error, proxy_from_stored
+
+    left, right, proxy = crosswalk_targets(lab)
+    a = lab.target(functional="probability-of-superiority", response=left)
+    b = lab.target(functional="probability-of-superiority", response=right)
+    view, proposition, kwargs = pair_corpus(tmp_path, lab, a, b)
+    before = claim_view(view, proposition, **kwargs)
+    model = proxy_from_stored(view.get(proxy))
+    assert model.crosswalk is not None
+    another = stored.proxy_model_node(
+        replace(model, crosswalk=replace(model.crosswalk, error=Error("standard-error", Fraction(2))))
+    )
+    assert another.id != proxy
+    raw_write(tmp_path, another)
+    current = reopen(tmp_path)
+    after = claim_view(current, proposition, **kwargs)
+    assert after.beliefs == before.beliefs
+    pair = after.pairs[0]
+    from beliefs.target_comparison import TargetUnknown
+
+    assert isinstance(pair.convertibility, TargetUnknown)
+    assert pair.convertibility.snapshot == pair.synthesis.snapshot == after.snapshot
+    assert "ambiguous" in pair.convertibility.reason
+    assert after.pairs[0].convertibility.kind in {"unknown", "not-convertible"}
+    assert after.pairs[0].synthesis.kind in {"unknown", "refused"}
+    answer = evaluate_over(current, proposition, **kwargs)
+    assert isinstance(answer, Refused) and answer.reason == "multiple-assessed-propositions: use claim_view"
+
+
+def test_review_malformed_normative_dependency_is_key_local(tmp_path, lab):
+    from test_procedure import procedure
+
+    from beliefs.eligibility import Ineligible
+
+    left = lab.measured()
+    pid = lab.records.put(procedure(name="B only", yields=(left.measure.observable,)))
+    right = replace(left, measure=replace(left.measure, procedure=pid))
+    a, b = lab.target(response=left), lab.target(response=right)
+    view, proposition, kwargs = pair_corpus(tmp_path, lab, a, b)
+    first = stored.assessment_value(view.get("assessment:pair-a"), profile=lab.profile).key()
+    second = stored.assessment_value(view.get("assessment:pair-b"), profile=lab.profile).key()
+    before = claim_view(view, proposition, **kwargs)
+    node = view.get(pid)
+    node.facets["procedure"]["name"] = "changed without changing its content address"
+    raw_write(tmp_path, stored.stamp_semantic_identity(node))
+    current = reopen(tmp_path)
+    after = claim_view(current, proposition, **kwargs)
+    assert after.beliefs[first] == before.beliefs[first]
+    assert not isinstance(after.beliefs[second], Belief)
+    inputs = gather(
+        current,
+        proposition,
+        key=second,
+        observations=kwargs["availability"].observations,
+        **{k: v for k, v in kwargs.items() if k != "availability"},
+    )
+    assert isinstance(inputs.dependencies.closure.verdicts[pid], Ineligible)
+    assert ("procedure", pid) in inputs.declared_refs()
+    assert set(inputs.read_trace) <= inputs.declared_refs()
+
+
+def test_malformed_pair_proxy_preserves_keyed_answers(tmp_path, lab):
+    from test_target_comparison import crosswalk_targets
+
+    from beliefs.target_comparison import TargetUnknown
+
+    left, right, proxy = crosswalk_targets(lab)
+    a = lab.target(functional="probability-of-superiority", response=left)
+    b = lab.target(functional="probability-of-superiority", response=right)
+    view, proposition, kwargs = pair_corpus(tmp_path, lab, a, b)
+    before = claim_view(view, proposition, **kwargs)
+    node = view.get(proxy)
+    node.facets["proxy-model"]["crosswalk"]["error"]["value"] = "2"
+    raw_write(tmp_path, stored.stamp_semantic_identity(node))
+    current = reopen(tmp_path)
+    after = claim_view(current, proposition, **kwargs)
+    assert after.beliefs == before.beliefs
+    pair = after.pairs[0]
+    assert isinstance(pair.convertibility, TargetUnknown)
+    assert isinstance(pair.synthesis, TargetUnknown)
+    assert proxy in pair.convertibility.reason
+    assert pair.convertibility.snapshot == pair.synthesis.snapshot == after.snapshot
+    answer = evaluate_over(current, proposition, **kwargs)
+    assert isinstance(answer, Refused) and answer.reason == "multiple-assessed-propositions: use claim_view"

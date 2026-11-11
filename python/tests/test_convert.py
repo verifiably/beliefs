@@ -1042,3 +1042,17 @@ def test_independent_variable_identity_produces_no_output_steps():
         output=OutputTyping("response-log-level", "real"),
     )
     assert isinstance(answer, Convertible) and answer.map.cls == "identity" and answer.steps == ()
+
+
+@pytest.mark.parametrize("source_type", ["ratio", "difference"])
+def test_review_independent_output_keeps_its_own_coordinates(source_type):
+    from beliefs.comparability import apply_estimate
+
+    answer = result(
+        coords("kelvin", value_type=source_type),
+        coords("celsius", value_type="level"),
+        ARRHENIUS,
+        output=OutputTyping("independent", "real"),
+    )
+    assert isinstance(answer, Convertible)
+    assert apply_estimate(answer.steps, Decimal(300)) == Decimal("26.85")

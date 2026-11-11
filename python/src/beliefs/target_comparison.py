@@ -231,7 +231,7 @@ def _correspondence(a: AssessedProposition, b: AssessedProposition, profile: Pro
                 if not all(measured(f"{name}.{i}", v, w) for i, (v, w) in enumerate(zip(x.roles, other, strict=True))):
                     return "target"
             if not same:
-                if not reverse or functional.reversal == "not-applicable":
+                if not reverse or functional.reversal in {"not-applicable", "undefined"}:
                     return "target"
                 reversal = functional.reversal
         elif isinstance(x, RoleAnchor):

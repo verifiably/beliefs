@@ -67,6 +67,7 @@ from beliefs.decode import claim_from_stored
 from beliefs.dependencies import Record, dependency_closure, read_record
 from beliefs.eligibility import AssessmentEligibilityReader, ClosureEligibility, Ineligible, closure_eligibility
 from beliefs.errors import (
+    AmbiguousCrosswalk,
     CaptureDrift,
     ContractDisagreement,
     ContractMismatch,
@@ -380,7 +381,7 @@ def _check_filtered_world_standing(
             raise RetractionResolutionDisagreement(ref, receipt[ref], computed)
 
 
-class _RunRefused(MalformedRecord):
+class _InputRefused(MalformedRecord):
     pass
 
 
@@ -402,7 +403,7 @@ class _Discovery:
     proposition_refs: tuple[str, ...]
     visited: set[str]
     assessment_refs: Mapping[str, str]
-    verification_targets: set[str]
+    verification_targets: Mapping[str, str]
     world: bool
     local_corpus: str | None
 
@@ -508,7 +509,7 @@ def _discover(
             (),
             set(),
             {},
-            set(),
+            {},
             world,
             local_corpus,
         )
@@ -541,7 +542,7 @@ def _discover(
     matched: list[AssessmentValue] = []
     proposition_refs: list[str] = []
     visited: set[str] = set()  # this proposition's assessment ids, subtracted included
-    verification_targets: set[str] = set()
+    verification_targets: dict[str, str] = {}
     candidates: Iterable[tuple[tuple[str | None, ...], Node]] = (
         view._mapped_holders() if world else (((local_corpus,), node) for node in view.iter_stored())
     )
@@ -556,7 +557,11 @@ def _discover(
         wanted = view.resolve(proposition) or proposition
         if not any((view.resolve(target) or target) == wanted for target in targets):
             continue  # a lookup, not a value handed out — membership by the edge, never by decoding
-        verification_targets.add(node.id)
+        try:
+            verification_targets[node.id] = stored.assessment_reference(node).identity()
+        except MalformedRecord:
+            # Rejected/retracted facets need not be decodable even for identity.
+            pass
         if not accepted:
             continue
         visited.add(node.id)
@@ -670,7 +675,7 @@ def _gather(
     ids = frozenset(a.identity() for a in matched)
     visited = {ref for ref, identity in discovery.assessment_refs.items() if identity in ids}
     visited.update(discovery.visited - discovery.assessment_refs.keys())
-    verification_targets = discovery.verification_targets
+    verification_targets = {ref for ref, identity in discovery.verification_targets.items() if identity in ids}
     attribution = {id: holders for id, holders in discovery.attribution.items() if id in ids}
     proposition_refs = discovery.proposition_refs if matched else ()
     trace: list[ReadRef] = [("assessment", a.identity()) for a in matched]
@@ -698,7 +703,7 @@ def _gather(
                 raise MalformedRecord(f"{ref}: expected a run with a declared spec")
             runs[a.run] = run_value(view, ref)
         except MalformedRecord as exc:
-            raise _RunRefused(f"malformed-input: {exc}") from exc
+            raise _InputRefused(f"malformed-input: {exc}") from exc
         trace.append(("run", a.run))
         if isinstance(view, WorldReadView):
             attribution.setdefault(ref, set()).update(_captured_holders(view, ref))
@@ -766,7 +771,10 @@ def _gather(
         verification_ids.add(node.id)
         if node.id in subtracted:
             continue  # it leaves the read set; `active` recomputes over what remains
-        value = stored.verification_value(node)
+        try:
+            value = stored.verification_value(node)
+        except MalformedRecord as exc:
+            raise _InputRefused(f"malformed-input: {node.id}: {exc}") from exc
         if _verification_selected(value, ids):
             verifications.append(value)
             trace.append(("verification", value.ref))
@@ -994,6 +1002,7 @@ class _CapturedComparisonRecords:
             self.verification_ids.add(node.id)
             if self.retraction_in_force(node.id) or not self._accepted(node.id):
                 continue
+            self._attempt(node.id)
             value = stored.verification_value(self.view.get(node.id))
             if value.assessment == identity:
                 self.verifications[value.ref] = value
@@ -1002,28 +1011,22 @@ class _CapturedComparisonRecords:
         return tuple(selected)
 
     def eligibility(self, id: str) -> ClosureEligibility:
-        return closure_eligibility(
-            (id,),
-            self,
-            self.profile,
-            assessments=self.assessment_eligibility,
-            assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
-                ref, records=self, profile=self.profile
-            ),
-        )
+        try:
+            return closure_eligibility(
+                (id,),
+                self,
+                self.profile,
+                assessments=self.assessment_eligibility,
+                assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
+                    ref, records=self, profile=self.profile
+                ),
+            )
+        except MalformedRecord as exc:
+            return ClosureEligibility({id: Ineligible("malformed-record", (str(exc),))}, tuple(sorted(self.reads)))
 
     def evidence(self, assessments: tuple[AssessmentValue, ...]) -> DependencyEvidence:
         frozen = tuple(sorted({d.id: d for a in assessments for d in a.dependencies}.values(), key=lambda d: d.id))
-        result = closure_eligibility(
-            (d.id for d in frozen),
-            self,
-            self.profile,
-            assessments=self.assessment_eligibility,
-            assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
-                ref, records=self, profile=self.profile
-            ),
-        )
-        verdicts = dict(result.verdicts)
+        verdicts = {d.id: self.eligibility(d.id).verdicts[d.id] for d in frozen}
         for assessment in assessments:
             try:
                 actual = dependency_closure(
@@ -1037,7 +1040,7 @@ class _CapturedComparisonRecords:
                 if actual != assessment.dependencies:
                     for dependency in assessment.dependencies:
                         verdicts[dependency.id] = Ineligible("frozen-dependency-mismatch")
-            except (DependencyNotHeld, DependencyCycle):
+            except (DependencyNotHeld, DependencyCycle, MalformedRecord):
                 pass  # closure eligibility records the failed traversal
         records: dict[str, Record] = {}
         for id in tuple(sorted(self.reads)):
@@ -1047,17 +1050,24 @@ class _CapturedComparisonRecords:
                 and self.view.holds(id)
                 and self._accepted(id)
             ):
-                records[id] = read_record(self, id)
+                try:
+                    records[id] = read_record(self, id)
+                except MalformedRecord as exc:
+                    verdicts[id] = Ineligible("malformed-record", (str(exc),))
         return DependencyEvidence(
             ClosureEligibility(verdicts, tuple(sorted(self.reads))), records, self.assessments, self.runs
         )
 
     def _proxies(self) -> tuple[tuple[str, ProxyModel], ...]:
-        return tuple(
-            (n.id, proxy_from_stored(self.view.get(n.id)))
-            for n in self.view.iter_stored()
-            if n.kind == "proxy-model" and self._accepted(n.id) and not self.retraction_in_force(n.id)
-        )
+        proxies: list[tuple[str, ProxyModel]] = []
+        for node in self.view.iter_stored():
+            if node.kind != "proxy-model" or not self._accepted(node.id) or self.retraction_in_force(node.id):
+                continue
+            try:
+                proxies.append((node.id, proxy_from_stored(self.view.get(node.id))))
+            except MalformedRecord as exc:
+                raise _InputRefused(f"malformed-input: {node.id}: {exc}") from exc
+        return tuple(proxies)
 
     def crosswalks(self, a: str, b: str) -> tuple[str, ...]:
         return tuple(
@@ -1159,7 +1169,7 @@ def _evaluate_claim(
             except InputOutsideCorpus as exc:
                 traces[key] = Refused(f"input-outside-corpus: {exc}", acceptance=selection.report), NotReached(), None
                 continue
-            except _RunRefused as exc:
+            except _InputRefused as exc:
                 traces[key] = Refused(str(exc), acceptance=selection.report), NotReached(), None
                 continue
             if inputs.absent:
@@ -1200,6 +1210,14 @@ def _evaluate_claim(
                 unknown = TargetUnknown("keyed inputs unavailable", snapshot_identity)
                 pairs.append(PairVerdict(left, right, unknown, unknown))
                 continue
+            if any(
+                isinstance(verdict, Ineligible)
+                for inputs in (a_inputs, b_inputs)
+                for verdict in inputs.dependencies.closure.verdicts.values()
+            ):
+                unknown = TargetUnknown("keyed dependencies ineligible", snapshot_identity)
+                pairs.append(PairVerdict(left, right, unknown, unknown))
+                continue
             a, b = a_inputs.assessments[0], b_inputs.assessments[0]
             if a_inputs.claim is None or b_inputs.claim is None:
                 conversion = TargetUnknown("claim referents unavailable", snapshot_identity)
@@ -1207,17 +1225,21 @@ def _evaluate_claim(
             else:
                 first = AssessedProposition(a_inputs.claim, a.target, a.interpretation_rule)
                 second = AssessedProposition(b_inputs.claim, b.target, b.interpretation_rule)
-                conversion = convertibility(
-                    first, second, profile=profile, snapshot=comparison, snapshot_identity=snapshot_identity
-                )
-                combined = synthesis(
-                    first,
-                    second,
-                    profile=profile,
-                    snapshot=comparison,
-                    snapshot_identity=snapshot_identity,
-                    observable_proxies=comparison_records.observable_proxies,
-                )
+                try:
+                    conversion = convertibility(
+                        first, second, profile=profile, snapshot=comparison, snapshot_identity=snapshot_identity
+                    )
+                    combined = synthesis(
+                        first,
+                        second,
+                        profile=profile,
+                        snapshot=comparison,
+                        snapshot_identity=snapshot_identity,
+                        observable_proxies=comparison_records.observable_proxies,
+                    )
+                except (AmbiguousCrosswalk, _InputRefused) as exc:
+                    conversion = TargetUnknown(str(exc), snapshot_identity)
+                    combined = conversion
             pairs.append(PairVerdict(left, right, conversion, combined))
         return _ClaimEvaluation(
             ClaimView(proposition, snapshot_identity, {key: traces[key][0] for key in keys}, tuple(pairs), None),

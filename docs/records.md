@@ -860,7 +860,9 @@ result happens to be rational; structural zero and one remain exact fractions.
 Declared logarithm bases reach the 34-digit logarithm operation without input
 rounding, and inverse raw factors use the negated logarithm of their exact
 finite reciprocal. Rounded Decimal coefficients never prove an identity map.
-A ratio refuses an offset; a difference drops it.
+A response or independent-variable map requires matching value types. A ratio
+refuses an offset; a difference drops it. The independently typed output route
+below uses its own level coordinates instead of those response value types.
 
 Response and independent-variable composition refuse with `transformation` when
 either declaration has `invertible: false`. The same fixed transformation on
@@ -1182,6 +1184,12 @@ corpora to one identity, the profile's; otherwise the answer is `Refused`.
 `evaluation.claim_view` captures standing, records and acceptance once, evaluates
 all sorted keys separately and reports conversion and synthesis for each pair.
 Pair lookups use the same capture but stay outside the individual belief closures.
+An ambiguous direct crosswalk or malformed comparison proxy yields an unknown
+pair verdict while preserving the keyed answers. A malformed selected verification
+refuses only its key; a sibling's verification or its retraction never enters that
+key's closure. Malformed frozen
+normative dependencies remain ineligible, with their attempted reads declared;
+comparisons requiring those dependencies are unknown.
 `evaluate_over` and its traced counterpart project this result: zero keys keep the
 empty evaluation, one key forwards its exact trace, and several keys refuse with
 `multiple-assessed-propositions: use claim_view` and admission `NotReached`.

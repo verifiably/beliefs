@@ -694,6 +694,9 @@ def convert(
     """Admit an A-to-B coordinate map and derive its output and uncertainty actions."""
     if binding not in {"certified", "independent"}:
         raise ValueError(f"unsupported binding: {binding!r}")
+    own_output = binding == "certified" and output.typing == "independent"
+    if not own_output and a.value_type != b.value_type:
+        return NotConvertible("value type", (a.value_type, b.value_type))
     if a.quantity_kind != b.quantity_kind:
         conversion = (
             snapshot.profile.conversion_between(a.unit, b.unit) if a.unit is not None and b.unit is not None else None
@@ -704,7 +707,6 @@ def convert(
     if isinstance(value, NotConvertible):
         return value
     raw, assumptions = value
-    own_output = binding == "certified" and output.typing == "independent"
     if own_output:
         effective = raw
     elif a.value_type == "ratio":

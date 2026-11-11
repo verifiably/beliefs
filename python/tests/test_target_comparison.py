@@ -52,6 +52,10 @@ def lab(context, base_contract, testing_document, monkeypatch):
         **testing_document["functionals"]["probability-of-superiority"],
         "response_reversal": "undefined",
     }
+    testing_document["functionals"]["undefined-level-reversal"] = {
+        **testing_document["functionals"]["probability-of-superiority"],
+        "reversal": "undefined",
+    }
     testing_document["dimensions"]["age"] = dict(testing_document["dimensions"]["follow-up"])
     testing_document["units"]["year"] = {
         "symbol": "yr",
@@ -946,3 +950,41 @@ def test_authored_assumptions_are_unioned_and_interpretation_rules_still_must_ma
     assert with_assumptions(result).assumptions == (alpha, beta)
     result = synthesis(a, replace(b, interpretation_rule="another-rule"), **lab.synthesis_ctx())
     assert only_refusal(result).reason == "interpretation rule"
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_review_undefined_level_reversal_refuses(lab, reverse, monkeypatch):
+    from beliefs.target_comparison import convertibility, synthesis
+
+    a = lab.target(functional="undefined-level-reversal")
+    grouping = a.target.estimand.bindings["grouping"]
+    assert isinstance(grouping, RoleTermLevels)
+    b = lab.target(
+        functional="undefined-level-reversal",
+        bindings={**a.target.estimand.bindings, "grouping": replace(grouping, levels=tuple(reversed(grouping.levels)))},
+    )
+    left, right = (b, a) if reverse else (a, b)
+    import beliefs.target_comparison as comparison
+
+    def numeric_conversion(*args, **kwargs):
+        raise AssertionError("undefined level reversal reached numeric conversion")
+
+    monkeypatch.setattr(comparison, "convert", numeric_conversion)
+    assert convertibility(left, right, **lab.conversion_ctx()).kind == "not-convertible"
+    assert synthesis(left, right, **lab.synthesis_ctx()).kind == "not-convertible"
+
+
+@pytest.mark.parametrize("types", [("ratio", "level"), ("ratio", "difference"), ("level", "difference")])
+@pytest.mark.parametrize("reverse", [False, True])
+@pytest.mark.parametrize("unit", ["tpm", "ktpm"])
+def test_review_mixed_value_types_refuse(lab, types, reverse, unit):
+    from beliefs.target_comparison import convertibility, synthesis
+
+    response = lab.measured()
+    a = lab.target(response=replace(response, measure=replace(response.measure, value_type=types[0])))
+    b = lab.target(
+        response=replace(response, measure=replace(response.measure, unit="testing/" + unit, value_type=types[1]))
+    )
+    left, right = (b, a) if reverse else (a, b)
+    assert convertibility(left, right, **lab.conversion_ctx()).kind == "not-convertible"
+    assert synthesis(left, right, **lab.synthesis_ctx()).kind == "not-convertible"
