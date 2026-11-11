@@ -14,22 +14,29 @@ from __future__ import annotations
 from authority import ACTOR
 from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as pinned_for_seed
-from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import MEASUREMENT_RECORDS, TESTING_CLAIM, carry_registers, freeze_context, spec_draft, spec_rules
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 
 from beliefs import stored
 from beliefs.corpus import CorpusWriter
 from beliefs.identity import v1
-
-SPEC = "analysis-spec:s1"
-RULE = "rule:threshold"
+from beliefs.projection import project_claim
+from beliefs.spec import SpecInput, freeze
 
 RAW = dataset_ref("raw")
 DERIVED = dataset_ref("derived")
 RUN = "run:r1"
 PROPOSITION = "proposition:p1"
 ASSESSMENT = "assessment:a1"
+FROZEN = freeze(
+    spec_draft(target=PROPOSITION, input_roles=(SpecInput("observes", RAW, "observation"),)),
+    held_rules=spec_rules(),
+    **freeze_context(),
+)
+SPEC = FROZEN.identity
+RULE = FROZEN.interpretation_rule
+
 
 CHAIN = ("discussion:chain-a", "discussion:chain-b", "discussion:chain-c")
 DIAMOND_TOP = "discussion:diamond-top"
@@ -96,7 +103,13 @@ def mint_records(writer: CorpusWriter) -> None:
     """The kernel records: an observed dataset, the run that reads it, the
     proposition, the assessment that assesses it, and the dataset that run
     produces with its stamped basis."""
+    carry_registers(writer)
     writer.add(observed_dataset())
+    writer.add(stored.proposition_node(slug(PROPOSITION), title="p1", claim=project_claim(TESTING_CLAIM)))
+    for entry in FROZEN.assessed_target.dependencies:
+        if not writer.read_view.holds(entry.id):
+            writer.add(MEASUREMENT_RECORDS.read(entry.id))
+    writer.add(stored.analysis_spec_node(FROZEN))
     writer.add(
         stored.run_node(
             slug(RUN),
@@ -114,7 +127,6 @@ def mint_records(writer: CorpusWriter) -> None:
             basis=basis(route(RUN, RAW, [RAW])),
         )
     )
-    writer.add(stored.proposition_node(slug(PROPOSITION), title="p1", claim={"operator": "affects"}))
     writer.add(
         stored.assessment_node(
             slug(ASSESSMENT),
@@ -124,7 +136,7 @@ def mint_records(writer: CorpusWriter) -> None:
             proposition=PROPOSITION,
             outcome="supported",
             interpretation_rule=RULE,
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            target=FROZEN.assessed_target,
         )
     )
 

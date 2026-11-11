@@ -26,7 +26,7 @@ from durable_fixture import (
     pinned,
     slug,
 )
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
+from fixtures_cut3 import TESTING_PROFILE, carry_registers, typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import path_for, raw_write, reopen
 from nodes.core.errors import ExecutionError
 from profiles import BASE
@@ -148,6 +148,7 @@ class TestBothBoundariesDurably:
         assert not path_for(durable_root, "assessment:a2").exists()
 
     def test_the_corpus_check_reports_a_raw_written_violation(self, durable_writer, durable_root):
+        carry_registers(durable_writer)
         durable_writer.add(stored.run_node("r2", title="r2", spec=SPEC))
         durable_writer.add(stored.proposition_node("p2", title="p2", claim={"operator": "affects"}))
         raw_write(
@@ -163,12 +164,12 @@ class TestBothBoundariesDurably:
                 target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
             ),
         )
-        findings = corpus_check(reopen(durable_root), BASE)
+        findings = corpus_check(reopen(durable_root), TESTING_PROFILE)
         assert [(f.severity, f.code, f.ref) for f in findings] == [("error", "eligibility-unmet", "assessment:a2")]
 
     def test_the_check_is_silent_on_the_minted_corpus(self, durable_writer, durable_root):
         mint_records(durable_writer)
-        assert corpus_check(reopen(durable_root), BASE) == ()
+        assert corpus_check(reopen(durable_root), TESTING_PROFILE) == ()
 
 
 class TestTheCapabilityNegative:
@@ -260,7 +261,7 @@ class TestTheMintedRecordsReadBack:
         assert stored.inputs_of(run, stored.READS) == ()
 
     def test_the_minted_corpus_reports_nothing(self, minted_corpus):
-        assert corpus_check(reopen(minted_corpus), BASE) == ()
+        assert corpus_check(reopen(minted_corpus), TESTING_PROFILE) == ()
 
     def test_the_slug_helper_addresses_the_same_file_the_store_does(self, minted_corpus):
         assert path_for(minted_corpus, RAW).name == RAW.partition(":")[2].replace(":", "__", 1) + ".md"

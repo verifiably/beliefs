@@ -26,7 +26,6 @@ from acceptance_runner import refuse_old_roots
 from authority import FULL
 from checkout import MAIN_CHECKOUT
 from fixtures_cut3 import TESTING_PROFILE
-from profiles import BASE
 
 from beliefs.root import (
     init_corpus_root,
@@ -154,7 +153,7 @@ def minted_corpus(work_directory) -> Iterator[Path]:
         raise UncertifiedVolume(
             f"the durable acceptance tests need a certified volume under {work_directory}; the engine refused: {refused}"
         ) from refused
-    mint_cut4_corpus(open_corpus(root, authority=FULL, profile=BASE))
+    mint_cut4_corpus(open_corpus(root, authority=FULL, profile=TESTING_PROFILE))
     yield root
     shutil.rmtree(root, ignore_errors=True)
     shutil.rmtree(metadata_root_for(root), ignore_errors=True)

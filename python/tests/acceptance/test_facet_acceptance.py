@@ -14,7 +14,15 @@ import pytest
 from authority import ACTOR, FULL
 from coordination_fixtures import coordination_contract
 from dataset_fixtures import dataset_ref
-from fixtures_cut3 import freeze_context, typed_target
+from fixtures_cut3 import (
+    TESTING_CLAIM,
+    TESTING_PROFILE,
+    carry_registers,
+    freeze_context,
+    mint_fixture_spec,
+    typed_estimand,
+    typed_target,
+)
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.errors import UnknownKindError
 from nodes.core.node import Node
@@ -41,7 +49,9 @@ from beliefs.errors import (
     ValidationRefused,
 )
 from beliefs.profile import compile_profile, shipped_base_contract
+from beliefs.projection import project_claim
 from beliefs.root import init_corpus_root, metadata_root_for, open_corpus
+from beliefs.spec import SpecInput
 
 
 @pytest.fixture()
@@ -322,10 +332,10 @@ def test_attestation_bound_and_preserved(corpora):
 
 
 def test_eligibility_reads_the_validity_predicate(corpora, acquisition_report):
-    from fixtures_cut3 import typed_applicability, typed_estimand
+    from fixtures_cut3 import typed_estimand
 
     for variant in ("payload", "absent", "basis", "deleted-retrieval"):
-        w = corpora()
+        w = carry_registers(corpora(profile=TESTING_PROFILE))
         good = w.add(acquired("good", ACTOR))
         bad = acquired("bad", ACTOR)
         expected = "facet-payload-malformed"
@@ -346,24 +356,32 @@ def test_eligibility_reads_the_validity_predicate(corpora, acquisition_report):
             path_for(w.root, report.id).unlink()
             expected = "facet-retrieval-unresolved"
         raw_write(w.root, stored.stamp_semantic_identity(bad))
-        run = w.add(stored.run_node("r", title="r", spec="analysis-spec:s", observes=[bad.id]))
+        proposition = w.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+        spec = mint_fixture_spec(
+            w,
+            proposition.id,
+            (SpecInput("observes", bad.id, "observation"), SpecInput("observes", good.id, "observation")),
+            claim=TESTING_CLAIM,
+            estimand=typed_estimand(),
+        )
+        run = w.add(stored.run_node("r", title="r", spec=spec.identity, observes=[bad.id]))
         assessment = stored.assessment_node(
             "a",
             title="a",
-            spec="analysis-spec:s",
+            spec=spec.identity,
             run=run.id,
             proposition="proposition:p",
             outcome="supported",
-            interpretation_rule="rule:threshold",
-            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
         )
-        reason = eligibility_refusal(reopen(w.root), assessment, BASE)
+        reason = eligibility_refusal(reopen(w.root), assessment, TESTING_PROFILE)
         assert reason is not None and expected in reason
         run.relations.append(Relation(source=run.id, predicate="observes", target=good.id))
         raw_write(w.root, stored.stamp_semantic_identity(run))
-        assert eligibility_refusal(reopen(w.root), assessment, BASE) is None
+        assert eligibility_refusal(reopen(w.root), assessment, TESTING_PROFILE) is None
         if variant != "absent":
-            assert expected in {f.code for f in corpus_check(reopen(w.root), BASE)}
+            assert expected in {f.code for f in corpus_check(reopen(w.root), TESTING_PROFILE)}
 
 
 def test_profile_agreement_rechecked_under_the_lock(corpora, tmp_path, monkeypatch):
@@ -649,15 +667,33 @@ def test_derived_dataset_inherits_standing_durably(corpora):
     import lineage_fixtures as lineage
     from fixtures_cut4 import path_for
 
-    w = corpora()
+    w = carry_registers(corpora(profile=TESTING_PROFILE))
     d0 = w.add(acquired("d0", ACTOR))
     d1 = w.add(lineage.derived("d1", lineage.route("run:p1", d0.id)))
     w.add(lineage.production("p1", d0.id, d1.id))
-    w.add(stored.proposition_node("p", title="p", claim={"operator": "affects"}))
-    run = w.add(lineage.analysis("r", d1.id))
-    a1 = w.add(lineage.assessment_over("a1", run.id, "proposition:p"))
+    proposition = w.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
+    spec = mint_fixture_spec(
+        w,
+        proposition.id,
+        (SpecInput("observes", d1.id, "observation"),),
+        claim=TESTING_CLAIM,
+        estimand=typed_estimand(),
+    )
+    run = w.add(stored.run_node("r", title="r", spec=spec.identity, observes=(d1.id,)))
+    a1 = w.add(
+        stored.assessment_node(
+            "a1",
+            title="a1",
+            spec=spec.identity,
+            run=run.id,
+            proposition=proposition.id,
+            outcome="supported",
+            interpretation_rule=spec.interpretation_rule,
+            target=spec.assessed_target,
+        )
+    )
     assert reopen(w.root).holds(a1.id)
-    assert corpus_check(reopen(w.root), BASE) == ()
+    assert corpus_check(reopen(w.root), TESTING_PROFILE) == ()
     path_for(w.root, d0.id).unlink()
-    findings = [(f.severity, f.code, f.ref, f.detail) for f in corpus_check(reopen(w.root), BASE)]
+    findings = [(f.severity, f.code, f.ref, f.detail) for f in corpus_check(reopen(w.root), TESTING_PROFILE)]
     assert ("warning", "eligibility-unresolved", a1.id, d0.id) in findings
