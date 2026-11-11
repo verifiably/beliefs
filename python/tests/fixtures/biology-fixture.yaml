@@ -37,12 +37,44 @@ instantiations:
     roles: { cause: [gene], effect: [gene] }
 estimands:
   instantiation:affects-gene-gene:
-    level_sorts: { cause: level }
-    measure_sort: measure
-    identification_sort: identification
-    conditioning_sort: gene
+    forms: [contrast, quantity]
+    conditioning_sorts: [gene]
 facets:
   gene-axis:
     attaches_to: [dataset]
     fields:
       axis: { type: string, required: true }
+
+# Measurement and estimand vocabulary required to author this fixture's claims.
+quantity_kinds:
+  abundance: { dimension: construct }
+units:
+  tpm: { symbol: TPM, quantity_kind: abundance }
+transformations:
+  identity: { kind: identity, fixed: true, domain: real, invertible: true }
+measurements:
+  gene: [abundance]
+procedure_kinds:
+  assay: { fills_within_model: false }
+functionals:
+  difference-of-means:
+    form: contrast
+    arity: two
+    response_transformation: equivariant-affine
+    reversal: negate
+    response_reversal: negate
+    exchange: not-applicable
+    ties: not-applicable
+    output: response-difference
+    domain: real
+    'null': zero
+    increment: linear
+    uncertainty: exact
+    parameters: not-applicable
+identification_classes:
+  randomized: { licenses_layers: [causal, statistical] }
+  experimental: { licenses_layers: [causal, statistical] }
+designs:
+  independent-groups: {}
+selection_mechanisms:
+  cohort-enrolment: {}

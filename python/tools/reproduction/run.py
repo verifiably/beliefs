@@ -115,10 +115,10 @@ def main() -> int:
             proposition=st["proposition_ref"],
             outcome=derived.outcome,
             interpretation_rule=derived.interpretation_rule,
-            estimand=derived.estimand,
-            applicability=derived.applicability,
-            estimate=derived.estimate,
+            target=derived.target,
+            estimates=derived.estimates,
             uncertainty=derived.uncertainty,
+            curves=derived.curves,
         )
     )
     stored_identity = stored.assessment_value(writer.read_view.get(minted.id), profile=profile()).identity()

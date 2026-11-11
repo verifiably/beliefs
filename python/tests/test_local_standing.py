@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 from authority import ACTOR
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -31,8 +31,7 @@ def assessment() -> Node:
         proposition="proposition:p1",
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 

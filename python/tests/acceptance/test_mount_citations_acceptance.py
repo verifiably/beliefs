@@ -19,7 +19,7 @@ from coordination_fixtures import pins_for
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed_nodes
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand
+from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand, typed_target
 from profiles import biology
 from test_session_acceptance import fresh
 from test_session_mounts_acceptance import library_on, state
@@ -106,8 +106,7 @@ def assessment(slug, run, prop_id):
         proposition=prop_id,
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 

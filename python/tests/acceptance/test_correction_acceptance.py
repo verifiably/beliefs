@@ -9,7 +9,7 @@ import pytest
 from authority import ACTOR, FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.node import Node
@@ -95,8 +95,7 @@ def _seed(writer, *, conflict=False, outcomes=("supported", "refuted")):
                 proposition="proposition:p",
                 outcome=outcome,
                 interpretation_rule="rule-1",
-                estimand=typed_estimand(),
-                applicability=typed_applicability(),
+                target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
             )
         )
         writer.add(verification_for(assessment, scope="clean-environment", verdict="passed", slug=f"v-{index}"))
@@ -329,8 +328,7 @@ def test_the_enumeration_is_the_views_and_input_scoped(durable_world):
             proposition="proposition:q",
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )
     unrelated = alpha.retract(retracts(other, "unrelated"))

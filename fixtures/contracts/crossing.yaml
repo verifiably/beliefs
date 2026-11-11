@@ -31,7 +31,5 @@ instantiations:
 # admit the claim.
 estimands:
   instantiation:affects-local-entity:
-    level_sorts: { cause: testing/level }
-    measure_sort: testing/measure
-    identification_sort: testing/identification
-    conditioning_sort: testing/entity
+    forms: [contrast, quantity, law-parameters, event-locked, association, enrichment]
+    conditioning_sorts: [testing/entity]

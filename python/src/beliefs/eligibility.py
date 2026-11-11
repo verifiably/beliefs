@@ -8,7 +8,14 @@ from typing import TypeAlias
 from nodes.core.node import Node
 
 from beliefs import _measurement_record as record
-from beliefs.dependencies import HeldRecords, Record, dependency_closure, read_record, record_references
+from beliefs.dependencies import (
+    FrozenAssessmentDependency,
+    HeldRecords,
+    Record,
+    dependency_closure,
+    read_record,
+    record_references,
+)
 from beliefs.errors import DependencyCycle, DependencyNotHeld
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
@@ -142,13 +149,14 @@ def closure_eligibility(
     profile: ProfileSpec,
     *,
     assessments: AssessmentEligibility = _not_supplied,
+    assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
 ) -> ClosureEligibility:
     """Judge each full closure and return all observed ids, including failed reads."""
     observed = _ObservedRecords(records)
     verdicts: dict[str, Eligible | Ineligible] = {}
     for id in sorted(set(ids)):
         try:
-            entries = dependency_closure((id,), observed, profile)
+            entries = dependency_closure((id,), observed, profile, assessment_dependency=assessment_dependency)
         except DependencyCycle:
             verdicts[id] = Ineligible("cycle")
             continue

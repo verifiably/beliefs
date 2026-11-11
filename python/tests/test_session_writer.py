@@ -14,7 +14,7 @@ from authority import ACTOR, FULL, narrowed
 from coordination_fixtures import coordination_profile, mounted_root, raw_add, raw_coordination_node
 from dataset_fixtures import pinned
 from domain_facet_fixtures import testing_contract as _testing_contract
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, WITH_BIOLOGY, pins_for
 from test_corpus_write import OperationRecorder
@@ -860,8 +860,7 @@ def test_the_session_writer_cites_its_read_mounts(tmp_path, monkeypatch):
             proposition=p.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )
     session.close_invocation("A", {"done": []})
@@ -897,8 +896,7 @@ def test_a_session_with_no_mounts_refuses_a_citation_into_another_root(tmp_path,
                 proposition=p.id,
                 outcome="supported",
                 interpretation_rule="rule:threshold",
-                estimand=typed_estimand(),
-                applicability=typed_applicability(),
+                target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
             )
         )
     session.close_invocation("A", {"done": []})
@@ -932,8 +930,7 @@ def test_a_symlinked_write_root_mount_key_is_filtered_after_normalization(tmp_pa
             proposition=p.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )  # cites: opens the mounts
     session.close_invocation("A", {"done": []})

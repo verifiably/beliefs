@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
-import { ProfileError } from "../src/errors.js";
+import { MalformedContract, ProfileError } from "../src/errors.js";
 import {
   admitting,
   claimDimensions,
@@ -125,18 +125,31 @@ describe("the base contract's declarations", () => {
     expect(base.kinds.discussion.role).toBe("prose");
     expect(Object.keys(base.kinds.discussion.facets)).toEqual(["display"]);
   });
-  it("declares the estimand grammar's three closed sets", () => {
-    expect(base.estimandGrammar.contrastKinds).toEqual(["levels", "continuous"]);
-    expect(base.estimandGrammar.scales).toEqual(["additive", "multiplicative"]);
-    expect(base.estimandGrammar.uncertaintyKinds).toEqual(["interval", "standard-error"]);
+  it("declares the v2 estimand grammar", () => {
+    expect(base.estimandGrammar.version).toBe(2);
+    expect(base.estimandGrammar.forms).toEqual([
+      "contrast",
+      "quantity",
+      "law-parameters",
+      "event-locked",
+      "association",
+      "enrichment",
+    ]);
+    expect(base.estimandGrammar.uncertaintyKinds).toEqual(["interval", "standard-error", "covariance"]);
   });
-  it("refuses an estimand closed set wider than the tags the kernel operates", () => {
-    expect(() =>
-      parseBaseContract(
-        SHIPPED.replace("scales: [additive, multiplicative]", "scales: [additive, multiplicative, log]"),
-        "<bad>",
-      ),
-    ).toThrow(/log/);
+  it("refuses wider v2 tags and the v1 field set", () => {
+    const wide = parse(SHIPPED);
+    wide.estimand_grammar.forms.push("rank-contrast");
+    expect(() => parseBaseContract(stringify(wide), "<wide>")).toThrow();
+    const old = parse(SHIPPED);
+    old.estimand_grammar = {
+      version: 1,
+      tag_encoding: "science.identity.v1",
+      contrast_kinds: ["levels", "continuous"],
+      scales: ["additive", "multiplicative"],
+      uncertainty_kinds: ["interval", "standard-error"],
+    };
+    expect(() => parseBaseContract(stringify(old), "<old>")).toThrow();
   });
   it("declares the measurement grammar's nine closed sets", () => {
     expect(base.measurementGrammar).toEqual({
@@ -248,7 +261,9 @@ describe("the base contract's declarations", () => {
     }
   });
   it("refuses a base contract without the estimand grammar", () => {
-    const missing = SHIPPED.replace(/estimand_grammar:[\s\S]*?uncertainty_kinds: \[interval, standard-error\]\n/, "");
+    const document = parse(SHIPPED);
+    delete document.estimand_grammar;
+    const missing = stringify(document);
     expect(() => parseBaseContract(missing, "<missing>")).toThrow(/estimand_grammar/);
   });
 });
@@ -360,7 +375,7 @@ describe("compileProfile resolves the v2 declarations", () => {
       "instantiation:testing/correlates-event-product",
       "instantiation:testing/promotes",
     ]);
-    expect(compiled.estimands["bridge:testing/promotes"].levelSorts).toEqual({ cause: "testing/level" });
+    expect(compiled.estimands["bridge:testing/promotes"].conditioningSorts).toEqual(["testing/entity"]);
     expect(Object.keys(compiled.templates).sort()).toEqual([
       "testing/affects",
       "testing/correlates-with",
@@ -432,7 +447,7 @@ describe("compileProfile resolves the v2 declarations", () => {
     const admits = admitting(profile, "testing/affects", assign({ cause: ENTITY, effect: OUTCOME }));
     const declarations = estimandDeclarations(profile, "testing/affects", admits);
     expect(declarations.map((decl) => decl.target)).toEqual(admits);
-    expect(declarations.map((decl) => decl.measureSort)).toEqual(["testing/outcome", "testing/measure"]);
+    expect(declarations.map((decl) => decl.conditioningSorts)).toEqual([["testing/outcome"], ["testing/entity"]]);
     const reversed = [...admits].reverse();
     expect(estimandDeclarations(profile, "testing/affects", reversed).map((decl) => decl.target)).toEqual(reversed);
     const correlates = admitting(
@@ -453,8 +468,8 @@ describe("compileProfile resolves the v2 declarations", () => {
     const [bridgeDecl, ...noBridgeRest] = estimandDeclarations(compiled, "testing/promotes", bridgeAdmitting);
     expect(noBridgeRest).toEqual([]);
     expect(bridgeDecl.target).toBe("bridge:testing/promotes");
-    expect(bridgeDecl.levelSorts).toEqual({ cause: "testing/level" });
-    expect(bridgeDecl.measureSort).toBe("testing/measure");
+    expect(bridgeDecl.conditioningSorts).toEqual(["testing/entity"]);
+    expect(bridgeDecl.forms).toContain("contrast");
 
     const instAdmitting = admitting(
       compiled,
@@ -465,8 +480,8 @@ describe("compileProfile resolves the v2 declarations", () => {
     const [instDecl, ...noInstRest] = estimandDeclarations(compiled, "testing/measured-by", instAdmitting);
     expect(noInstRest).toEqual([]);
     expect(instDecl.target).toBe("instantiation:testing/promotes");
-    expect(instDecl.levelSorts).toEqual({ subject: "testing/level" });
-    expect(instDecl.measureSort).toBe("testing/outcome");
+    expect(instDecl.conditioningSorts).toEqual(["testing/entity"]);
+    expect(instDecl.forms).toEqual(["quantity"]);
   });
 
   it("dereferences typed addresses and refuses every other spelling", () => {
@@ -603,10 +618,10 @@ describe("compileProfile resolves the v2 declarations", () => {
 
   it("refuses an estimand level sort naming no role of the template", () => {
     const run = compileMutated((document) => {
-      document.estimands["bridge:promotes"].level_sorts = { subject: "level" };
+      document.estimands["bridge:promotes"].conditioning_sorts = ["unknown-sort"];
     });
-    expect(run).toThrow(ProfileError);
-    expect(run).toThrow(/subject/);
+    expect(run).toThrow(MalformedContract);
+    expect(run).toThrow(/unknown-sort/);
   });
 
   it("holds the v2 tables frozen, nested arrays included", () => {
@@ -621,7 +636,7 @@ describe("compileProfile resolves the v2 declarations", () => {
       compiled.templates["testing/affects"].layers,
       compiled.instantiations["testing/affects-entity-entity"].roles.effect,
       compiled.bridges["testing/promotes"].layers,
-      compiled.estimands["bridge:testing/promotes"].levelSorts,
+      compiled.estimands["bridge:testing/promotes"].conditioningSorts,
       compiled.durationConventions["testing/mean-month"],
       compiled.admission,
       compiled.admission["testing/affects"],

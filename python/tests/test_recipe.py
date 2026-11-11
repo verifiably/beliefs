@@ -19,6 +19,7 @@ from fixtures_cut3 import (
     SNAKEFILE_NONDETERMINISTIC,
     closure,
     definition,
+    freeze_context,
     invocation,
     occurrence,
     recipe,
@@ -26,6 +27,7 @@ from fixtures_cut3 import (
     spec_rules,
     typed_applicability,
     typed_estimand,
+    typed_target,
 )
 
 import beliefs.recipe as recipe_module
@@ -500,7 +502,7 @@ def test_projection_offers_no_caller_path_for_the_projected_members():
 
 
 def test_the_projected_recipe_carries_the_spec_whole():
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     projected = project_recipe(
         spec,
         held={DATA_ADDRESS: D_IN},
@@ -515,19 +517,21 @@ def test_the_projected_recipe_carries_the_spec_whole():
     assert projected.spec_identity == spec.identity
     assert projected.nondeterminism == spec.nondeterminism
     assert dict(projected.parameters) == dict(spec.parameters)
-    assert projected.rule_bindings == spec.rule_bindings
+    assert projected.rule_bindings == tuple((b.rule, b.implementation) for b in spec.rule_bindings)
     certified = freeze(
         spec_draft(
             input_roles=(
-                SpecInput(role="observes", dataset=DATA_ADDRESS),
+                SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),
                 SpecInput(
                     role="reads",
                     dataset=READS_ADDRESS,
                     exclusion=ExclusionCertification(rationale="palette", attribution="tester"),
+                    mode="annotation",
                 ),
             )
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     reprojected = project_recipe(
         certified,
@@ -544,7 +548,7 @@ def test_the_projected_recipe_carries_the_spec_whole():
 
 
 def test_projection_refuses_a_declared_input_that_is_not_held():
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     with pytest.raises(MalformedClosure, match="not held"):
         project_recipe(
             spec,
@@ -590,8 +594,7 @@ def test_substituting_any_input_moves_the_assessment_identity_every_time():
             proposition="p",
             outcome="supported",
             interpretation_rule="r",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         moved = AssessmentValue(
             spec="s",
@@ -599,8 +602,7 @@ def test_substituting_any_input_moves_the_assessment_identity_every_time():
             proposition="p",
             outcome="supported",
             interpretation_rule="r",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         assert original.identity() != moved.identity()
 

@@ -58,13 +58,28 @@ claim_grammar:
 # level. Identification classes and measured quantities are vocabulary and are
 # declared by domain contracts, never here.
 estimand_grammar:
-  version: 1
+  version: 2
   tag_encoding: science.identity.v1
-  contrast_kinds: [levels, continuous]
-  scales: [additive, multiplicative]
-  uncertainty_kinds: [interval, standard-error]
+  forms: [contrast, quantity, law-parameters, event-locked, association, enrichment]
+  arities: [one, two, k, n, not-applicable]
+  response_transformations: [invariant-strictly-increasing, equivariant-positive-affine,
+                             equivariant-affine, invariant-positive-scaling, fixed, none, by-parameters]
+  reversals: [invariant, complement, negate, reciprocal, undefined, not-applicable]
+  response_reversals: [invariant, complement, negate, undefined, not-applicable]
+  exchanges: [symmetric, directed, not-applicable]
+  ties: [undefined, midrank, ignored, not-applicable]
+  outputs: [response-difference, response-level, response-log-level, dimensionless, declared]
+  parameter_typings: [independent, response-level, response-difference, response-log-level, dimensionless]
+  domains: [real, nonnegative, positive, unit-interval, signed-unit-interval, not-applicable]
+  nulls: [zero, one, half, none]
+  increments: [linear, none, not-applicable]
+  uncertainty_propagation: [exact, recompute, none]
+  uncertainty_kinds: [interval, standard-error, covariance]
+  level_sources: [role-terms, rule-classes, axis, roles]
+  reference_kinds: [value, "null"]
+  restriction_forms: [term, interval, union, time-interval, rule]
+  standing_classes: [empirical, model, calibrated-model]
 
-# --- measurement grammar ------------------------------------------------------
 measurement_grammar:
   version: 1
   tag_encoding: science.identity.v1
@@ -93,7 +108,7 @@ kinds:
       proposition: { required: true, covered: true }
       display: { required: false, covered: false }
   source-assertion: { domain: science.source-assertion.v1, facets: { source-assertion: { required: true, covered: true } } }
-  assessment: { domain: science.assessment.v1, facets: { assessment: { required: true, covered: true } } }
+  assessment: { domain: science.assessment.v2, facets: { assessment: { required: true, covered: true } } }
   analysis-spec: { domain: science.analysis-spec.v1, facets: { analysis-spec: { required: true, covered: true } } }
   run:
     domain: science.run.v1

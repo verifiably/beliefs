@@ -19,7 +19,7 @@ from types import SimpleNamespace
 from typing import TypedDict
 
 import pytest
-from fixtures_cut3 import carry_registers, spec_draft, spec_rules
+from fixtures_cut3 import carry_registers, freeze_context, spec_draft, spec_rules
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.node import Node
 from test_audit import (
@@ -172,7 +172,7 @@ def _two_runs(corpus, *, mount: bool, agreeing: bool) -> SimpleNamespace:
     module, so both suites build the pair through one construction.
     """
     writer = _writer_for(corpus)
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     evidence = _evidence(frozen)
     original = assessment_closure(frozen, token="tok-original")
     replayed = assessment_closure(frozen, token="tok-replayed", result=None if agreeing else DISAGREEING_RESULT)
@@ -488,7 +488,14 @@ def _bundle_around(source, published, *extra) -> tuple[Node, ...]:
         view.get(stored.typed_ref("run", published.derived.replayed)),
     ]
     others = [n for n in view.iter_stored() if n.kind in {"dataset", "proposition", "assessment"}]
-    return (*others, *runs, *extra)
+    dependencies = {
+        entry.id
+        for node in others
+        if node.kind == "assessment"
+        for entry in stored.assessment_value(node, profile=source.profile).dependencies
+    }
+    normative = [view.get(id) for id in sorted(dependencies)]
+    return (*normative, *others, *runs, *extra)
 
 
 @pytest.mark.parametrize("member, mutate, corpus", V4_FORGERIES, ids=V4_IDS)
@@ -555,7 +562,7 @@ def test_a_spec_record_whose_identity_is_false_refuses_the_bundle(tmp_path):
     from beliefs.evidence import NO_EVIDENCE
     from beliefs.spec import freeze
 
-    forged = _false_spec_record(freeze(spec_draft(), held_rules=spec_rules()))
+    forged = _false_spec_record(freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()))
     target = _writer(tmp_path / "target")
     with pytest.raises(ImportRefused):
         target.import_bundle((forged,), evidence=NO_EVIDENCE, **IMPORT_FIELDS)

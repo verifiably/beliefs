@@ -1,10 +1,17 @@
 """Check a measured binding against pack admissions and held normative records."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from beliefs.assumptions import AssumptionInstance, check_instance, instance_projection
 from beliefs.classification_rule import ClassificationRule
-from beliefs.dependencies import DependencyEntry, HeldRecords, dependency_closure, read_record
+from beliefs.dependencies import (
+    DependencyEntry,
+    FrozenAssessmentDependency,
+    HeldRecords,
+    dependency_closure,
+    read_record,
+)
 from beliefs.errors import (
     MalformedRecord,
     MappingRequired,
@@ -64,6 +71,8 @@ def check_aptness(
     proxy: str | None,
     scope: RestrictionMap,
     records: HeldRecords,
+    *,
+    assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
 ) -> Apt:
     source = measure.observable
     if not profile.admits_measurement(source.bearer_sort, source.quantity_kind):
@@ -139,4 +148,8 @@ def check_aptness(
     if proxy is not None:
         ids.append(proxy)
     unique = {v1.encode(instance_projection(instance)): instance for instance in assumptions}
-    return Apt(target, tuple(unique[key] for key in sorted(unique)), dependency_closure(ids, records, profile))
+    return Apt(
+        target,
+        tuple(unique[key] for key in sorted(unique)),
+        dependency_closure(ids, records, profile, assessment_dependency=assessment_dependency),
+    )

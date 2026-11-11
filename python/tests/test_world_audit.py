@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from coordination_fixtures import raw_add
 from dataset_fixtures import pinned
+from fixtures_cut3 import freeze_context, typed_applicability, typed_estimand, typed_target
 from fixtures_cut3 import report as acquisition_report
-from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut4 import raw_write
 from nodes.core.relations import Relation
 from profiles import BASE, WITH_BIOLOGY
@@ -338,7 +338,7 @@ def test_a_pre_grammar_spec_and_assessment_audit_under_their_own_codes_and_the_a
     scratch = tmp_path / "scratch"
     writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
-    published = publish_corpus(writer, publish=True)
+    published = publish_corpus(writer, publish=True, store_dependencies=False)
     assert published.node is not None
     forged = self_consistent_forgery(
         writer, published.node, mutate=lambda facet: facet.__setitem__("verdict", "failed")
@@ -530,7 +530,7 @@ def test_a_mismatching_spec_target_is_reported_through_the_world_audits_recomput
         registry.manifest_bytes(registry.CorpusManifest(2, ALPHA, pins_for(TESTING_PROFILE)))
     )
     target = stored.proposition_node("p-other", title="other", claim=project_claim(OTHER_CLAIM))
-    spec = stored.analysis_spec_node(freeze(spec_draft(target=target.id), held_rules=spec_rules()))
+    spec = stored.analysis_spec_node(freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context()))
     raw_write(root, target)
     raw_write(root, spec)
     world = world_over(tmp_path, {ALPHA: root})
@@ -673,8 +673,7 @@ def _cross_world(tmp_path, *, dataset=None, beta_extra=(), alpha_extra=(), cover
         proposition=p.id,
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     roots = corpora(tmp_path, {ALPHA: (run, a, *alpha_extra), BETA: (d, REPORT, p, *beta_extra)})
     world = world_over(tmp_path, roots)
@@ -775,8 +774,7 @@ def test_an_absent_producer_keeps_the_dataset_produced(tmp_path):
         proposition=p.id,
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     producer = stored.run_node("rm", title="rm", spec="analysis-spec:s1", produces=[d.id])
     roots = corpora(tmp_path, {ALPHA: (d, REPORT, p, run, a), BETA: (producer,)})
@@ -815,8 +813,7 @@ def test_malformed_record_cited_by_an_alias_is_unresolved(tmp_path):
         proposition=p.id,
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     roots = corpora(tmp_path, {ALPHA: (run, a), BETA: (aliased, REPORT, p)})
     world = world_over(tmp_path, roots)
@@ -846,8 +843,7 @@ def test_known_producer_decides_an_unmapped_dataset_while_a_corpus_is_absent(tmp
             proposition="proposition:p",
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         ),
     )
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
@@ -878,8 +874,7 @@ def test_an_unknown_producer_is_unresolved_per_dataset_and_the_scan_continues(tm
             proposition=p.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         ),
     )
     make_absent(roots, BETA)
@@ -896,8 +891,7 @@ def test_an_unknown_producer_is_unresolved_per_dataset_and_the_scan_continues(tm
             proposition=p.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         ),
     )
     audit = audit_world(world, published, evidence=NO_EVIDENCE, profile=WITH_BIOLOGY)
@@ -929,8 +923,7 @@ def test_an_unmapped_dataset_that_fails_on_its_own_is_unmet_while_a_corpus_is_ab
             proposition=p.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         ),
     )
     make_absent(roots, BETA)

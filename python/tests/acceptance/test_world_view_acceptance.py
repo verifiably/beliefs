@@ -14,7 +14,7 @@ from dataset_fixtures import dataset_ref
 from dataset_fixtures import pinned as seed_pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
 from durable_fixture import pinned
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import path_for, raw_write
 from nodes.core.errors import RefError
 from nodes.core.frontmatter import node_to_markdown
@@ -445,8 +445,7 @@ def test_identical_assessments_consult_both_carriers_durably(durable_world):
         proposition="proposition:p",
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     world, _roots, published, a, b, profile = evaluation_world(durable_world, (twin.id,), extra=(twin,))
     view = open_world_view(world, published)
@@ -485,13 +484,16 @@ def test_a_facet_read_is_held_to_the_capture_durably(durable_world, change):
 
 
 def test_check_verification_reports_a_cross_corpus_forgery_durably(durable_world):
-    _cid, _root, writer = durable_world.corpus()
+    _cid, _root, writer = durable_world.corpus(TESTING_PROFILE)
     original = publish_corpus(writer, publish=True)
     assert original.node is not None
     forged = self_consistent_forgery(writer, original.node, mutate=lambda facet: facet.__setitem__("verdict", "failed"))
     nodes = tuple(n for n in writer.read_view.iter_stored() if n.id != forged.id)
     world, roots, published, a, b = durable_world(
-        tuple(n for n in nodes if n.kind != "run"), tuple(n for n in nodes if n.kind == "run"), raw=(forged,)
+        tuple(n for n in nodes if n.kind != "run"),
+        tuple(n for n in nodes if n.kind == "run"),
+        profile=TESTING_PROFILE,
+        raw=(forged,),
     )
     view = open_world_view(world, published)
     assert view.corpus_of(original.node.id) == a

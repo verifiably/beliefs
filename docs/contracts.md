@@ -65,9 +65,8 @@ dimension, as an unknown field.
 The base contract has exactly these fields: `contract` (always `science`),
 `version`, `claim_grammar`, `estimand_grammar`, `measurement_grammar`,
 `composite_grammar`, `kinds`, `relations` and `facets`. The Python and TypeScript
-parsers require a positive integer for the base `version` and the versions of
-the estimand and composite grammars. They require claim grammar version 2 and
-measurement grammar version 1.
+parsers require a positive integer for the base and composite versions. Claim
+and estimand grammars require version 2; measurement grammar requires version 1.
 
 - `claim_grammar` holds `version`, `tag_encoding` (`science.identity.v1`),
   `quantifiers`, `polarities`, `sign_inapt_tag`, `forms`, `layers`,
@@ -91,10 +90,16 @@ measurement grammar version 1.
 - Each `reserved_roles` entry has exactly one field, `world_kind`, which must name
   a world kind the contract declares. The shipped base reserves
   `within-model: { world_kind: procedure }`.
-- `estimand_grammar` holds `version` and `tag_encoding`, plus `contrast_kinds`,
-  `scales` and `uncertainty_kinds`. Those three must equal exactly the sets the
-  implementation operates: `levels, continuous`, `additive, multiplicative` and
-  `interval, standard-error`.
+- `estimand_grammar` requires version 2 and `science.identity.v1` tag encoding.
+  Its closed sets are `forms`, `arities`, `response_transformations`, `reversals`,
+  `response_reversals`, `exchanges`, `ties`, `outputs`, `parameter_typings`,
+  `domains`, `nulls`, `increments`, `uncertainty_propagation`, `uncertainty_kinds`,
+  `level_sources`, `reference_kinds`, `restriction_forms` and `standing_classes`.
+  Each must equal the tags in the [shipped base](../contracts/science/CONTRACT.yaml);
+  missing, duplicate, wider and narrower sets refuse. Forms are `contrast`,
+  `quantity`, `law-parameters`, `event-locked`, `association` and `enrichment`;
+  uncertainty representations are `interval`, `standard-error` and `covariance`.
+  The v1 `contrast_kinds` and `scales` fields are refused.
 - `measurement_grammar` holds `version` (exactly 1), `tag_encoding`
   (`science.identity.v1`) and nine closed sets. Each set must equal exactly the
   tags the implementation operates; missing, duplicate, wider and narrower sets
@@ -189,7 +194,7 @@ and a list of them may not repeat a value.
   `{form: time-interval}`, `{form: rule, classes: <sort>}`, and
   `{form: union, of: <one non-union restriction>}`. References resolve at compile.
   A `term` restriction's sort must match `restriction_sort`, which remains required
-  for the interim estimand chain. Every form refuses fields belonging to another.
+  for claim qualifiers and dimension metadata. Every form refuses fields belonging to another.
 - **Templates.** A template requires `roles`, `sign_apt`, `layers` and `forms`, and
   may add `edge`, `definition`, `external`, `description` and `retired`.
   - Each role requires `arity`, `one` or `many`, and may add `constraint` (role
@@ -217,11 +222,12 @@ and a list of them may not repeat a value.
   every reference is resolved at compile. A local sort name must be one this
   contract declares. The base namespace cannot be referenced, and neither can the
   contract's own namespace in prefixed form.
-- **Estimands.** An estimand declaration is keyed by the typed local address of its
-  target, `instantiation:<name>` or `bridge:<name>`, which must name a declaration
-  of that kind in the same document. It has `level_sorts` (keyed by role name),
-  `measure_sort`, `identification_sort` and `conditioning_sort`, and may add
-  `description`. The current estimand uses these fields for admission against a claim.
+- **Estimands.** A declaration is keyed by `instantiation:<name>` or
+  `bridge:<name>` in the same document. Its required fields are `forms`, a nonempty
+  subset of the six kernel forms, and `conditioning_sorts`, possibly empty.
+  References resolve at compile. Admission requires one whole row to admit both
+  the form and every conditioning sort. The old level, measure and identification
+  sort fields are refused. Compiled declarations retain their explicit `kind`.
 - **Duration conventions.** A duration convention requires exactly `conversion`,
   a local or foreign-qualified conversion reference, plus optional editorial
   `definition` and `description`. Compilation resolves the reference and requires
@@ -436,7 +442,7 @@ cases:
 - a bridge's `layers` include one its template does not;
 - a dimension's `applies_to` names no operator an activated contract declares (a
   local name resolves against the declaring contract only);
-- an estimand declaration's `level_sorts` names a role its target's template lacks.
+- an estimand declaration's `conditioning_sorts` names an unresolved sort.
 
 An unparsed input, a base mismatch and an unresolved sort reference are contract
 errors; the rest are profile errors.

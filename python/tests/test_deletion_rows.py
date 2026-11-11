@@ -28,7 +28,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR
-from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand
+from fixtures_cut3 import carry_registers, typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import path_for
 from nodes.core.node import Node
 from profiles import pins_for
@@ -243,8 +243,7 @@ def _records(
             proposition=PROPOSITION_REF,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         records[f"a-{index}"] = ("add", assessment)
         verification = stored.verification_node(

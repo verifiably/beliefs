@@ -10,7 +10,7 @@ import inspect
 from dataclasses import replace
 
 import pytest
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from profiles import pins_for
 
 from beliefs.closure import Closure, RetractionEnumeration, build_closure
@@ -35,8 +35,7 @@ def closure_kwargs() -> dict:
         proposition="p1",
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     a2 = AssessmentValue(
         spec="spec-b",
@@ -44,8 +43,7 @@ def closure_kwargs() -> dict:
         proposition="p1",
         outcome="refuted",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     runs = {
         "run-a": RunValue(
@@ -126,7 +124,7 @@ def _mutate_facet(kwargs: dict) -> dict:
 
     kwargs = dict(kwargs)
     a1, a2 = kwargs["assessments"]
-    kwargs["assessments"] = (replace(a1, estimate=Decimal("0.4")), a2)
+    kwargs["assessments"] = (replace(a1, estimates={"estimate": Decimal("0.4")}), a2)
     return kwargs
 
 

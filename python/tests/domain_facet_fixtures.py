@@ -8,7 +8,7 @@ from typing import Any
 
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
-from fixtures_cut3 import UNCONSULTED, typed_applicability, typed_estimand
+from fixtures_cut3 import MEASUREMENT_RECORDS, UNCONSULTED, typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from profiles import biology, pins_for
@@ -21,8 +21,19 @@ from beliefs.contract import domain
 from beliefs.contract.domain import ReleaseBinding
 from beliefs.corpus import CorpusWriter, ReadView, lineage_snapshot
 from beliefs.dataset import ByteObservation
-from beliefs.estimand import Control, Estimand, LevelsContrast, Measure, build_estimand
+from beliefs.estimand import (
+    Control,
+    Estimand,
+    MeasuredBinding,
+    NullReference,
+    OutputSpec,
+    RoleTermLevels,
+    ValueReference,
+    build_estimand,
+)
+from beliefs.measurement import Measure, Observable
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding
+from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec, compile_profile, shipped_base_contract
 from beliefs.resolution import build_snapshot
 from beliefs.world import registry
@@ -148,19 +159,54 @@ def estimand_for(facet: dict[str, Any]) -> Estimand:
     if facet == CLAIM_FACET:
         return typed_estimand()
     namespace = "biology" if facet["operator"].startswith("biology/") else "testing"
+    claim = _claim_of(facet)
+    bearer = claim.roles["cause"]
+    assert isinstance(bearer, Referent)
+    observable = Observable(f"{namespace}/abundance", bearer.sort)
+    procedure = MEASUREMENT_RECORDS.put_procedure(
+        Procedure(
+            f"{namespace}/assay",
+            "Fixture assay",
+            "Measure this fixture's cause.",
+            (observable,),
+            None,
+            {},
+            (),
+            (),
+            None,
+            None,
+            {},
+            None,
+        )
+    )
     estimand, _receipt = build_estimand(
         profile_with(crossing=True),
-        _claim_of(facet),
-        contrast=LevelsContrast(
-            role="cause",
-            member=None,
-            baseline=Referent(f"{namespace}/level", "EX:ndmm"),
-            comparison=Referent(f"{namespace}/level", "EX:pd"),
+        claim,
+        form="contrast",
+        functional=f"{namespace}/difference-of-means",
+        bindings={
+            "response": MeasuredBinding(
+                "cause",
+                None,
+                Measure(observable, f"{namespace}/tpm", None, "ratio", "level", f"{namespace}/identity", procedure),
+                None,
+                None,
+            ),
+            "grouping": RoleTermLevels(
+                "cause", None, (Referent(bearer.sort, "EX:ndmm"), Referent(bearer.sort, "EX:pd"))
+            ),
+        },
+        outputs={"estimate": OutputSpec("response-difference", "real")},
+        reference=NullReference(Decimal(-1), Decimal(1)) if claim.form == "null" else ValueReference(Decimal(0)),
+        control=Control(
+            f"{namespace}/randomized", (), f"{namespace}/independent-groups", f"{namespace}/cohort-enrolment"
         ),
-        measure=Measure(quantity=Referent(f"{namespace}/measure", "EX:tpm"), scale="additive"),
-        reference=Decimal(0),
-        control=Control(identification=Referent(f"{namespace}/identification", "EX:observational"), conditioning=()),
+        uncertainty="interval",
+        assumptions=(),
+        calibration=None,
+        applicability=typed_applicability(),
         snapshot=UNCONSULTED,
+        records=MEASUREMENT_RECORDS,
     )
     return estimand
 
@@ -210,8 +256,7 @@ def seed_nodes(
             proposition=proposition,
             outcome=outcomes[0],
             interpretation_rule="rule-1",
-            estimand=estimand,
-            applicability=typed_applicability(),
+            target=typed_target(estimand=estimand, applicability=typed_applicability()),
         ),
         stored.assessment_node(
             "a-2",
@@ -221,8 +266,7 @@ def seed_nodes(
             proposition=proposition,
             outcome=outcomes[1],
             interpretation_rule="rule-1",
-            estimand=estimand,
-            applicability=typed_applicability(),
+            target=typed_target(estimand=estimand, applicability=typed_applicability()),
         ),
     ]
     nodes.extend(assessments)

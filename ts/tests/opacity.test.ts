@@ -83,10 +83,25 @@ const FORGED_GRAMMAR: ClaimGrammar = {
 
 /** Likewise, for the estimand grammar. */
 const FORGED_ESTIMAND_GRAMMAR: EstimandGrammar = {
-  version: 1,
-  contrastKinds: ["whatever"],
-  scales: ["made-up"],
+  version: 2,
+  forms: ["made-up"],
+  arities: ["made-up"],
+  responseTransformations: ["made-up"],
+  reversals: ["made-up"],
+  responseReversals: ["made-up"],
+  exchanges: ["made-up"],
+  ties: ["made-up"],
+  outputs: ["made-up"],
+  parameterTypings: ["made-up"],
+  domains: ["made-up"],
+  nulls: ["made-up"],
+  increments: ["made-up"],
+  uncertaintyPropagation: ["made-up"],
   uncertaintyKinds: ["made-up"],
+  levelSources: ["made-up"],
+  referenceKinds: ["made-up"],
+  restrictionForms: ["made-up"],
+  standingClasses: ["made-up"],
 };
 
 /** Likewise, for the composite grammar. */

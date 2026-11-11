@@ -16,7 +16,7 @@ from confinement_fixtures import confined_receipt, instance
 from dataset_fixtures import pinned_for
 from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO, over_kwargs
 from fixtures_cut3 import TESTING_PROFILE as PROFILE
-from fixtures_cut3 import closure_with, planned, spec_draft, spec_rules, traced
+from fixtures_cut3 import closure_with, freeze_context, planned, spec_draft, spec_rules, traced
 from fixtures_cut4 import raw_write
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -64,12 +64,16 @@ def frozen_for(target: str) -> FrozenSpec:
     """The spec's target is the proposition's corpus ref, as the reproduction
     set it: the stored assessment's `proposition` and the derived one then
     spell the same string."""
-    return freeze(spec_draft(target=target), held_rules=spec_rules())
+    return freeze(spec_draft(target=target), held_rules=spec_rules(), **freeze_context())
 
 
 def conforming_closure(frozen: FrozenSpec, *, token: str, confined: bool = False, outputs=None) -> RunClosure:
     base = closure_with(**_PARTS) if outputs is None else closure_with(**_PARTS, outputs=outputs)
-    recipe = replace(base.recipe, spec_identity=frozen.identity, rule_bindings=frozen.rule_bindings)
+    recipe = replace(
+        base.recipe,
+        spec_identity=frozen.identity,
+        rule_bindings=tuple((b.rule, b.implementation) for b in frozen.rule_bindings),
+    )
     occurrence = replace(base.occurrence, event_token=token, actor=ACTOR)
     if confined:
         receipt = confined_receipt(instance=instance(environment_identity=recipe.environment.identity()))
@@ -143,12 +147,19 @@ def publish_corpus(
     agreeing: bool = True,
     qualifying: bool = True,
     publish: bool = False,
+    store_dependencies: bool = True,
 ) -> Published:
     """A proposition, the two runs and their datasets, the stored assessment
     over the original, the verification derived from the pair, and — with
     `publish` — its record through `writer.add`."""
     proposition = writer.add(stored.proposition_node(slug, title=slug, claim=claim or {"operator": "affects"}))
     frozen = frozen_for(proposition.id)
+    from fixtures_cut3 import MEASUREMENT_RECORDS
+
+    if store_dependencies:
+        for entry in frozen.assessed_target.dependencies:
+            if not writer.read_view.holds(entry.id):
+                writer.add(MEASUREMENT_RECORDS.read(entry.id))
     original, replayed = clean_pair(frozen, agreeing=agreeing, qualifying=qualifying)
     mint_datasets(writer, original)
     writer.add(run_record(original))
@@ -158,7 +169,7 @@ def publish_corpus(
     assert isinstance(derived_value, AssessmentValue), derived_value
     optional = {
         n: getattr(derived_value, n)
-        for n in ("estimate", "uncertainty", "estimand", "applicability")
+        for n in ("estimates", "uncertainty", "curves", "target")
         if getattr(derived_value, n) is not None
     }
     assessment = writer.add(
@@ -308,9 +319,7 @@ def forgeries(writer, published: Published) -> list[tuple[Node, type[Exception],
     # comparison excludes. Its identity differs by that member.
     value = published.derived_value
     optional = {
-        n: getattr(value, n)
-        for n in ("estimate", "uncertainty", "estimand", "applicability")
-        if getattr(value, n) is not None
+        n: getattr(value, n) for n in ("estimates", "uncertainty", "curves", "target") if getattr(value, n) is not None
     }
     other = writer.add(
         stored.assessment_node(

@@ -87,8 +87,8 @@ restriction's class terms must fit that sort. Bundle validation uses the view
 that includes the arriving records. A calibration also requires nonempty
 held assessments whose outcomes are all `supported`,
 and held specs whose applicability is equal to or broader than validity over the
-union of dimensions. Only term qualifiers on term-form dimensions can be adapted
-from interim applicability; other forms refuse as undecidable. For scale targets,
+union of dimensions. Quantified applicability supplies its geometric restrictions
+for this comparison. For scale targets,
 transfer is required exactly when the calibrated observable is absent from all of
 the authority's yields. Crosswalks require two authorities: matching orientations
 need a positive coefficient, opposite orientations a negative affine coefficient;

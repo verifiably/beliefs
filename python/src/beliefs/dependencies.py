@@ -1,6 +1,7 @@
 """Structural dependency walks over typed measurement records and contract terms."""
 
-from collections.abc import Iterable, Mapping
+import re
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Protocol, TypeAlias
 
@@ -9,7 +10,8 @@ from nodes.core.node import Node
 from beliefs import _measurement_record as record
 from beliefs.assumptions import AssumptionInstance
 from beliefs.classification_rule import ClassificationRule, rule_from_stored
-from beliefs.errors import DependencyCycle, DependencyNotHeld, MalformedRecord
+from beliefs.errors import DependencyCycle, DependencyNotHeld, IdentityError, MalformedRecord
+from beliefs.identity import v1
 from beliefs.measurement import Observable
 from beliefs.procedure import Procedure, SameAs, procedure_from_stored
 from beliefs.profile import ProfileSpec
@@ -29,16 +31,38 @@ from beliefs.restriction import (
 
 __all__ = [
     "DependencyEntry",
+    "FrozenAssessmentDependency",
     "HeldRecords",
     "Record",
     "Walk",
     "WalkValue",
+    "dependencies_from_projection",
+    "dependencies_projection",
     "dependency_closure",
     "read_record",
     "record_references",
     "record_terms",
     "walk",
 ]
+
+ASSESSMENT_FACET_DOMAIN = "science.assessment-facet.v2"
+
+
+def assessment_facet_digest(
+    *, proposition: str, outcome: str, interpretation_rule: str, standing: str, typed: Mapping[str, object]
+) -> str:
+    """The canonical facet covered by a frozen assessment dependency."""
+    return v1.digest(
+        ASSESSMENT_FACET_DOMAIN,
+        {
+            "proposition": proposition,
+            "outcome": outcome,
+            "interpretation_rule": interpretation_rule,
+            "standing": standing,
+            **dict(typed),
+        },
+    )
+
 
 Record: TypeAlias = Procedure | ReferentMapping | ProxyModel | ClassificationRule | AssumptionsRegister
 WalkValue: TypeAlias = Record | Observable | RestrictionMap | Restriction | AssumptionInstance
@@ -56,6 +80,50 @@ class HeldRecords(Protocol):
 class DependencyEntry:
     id: str
     terms: tuple[str, ...]
+    facet_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        kind = self.id.partition(":")[0]
+        record.address(self.id, kind)
+        if self.terms != tuple(sorted(set(self.terms))):
+            raise MalformedRecord("dependency terms must be sorted and unique")
+        for term in self.terms:
+            record.term(term, "dependency term")
+        if kind == "assessment":
+            if not isinstance(self.facet_digest, str) or re.fullmatch("[0-9a-f]{64}", self.facet_digest) is None:
+                raise MalformedRecord("an assessment dependency requires its facet digest")
+        elif self.facet_digest is not None:
+            raise MalformedRecord("only an assessment dependency carries a facet digest")
+
+
+@dataclass(frozen=True)
+class FrozenAssessmentDependency:
+    id: str
+    facet_digest: str
+    terms: tuple[str, ...]
+    dependencies: tuple[DependencyEntry, ...]
+
+
+def dependencies_projection(entries: tuple[DependencyEntry, ...]) -> list[dict[str, object]]:
+    return [
+        {"id": e.id, "terms": list(e.terms), **({"facet_digest": e.facet_digest} if e.facet_digest is not None else {})}
+        for e in entries
+    ]
+
+
+def dependencies_from_projection(value: object) -> tuple[DependencyEntry, ...]:
+    def read(value: object) -> DependencyEntry:
+        row = record.shape(value, {"id", "terms"}, {"facet_digest"})
+        return DependencyEntry(
+            record.text(row["id"], "dependency id"),
+            record.sequence(row["terms"], lambda t: record.term(t, "dependency term")),
+            record.text(row["facet_digest"], "facet digest") if "facet_digest" in row else None,
+        )
+
+    entries = record.sequence(value, read)
+    if tuple(e.id for e in entries) != tuple(sorted({e.id for e in entries})):
+        raise MalformedRecord("dependencies must be sorted by id without duplicates")
+    return entries
 
 
 @dataclass(frozen=True)
@@ -162,7 +230,13 @@ def record_references(value: WalkValue, profile: ProfileSpec) -> tuple[str, ...]
     return tuple(sorted(walk(value, profile).references))
 
 
-def dependency_closure(ids: Iterable[str], records: HeldRecords, profile: ProfileSpec) -> tuple[DependencyEntry, ...]:
+def dependency_closure(
+    ids: Iterable[str],
+    records: HeldRecords,
+    profile: ProfileSpec,
+    *,
+    assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
+) -> tuple[DependencyEntry, ...]:
     entries: dict[str, DependencyEntry] = {}
     active: set[str] = set()
     rule_classes: dict[str, str] = {}
@@ -176,7 +250,46 @@ def dependency_closure(ids: Iterable[str], records: HeldRecords, profile: Profil
             record.address(id, "assessment")
             if not records.holds(id):
                 raise DependencyNotHeld(f"dependency {id!r} is not held")
-            entries[id] = DependencyEntry(id, ())
+            if assessment_dependency is None:
+                raise DependencyNotHeld("assessment dependency requires the frozen assessment callback")
+            node = records.read(id)
+            frozen = assessment_dependency(id)
+            if node.id != id or frozen.id != id:
+                raise MalformedRecord("assessment dependency callback returned a different identity")
+            entry = DependencyEntry(id, frozen.terms, frozen.facet_digest)
+            if any(dependency.id == id or dependency.id in active for dependency in frozen.dependencies):
+                raise DependencyCycle(f"dependency cycle at {id!r}")
+            facet = node.facets.get("assessment")
+            if not isinstance(facet, Mapping) or not all(
+                isinstance(facet.get(k), str)
+                for k in ("typed", "proposition", "outcome", "interpretation_rule", "standing")
+            ):
+                raise MalformedRecord("assessment dependency has no v2 facet")
+            try:
+                typed = v1.decode(facet["typed"].encode("utf-8"))
+            except IdentityError as error:
+                raise MalformedRecord("assessment dependency facet is not canonical") from error
+            if (
+                not isinstance(typed, dict)
+                or assessment_facet_digest(
+                    proposition=facet["proposition"],
+                    outcome=facet["outcome"],
+                    interpretation_rule=facet["interpretation_rule"],
+                    standing=facet["standing"],
+                    typed=typed,
+                )
+                != entry.facet_digest
+            ):
+                raise MalformedRecord("assessment dependency facet digest disagrees with the held facet")
+            if typed.get("dependencies") != dependencies_projection(frozen.dependencies):
+                raise MalformedRecord("assessment callback dependencies disagree with the held facet")
+            active.add(id)
+            for dependency in frozen.dependencies:
+                follow(dependency.id)
+                if entries[dependency.id] != dependency:
+                    raise MalformedRecord("assessment frozen dependency disagrees with its held record")
+            active.remove(id)
+            entries[id] = entry
             return
         value = read_record(records, id)
         active.add(id)

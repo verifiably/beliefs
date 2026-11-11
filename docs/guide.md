@@ -65,7 +65,7 @@ attached to exactly what they assessed. The rules are in
 
 An **assessment** is the result of one run of a frozen analysis against one
 proposition: `supported`, `refuted` or `inconclusive`, together with the typed
-estimand and estimate. It counts toward belief only when its run observes held
+assessed target and optional named estimates. It counts toward belief only when its run observes held
 data, every input of the run is held, and a verification that passed in a clean
 environment admits it.
 
@@ -83,15 +83,16 @@ observables, a mapping between bearer sorts, a proxy model with its validity and
 basis, or a classification rule. Domain contracts supply their measurement
 vocabulary. Read-side helpers check binding aptness, dependency eligibility and
 coordinate conversion, with separate exact comparison and rendered estimate
-paths. They coexist with the interim estimand used by specs, assessments and
-belief; that path does not call the new helpers. See
+paths. Estimand authoring uses these measurements and aptness checks and freezes
+its normative record dependencies into the spec and assessment. See
 [measurement records](records.md#measurement-records) and
 [coordinate convertibility](records.md#coordinate-convertibility).
 
 An **analysis spec** freezes the plan before anything runs: the target proposition,
 the estimand, the method, the input roles, the interpretation rule that turns
 outputs into an outcome, and the equivalence rule that says what "the same result"
-means. The run cannot override any of it.
+means. Each input declares its evidence mode; the spec also fixes standing, an
+optional model and the estimator procedure bound to its interpretation rule. The run cannot override any of it.
 
 A **run** records the recipe, the outputs and the facts of one execution. Its
 inputs have roles: `observes` names held data and is the only role that can make an

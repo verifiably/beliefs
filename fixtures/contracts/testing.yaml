@@ -177,34 +177,23 @@ bridges:
     layers: [causal]
 
 # Keyed by the typed local address of the declaration each belongs to. The two
-# `affects` declarations differ in two fields, so an estimand with level sort
-# `level` and measure `outcome` is admitted by neither in full.
+# Distinct whole-row form and conditioning admissions exercise non-pooling.
 estimands:
   instantiation:affects-entity-outcome:
-    level_sorts: { cause: level }
-    measure_sort: measure
-    identification_sort: identification
-    conditioning_sort: entity
+    forms: [contrast, quantity, law-parameters, event-locked, association, enrichment]
+    conditioning_sorts: [entity]
   instantiation:affects-entity-entity:
-    level_sorts: { cause: outcome }
-    measure_sort: outcome
-    identification_sort: identification
-    conditioning_sort: entity
+    forms: [quantity]
+    conditioning_sorts: [outcome]
   instantiation:correlates-event-product:
-    level_sorts: { parties: level }
-    measure_sort: measure
-    identification_sort: identification
-    conditioning_sort: entity
+    forms: [contrast, quantity, law-parameters, event-locked, association, enrichment]
+    conditioning_sorts: [entity]
   bridge:promotes:
-    level_sorts: { cause: level }
-    measure_sort: measure
-    identification_sort: identification
-    conditioning_sort: entity
+    forms: [contrast, quantity, law-parameters, event-locked, association, enrichment]
+    conditioning_sorts: [entity]
   instantiation:promotes:
-    level_sorts: { subject: level }
-    measure_sort: outcome
-    identification_sort: identification
-    conditioning_sort: entity
+    forms: [quantity]
+    conditioning_sorts: [entity]
 
 duration_conventions:
   mean-month: { conversion: mean-month-to-second, definition: Fixed mean month of 30.4375 days. }

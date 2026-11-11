@@ -36,7 +36,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from decimal import Decimal
 
 from nodes.core.node import Node
 
@@ -47,7 +46,7 @@ from beliefs.errors import (
     MalformedWireEstimand,
     UnboundReferent,
 )
-from beliefs.estimand import ContinuousContrast, Control, Estimand, LevelsContrast, Measure
+from beliefs.estimand import estimand_from_stored
 from beliefs.profile import ProfileSpec
 from beliefs.projection import claim_identity
 from beliefs.resolution import (
@@ -60,11 +59,8 @@ from beliefs.resolution import (
 
 __all__ = [
     "WireClaim",
-    "WireEstimand",
-    "applicability_from_stored",
     "claim_from_stored",
     "decode_claim",
-    "decode_estimand",
     "estimand_from_stored",
     "stored_claim_terms",
 ]
@@ -408,187 +404,3 @@ def claim_from_stored(
 # the freeze's own check, not something a reader repeats. Retirement is
 # unenforced on every route here, for `decode_claim`'s reason: a decoder cannot
 # tell authoring from restoration.
-
-_WIRE_ESTIMAND_KEYS = frozenset({"claim", "operator", "contrast", "measure", "reference", "control"})
-
-
-def _require_estimand_text(value: object, where: str) -> str:
-    """`_require_text` translated to this boundary's own error: the claim
-    decoder's `MalformedWireClaim` names the wrong artifact for a caller
-    holding the estimand decoder's refusing arm."""
-    try:
-        return _require_text(value, where)
-    except MalformedWireClaim as refused:
-        raise MalformedWireEstimand(str(refused)) from refused
-
-
-@dataclass(frozen=True)
-class WireEstimand:
-    """An estimand as it arrives — identifiers, tags and decimals, nothing typed.
-    Freely constructible for `WireClaim`'s reason; every field is checked below."""
-
-    claim: str
-    operator: str
-    contrast: Mapping[str, object]
-    measure: Mapping[str, object]
-    reference: object
-    control: Mapping[str, object]
-
-
-def _wire_referent(value: object, where: str) -> Referent:
-    """A referent is exactly `{sort, term}` with non-empty string members,
-    passed through unchanged so that the typed check refuses a sort that is
-    wrong. A bare term is refused: a decoder that substituted a declared sort
-    for a missing wrapper would repair a malformed value on the way in, and a
-    shape-only estimand decoder reads no declaration to take a sort from."""
-    if not isinstance(value, Mapping):
-        raise MalformedWireEstimand(
-            f"{where}: a referent is exactly {{sort, term}}; a bare term carries no sort, and none is supplied"
-        )
-    if set(value) != {"sort", "term"}:
-        raise MalformedWireEstimand(f"{where}: a referent is exactly {{sort, term}}")
-    return Referent(
-        sort=_require_estimand_text(value["sort"], f"{where}.sort"),
-        term=_require_estimand_text(value["term"], f"{where}.term"),
-    )
-
-
-def _decimal(value: object, where: str) -> Decimal:
-    if type(value) is not Decimal:
-        raise MalformedWireEstimand(f"{where}: expected a Decimal, found {type(value).__name__}")
-    return value
-
-
-def _mapping_body(value: object, where: str) -> Mapping[str, object]:
-    if not isinstance(value, Mapping):
-        raise MalformedWireEstimand(f"{where}: expected a mapping, found {type(value).__name__}")
-    for key in value:
-        _require_estimand_text(key, f"{where}: a member name")
-    return value
-
-
-def _exact_keys(body: Mapping[str, object], keys: set[str], where: str) -> None:
-    if set(body) != keys:
-        raise MalformedWireEstimand(
-            f"{where}: members are exactly {sorted(keys)}, found {sorted(body)}; refused, never repaired"
-        )
-
-
-def _contrast_keys(body: Mapping[str, object], keys: set[str]) -> None:
-    """A contrast's members: `role`, `kind`, the kind's own, and `member` exactly
-    when the contrast is on a `many` role (absent, never null, otherwise)."""
-    _exact_keys(body, keys | ({"member"} if "member" in body else set()), "contrast")
-
-
-def _typed_estimand(wire: WireEstimand, profile: ProfileSpec) -> Estimand:
-    if not isinstance(wire, WireEstimand):
-        raise MalformedWireEstimand(f"decode_estimand takes a WireEstimand, found {type(wire).__name__}")
-    claim = _require_estimand_text(wire.claim, "claim")
-    operator = _require_estimand_text(wire.operator, "operator")
-    contrast_body, measure_body, control_body = (
-        _mapping_body(getattr(wire, name), name) for name in ("contrast", "measure", "control")
-    )
-    kind = _require_estimand_text(contrast_body.get("kind"), "contrast.kind")
-    if kind not in profile.estimand_grammar.contrast_kinds:
-        raise MalformedWireEstimand(
-            f"contrast.kind {kind!r} is outside {list(profile.estimand_grammar.contrast_kinds)}"
-        )
-    role = _require_estimand_text(contrast_body.get("role"), "contrast.role")
-    member = _wire_referent(contrast_body["member"], "contrast.member") if "member" in contrast_body else None
-    if kind == "levels":
-        _contrast_keys(contrast_body, {"role", "kind", "baseline", "comparison"})
-        contrast: LevelsContrast | ContinuousContrast = LevelsContrast(
-            role=role,
-            member=member,
-            baseline=_wire_referent(contrast_body["baseline"], "contrast.baseline"),
-            comparison=_wire_referent(contrast_body["comparison"], "contrast.comparison"),
-        )
-    elif kind == "continuous":
-        _contrast_keys(contrast_body, {"role", "kind", "quantity", "increment"})
-        contrast = ContinuousContrast(
-            role=role,
-            member=member,
-            quantity=_wire_referent(contrast_body["quantity"], "contrast.quantity"),
-            increment=_decimal(contrast_body["increment"], "contrast.increment"),
-        )
-    else:
-        raise MalformedWireEstimand(f"contrast.kind {kind!r} is declared but not operable")
-    _exact_keys(measure_body, {"quantity", "scale"}, "measure")
-    measure = Measure(
-        quantity=_wire_referent(measure_body["quantity"], "measure.quantity"),
-        scale=_require_estimand_text(measure_body["scale"], "measure.scale"),
-    )
-    _exact_keys(control_body, {"identification", "conditioning"}, "control")
-    conditioning = control_body["conditioning"]
-    if isinstance(conditioning, (str, bytes)) or not isinstance(conditioning, Sequence):
-        raise MalformedWireEstimand("control.conditioning is a sequence of referents")
-    control = Control(
-        identification=_wire_referent(control_body["identification"], "control.identification"),
-        conditioning=tuple(
-            _wire_referent(member, f"control.conditioning[{i}]") for i, member in enumerate(conditioning)
-        ),
-    )
-    return Estimand._checked(
-        profile,
-        claim=claim,
-        operator=operator,
-        contrast=contrast,
-        measure=measure,
-        reference=_decimal(wire.reference, "reference"),
-        control=control,
-    )
-
-
-def decode_estimand(
-    wire: WireEstimand, *, profile: ProfileSpec, snapshot: ResolutionSnapshot
-) -> tuple[Estimand, BindingCheckReceipt]:
-    """Type a wire estimand's shape and resolve its referents, or refuse —
-    `decode_claim`'s discipline. It establishes no admission: whether some
-    estimand declaration admits it for its claim is `admit_estimand`'s, which
-    needs the claim."""
-    from beliefs.estimand import _referent_positions, _resolve_all
-
-    if not isinstance(profile, ProfileSpec):
-        raise MalformedWireEstimand(
-            f"profile is a {type(profile).__name__}, not a compiled ProfileSpec — use compile_profile(base, domains)."
-        )
-    _require_snapshot(snapshot, MalformedWireEstimand)
-    estimand = _typed_estimand(wire, profile)
-    outcomes = _resolve_all(
-        profile, snapshot, {ReferentPosition.estimand(p).label(): r for p, r in _referent_positions(estimand).items()}
-    )
-    return estimand, _emit_receipt(estimand.claim, snapshot, outcomes)
-
-
-def estimand_from_stored(projection: Mapping[str, object], *, profile: ProfileSpec) -> Estimand:
-    """Restore a typed estimand from a stored spec's projection member: its
-    shape typed against the profile, resolved against nothing — restoration is
-    not authoring, and the freeze already performed the membership check. It
-    establishes no admission: that is `admit_estimand`'s, against the claim."""
-    if not isinstance(projection, Mapping) or set(projection) != _WIRE_ESTIMAND_KEYS:
-        raise MalformedWireEstimand(f"a stored estimand carries exactly {sorted(_WIRE_ESTIMAND_KEYS)}")
-    wire = WireEstimand(**{key: projection[key] for key in _WIRE_ESTIMAND_KEYS})  # type: ignore[arg-type]
-    return _typed_estimand(wire, profile)
-
-
-def applicability_from_stored(
-    projection: Mapping[str, object], *, profile: ProfileSpec, operator: str
-) -> Mapping[str, Qualifier]:
-    """Restore an applicability map: each restriction typed against an
-    applicability-side dimension whose `applies_to` names `operator`, by the
-    check `build_applicability` performs."""
-    from beliefs.estimand import _checked_applicability
-
-    if not isinstance(projection, Mapping):
-        raise MalformedWireEstimand("a stored applicability is a mapping")
-    qualifiers: dict[str, Qualifier] = {}
-    for dimension, body in projection.items():
-        where = f"applicability[{dimension!r}]"
-        name = _require_estimand_text(dimension, "a dimension")
-        if not isinstance(body, Mapping) or set(body) != {"quantifier", "restriction"}:
-            raise MalformedWireEstimand(f"{where}: exactly quantifier and restriction")
-        qualifiers[name] = Qualifier(
-            quantifier=_require_estimand_text(body["quantifier"], f"{where}.quantifier"),
-            restriction=_wire_referent(body["restriction"], f"{where}.restriction"),
-        )
-    return _checked_applicability(profile, operator, qualifiers)

@@ -7,6 +7,7 @@ from typing import Any, cast
 import pytest
 import test_stored
 from authority import FULL
+from fixtures_cut3 import freeze_context, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
@@ -379,7 +380,9 @@ def held_calibration(writer, work, *, outcome="supported", applicability=None):
     from beliefs.boundary import RunMinted
     from beliefs.spec import freeze
 
-    spec = freeze(spec_draft(applicability=typed_applicability(applicability)), held_rules=spec_rules())
+    spec = freeze(
+        spec_draft(applicability=typed_applicability(applicability)), held_rules=spec_rules(), **freeze_context()
+    )
     raw_write(writer.root, stored.analysis_spec_node(spec))
     executed = memory_assessment(work, spec=spec)
     assert isinstance(executed, RunMinted), executed
@@ -393,10 +396,10 @@ def held_calibration(writer, work, *, outcome="supported", applicability=None):
         proposition=assessment.proposition,
         outcome=assessment.outcome,
         interpretation_rule=assessment.interpretation_rule,
-        estimand=assessment.estimand,
-        applicability=assessment.applicability,
-        estimate=assessment.estimate,
+        target=typed_target(estimand=assessment.estimand, applicability=assessment.applicability),
+        estimates=assessment.estimates,
         uncertainty=assessment.uncertainty,
+        curves=assessment.curves,
     )
     raw_write(writer.root, node)
     writer._reconstruct()
@@ -422,14 +425,14 @@ def test_a_calibration_needs_supported_assessments(tmp_path, outcome):
     ],
 )
 def test_a_calibration_scope_narrower_than_validity_refuses(tmp_path, assessment_stage, validity_stage, admitted):
-    from beliefs.claim import Qualifier, Referent
+    from beliefs.applicability import ScopedRestriction
 
     writer = _testing_writer(tmp_path / "corpus")
     value = held_values(writer)[2]
     applicability = (
         {}
         if assessment_stage is None
-        else {"testing/stage": Qualifier("generic", Referent("testing/stage", assessment_stage))}
+        else {"testing/stage": ScopedRestriction("generic", TermRestriction("testing/stage", assessment_stage))}
     )
     basis = held_calibration(writer, tmp_path / "run", applicability=applicability)
     validity = {} if validity_stage is None else {"testing/stage": TermRestriction("testing/stage", validity_stage)}
@@ -441,18 +444,15 @@ def test_a_calibration_scope_narrower_than_validity_refuses(tmp_path, assessment
             writer.add(node)
 
 
-def test_a_v1_term_on_an_interval_dimension_is_undecidable(tmp_path):
-    from beliefs.claim import Qualifier, Referent
+def test_a_v1_term_on_an_interval_dimension_refuses_at_authoring(tmp_path):
+    from fixtures_cut3 import typed_applicability
 
-    writer = _testing_writer(tmp_path / "corpus")
-    value = held_values(writer)[2]
-    basis = held_calibration(
-        writer,
-        tmp_path / "run",
-        applicability={"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:five-years"))},
-    )
-    with pytest.raises(errors.MeasurementRecordRefused, match="calibration-scope-undecidable"):
-        writer.add(build("proxy-model", replace(value, basis=basis)))
+    from beliefs.applicability import ScopedRestriction
+
+    with pytest.raises(errors.MalformedRestriction):
+        typed_applicability(
+            {"testing/follow-up": ScopedRestriction("generic", TermRestriction("testing/level", "EX:five-years"))}
+        )
 
 
 def test_a_qualified_proxy_mints(tmp_path):

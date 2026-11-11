@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from authority import ACTOR
@@ -12,10 +12,12 @@ from dataset_fixtures import pinned, pinned_for
 from fixtures_cut3 import (
     TESTING_PROFILE,
     carry_registers,
+    freeze_context,
     spec_draft,
     spec_rules,
     typed_applicability,
     typed_estimand,
+    typed_target,
 )
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
@@ -93,7 +95,7 @@ def _derived_run(writer):
     replaced with the frozen spec's own — `build_assessment` and `_resolve_rule`
     both read the **recipe's** bindings, not the spec's.
     """
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     closure = assessment_closure(frozen)
     add_observed_datasets(writer, closure)
     run = writer.add(run_publication(closure))
@@ -108,7 +110,11 @@ def assessment_closure(frozen, *, token: str = "tok", result: ResultManifest | N
     a replay that agrees (same result) or one that does not.
     """
     base = make_closure(shape="assessment", token=token)
-    recipe = replace(base.recipe, spec_identity=frozen.identity, rule_bindings=frozen.rule_bindings)
+    recipe = replace(
+        base.recipe,
+        spec_identity=frozen.identity,
+        rule_bindings=tuple((b.rule, b.implementation) for b in frozen.rule_bindings),
+    )
     return RunClosure(
         recipe=recipe,
         result=base.result if result is None else result,
@@ -149,9 +155,7 @@ def _stated_optionals(derived: AssessmentValue) -> dict[str, Any]:
     `stored.assessment_node`: `estimand`/`applicability` are always present;
     `estimate`/`uncertainty` stay absent when the derivation left them so —
     a stored `None` would be a different facet from an omitted one."""
-    optional: dict[str, Any] = {"estimand": derived.estimand, "applicability": derived.applicability}
-    if derived.estimate is not None:
-        optional["estimate"] = derived.estimate
+    optional: dict[str, Any] = {"target": derived.target, "estimates": derived.estimates, "curves": derived.curves}
     if derived.uncertainty is not None:
         optional["uncertainty"] = derived.uncertainty
     return optional
@@ -183,7 +187,7 @@ def _replayed_pair(writer, *, agreeing: bool = True) -> tuple[DerivationEvidence
     """Two persisted assessment runs of one recipe, and the verification
     `build_verification` derives from them. Both runs are decodable, so a
     stored record naming them can actually be recomputed."""
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     original = assessment_closure(frozen, token="tok-original")
     replayed = assessment_closure(frozen, token="tok-replayed", result=None if agreeing else DISAGREEING_RESULT)
     add_observed_datasets(writer, original)
@@ -222,8 +226,7 @@ def _eligible_assessment(writer) -> Node:
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )
 
@@ -651,8 +654,7 @@ class TestTheAuditReportsAndNeverRaises:
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         node.facets[stored.ASSESSMENT_FACET]["outcome"] = "maybe"
         raw_write(writer.root, stored.stamp_semantic_identity(node))
@@ -702,8 +704,7 @@ class TestTheAuditReportsAndNeverRaises:
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         raw_write(writer.root, stored.stamp_semantic_identity(node))
         writer._reconstruct()
@@ -905,7 +906,13 @@ def test_a_well_formed_assessment_is_admitted_by_audit_and_by_import(writer, tmp
     target = _testing_writer(tmp_path / "target")
     datasets = [writer.read_view.get(e.dataset) for e in closure.recipe.inputs if e.role == "observes"]
     target.import_bundle(
-        [*datasets, run, proposition, assessment],
+        [
+            *datasets,
+            *(writer.read_view.get(d.id) for d in frozen.assessed_target.dependencies),
+            run,
+            proposition,
+            assessment,
+        ],
         evidence=evidence,
         observer="o",
         instrument="i",
@@ -1227,7 +1234,7 @@ def test_the_audit_names_a_spec_that_does_not_restore_and_stored_specs_reports_i
     # proposition its own estimand answers, so
     # `spec_draft`'s default `target` must name a real, matching proposition.
     target = writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
-    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
+    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context())
     good = writer.add(stored.analysis_spec_node(spec))
     forged = _false_spec_record(spec)
     raw_write(writer.root, forged)
@@ -1276,7 +1283,7 @@ def test_a_raw_written_mismatching_spec_is_caught_only_under_audit(writer):
     mismatch is admitted at read and caught only by the audit's own
     recomputation (`check_spec_target`), never by a reader that coerces."""
     target = writer.add(stored.proposition_node("p-other", title="other", claim=project_claim(OTHER_CLAIM)))
-    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
+    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context())
     node = stored.analysis_spec_node(spec)
     raw_write(writer.root, node)
     assert reopen(writer.root).get(node.id).id == node.id  # not refused on read
@@ -1354,13 +1361,11 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
     hash sits beside a different declared operator — and it alone is what
     explicit import refuses (through `_ImportView`, review finding 2) and the
     audit contradicts (review finding 1)."""
-    from decimal import Decimal
 
-    from fixtures_cut3 import TESTING_CLAIM, UNCONSULTED
+    from fixtures_cut3 import TESTING_CLAIM
 
     from beliefs.claim import Member, Referent, build_claim
     from beliefs.errors import ImportRefused
-    from beliefs.estimand import ContinuousContrast, Control, Measure, build_estimand
     from beliefs.identity import v1
     from beliefs.projection import claim_identity
     from beliefs.spec import SPEC_DOMAIN, frozen_projection
@@ -1374,16 +1379,14 @@ def test_the_inconsistent_stored_pair_decodes_cleanly_refuses_at_import_and_cont
         layer="statistical",
         polarity="positive",
     )
-    foreign, _ = build_estimand(
-        TESTING_PROFILE,
-        correlates,
-        snapshot=UNCONSULTED,
-        contrast=ContinuousContrast("parties", event, Referent("testing/measure", "EX:tpm"), Decimal(1)),
-        measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"),
-        reference=Decimal(0),
-        control=Control(Referent("testing/identification", "EX:observational"), ()),
+    from fixtures_cut3 import event_estimand
+
+    foreign = event_estimand(correlates)
+    spec = freeze(
+        spec_draft(target=target.id, estimand=foreign),
+        held_rules=spec_rules(),
+        **{**freeze_context(), "claim": correlates},
     )
-    spec = freeze(spec_draft(target=target.id, estimand=foreign), held_rules=spec_rules())
     projection = frozen_projection(spec)
     projection["estimand"]["claim"] = claim_identity(TESTING_CLAIM)  # type: ignore[index]  # the target's true hash, another operator
     text = v1.encode(projection)
@@ -1442,7 +1445,13 @@ def test_check_spec_target_reports_admission_disagreement(writer):
     projection["claim"] = claim_identity(entity_entity)
     shape_only = estimand_from_stored(projection, profile=TESTING_PROFILE)
     target = writer.add(stored.proposition_node("p-ee", title="p-ee", claim=project_claim(entity_entity)))
-    node = stored.analysis_spec_node(freeze(spec_draft(target=target.id, estimand=shape_only), held_rules=spec_rules()))
+    from beliefs.identity import v1
+    from beliefs.spec import SPEC_DOMAIN, frozen_projection, restore
+
+    projection = frozen_projection(freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context()))
+    projection["estimand"] = estimand_projection(shape_only)
+    forged = restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
+    node = stored.analysis_spec_node(forged)
     raw_write(writer.root, node)
 
     outcome = check_spec_target(reopen(writer.root), node, profile=TESTING_PROFILE)
@@ -1460,7 +1469,7 @@ def test_explicit_import_refuses_a_spec_whose_target_does_not_resolve_in_the_uni
     from beliefs.errors import ImportRefused
 
     target_writer = _testing_writer(tmp_path / "target")
-    spec = freeze(spec_draft(target="proposition:elsewhere"), held_rules=spec_rules())
+    spec = freeze(spec_draft(target="proposition:elsewhere"), held_rules=spec_rules(), **freeze_context())
     node = stored.analysis_spec_node(spec)
     with pytest.raises(ImportRefused, match="estimand-target-unresolvable"):
         target_writer.import_bundle(
@@ -1616,11 +1625,10 @@ def _register_codes(writer, profile=None):
 def _promotes_spec(writer, registers=()):
     """A spec whose target is a claim over the bridge `testing/promotes`, with
     the estimand built for that claim, so the write door admits it."""
-    from decimal import Decimal
 
     from fixtures_cut3 import UNCONSULTED
 
-    from beliefs.estimand import Control, LevelsContrast, Measure, build_applicability, build_estimand
+    from beliefs.applicability import build_applicability
 
     claim = build_claim(
         TESTING_PROFILE,
@@ -1632,24 +1640,18 @@ def _promotes_spec(writer, registers=()):
     target_id = "proposition:promotes"
     if not writer.read_view.holds(target_id):
         writer.add(stored.proposition_node("promotes", title="promotes", claim=project_claim(claim)))
-    estimand, _ = build_estimand(
-        TESTING_PROFILE,
-        claim,
-        snapshot=UNCONSULTED,
-        contrast=LevelsContrast(
-            role="cause",
-            member=None,
-            baseline=Referent("testing/level", "EX:ndmm"),
-            comparison=Referent("testing/level", "EX:pd"),
-        ),
-        measure=Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
-        reference=Decimal(0),
-        control=Control(identification=Referent("testing/identification", "EX:observational"), conditioning=()),
-    )
+    estimand = typed_estimand(claim=claim)
     applicability, _ = build_applicability(TESTING_PROFILE, claim, {}, snapshot=UNCONSULTED)
+    from fixtures_cut3 import MEASUREMENT_RECORDS, FixtureRecords
+
+    records = FixtureRecords()
+    records.nodes.update(MEASUREMENT_RECORDS.nodes)
+    for id in registers:
+        records.nodes[id] = writer.read_view.get(id)
     spec = freeze(
         spec_draft(target=target_id, estimand=estimand, applicability=applicability, registers=tuple(registers)),
         held_rules=spec_rules(),
+        **{**freeze_context(), "claim": claim, "records": records},
     )
     return writer.add(stored.analysis_spec_node(spec)).id
 
@@ -1694,6 +1696,7 @@ class TestRegisterHygiene:
                 ).id
             ),
             held_rules=spec_rules(),
+            **freeze_context(),
         )
         bare_writer.add(stored.analysis_spec_node(frozen))
         assert not [c for c in _register_codes(bare_writer) if c[0] == "bridging-register-uncited"]
@@ -1773,3 +1776,74 @@ class TestRegisterHygiene:
         }
         assert _register_chain_ends(into_cycle) == (c,)
         assert _registers_report(into_cycle, pins, TESTING_PROFILE) == []
+
+
+def test_audit_recomputes_transitive_rule_procedure_dependencies(writer):
+    """A stored spec can retain each direct root while dropping a transitive authority."""
+    from fractions import Fraction
+
+    from fixtures_cut3 import MEASUREMENT_RECORDS, TESTING_CLAIM, YIELDING_PROCEDURE, FixtureRecords
+
+    from beliefs.audit import check_assessment
+    from beliefs.identity import v1
+    from beliefs.procedure import Procedure, SameAs, Scale
+    from beliefs.spec import SPEC_DOMAIN, frozen_projection, restore
+
+    records = FixtureRecords()
+    records.nodes.update(MEASUREMENT_RECORDS.nodes)
+    authority = Procedure(
+        "testing/assay",
+        "Authority",
+        "Define scale.",
+        (),
+        Scale(Fraction(0), Fraction(1), "higher-is-more"),
+        {},
+        (),
+        (),
+        None,
+        None,
+        {},
+        None,
+    )
+    aid = records.put_procedure(authority)
+    estimator = Procedure(
+        "testing/estimator", "Estimator", "Estimate.", (), SameAs(aid), {}, (), (), None, None, {}, None
+    )
+    eid = records.put_procedure(estimator)
+    for id in [aid, eid, YIELDING_PROCEDURE]:
+        if not writer.read_view.holds(id):
+            writer.add(records.read(id))
+    prop = writer.add(stored.proposition_node("closure-target", title="Claim", claim=project_claim(TESTING_CLAIM)))
+    spec = freeze(
+        spec_draft(target=prop.id),
+        held_rules=spec_rules(),
+        **{**freeze_context(), "records": records, "rule_procedures": {"median-difference/v1": eid}},
+    )
+    body = frozen_projection(spec)
+    body["dependencies"] = [d for d in cast(list[dict], body["dependencies"]) if d["id"] != aid]
+    incomplete = restore(v1.digest(SPEC_DOMAIN, body), v1.encode(body), profile=TESTING_PROFILE)
+    run = assessment_closure(incomplete)
+    value = build_assessment(
+        run,
+        specs={incomplete.identity: incomplete},
+        implementations=_interpretation_evidence(incomplete).implementations,
+    )
+    assert isinstance(value, AssessmentValue)
+    node = stored.assessment_node(
+        value.identity(),
+        title="Assessment",
+        spec=value.spec,
+        run=stored.typed_ref("run", value.run),
+        proposition=prop.id,
+        outcome=value.outcome,
+        interpretation_rule=value.interpretation_rule,
+        target=value.target,
+    )
+    raw_write(writer.root, stored.analysis_spec_node(incomplete))
+    raw_write(writer.root, run_publication(run))
+    raw_write(writer.root, node)
+    result = check_assessment(
+        reopen(writer.root), node, evidence=_interpretation_evidence(incomplete), profile=TESTING_PROFILE
+    )
+    assert result.checked and result.contradiction is not None
+    assert "dependencies" in result.contradiction.detail

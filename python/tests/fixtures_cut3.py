@@ -10,14 +10,18 @@ from authority import FULL
 from dataset_fixtures import dataset_ref
 from profiles import BASE
 
+from beliefs.applicability import Applicability, build_applicability
 from beliefs.assess import run_record
 from beliefs.boundary import HeldTree, execute_assessment_run, execute_production_run
 from beliefs.claim import Referent, build_claim
 from beliefs.closure import RetractionEnumeration
 from beliefs.contract import parse_domain_contract
 from beliefs.contract.document import load_document
-from beliefs.estimand import Control, LevelsContrast, Measure, build_applicability, build_estimand
+from beliefs.dependencies import dependency_closure
+from beliefs.estimand import Control, MeasuredBinding, OutputSpec, RoleTermLevels, ValueReference, build_estimand
 from beliefs.lineage import LineageSnapshot
+from beliefs.measurement import Measure, Observable
+from beliefs.procedure import Procedure
 from beliefs.profile import compile_profile, shipped_base_contract
 from beliefs.recipe import (
     MINIMAL_POLICY,
@@ -53,6 +57,7 @@ from beliefs.spec import (
     SpecInput,
     freeze,
 )
+from beliefs.target import AssessedTarget, Standing
 from beliefs.tree import TreeMember, make_tree, object_path, tree_digest, tree_file_bytes
 
 D_IN = "sha256:" + "aa" * 32
@@ -84,28 +89,127 @@ TESTING_CLAIM = build_claim(
 UNCONSULTED = build_snapshot(readable={})
 
 
-def typed_estimand(**overrides):
+class FixtureRecords:
+    """Explicit held measurement records used by the shared spec fixture."""
+
+    def __init__(self):
+        self.nodes = {}
+
+    def put_procedure(self, procedure):
+        from beliefs import stored
+
+        node = stored.procedure_node(procedure)
+        self.nodes[node.id] = node
+        return node.id
+
+    def holds(self, id):
+        return id in self.nodes
+
+    def read(self, id):
+        return self.nodes[id]
+
+    def retraction_in_force(self, id):
+        return False
+
+    def observation_held(self, digest):
+        return False
+
+    def crosswalks(self, a, b):
+        return ()
+
+
+MEASUREMENT_RECORDS = FixtureRecords()
+OBSERVABLE = Observable("testing/abundance", "testing/entity")
+YIELDING_PROCEDURE = MEASUREMENT_RECORDS.put_procedure(
+    Procedure(
+        kind="testing/assay",
+        name="Transcript assay",
+        definition="Fixture measurement.",
+        yields=(OBSERVABLE,),
+        scale=None,
+        validated_in={},
+        compatible_with=(),
+        evidence=(),
+        implementation=None,
+        inputs=None,
+        parameters={},
+        external=None,
+    )
+)
+ESTIMATOR_PROCEDURE = MEASUREMENT_RECORDS.put_procedure(
+    Procedure(
+        kind="testing/estimator",
+        name="Difference estimator",
+        definition="Fixture analysis.",
+        yields=(),
+        scale=None,
+        validated_in={},
+        compatible_with=(),
+        evidence=(),
+        implementation=None,
+        inputs=None,
+        parameters={},
+        external=None,
+    )
+)
+RESPONSE = MeasuredBinding(
+    "cause",
+    None,
+    Measure(OBSERVABLE, "testing/tpm", None, "ratio", "level", "testing/identity", YIELDING_PROCEDURE),
+    None,
+    None,
+)
+
+
+def freeze_context(interpretation_rule="median-difference/v1"):
+    return {
+        "profile": TESTING_PROFILE,
+        "claim": TESTING_CLAIM,
+        "records": MEASUREMENT_RECORDS,
+        "rule_procedures": {interpretation_rule: ESTIMATOR_PROCEDURE},
+    }
+
+
+def typed_estimand(*, profile=TESTING_PROFILE, claim=TESTING_CLAIM, **overrides):
     fields = {
-        "contrast": LevelsContrast(
-            role="cause",
-            member=None,
-            baseline=Referent("testing/level", "EX:ndmm"),
-            comparison=Referent("testing/level", "EX:pd"),
-        ),
-        "measure": Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
-        "reference": Decimal(0),
-        "control": Control(identification=Referent("testing/identification", "EX:observational"), conditioning=()),
+        "form": "contrast",
+        "functional": "testing/difference-of-means",
+        "bindings": {
+            "response": RESPONSE,
+            "grouping": RoleTermLevels(
+                "cause", None, (Referent("testing/entity", "EX:ndmm"), Referent("testing/entity", "EX:pd"))
+            ),
+        },
+        "outputs": {"estimate": OutputSpec("response-difference", "real")},
+        "reference": ValueReference(Decimal(0)),
+        "control": Control("testing/randomized", (), "testing/independent-groups", "testing/cohort-enrolment"),
+        "uncertainty": "interval",
+        "assumptions": (),
+        "calibration": None,
+        "applicability": Applicability({}),
+        "records": MEASUREMENT_RECORDS,
     }
     fields.update(overrides)
-    estimand, _receipt = build_estimand(TESTING_PROFILE, TESTING_CLAIM, snapshot=UNCONSULTED, **fields)
+    estimand, _receipt = build_estimand(profile, claim, snapshot=UNCONSULTED, **fields)
     return estimand
 
 
-def typed_applicability(qualifiers=None):
+def typed_applicability(values=None):
     applicability, _receipt = build_applicability(
-        TESTING_PROFILE, TESTING_CLAIM, qualifiers or {}, snapshot=UNCONSULTED
+        TESTING_PROFILE, TESTING_CLAIM, {} if values is None else values, snapshot=UNCONSULTED
     )
     return applicability
+
+
+def typed_target(*, estimand=None, applicability=None, standing: Standing = "empirical", model=None, dependencies=None):
+    estimand = typed_estimand() if estimand is None else estimand
+    applicability = typed_applicability() if applicability is None else applicability
+    if dependencies is None:
+        roots = [e.id for e in estimand.dependencies] + list(applicability.rule_ids())
+        if model is not None:
+            roots.append(model)
+        dependencies = dependency_closure(roots, MEASUREMENT_RECORDS, TESTING_PROFILE)
+    return AssessedTarget(estimand, applicability, dependencies, model, standing)
 
 
 def seed_plan(streams=("model-initialization",), roots=None, stream_roots=None) -> SeedPlan:
@@ -136,13 +240,15 @@ def spec_draft(**overrides) -> SpecDraft:
         "method": "fit the model",
         "assumptions": "iid draws",
         "falsification": "a null effect",
-        "input_roles": (SpecInput(role="observes", dataset=DATA_ADDRESS),),
+        "input_roles": (SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
         "applicability": typed_applicability(),
         "interpretation_rule": "median-difference/v1",
         "equivalence_rule": "content-identity-equality/v1",
         "parameters": {"alpha": Decimal("0.05")},
         "nondeterminism": Seeded(plan=seed_plan()),
         "registers": (),
+        "standing": "empirical",
+        "model": None,
     }
     fields.update(overrides)
     return SpecDraft(**fields)
@@ -156,6 +262,10 @@ def carry_registers(writer):
     from beliefs import stored
     from beliefs.register import AssumptionsRegister, RegisterEntry
 
+    for id in (YIELDING_PROCEDURE, ESTIMATOR_PROCEDURE):
+        node = MEASUREMENT_RECORDS.read(id)
+        if node.facets["procedure"]["kind"] in writer.profile.procedure_kinds and not writer.read_view.holds(id):
+            writer.add(node)
     for namespace, identity in writer.profile.activated_contracts.items():
         if namespace == "coordination":
             continue
@@ -364,8 +474,15 @@ def interp(outcome="supported", fail=False):
             raise ValueError("unparseable payload")
         return {
             "outcome": outcome,
-            "estimate": Decimal("0.4"),
-            "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")},
+            "estimates": {"estimate": Decimal("0.4")},
+            "uncertainty": {
+                "estimate": {
+                    "kind": "interval",
+                    "low": Decimal("0.1"),
+                    "high": Decimal("0.7"),
+                    "level": Decimal("0.95"),
+                }
+            },
         }
 
     return {"impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=evaluate, fixtures=())}
@@ -380,7 +497,7 @@ def result_sensitive():
         parity = int(manifest.outputs[0][1].split(":", 1)[1], 16) % 2
         return {
             "outcome": "supported" if parity == 0 else "refuted",
-            "estimate": Decimal("0.4"),
+            "estimates": {"estimate": Decimal("0.4")},
         }
 
     return {"impl-interp-1": RuleImplementation(identity="impl-interp-1", evaluate=evaluate, fixtures=())}
@@ -614,7 +731,7 @@ def run_assessment(
 ):
     """`kernel_scratch` passes no scratch base, for a run session's port."""
     code, held = stage(tmp_path, snakefile=snakefile, data=data)
-    spec = spec if spec is not None else freeze(spec_draft(), held_rules=spec_rules())
+    spec = spec if spec is not None else freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     if held_inputs is not None:
         observed = spec.input_roles[0].dataset
         (held / "data.txt").write_bytes(held_inputs[observed].read_bytes())
@@ -739,6 +856,7 @@ def replay_of(
         spec = freeze(
             spec_draft(nondeterminism=original.run.recipe.nondeterminism),
             held_rules=spec_rules(),
+            **freeze_context(),
         )
     family_streams = (
         {"transform": original.run.recipe.nondeterminism.plan.streams}
@@ -765,4 +883,38 @@ def replay_of(
         scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
         cores=cores,
         **extra,
+    )
+
+
+def event_estimand(claim, *, profile=TESTING_PROFILE):
+    """A measured per-increment contrast for the event member of parties."""
+    from beliefs.estimand import IncrementBinding
+
+    event = next(m.referent for m in claim.roles["parties"] if m.referent.sort == "testing/event")
+    observable = Observable("testing/energy", event.sort)
+    pid = MEASUREMENT_RECORDS.put_procedure(
+        Procedure(
+            "testing/assay",
+            "Event energy assay",
+            "Measure event energy.",
+            (observable,),
+            None,
+            {},
+            (),
+            (),
+            None,
+            None,
+            {},
+            None,
+        )
+    )
+    measure = Measure(observable, "testing/electronvolt", None, "ratio", "level", "testing/identity", pid)
+    return typed_estimand(
+        profile=profile,
+        claim=claim,
+        bindings={
+            "response": MeasuredBinding("parties", event, measure, None, None),
+            "grouping": IncrementBinding("parties", event, measure, Decimal(1), "testing/electronvolt"),
+        },
+        control=Control("testing/observational", (), "testing/independent-groups", "testing/cohort-enrolment"),
     )

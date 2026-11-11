@@ -14,7 +14,7 @@ from typing import Any
 
 from authority import ACTOR
 from dataset_fixtures import dataset_ref, pinned
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from nodes.core.node import Node
 
 from beliefs import stored
@@ -93,8 +93,7 @@ def assessment_over(slug: str, run: str, proposition: str = "proposition:p1") ->
         proposition=proposition,
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 

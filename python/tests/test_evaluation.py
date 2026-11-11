@@ -20,7 +20,7 @@ from typing import Any
 import pytest
 from authority import ACTOR
 from domain_facet_fixtures import CLAIM_FACET, EX, GENE, OTHER_GENE, PHENO
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -171,8 +171,7 @@ def _seed(
             proposition=proposition_ref,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=matched_estimand,
-            applicability=typed_applicability(),
+            target=typed_target(estimand=matched_estimand, applicability=typed_applicability()),
         ),
         stored.assessment_node(
             "a-2",
@@ -182,8 +181,7 @@ def _seed(
             proposition=proposition_ref,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=matched_estimand,
-            applicability=typed_applicability(),
+            target=typed_target(estimand=matched_estimand, applicability=typed_applicability()),
         ),
         # The unrelated one: its own proposition, run, dataset and verification.
         stored.assessment_node(
@@ -194,8 +192,7 @@ def _seed(
             proposition=OTHER_PROPOSITION_REF,
             outcome="refuted",
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         ),
     ]
     if assesses_target is not None:
@@ -483,14 +480,11 @@ def test_assessment_estimand_naming_another_claim_is_malformed(tmp_path):
     estimand with the claim of its assessment's target itself, and admission
     judges `D` against that claim: the read refuses with `MalformedRecord`,
     never answering with a consulted set reduced to what `D` could reach."""
-    from decimal import Decimal
 
     from domain_facet_fixtures import over_kwargs
-    from fixtures_cut3 import UNCONSULTED
 
     from beliefs.claim import Referent, build_claim
     from beliefs.errors import MalformedRecord
-    from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 
     other_claim = build_claim(
         PROFILE,
@@ -499,20 +493,7 @@ def test_assessment_estimand_naming_another_claim_is_malformed(tmp_path):
         layer="causal",
         polarity="positive",
     )
-    foreign, _receipt = build_estimand(
-        PROFILE,
-        other_claim,
-        contrast=LevelsContrast(
-            role="cause",
-            member=None,
-            baseline=Referent("testing/level", "EX:ndmm"),
-            comparison=Referent("testing/level", "EX:pd"),
-        ),
-        measure=Measure(quantity=Referent("testing/measure", "EX:tpm"), scale="additive"),
-        reference=Decimal(0),
-        control=Control(identification=Referent("testing/identification", "EX:observational"), conditioning=()),
-        snapshot=UNCONSULTED,
-    )
+    foreign = typed_estimand(profile=PROFILE, claim=other_claim)
     held_claim = claim_identity(EXPECTED_CLAIM)
     assert project_claim(EXPECTED_CLAIM) == CLAIM_FACET
     assert foreign.claim == claim_identity(other_claim) != held_claim
@@ -529,7 +510,7 @@ def test_assessment_estimand_naming_another_claim_is_malformed(tmp_path):
 
     with pytest.raises(MalformedRecord, match="not admitted for the claim of the proposition it targets") as caught:
         gather(fixture.view, fixture.proposition, **over_kwargs(fixture.gather_kwargs))
-    assert "not this claim" in str(caught.value)
+    assert "different claim" in str(caught.value)
 
 
 def test_a_divergent_assesses_edge_is_selected_before_decode(divergent_fixture):

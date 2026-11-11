@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
 
 import pytest
 from authority import ACTOR, FULL
+from fixtures_cut3 import typed_applicability, typed_target
 from nodes.core.node import Node
 from nodes.core.relations import Relation
 from nodes.core.write_plan import DefaultExecutor
@@ -19,7 +19,6 @@ from beliefs.composite import CompositeError, CompositeNode, build_composite
 from beliefs.contract.domain import ReleaseBinding
 from beliefs.corpus import CorpusWriter, superseded_by
 from beliefs.errors import FamilyKindUnsupported, ImportRefused, SignatureRefused, SupersedeIdentityUnchanged
-from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import build_snapshot
 
@@ -38,23 +37,9 @@ IMPORT: dict[str, Any] = {
 
 
 def _estimand(claim):
-    """A typed estimand for a biology-fixture `affects` claim, under the profile that stores and restores it —
-    the fixture's `estimands:` row for `instantiation:affects-gene-gene` names `biology/level`, `biology/measure`, `biology/identification`."""
-    estimand, _ = build_estimand(
-        WITH_BIOLOGY,
-        claim,
-        snapshot=SNAPSHOT,
-        contrast=LevelsContrast(
-            role="cause",
-            member=None,
-            baseline=Referent("biology/level", "EX:lo"),
-            comparison=Referent("biology/level", "EX:hi"),
-        ),
-        measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
-        reference=Decimal(0),
-        control=Control(identification=Referent("biology/identification", "EX:observational"), conditioning=()),
-    )
-    return estimand
+    from domain_facet_fixtures import estimand_for
+
+    return estimand_for(project_claim(claim))
 
 
 def _writer(root):
@@ -266,8 +251,7 @@ class TestSupersession:
             proposition=target,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=_estimand(_claim("EX:a", "EX:b")),
-            applicability={},
+            target=typed_target(estimand=_estimand(_claim("EX:a", "EX:b")), applicability=typed_applicability()),
         )
 
     def test_an_assessment_targeting_a_composite_is_refused_by_kind_at_add_and_at_import(self, writer, tmp_path):

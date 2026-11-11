@@ -3,18 +3,31 @@
 import dataclasses
 import inspect
 from decimal import Decimal
+from fractions import Fraction
 
 import pytest
-from fixtures_cut3 import DATA_ADDRESS, typed_applicability, typed_estimand
+from fixtures_cut3 import (
+    DATA_ADDRESS,
+    ESTIMATOR_PROCEDURE,
+    MEASUREMENT_RECORDS,
+    YIELDING_PROCEDURE,
+    freeze_context,
+    typed_applicability,
+    typed_estimand,
+)
 from fixtures_cut3 import seed_plan as plan
 from fixtures_cut3 import spec_draft as draft
 from fixtures_cut3 import spec_rules as held_rules
 
+from beliefs import stored
+from beliefs.applicability import ScopedRestriction, applicability_projection
 from beliefs.contract.base import ESTIMAND_GRAMMAR
 from beliefs.errors import MalformedRecord, MalformedSpec, RuleUnbound, UnfreezableSpec
-from beliefs.estimand import applicability_projection, estimand_projection
+from beliefs.estimand import ValueReference, estimand_projection
 from beliefs.identity import v1
 from beliefs.recipe import job_key
+from beliefs.register import AssumptionsRegister
+from beliefs.restriction import IntervalRestriction
 from beliefs.spec import (
     SPEC_DOMAIN,
     Deterministic,
@@ -77,6 +90,7 @@ def test_stochastic_unseeded_with_a_rationale_is_freezable():
             equivalence_rule="tolerance-1e-6/v1",
         ),
         held_rules={**held_rules(), "tolerance-1e-6/v1": held_rules()["content-identity-equality/v1"]},
+        **freeze_context(),
     )
     assert isinstance(spec, FrozenSpec)
 
@@ -85,7 +99,9 @@ def test_unseeded_beside_a_bitwise_rule_is_caught_at_freeze():
     # Negative (a)'s freeze-time half. The import half is the import boundary's
     # and is deferred.
     with pytest.raises(UnfreezableSpec):
-        freeze(draft(nondeterminism=StochasticUnseeded(rationale="honest")), held_rules=held_rules())
+        freeze(
+            draft(nondeterminism=StochasticUnseeded(rationale="honest")), held_rules=held_rules(), **freeze_context()
+        )
 
 
 def test_the_spec_names_logical_streams_only_no_family_field_exists():
@@ -105,7 +121,7 @@ def test_two_stream_two_root_seeds_cannot_be_keyed_by_job_alone():
 
 def test_spec_input_roles_are_a_tuple_of_spec_inputs():
     with pytest.raises(MalformedSpec):
-        draft(input_roles=[SpecInput(role="observes", dataset="dataset:x")])  # type: ignore[arg-type]
+        draft(input_roles=[SpecInput(role="observes", dataset="dataset:x", mode="observation")])  # type: ignore[arg-type]
 
 
 # --- rule binding over supplied implementations ------------------------------
@@ -136,18 +152,22 @@ def test_a_fixture_failing_implementation_is_not_that_rule():
 
 def test_an_assessment_spec_with_no_target_is_refused():
     with pytest.raises(MalformedSpec):
-        freeze(draft(target=""), held_rules=held_rules())
+        freeze(draft(target=""), held_rules=held_rules(), **freeze_context())
 
 
 def test_the_identity_is_over_the_normative_facet():
-    a = freeze(draft(), held_rules=held_rules())
-    b = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
+    a = freeze(draft(), held_rules=held_rules(), **freeze_context())
+    b = freeze(
+        draft(estimand=typed_estimand(reference=ValueReference(Decimal(1)))),
+        held_rules=held_rules(),
+        **freeze_context(),
+    )
     assert a.identity != b.identity
-    assert freeze(draft(), held_rules=held_rules()).identity == a.identity  # recomputable
+    assert freeze(draft(), held_rules=held_rules(), **freeze_context()).identity == a.identity  # recomputable
 
 
 def test_the_identity_matches_the_hand_authored_complete_normative_projection():
-    spec = freeze(draft(), held_rules=held_rules())
+    spec = freeze(draft(), held_rules=held_rules(), **freeze_context())
     assert spec.identity == v1.digest(
         SPEC_DOMAIN,
         {
@@ -157,7 +177,7 @@ def test_the_identity_matches_the_hand_authored_complete_normative_projection():
             "method": "fit the model",
             "assumptions": "iid draws",
             "falsification": "a null effect",
-            "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS}],
+            "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS, "mode": "observation"}],
             "applicability": applicability_projection(typed_applicability()),
             "interpretation_rule": "median-difference/v1",
             "equivalence_rule": "content-identity-equality/v1",
@@ -172,9 +192,17 @@ def test_the_identity_matches_the_hand_authored_complete_normative_projection():
                 },
             },
             "registers": [],
+            "standing": "empirical",
+            "dependencies": sorted(
+                [
+                    {"id": YIELDING_PROCEDURE, "terms": ["testing/abundance", "testing/assay", "testing/entity"]},
+                    {"id": ESTIMATOR_PROCEDURE, "terms": ["testing/estimator"]},
+                ],
+                key=lambda row: row["id"],
+            ),
             "rule_bindings": [
-                ["content-identity-equality/v1", "impl-eq-1"],
-                ["median-difference/v1", "impl-interp-1"],
+                {"rule": "content-identity-equality/v1", "implementation": "impl-eq-1"},
+                {"rule": "median-difference/v1", "implementation": "impl-interp-1", "procedure": ESTIMATOR_PROCEDURE},
             ],
         },
     )
@@ -182,13 +210,13 @@ def test_the_identity_matches_the_hand_authored_complete_normative_projection():
 
 def test_a_frozen_spec_keeps_nested_parameters_immutable_after_freeze():
     parameters = {"nested": {"values": ["before"]}}
-    spec = freeze(draft(parameters=parameters), held_rules=held_rules())
+    spec = freeze(draft(parameters=parameters), held_rules=held_rules(), **freeze_context())
     parameters["nested"]["values"].append("after")
     assert spec.parameters == {"nested": {"values": ("before",)}}
 
 
 def test_frozen_specs_are_minted_only_by_freeze_and_revise():
-    original = freeze(draft(), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
     members = {field.name: getattr(original, field.name) for field in dataclasses.fields(FrozenSpec)}
 
     with pytest.raises(TypeError, match="minted by freeze, revise or restore"):
@@ -198,16 +226,17 @@ def test_frozen_specs_are_minted_only_by_freeze_and_revise():
 
     successor = revise(
         original,
-        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        edits={"estimand": typed_estimand(reference=ValueReference(Decimal(1)))},
         held_rules=held_rules(),
         recorded_failures=frozenset(),
+        **freeze_context(),
     )
     assert type(original) is FrozenSpec and type(successor) is FrozenSpec
     assert successor.supersedes == original.identity
 
 
 def test_supersedes_is_in_the_hand_authored_normative_projection():
-    spec = freeze(draft(), held_rules=held_rules(), supersedes="spec:prior")
+    spec = freeze(draft(), held_rules=held_rules(), supersedes="spec:prior", **freeze_context())
     assert spec.identity == v1.digest(
         SPEC_DOMAIN,
         {
@@ -217,7 +246,7 @@ def test_supersedes_is_in_the_hand_authored_normative_projection():
             "method": "fit the model",
             "assumptions": "iid draws",
             "falsification": "a null effect",
-            "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS}],
+            "input_roles": [{"role": "observes", "dataset": DATA_ADDRESS, "mode": "observation"}],
             "applicability": applicability_projection(typed_applicability()),
             "interpretation_rule": "median-difference/v1",
             "equivalence_rule": "content-identity-equality/v1",
@@ -232,9 +261,17 @@ def test_supersedes_is_in_the_hand_authored_normative_projection():
                 },
             },
             "registers": [],
+            "standing": "empirical",
+            "dependencies": sorted(
+                [
+                    {"id": YIELDING_PROCEDURE, "terms": ["testing/abundance", "testing/assay", "testing/entity"]},
+                    {"id": ESTIMATOR_PROCEDURE, "terms": ["testing/estimator"]},
+                ],
+                key=lambda row: row["id"],
+            ),
             "rule_bindings": [
-                ["content-identity-equality/v1", "impl-eq-1"],
-                ["median-difference/v1", "impl-interp-1"],
+                {"rule": "content-identity-equality/v1", "implementation": "impl-eq-1"},
+                {"rule": "median-difference/v1", "implementation": "impl-interp-1", "procedure": ESTIMATOR_PROCEDURE},
             ],
             "supersedes": "spec:prior",
         },
@@ -246,27 +283,35 @@ def test_the_exclusion_certification_is_spellable_only_on_a_reads_declaration():
     # frozen spec's reads declaration, frozen into identity with everything else.
     with pytest.raises(MalformedSpec):
         SpecInput(
-            role="observes", dataset="dataset:x", exclusion=ExclusionCertification(rationale="r", attribution="a")
+            role="observes",
+            dataset="dataset:x",
+            exclusion=ExclusionCertification(rationale="r", attribution="a"),
+            mode="observation",
         )
     reads = SpecInput(
-        role="reads", dataset="dataset:y", exclusion=ExclusionCertification(rationale="palette", attribution="tester")
+        role="reads",
+        dataset="dataset:y",
+        exclusion=ExclusionCertification(rationale="palette", attribution="tester"),
+        mode="annotation",
     )
-    certified = freeze(draft(input_roles=draft().input_roles + (reads,)), held_rules=held_rules())
+    certified = freeze(draft(input_roles=draft().input_roles + (reads,)), held_rules=held_rules(), **freeze_context())
     plain = freeze(
-        draft(input_roles=draft().input_roles + (SpecInput(role="reads", dataset="dataset:y"),)),
+        draft(input_roles=draft().input_roles + (SpecInput(role="reads", dataset="dataset:y", mode="annotation"),)),
         held_rules=held_rules(),
+        **freeze_context(),
     )
     assert certified.identity != plain.identity
 
 
 def test_editing_the_equivalence_rule_mints_a_successor_that_references():
-    original = freeze(draft(), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
     rules = {**held_rules(), "tolerance-1e-6/v1": held_rules()["content-identity-equality/v1"]}
     successor = revise(
         original,
         edits={"equivalence_rule": "tolerance-1e-6/v1"},
         held_rules=rules,
         recorded_failures=frozenset({original.identity}),
+        **freeze_context(),
     )
     assert successor.identity != original.identity
     assert successor.supersedes == original.identity
@@ -275,32 +320,36 @@ def test_editing_the_equivalence_rule_mints_a_successor_that_references():
 def test_changing_a_root_seed_mints_a_successor_spec():
     # The seed is normative spec content; changing a root is a semantic
     # revision, never a runtime choice.
-    original = freeze(draft(), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
     successor = revise(
         original,
         edits={"nondeterminism": Seeded(plan=plan(roots={"root-a": 12}))},
         held_rules=held_rules(),
         recorded_failures=frozenset(),
+        **freeze_context(),
     )
     assert successor.identity != original.identity and successor.supersedes == original.identity
 
 
 def test_an_unreferenced_successor_to_a_recorded_failed_replay_is_refused():
-    original = freeze(draft(), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
     unreferenced = freeze(
-        draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules()
+        draft(estimand=typed_estimand(reference=ValueReference(Decimal(1)))),
+        held_rules=held_rules(),
+        **freeze_context(),
     )  # supersedes=None
     verdict = admit_successor(unreferenced, original, frozenset({original.identity}), frozenset())
     assert isinstance(verdict, SuccessorRefused)
 
 
 def test_a_referencing_successor_is_admitted():
-    original = freeze(draft(), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
     successor = revise(
         original,
-        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        edits={"estimand": typed_estimand(reference=ValueReference(Decimal(1)))},
         held_rules=held_rules(),
         recorded_failures=frozenset({original.identity}),
+        **freeze_context(),
     )
     assert isinstance(
         admit_successor(successor, original, frozenset({original.identity}), frozenset()), SuccessorAdmitted
@@ -311,22 +360,34 @@ def test_a_discarded_failed_attempt_is_undetectable():
     # The negative: activeness and reference are over the slice's VALUE state —
     # a failure absent from the supplied set never happened, and nothing can
     # tell (the value-state bound, pinned rather than papered over).
-    original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
+    unreferenced = freeze(
+        draft(estimand=typed_estimand(reference=ValueReference(Decimal(1)))),
+        held_rules=held_rules(),
+        **freeze_context(),
+    )
     assert isinstance(admit_successor(unreferenced, original, frozenset(), frozenset()), SuccessorAdmitted)
 
 
 def test_an_unreferenced_successor_to_an_unfinished_recorded_attempt_is_refused():
-    original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
+    unreferenced = freeze(
+        draft(estimand=typed_estimand(reference=ValueReference(Decimal(1)))),
+        held_rules=held_rules(),
+        **freeze_context(),
+    )
     verdict = admit_successor(unreferenced, original, frozenset(), frozenset({original.identity}))
     assert isinstance(verdict, SuccessorRefused)
     assert verdict.reason == "an unreferenced successor to an unfinished recorded attempt"
 
 
 def test_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
-    original = freeze(draft(), held_rules=held_rules())
-    unreferenced = freeze(draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
+    unreferenced = freeze(
+        draft(estimand=typed_estimand(reference=ValueReference(Decimal(1)))),
+        held_rules=held_rules(),
+        **freeze_context(),
+    )
     both = frozenset({original.identity})
     verdict = admit_successor(unreferenced, original, both, both)
     assert isinstance(verdict, SuccessorRefused)
@@ -334,12 +395,13 @@ def test_a_spec_in_both_classes_refuses_with_the_recorded_failure_reason():
 
 
 def test_a_referencing_successor_lifts_both_classes():
-    original = freeze(draft(), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
     successor = revise(
         original,
-        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        edits={"estimand": typed_estimand(reference=ValueReference(Decimal(1)))},
         held_rules=held_rules(),
         recorded_failures=frozenset(),
+        **freeze_context(),
     )
     both = frozenset({original.identity})
     assert isinstance(admit_successor(successor, original, both, both), SuccessorAdmitted)
@@ -372,8 +434,27 @@ def test_the_derivation_rule_is_a_pure_function_of_its_three_arguments():
 
 
 def test_revise_is_the_only_edit_path_and_freeze_takes_drafts_only():
-    assert list(inspect.signature(freeze).parameters) == ["draft", "held_rules", "supersedes"]
-    assert list(inspect.signature(revise).parameters) == ["original", "edits", "held_rules", "recorded_failures"]
+    assert list(inspect.signature(freeze).parameters) == [
+        "draft",
+        "held_rules",
+        "rule_procedures",
+        "profile",
+        "claim",
+        "records",
+        "assessment_dependency",
+        "supersedes",
+    ]
+    assert list(inspect.signature(revise).parameters) == [
+        "original",
+        "edits",
+        "held_rules",
+        "recorded_failures",
+        "rule_procedures",
+        "profile",
+        "claim",
+        "records",
+        "assessment_dependency",
+    ]
 
 
 # --- restore from canonical projection text, no coercion -----
@@ -385,16 +466,17 @@ from beliefs.spec import frozen_projection, restore
 def _rich_spec():
     draft = spec_draft(
         input_roles=(
-            SpecInput(role="observes", dataset="dataset:" + "1" * 64),
+            SpecInput(role="observes", dataset="dataset:" + "1" * 64, mode="observation"),
             SpecInput(
                 role="reads",
                 dataset="dataset:" + "2" * 64,
                 exclusion=ExclusionCertification(rationale="r", attribution="a"),
+                mode="annotation",
             ),
         ),
         parameters={"alpha": Decimal("0.05"), "iterations": 10, "labels": ["a", "b"], "nested": {"k": Decimal("1.5")}},
     )
-    return freeze(draft, held_rules=spec_rules())
+    return freeze(draft, held_rules=spec_rules(), **freeze_context())
 
 
 def _identified(mapping) -> tuple[str, bytes]:
@@ -477,7 +559,7 @@ def test_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
     with pytest.raises(MalformedRecord):
         restore(spec.identity, v1.encode({"estimand_grammar": ESTIMAND_GRAMMAR}), profile=TESTING_PROFILE)
     mapping = {
-        **frozen_projection(freeze(spec_draft(), held_rules=spec_rules())),
+        **frozen_projection(freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())),
         "nondeterminism": StochasticUnseeded(rationale="urandom").projection(),
     }
     identity, text = _identified(mapping)
@@ -489,11 +571,12 @@ def test_restore_refuses_non_canonical_text_and_the_unfreezable_pair():
 
 
 def test_the_projection_carries_the_grammar_and_typed_members():
+    from beliefs.applicability import applicability_projection
     from beliefs.contract.base import ESTIMAND_GRAMMAR
-    from beliefs.estimand import applicability_projection, estimand_projection
+    from beliefs.estimand import estimand_projection
     from beliefs.spec import frozen_projection
 
-    spec = freeze(draft(), held_rules=held_rules())
+    spec = freeze(draft(), held_rules=held_rules(), **freeze_context())
     projection = frozen_projection(spec)
     assert projection["estimand_grammar"] == ESTIMAND_GRAMMAR
     assert projection["estimand"] == estimand_projection(spec.estimand)
@@ -508,37 +591,33 @@ def test_a_string_estimand_is_refused_at_the_draft():
 @pytest.mark.parametrize(
     "override",
     [
-        {
-            "contrast": __import__("beliefs.estimand", fromlist=["LevelsContrast"]).LevelsContrast(
-                role="cause",
-                member=None,
-                baseline=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:pd"),
-                comparison=__import__("beliefs.claim", fromlist=["Referent"]).Referent("testing/level", "EX:ndmm"),
-            )
-        },
-        {"reference": Decimal("0.5")},
+        {"reference": ValueReference(Decimal("0.5"))},
+        {"functional": "testing/hodges-lehmann-shift"},
     ],
 )
 def test_each_estimand_member_moves_the_spec_identity(override):
     from fixtures_cut3 import typed_estimand
 
     assert (
-        freeze(draft(), held_rules=held_rules()).identity
-        != freeze(draft(estimand=typed_estimand(**override)), held_rules=held_rules()).identity
+        freeze(draft(), held_rules=held_rules(), **freeze_context()).identity
+        != freeze(draft(estimand=typed_estimand(**override)), held_rules=held_rules(), **freeze_context()).identity
     )
 
 
 def test_applicability_moves_the_spec_identity():
     from fixtures_cut3 import typed_applicability
 
-    from beliefs.claim import Qualifier, Referent
-
     six_months = typed_applicability(
-        {"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:six-months"))}
+        {
+            "testing/follow-up": ScopedRestriction(
+                "generic",
+                IntervalRestriction("testing/calendar-month", Fraction(6), None, True, False, "testing/mean-month"),
+            )
+        }
     )
     assert (
-        freeze(draft(), held_rules=held_rules()).identity
-        != freeze(draft(applicability=six_months), held_rules=held_rules()).identity
+        freeze(draft(), held_rules=held_rules(), **freeze_context()).identity
+        != freeze(draft(applicability=six_months), held_rules=held_rules(), **freeze_context()).identity
     )
 
 
@@ -547,9 +626,9 @@ def test_restore_round_trips_the_typed_members():
 
     from beliefs.spec import frozen_projection, restore
 
-    spec = freeze(draft(), held_rules=held_rules())
+    spec = freeze(draft(), held_rules=held_rules(), **freeze_context())
     restored = restore(spec.identity, v1.encode(frozen_projection(spec)), profile=TESTING_PROFILE)
-    assert restored.estimand == spec.estimand and dict(restored.applicability) == dict(spec.applicability)
+    assert restored.estimand == spec.estimand and restored.applicability == spec.applicability
     assert restored.identity == spec.identity
 
 
@@ -559,7 +638,7 @@ def test_a_pre_grammar_projection_is_refused_by_name():
     from beliefs.errors import PreGrammarSpec, UnfreezableSpec
     from beliefs.spec import frozen_projection, restore
 
-    spec = freeze(draft(), held_rules=held_rules())
+    spec = freeze(draft(), held_rules=held_rules(), **freeze_context())
     projection = frozen_projection(spec)
     del projection["estimand_grammar"]
     projection["estimand"] = "the effect of x on y"
@@ -575,9 +654,9 @@ def test_another_grammar_identity_is_malformed_not_pre_grammar():
 
     from beliefs.spec import frozen_projection, restore
 
-    spec = freeze(draft(), held_rules=held_rules())
+    spec = freeze(draft(), held_rules=held_rules(), **freeze_context())
     projection = frozen_projection(spec)
-    projection["estimand_grammar"] = "science.estimand.v2"
+    projection["estimand_grammar"] = "science.estimand.v1"
     with pytest.raises(MalformedRecord, match="estimand_grammar"):
         restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
 
@@ -588,9 +667,9 @@ def test_a_malformed_typed_member_restores_as_a_record_error():
     from beliefs.errors import RecordError
     from beliefs.spec import frozen_projection, restore
 
-    spec = freeze(draft(), held_rules=held_rules())
+    spec = freeze(draft(), held_rules=held_rules(), **freeze_context())
     projection = frozen_projection(spec)
-    projection["estimand"]["measure"]["quantity"] = {"sort": "", "term": "EX:tpm"}  # type: ignore[index]
+    projection["estimand"]["bindings"]["response"]["measure"]["observable"]["quantity_kind"] = ""  # type: ignore[index]
     with pytest.raises(RecordError, match="do not restore"):
         restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
 
@@ -598,25 +677,33 @@ def test_a_malformed_typed_member_restores_as_a_record_error():
 def test_revise_copies_the_typed_members():
     from fixtures_cut3 import typed_estimand
 
-    original = freeze(draft(), held_rules=held_rules())
+    original = freeze(draft(), held_rules=held_rules(), **freeze_context())
     successor = revise(
         original,
-        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        edits={"estimand": typed_estimand(reference=ValueReference(Decimal(1)))},
         held_rules=held_rules(),
         recorded_failures=frozenset(),
+        **freeze_context(),
     )
-    assert successor.supersedes == original.identity and successor.estimand.reference == Decimal(1)
-    assert dict(successor.applicability) == dict(original.applicability)
+    assert successor.supersedes == original.identity and successor.estimand.reference == ValueReference(Decimal(1))
+    assert successor.applicability == original.applicability
 
 
 # --- registers and the v2 identity domain -----------------------------------
 
-REGISTER = "assumptions-register:" + "ab" * 32
+
+def held_register(seed):
+    node = stored.assumptions_register_node(AssumptionsRegister("testing:" + seed * 64, None, {}))
+    MEASUREMENT_RECORDS.nodes[node.id] = node
+    return node.id
+
+
+REGISTER, OTHER_REGISTER = sorted((held_register("a"), held_register("b")))
 
 
 def test_spec_domain_v2():
     assert SPEC_DOMAIN == "science.spec.v2"
-    spec = freeze(draft(), held_rules=held_rules())
+    spec = freeze(draft(), held_rules=held_rules(), **freeze_context())
     assert spec.identity == v1.digest("science.spec.v2", frozen_projection(spec))
     assert spec.identity != v1.digest("science.spec.v1", frozen_projection(spec))
 
@@ -627,12 +714,12 @@ def test_registers_required_and_frozen():
         SpecDraft(**fields)  # type: ignore[call-arg]  # required, may be empty
     with pytest.raises(MalformedSpec, match="registers"):
         draft(registers=[REGISTER])
-    empty = freeze(draft(), held_rules=held_rules())
-    cited = freeze(draft(registers=(REGISTER,)), held_rules=held_rules())
+    empty = freeze(draft(), held_rules=held_rules(), **freeze_context())
+    cited = freeze(draft(registers=(REGISTER,)), held_rules=held_rules(), **freeze_context())
     assert empty.registers == () and cited.registers == (REGISTER,)
     assert frozen_projection(cited)["registers"] == [REGISTER]
     assert cited.identity != empty.identity
-    successor = revise(cited, edits={}, held_rules=held_rules(), recorded_failures=frozenset())
+    successor = revise(cited, edits={}, held_rules=held_rules(), recorded_failures=frozenset(), **freeze_context())
     assert successor.registers == (REGISTER,)
 
 
@@ -649,14 +736,14 @@ def test_registers_required_and_frozen():
 )
 def test_malformed_register_id_refuses_at_freeze(entry):
     with pytest.raises(MalformedSpec, match="assumptions-register"):
-        freeze(draft(registers=(REGISTER, entry)), held_rules=held_rules())
+        freeze(draft(registers=(REGISTER, entry)), held_rules=held_rules(), **freeze_context())
 
 
 def test_registers_are_canonical_in_the_projection():
     """T7-m1: the cited registers are a set; two authoring orders are one spec."""
-    other = "assumptions-register:" + "cd" * 32
-    one = freeze(draft(registers=(other, REGISTER)), held_rules=held_rules())
-    two = freeze(draft(registers=(REGISTER, other)), held_rules=held_rules())
+    other = OTHER_REGISTER
+    one = freeze(draft(registers=(other, REGISTER)), held_rules=held_rules(), **freeze_context())
+    two = freeze(draft(registers=(REGISTER, other)), held_rules=held_rules(), **freeze_context())
     assert one.identity == two.identity and one == two
     assert one.registers == (REGISTER, other)
     assert frozen_projection(one)["registers"] == [REGISTER, other]
@@ -664,12 +751,12 @@ def test_registers_are_canonical_in_the_projection():
 
 def test_a_duplicate_register_refuses():
     with pytest.raises(MalformedSpec, match="more than once"):
-        freeze(draft(registers=(REGISTER, REGISTER)), held_rules=held_rules())
+        freeze(draft(registers=(REGISTER, REGISTER)), held_rules=held_rules(), **freeze_context())
 
 
 def test_restore_refuses_registers_out_of_canonical_form():
-    other = "assumptions-register:" + "cd" * 32
-    spec = freeze(draft(registers=(REGISTER, other)), held_rules=held_rules())
+    other = OTHER_REGISTER
+    spec = freeze(draft(registers=(REGISTER, other)), held_rules=held_rules(), **freeze_context())
     for bad, reason in (([other, REGISTER], "own projection"), ([REGISTER, REGISTER], "more than once")):
         mapping = frozen_projection(spec)
         mapping["registers"] = bad
@@ -678,7 +765,7 @@ def test_restore_refuses_registers_out_of_canonical_form():
 
 
 def test_restore_reads_registers():
-    spec = freeze(draft(registers=(REGISTER,)), held_rules=held_rules())
+    spec = freeze(draft(registers=(REGISTER,)), held_rules=held_rules(), **freeze_context())
     text = v1.encode(frozen_projection(spec))
     restored = restore(spec.identity, text, profile=TESTING_PROFILE)
     assert restored.registers == (REGISTER,) and restored == spec

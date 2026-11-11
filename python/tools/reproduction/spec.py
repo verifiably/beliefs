@@ -12,15 +12,18 @@ from __future__ import annotations
 
 import shutil
 import sys
+from dataclasses import dataclass
 from decimal import Decimal
 from functools import cache
 from pathlib import Path
+from typing import cast
 
 import yaml
 from nodes.core.node import Node
 
 from beliefs import rules, stored
 from beliefs.adapter import WorkflowDefinition
+from beliefs.dependencies import HeldRecords
 from beliefs.replay import CONTENT_EQUALITY
 from beliefs.spec import Deterministic, FrozenSpec, SpecDraft, SpecInput, freeze
 from reproduction import findings, paths, state, world
@@ -75,32 +78,56 @@ RELOCATED_CLAUSE = (
 )
 
 
-def draft() -> SpecDraft:
-    from beliefs.claim import Referent
-    from beliefs.estimand import Control, LevelsContrast, Measure, build_applicability, build_estimand
+@dataclass(frozen=True)
+class _HeldRecords:
+    """The author's captured record reader; this empirical contrast has no eligibility lookups."""
+
+    view: object
+
+    def holds(self, id: str) -> bool:
+        return self.view.holds(id)
+
+    def read(self, id: str) -> Node:
+        return self.view.get(id)
+
+
+def _context():
     from reproduction import type_target, vocabulary
 
     st = state.load()
     target = yaml.safe_load(paths.TARGET.read_text())
     profile, plan = vocabulary.profile(), vocabulary.plan()
     claim = type_target.typed(target, profile, plan)
-    snapshot = vocabulary.snapshot()
+    # profile() continues to refuse until beliefs-709bd9 supplies the biology v2 genesis.
+    # That recreation authors a complete v2 estimand and holds both procedures;
+    # this lane never guesses a measure, functional or identification vocabulary.
+    records = cast(HeldRecords, _HeldRecords(world.open_writer().read_view))
+    return st, target, profile, claim, vocabulary.snapshot(), records
+
+
+def _draft(context) -> SpecDraft:
+    from beliefs.applicability import build_applicability
+    from beliefs.estimand import build_estimand, estimand_from_stored
+
+    st, target, profile, claim, snapshot, records = context
+    authored = estimand_from_stored(target["estimand"], profile=profile)
+    applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
     estimand, _ = build_estimand(
         profile,
         claim,
+        form=authored.form,
+        functional=authored.functional,
+        bindings=authored.bindings,
+        outputs=authored.outputs,
+        reference=authored.reference,
+        control=authored.control,
+        uncertainty=authored.uncertainty,
+        assumptions=authored.assumptions,
+        calibration=authored.calibration,
+        applicability=applicability,
         snapshot=snapshot,
-        contrast=LevelsContrast(
-            slot=0,
-            baseline=Referent("mm30/stage-level", "level:ndmm"),
-            comparison=Referent("mm30/stage-level", f"level:{target['positive_level'].lower()}"),
-        ),
-        measure=Measure(quantity=Referent("mm30/measure", "measure:rna-seq-tpm"), scale="additive"),
-        reference=Decimal(0),
-        control=Control(
-            identification=Referent("mm30/identification", "identification:observational"), conditioning=()
-        ),
+        records=records,
     )
-    applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
     return SpecDraft(
         target=st["proposition_ref"],
         estimand=estimand,
@@ -110,18 +137,34 @@ def draft() -> SpecDraft:
         ),
         assumptions="independent samples; the stage is a two-level factor carried by each sample id",
         falsification="no difference at alpha 0.05, or a difference opposite the proposition's polarity",
-        input_roles=(SpecInput(role="observes", dataset=st["dataset_address"]),),
+        input_roles=(SpecInput(role="observes", dataset=st["dataset_address"], mode="observation"),),
         applicability=applicability,
         interpretation_rule=INTERPRETATION_RULE,
         equivalence_rule=EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},
         nondeterminism=Deterministic(),
+        registers=(),
+        standing="empirical",
+        model=None,
     )
+
+
+def draft() -> SpecDraft:
+    return _draft(_context())
 
 
 @cache
 def frozen() -> FrozenSpec:
-    return freeze(draft(), held_rules=held_rules())
+    context = _context()
+    _, target, profile, claim, _, records = context
+    return freeze(
+        _draft(context),
+        held_rules=held_rules(),
+        rule_procedures={INTERPRETATION_RULE: target["estimator_procedure"]},
+        profile=profile,
+        claim=claim,
+        records=records,
+    )
 
 
 def spec_record(spec: FrozenSpec) -> Node:

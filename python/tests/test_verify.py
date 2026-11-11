@@ -13,6 +13,7 @@ from fixtures_cut3 import (
     SNAKEFILE_NONDETERMINISTIC,
     closure_with,
     definition,
+    freeze_context,
     interp,
     planned,
     report,
@@ -120,7 +121,7 @@ def production_pair(tmp_path_factory):
 
 def verification_of(pair, **overrides) -> AssessmentVerification:
     original, replayed = pair
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     kwargs = {
         "specs": {spec.identity: spec},
         "held_rules": {
@@ -184,10 +185,10 @@ def test_the_assessment_edge_is_derived_never_authored(pair):
     # authored argument exists for it.
     verification = verification_of(pair)
     assert isinstance(verification, AssessmentVerification)
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     original, _ = pair
     derived = v1.digest(
-        "science.assessment.v1",
+        "science.assessment.v2",
         {
             "spec": spec.identity,
             "run": original.run.address(),
@@ -399,8 +400,9 @@ def test_a_nondeterministic_transform_yields_all_four(tmp_path):
     # belief that must not move is a belief about THIS evidence:
     produced = Path(first.run.occurrence.receipt.execution.scratch_mapping) / "outputs" / "result.txt"
     observing_spec = freeze(
-        spec_draft(input_roles=(SpecInput(role="observes", dataset=first_dataset.address),)),
+        spec_draft(input_roles=(SpecInput(role="observes", dataset=first_dataset.address, mode="observation"),)),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     observing = run_assessment(
         tmp_path / "obs",
@@ -454,7 +456,7 @@ def test_the_dataset_production_verification_carries_no_verifies_assessment_edge
 def test_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
     # A deterministic-declared spec over a byte-nondeterministic definition is
     # the honest way to obtain a failing replay on the minimal surface.
-    spec = freeze(spec_draft(nondeterminism=Deterministic()), held_rules=spec_rules())
+    spec = freeze(spec_draft(nondeterminism=Deterministic()), held_rules=spec_rules(), **freeze_context())
     original = run_assessment(
         tmp_path / "a",
         snakefile=SNAKEFILE_NONDETERMINISTIC,
@@ -481,6 +483,7 @@ def test_the_rule_cannot_be_chosen_after_the_outputs_are_seen(tmp_path):
         edits={"equivalence_rule": "tolerance-1e-6/v1"},
         held_rules=rules,
         recorded_failures=frozenset({spec.identity}),
+        **freeze_context(),
     )
     assert successor.identity != spec.identity
     assert original.run.recipe.spec_identity == spec.identity

@@ -31,7 +31,6 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import replace
-from decimal import Decimal
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -40,7 +39,7 @@ import pytest
 import yaml
 from authority import FULL
 from domain_facet_fixtures import over_kwargs
-from fixtures_cut3 import carry_registers
+from fixtures_cut3 import carry_registers, typed_applicability, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.relations import Relation
 from profiles import FIXTURE, WITH_BIOLOGY, biology, pins_for
@@ -66,7 +65,7 @@ from beliefs.errors import (
     SuccessionViolation,
     SupersedeIdentityUnchanged,
 )
-from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
+from beliefs.estimand import build_estimand
 from beliefs.evaluation import evaluate_over
 from beliefs.identity import v1
 from beliefs.profile import compile_profile, shipped_base_contract
@@ -149,23 +148,27 @@ def _widened_profile():
 
 
 def _estimand_with(claim, identification: str):
-    """`test_composite_boundary._estimand`, with the identification term named:
-    the admitted-set test needs two assessments whose terms differ."""
-    estimand, _ = build_estimand(
+    from domain_facet_fixtures import estimand_for
+    from fixtures_cut3 import MEASUREMENT_RECORDS, typed_applicability
+
+    e = estimand_for(project_claim(claim))
+    value, _ = build_estimand(
         WITH_BIOLOGY,
         claim,
+        form=e.form,
+        functional=e.functional,
+        bindings=e.bindings,
+        outputs=e.outputs,
+        reference=e.reference,
+        control=replace(e.control, identification=identification),
+        uncertainty=e.uncertainty,
+        assumptions=e.assumptions,
+        calibration=None,
+        applicability=typed_applicability(),
         snapshot=UNCONSULTED,
-        contrast=LevelsContrast(
-            role="cause",
-            member=None,
-            baseline=Referent("biology/level", "EX:lo"),
-            comparison=Referent("biology/level", "EX:hi"),
-        ),
-        measure=Measure(quantity=Referent("biology/measure", "EX:expr"), scale="additive"),
-        reference=Decimal(0),
-        control=Control(identification=Referent("biology/identification", identification), conditioning=()),
+        records=MEASUREMENT_RECORDS,
     )
-    return estimand
+    return value
 
 
 def _seed_assessment(writer, proposition_ref: str, *, slug: str, letter: str, outcome: str, estimand) -> str:
@@ -186,8 +189,7 @@ def _seed_assessment(writer, proposition_ref: str, *, slug: str, letter: str, ou
             proposition=proposition_ref,
             outcome=outcome,
             interpretation_rule="rule-1",
-            estimand=estimand,
-            applicability={},
+            target=typed_target(estimand=estimand, applicability=typed_applicability()),
         )
     )
     value = stored.assessment_value(writer.read_view.get(assessment.id), profile=writer.profile)
@@ -220,8 +222,7 @@ def _typed_assessment(writer, slug: str, target: str):
         proposition=target,
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=_estimand(_claim("EX:a", "EX:b")),
-        applicability={},
+        target=typed_target(estimand=_estimand(_claim("EX:a", "EX:b")), applicability=typed_applicability()),
     )
 
 
@@ -885,16 +886,17 @@ sys.stdout.buffer.write(v1.encode(reading.projection()))
 
 
 def _read_in_a_fresh_process(root: Path, ref: str, address: str) -> bytes:
-    environment = {**os.environ, "PYTHONPATH": os.pathsep.join([str(TESTS), os.environ.get("PYTHONPATH", "")])}
-    completed = subprocess.run(
-        [sys.executable, "-c", _READING_SCRIPT.format(tests=str(TESTS)), str(root), ref, address],
-        cwd=REPO_ROOT / "python",
-        check=False,
-        capture_output=True,
-        env=environment,
-    )
-    assert completed.returncode == 0, completed.stderr.decode("utf-8", "replace")
-    return completed.stdout
+    with tempfile.TemporaryDirectory() as home:
+        environment = {"PATH": os.defpath, "HOME": home, "PYTHONPATH": str(TESTS)}
+        completed = subprocess.run(
+            [sys.executable, "-c", _READING_SCRIPT.format(tests=str(TESTS)), str(root), ref, address],
+            cwd=REPO_ROOT / "python",
+            check=False,
+            capture_output=True,
+            env=environment,
+        )
+        assert completed.returncode == 0, completed.stderr.decode("utf-8", "replace")
+        return completed.stdout
 
 
 def test_reading_equals_the_wrapper(corpora):
@@ -922,7 +924,7 @@ def test_reading_equals_the_wrapper(corpora):
     for ref, row in by_ref.items():
         assert row.belief == evaluate_over(writer.read_view, ref, **over_kwargs(_inputs(writer, address))), ref
     assert isinstance(by_ref["proposition:ab"].belief, Belief)
-    assert by_ref["proposition:ab"].identification == ("EX:observational",)
+    assert by_ref["proposition:ab"].identification == ("biology/randomized",)
     assert by_ref["proposition:bc"].belief == NoBelief("no-eligible-assessment")
     assert by_ref["proposition:bc"].identification == ()
     assert {row.role.sign for row in reading.rows} == {"positive", "negative"}
@@ -970,14 +972,14 @@ def test_reading_equals_the_wrapper(corpora):
         slug="a-other",
         letter="b",
         outcome="supported",
-        estimand=_estimand_with(_claim("EX:a", "EX:b"), "EX:experimental"),
+        estimand=_estimand_with(_claim("EX:a", "EX:b"), "biology/experimental"),
     )
     only_a = read_composite(writer.read_view, minted.id, **_inputs(writer, address))
     only_a_row = next(r for r in only_a.rows if r.ref == "proposition:ab")
     assert only_a_row.belief == evaluate_over(
         writer.read_view, "proposition:ab", **over_kwargs(_inputs(writer, address))
     )
-    assert only_a_row.identification == ("EX:observational",)  # the `b`-held assessment is keyed, not admitted
+    assert only_a_row.identification == ("biology/randomized",)  # the `b`-held assessment is keyed, not admitted
 
     # --- two admitted `inconclusive` assessments keep their terms -----------
     inconclusive = _seeded(corpora())
@@ -995,12 +997,12 @@ def test_reading_equals_the_wrapper(corpora):
         slug="i-2",
         letter="a",
         outcome="inconclusive",
-        estimand=_estimand_with(_claim("EX:b", "EX:c", polarity="negative"), "EX:experimental"),
+        estimand=_estimand_with(_claim("EX:b", "EX:c", polarity="negative"), "biology/experimental"),
     )
     two_way = inconclusive.add(stored.composite_node(_build(inconclusive, ["proposition:bc"]), title="i"))
     row = read_composite(inconclusive.read_view, two_way.id, **_inputs(inconclusive, address_i)).rows[0]
     assert row.belief == NoBelief("no-directional-outcome")
-    assert row.identification == ("EX:experimental", "EX:observational")
+    assert row.identification == ("biology/experimental", "biology/randomized")
 
     # --- one admission per member, and no `admit` of the reading's own ------
     _assert_one_admission(writer, minted.id, address)

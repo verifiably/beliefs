@@ -26,7 +26,7 @@ from durable_fixture import (
     pinned,
     slug,
 )
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import path_for, raw_write, reopen
 from nodes.core.errors import ExecutionError
 from profiles import BASE
@@ -142,8 +142,7 @@ class TestBothBoundariesDurably:
                     proposition="proposition:p2",
                     outcome="supported",
                     interpretation_rule=RULE,
-                    estimand=typed_estimand(),
-                    applicability=typed_applicability(),
+                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
                 )
             )
         assert not path_for(durable_root, "assessment:a2").exists()
@@ -161,8 +160,7 @@ class TestBothBoundariesDurably:
                 proposition="proposition:p2",
                 outcome="supported",
                 interpretation_rule=RULE,
-                estimand=typed_estimand(),
-                applicability=typed_applicability(),
+                target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
             ),
         )
         findings = corpus_check(reopen(durable_root), BASE)

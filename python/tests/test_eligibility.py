@@ -6,7 +6,6 @@ import pytest
 import test_stored
 from fixtures_cut3 import TESTING_PROFILE
 from fixtures_cut4 import reopen
-from nodes.core.node import Node
 from test_dependencies import Records
 from test_procedure import AID, DIGEST, OBS, PID, node_for, procedure
 from test_proxy_model import proxy
@@ -130,8 +129,22 @@ def calibration_records(*assessment_ids):
     id = records.put(
         proxy(source=ProxySource(OBS, source), basis=Calibration(OBS, assessment_ids, ("opaque/rule",), None))
     )
+    from fixtures_cut3 import MEASUREMENT_RECORDS, typed_target
+
+    target = typed_target()
+    for entry in target.dependencies:
+        records.nodes[entry.id] = MEASUREMENT_RECORDS.nodes[entry.id]
     for assessment in assessment_ids:
-        records.nodes[assessment] = Node(id=assessment, kind="assessment", title="Assessment")
+        records.nodes[assessment] = stored.assessment_node(
+            assessment.partition(":")[2],
+            title="Calibration",
+            spec="s",
+            run="run:r",
+            proposition="p",
+            outcome="supported",
+            interpretation_rule="rule",
+            target=target,
+        )
     return records, id
 
 
@@ -141,7 +154,14 @@ def test_calibration_without_supplied_assessment_eligibility_fails_closed():
     assert dependency_eligibility([AID], records, TESTING_PROFILE) == {
         AID: Ineligible("basis-ineligible: assessment eligibility not supplied")
     }
-    result = closure_eligibility([id], records, TESTING_PROFILE)
+    result = closure_eligibility(
+        [id],
+        records,
+        TESTING_PROFILE,
+        assessment_dependency=lambda aid: stored.frozen_assessment_dependency(
+            aid, records=records, profile=TESTING_PROFILE
+        ),
+    )
     assert result.verdicts == {id: Ineligible(f"dependency-ineligible: {AID}")}
     assert result.reads == tuple(sorted((*records.nodes,)))
 
@@ -157,7 +177,15 @@ def test_calibration_follows_supplied_assessment_eligibility(accepted):
 
     expected = Eligible() if accepted else Ineligible(f"basis-ineligible: {other}", ("verification:missing",))
     assert dependency_eligibility([id], records, TESTING_PROFILE, assessments=assessments) == {id: expected}
-    result = closure_eligibility([id], records, TESTING_PROFILE, assessments=assessments)
+    result = closure_eligibility(
+        [id],
+        records,
+        TESTING_PROFILE,
+        assessments=assessments,
+        assessment_dependency=lambda aid: stored.frozen_assessment_dependency(
+            aid, records=records, profile=TESTING_PROFILE
+        ),
+    )
     assert result.verdicts == {id: Eligible() if accepted else Ineligible(f"dependency-ineligible: {other}")}
     assert result.reads == tuple(sorted(records.nodes))
 

@@ -8,13 +8,12 @@ from nodes.core.node import Node
 
 from beliefs import _measurement_record as record
 from beliefs.assumptions import AssumptionInstance, instance_from_projection, instance_projection
-from beliefs.claim import Qualifier
 from beliefs.contract.base import SUPPORTED_CONVERSION_KINDS
 from beliefs.errors import CalibrationNotQualified, CrosswalkSignRefused, MalformedRecord, ScienceError
 from beliefs.measurement import Observable, observable_projection
 from beliefs.procedure import Procedure, Scale
 from beliefs.profile import ProfileSpec
-from beliefs.restriction import Restriction, RestrictionMap, TermRestriction, co_scope, decimal_projection
+from beliefs.restriction import Restriction, co_scope, decimal_projection
 
 __all__ = [
     "PROXY_DOMAIN",
@@ -32,7 +31,6 @@ __all__ = [
     "proxy_identity",
     "proxy_projection",
     "qualify_calibration",
-    "restrictions_from_interim_applicability",
 ]
 
 PROXY_DOMAIN = "science.proxy-model.v1"
@@ -277,19 +275,6 @@ def check_crosswalk(proxy: ProxyModel, source: Procedure, authority: Procedure) 
         raise CrosswalkSignRefused("crosswalk-sign: conversion sign disagrees with scale orientations")
 
 
-def restrictions_from_interim_applicability(
-    profile: ProfileSpec, applicability: Mapping[str, Qualifier]
-) -> RestrictionMap:
-    """Represent v1 term qualifiers only where the dimension declares a term form."""
-    result: dict[str, Restriction] = {}
-    for key, qualifier in applicability.items():
-        dimension = profile.dimensions.get(key)
-        if dimension is None or dimension.restriction is None or dimension.restriction.form != "term":
-            raise CalibrationNotQualified(f"calibration-scope-undecidable: {key!r} has no v1 term representation")
-        result[key] = TermRestriction(dimension.restriction_sort, qualifier.restriction.term)
-    return result
-
-
 def qualify_calibration(proxy: ProxyModel, read: Callable[[str], Node], profile: ProfileSpec) -> None:
     """Qualify supported held interim assessments against the proxy's whole scope."""
     from beliefs.stored import analysis_spec_value, assessment_value, typed_ref
@@ -308,7 +293,7 @@ def qualify_calibration(proxy: ProxyModel, read: Callable[[str], Node], profile:
             if assessment.outcome != "supported":
                 raise CalibrationNotQualified(f"calibration-not-supported: {address!r} is {assessment.outcome}")
             spec = analysis_spec_value(read(typed_ref("analysis-spec", assessment.spec)), profile=profile)
-            applicability = restrictions_from_interim_applicability(profile, spec.applicability)
+            applicability = spec.applicability.restrictions()
             if co_scope(applicability, proxy.validity, profile) not in {"equal", "broader"}:
                 raise CalibrationNotQualified(f"calibration-scope-overstated: assessment {address!r}")
         except ScienceError as exc:

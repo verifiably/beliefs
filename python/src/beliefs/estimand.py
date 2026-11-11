@@ -1,644 +1,935 @@
-"""The typed estimand.
-
-`Estimand` is opaque. `Estimand._checked` types its **shape** against the
-profile: the operator resolves, the contrast names one of the operator's
-template's roles (and, for a `many` role, the member it contrasts), and every
-referent has a declared sort. It establishes no admission. Admission is the
-claim-aware step `admit_estimand` (R12): the estimand is admitted when some
-estimand declaration of the claim's admitting set admits every field of it, and
-the step returns those declarations' contracts. `build_estimand` is the
-authoring route, through both; the stored readers (`decode_estimand`,
-`estimand_from_stored`) restore shape only, and every consumer that needs
-admission holds the claim and calls `admit_estimand`. `Estimand` carries no
-declaration contracts. Every referent is resolved under its five outcomes; only
-`not-member` refuses. Nothing here is read by `science.belief.v1`.
-"""
-
-# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
+"""The closed estimand grammar, authored against a claim and held records."""
 
 from __future__ import annotations
 
-import itertools
-from collections.abc import Mapping
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, fields
 from decimal import Decimal
 from types import MappingProxyType
-from typing import cast, final
+from typing import TypeAlias, cast, final
 
-from beliefs.claim import Claim, Qualifier, Referent, check_referent, member_key
-from beliefs.contract.base import SUPPORTED_CONTRAST_KINDS, SUPPORTED_SCALES, SUPPORTED_UNCERTAINTY_KINDS
+from beliefs import _measurement_record as wire
+from beliefs.applicability import Applicability
+from beliefs.applicability import checked as check_applicability
+from beliefs.aptness import check_aptness
+from beliefs.assumptions import AssumptionInstance, check_instance, instance_from_projection, instance_projection
+from beliefs.claim import Claim, Referent, check_referent, member_key
+from beliefs.classification_rule import ClassificationRule
+from beliefs.contract.base import SUPPORTED_ESTIMAND_FORMS, SUPPORTED_UNCERTAINTY_KINDS
+from beliefs.dependencies import (
+    DependencyEntry,
+    FrozenAssessmentDependency,
+    HeldRecords,
+    dependencies_from_projection,
+    dependencies_projection,
+    dependency_closure,
+    read_record,
+)
 from beliefs.errors import (
     ContrastRefused,
     ControlRefused,
-    DimensionNotApplicabilitySide,
     EstimandError,
-    EstimandFragmentRefused,
     EstimandNotAdmitted,
-    EstimandSortMismatch,
-    MeasureRefused,
+    IdentificationNotLicensed,
+    MalformedRecord,
     ReferenceRefused,
-    RestrictionSortMismatch,
     UnboundReferent,
     UncertaintyRefused,
-    UndeclaredDimension,
-    UnknownQuantifier,
     UntypedEstimandMember,
-    UntypedQualifier,
 )
-from beliefs.profile import CompiledEstimandDecl, ProfileSpec
+from beliefs.identity import v1
+from beliefs.measurement import Measure, check_measure, measure_from_projection, measure_projection
+from beliefs.profile import ProfileSpec
 from beliefs.projection import claim_identity
-from beliefs.resolution import BindingCheckReceipt, ReferentPosition, ResolutionSnapshot, TermOutcome, _emit_receipt
+from beliefs.proxy_model import Calibration, ProxyModel
+from beliefs.resolution import BindingCheckReceipt, ResolutionSnapshot, TermOutcome, _emit_receipt
+from beliefs.restriction import IntervalRestriction, restriction_from_projection, restriction_projection
 from beliefs.sealed import sealed
 
-__all__ = [
-    "ESTIMAND_ERRORS",
-    "SUPPORTED_CONTRAST_KINDS",
-    "SUPPORTED_SCALES",
-    "SUPPORTED_UNCERTAINTY_KINDS",
-    "ContinuousContrast",
-    "Control",
-    "Estimand",
-    "Interval",
-    "LevelsContrast",
-    "Measure",
-    "StandardError",
-    "admit_estimand",
-    "applicability_projection",
-    "build_applicability",
-    "build_estimand",
-    "check_estimate",
-    "check_uncertainty",
-    "co_scoped",
-    "commensurable",
-    "commensuration_key",
-    "estimand_projection",
-    "uncertainty_from_mapping",
-    "uncertainty_projection",
-]
 
-ESTIMAND_ERRORS = (EstimandError, UnboundReferent)
-
-_MANY = "many"
-_APPLICABILITY_SIDE = "applicability"
-
-
-def _finite(value: object, where: str, error: type[EstimandError]) -> Decimal:
-    if type(value) is not Decimal:
-        raise error(
-            f"{where}: expected a Decimal, found {type(value).__name__} — binary floats are refused at the boundary"
-        )
-    if not value.is_finite():
-        raise error(f"{where}: {value} is not finite")
-    return value
-
-
-def _require_role(role: object, member: object) -> None:
-    """A role name, never an index; a member that is a `Referent` or absent. The
-    decoder refuses other shapes on the wire, and the shared constructor refuses
-    them for every route."""
-    if not isinstance(role, str) or not role:
-        raise ContrastRefused(f"contrast.role is a role name, found {role!r}")
-    if member is not None and not isinstance(member, Referent):
-        raise UntypedEstimandMember(f"contrast.member holds {type(member).__name__}, not a Referent")
-
-
-@sealed
-@final
 @dataclass(frozen=True)
-class LevelsContrast:
-    """Two levels contrasted on one role of the claim. For a `many` role,
-    `member` names the member of the role the contrast is on; for a `one` role it
-    is `None`."""
-
+class RoleBinding:
     role: str
     member: Referent | None
-    baseline: Referent
-    comparison: Referent
-
-    def __post_init__(self) -> None:
-        _require_role(self.role, self.member)
-        for name in ("baseline", "comparison"):
-            if not isinstance(getattr(self, name), Referent):
-                raise UntypedEstimandMember(
-                    f"contrast.{name} holds {type(getattr(self, name)).__name__}, not a Referent"
-                )
 
 
-@sealed
-@final
 @dataclass(frozen=True)
-class ContinuousContrast:
-    """A continuous increment on one role of the claim; `member` as for `LevelsContrast`."""
-
+class MeasuredBinding:
     role: str
     member: Referent | None
-    quantity: Referent
+    measure: Measure
+    mapping: str | None
+    proxy: str | None
+
+
+@dataclass(frozen=True)
+class RoleTermLevels:
+    role: str
+    member: Referent | None
+    levels: tuple[Referent, ...]
+
+
+@dataclass(frozen=True)
+class RuleClassLevels:
+    rule: str
+    classes: tuple[Referent, ...]
+
+
+@dataclass(frozen=True)
+class RoleLevels:
+    roles: tuple[MeasuredBinding, MeasuredBinding]
+
+
+@dataclass(frozen=True)
+class AxisLevels:
+    levels: tuple[IntervalRestriction, ...]
+
+
+@dataclass(frozen=True)
+class IncrementBinding:
+    role: str
+    member: Referent | None
+    measure: Measure
     increment: Decimal
-
-    def __post_init__(self) -> None:
-        _require_role(self.role, self.member)
-        if not isinstance(self.quantity, Referent):
-            raise UntypedEstimandMember(f"contrast.quantity holds {type(self.quantity).__name__}, not a Referent")
-        if _finite(self.increment, "contrast.increment", ContrastRefused) <= 0:
-            raise ContrastRefused(f"contrast.increment must be > 0, found {self.increment}")
+    unit: str
 
 
-@sealed
-@final
 @dataclass(frozen=True)
-class Measure:
-    quantity: Referent
-    scale: str
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.quantity, Referent):
-            raise UntypedEstimandMember(f"measure.quantity holds {type(self.quantity).__name__}, not a Referent")
+class RuleAnchor:
+    rule: str
+    classes: tuple[Referent, ...]
 
 
-@sealed
-@final
 @dataclass(frozen=True)
-class Control:
-    identification: Referent
-    conditioning: tuple[Referent, ...]
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.identification, Referent):
-            raise UntypedEstimandMember("control.identification is not a Referent")
-        if not all(isinstance(member, Referent) for member in self.conditioning):
-            raise UntypedEstimandMember("control.conditioning holds a non-Referent")
-        keyed = sorted(self.conditioning, key=lambda r: (r.sort, r.term))
-        for earlier, later in itertools.pairwise(keyed):
-            if earlier == later:
-                raise ControlRefused(f"control.conditioning: duplicate member {later.term!r}")
-        object.__setattr__(self, "conditioning", tuple(keyed))
+class RoleAnchor:
+    role: str
+    member: Referent | None
+    category: Referent
 
 
-@sealed
-@final
 @dataclass(frozen=True)
-class Interval:
+class LagBinding:
+    unit: str
+    windows: tuple[IntervalRestriction, ...]
+
+
+@dataclass(frozen=True)
+class DatasetBinding:
+    digest: str
+
+
+Binding: TypeAlias = (
+    RoleBinding
+    | MeasuredBinding
+    | RoleTermLevels
+    | RuleClassLevels
+    | RoleLevels
+    | AxisLevels
+    | IncrementBinding
+    | RuleAnchor
+    | RoleAnchor
+    | LagBinding
+    | DatasetBinding
+    | tuple[tuple[str, MeasuredBinding], ...]
+)
+
+
+@dataclass(frozen=True)
+class OutputSpec:
+    typing: str
+    domain: str
+    quantity_kind: str | None = None
+    unit: str | None = None
+    scale: str | None = None
+
+
+@dataclass(frozen=True)
+class ValueReference:
+    value: Decimal
+
+
+@dataclass(frozen=True)
+class NullReference:
     low: Decimal
     high: Decimal
-    level: Decimal
 
 
-@sealed
-@final
+Reference: TypeAlias = ValueReference | NullReference
+
+
 @dataclass(frozen=True)
-class StandardError:
-    value: Decimal
+class Control:
+    identification: str
+    conditioning: tuple[Referent, ...]
+    design: str
+    selection: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.conditioning, tuple) or not all(isinstance(r, Referent) for r in self.conditioning):
+            raise ControlRefused("conditioning is a tuple of referents")
+        keys = tuple(member_key(r) for r in self.conditioning)
+        if len(set(keys)) != len(keys):
+            raise ControlRefused("conditioning referents must be distinct")
+        object.__setattr__(self, "conditioning", tuple(sorted(self.conditioning, key=member_key)))
+
+
+_VARIABLES = {
+    "contrast": {"response", "grouping"},
+    "quantity": {"response"},
+    "law-parameters": {"response", "independent"},
+    "event-locked": {"response", "anchor", "lag"},
+    "association": {"variables"},
+    "enrichment": {"membership", "reference_set", "universe"},
+}
 
 
 @sealed
 @final
 @dataclass(frozen=True, init=False)
 class Estimand:
-    """Opaque: the authoring route is `build_estimand`, and a stored one is
-    restored by `decode_estimand` or `estimand_from_stored`. A value in hand is
-    shape-checked; whether it is admitted for a claim is `admit_estimand`'s."""
-
     claim: str
     operator: str
-    contrast: LevelsContrast | ContinuousContrast
-    measure: Measure
-    reference: Decimal
+    form: str
+    functional: str
+    bindings: Mapping[str, Binding]
+    outputs: Mapping[str, OutputSpec]
+    reference: Reference | Mapping[str, Reference]
     control: Control
+    uncertainty: str
+    assumptions: tuple[AssumptionInstance, ...]
+    calibration: str | None
+    dependencies: tuple[DependencyEntry, ...]
 
     def __init__(self, *args: object, **kwargs: object) -> None:
-        raise EstimandError("Estimand is validated at construction — use build_estimand(profile, claim, ...)")
+        raise UntypedEstimandMember("Estimand values are built by build_estimand or restored by estimand_from_stored")
 
-    @classmethod
-    def _checked(
-        cls,
-        profile: ProfileSpec,
-        *,
-        claim: str,
-        operator: str,
-        contrast: LevelsContrast | ContinuousContrast,
-        measure: Measure,
-        reference: Decimal,
-        control: Control,
-    ) -> Estimand:
-        """Type the estimand's shape, or refuse: the operator resolves, the
-        contrast's `role` is a role of the operator's template and `member` is
-        present exactly when that role is `many`, and every referent's sort is a
-        declared sort. No estimand declaration is read: that is admission, which
-        needs the claim (`admit_estimand`)."""
-        template = profile.template_of(profile.operator(operator))
-        grammar = profile.estimand_grammar
-        if not isinstance(contrast, (LevelsContrast, ContinuousContrast)):
-            raise UntypedEstimandMember(f"contrast holds {type(contrast).__name__}")
-        role = template.roles.get(contrast.role)
-        if role is None:
-            raise ContrastRefused(
-                f"contrast: role {contrast.role!r} is not a role of {operator!r}; its roles are {sorted(template.roles)}"
-            )
-        if role.arity == _MANY and contrast.member is None:
-            raise ContrastRefused(
-                f"contrast: role {contrast.role!r} of {operator!r} is a `many` role, so the contrast names the "
-                "member it is on"
-            )
-        if role.arity != _MANY and contrast.member is not None:
-            raise ContrastRefused(
-                f"contrast: role {contrast.role!r} of {operator!r} is a `one` role and takes no member"
-            )
-        if contrast.member is not None:
-            _require_declared(profile, contrast.member, "contrast.member")
-        if isinstance(contrast, LevelsContrast):
-            for name in ("baseline", "comparison"):
-                _require_declared(profile, getattr(contrast, name), f"contrast.{name}")
-            if contrast.baseline.sort != contrast.comparison.sort:
-                raise EstimandSortMismatch(
-                    f"contrast: the baseline is of sort {contrast.baseline.sort!r} and the comparison of "
-                    f"{contrast.comparison.sort!r}; two levels of one contrast share a sort"
-                )
-            if member_key(contrast.baseline) == member_key(contrast.comparison):
-                raise ContrastRefused("contrast: baseline and comparison must be distinct levels")
-        else:
-            _require_declared(profile, contrast.quantity, "contrast.quantity")
-        if not isinstance(measure, Measure):
-            raise UntypedEstimandMember(f"measure holds {type(measure).__name__}")
-        _require_declared(profile, measure.quantity, "measure.quantity")
-        if measure.scale not in grammar.scales:
-            raise MeasureRefused(
-                f"measure.scale {measure.scale!r} is outside the kernel's closed set {list(grammar.scales)}"
-            )
-        reference = _finite(reference, "reference", ReferenceRefused)
-        if measure.scale not in SUPPORTED_SCALES:
-            raise MeasureRefused(f"scale {measure.scale!r} is not operable")
-        if measure.scale == "multiplicative" and reference <= 0:
-            raise ReferenceRefused(f"reference must be > 0 under a multiplicative scale, found {reference}")
-        if not isinstance(control, Control):
-            raise UntypedEstimandMember(f"control holds {type(control).__name__}")
-        _require_declared(profile, control.identification, "control.identification")
-        for index, member in enumerate(control.conditioning):
-            _require_declared(profile, member, f"control.conditioning[{index}]")
-        estimand = object.__new__(cls)
-        for name, value in (
-            ("claim", claim),
-            ("operator", operator),
-            ("contrast", contrast),
-            ("measure", measure),
-            ("reference", reference),
-            ("control", control),
+
+def _mint(**values: object) -> Estimand:
+    result = object.__new__(Estimand)
+    for field in fields(Estimand):
+        object.__setattr__(result, field.name, values[field.name])
+    object.__setattr__(result, "bindings", MappingProxyType(dict(result.bindings)))
+    object.__setattr__(result, "outputs", MappingProxyType(dict(sorted(result.outputs.items()))))
+    if isinstance(result.reference, Mapping):
+        object.__setattr__(result, "reference", MappingProxyType(dict(sorted(result.reference.items()))))
+    return result
+
+
+def finite(value: object, where: str) -> Decimal:
+    if type(value) is not Decimal or not value.is_finite():
+        raise ReferenceRefused(f"{where} must be a finite Decimal")
+    return value
+
+
+def in_domain(value: object, domain: str) -> Decimal:
+    number = finite(value, "value")
+    if domain not in {"real", "positive", "nonnegative", "unit-interval", "signed-unit-interval"}:
+        raise ReferenceRefused(f"unsupported numeric domain {domain!r}")
+    if (
+        (domain == "positive" and number <= 0)
+        or (domain == "nonnegative" and number < 0)
+        or (domain == "unit-interval" and not 0 <= number <= 1)
+        or (domain == "signed-unit-interval" and not -1 <= number <= 1)
+    ):
+        raise ReferenceRefused(f"value {number} is outside {domain}")
+    return number
+
+
+def _role(
+    profile: ProfileSpec,
+    operator: str,
+    binding: RoleBinding | MeasuredBinding | RoleTermLevels | IncrementBinding | RoleAnchor,
+    claim: Claim | None,
+) -> Referent | None:
+    role = profile.template_of(profile.operator(operator)).roles.get(binding.role)
+    if role is None:
+        raise ContrastRefused(f"unknown role {binding.role!r}")
+    if role.arity == "many":
+        if not isinstance(binding.member, Referent):
+            raise ContrastRefused("a many-role binding names its member")
+        if claim is not None:
+            members = claim.roles[binding.role]
+            assert isinstance(members, tuple)
+            if member_key(binding.member) not in {member_key(m.referent) for m in members}:
+                raise ContrastRefused("the bound member is not in the claim role")
+        return binding.member
+    if binding.member is not None:
+        raise ContrastRefused("a one-role binding carries no member")
+    if claim is None:
+        return None
+    value = claim.roles[binding.role]
+    assert isinstance(value, Referent)
+    return value
+
+
+def measured_bindings(value: Estimand) -> tuple[MeasuredBinding | IncrementBinding, ...]:
+    result: list[MeasuredBinding | IncrementBinding] = []
+    for binding in value.bindings.values():
+        if isinstance(binding, (MeasuredBinding, IncrementBinding)):
+            result.append(binding)
+        elif isinstance(binding, RoleLevels):
+            result.extend(binding.roles)
+        elif isinstance(binding, tuple):
+            result.extend(row[1] for row in binding)
+    return tuple(result)
+
+
+def binding_roots(value: Estimand) -> tuple[str, ...]:
+    roots: set[str] = set()
+    for binding in measured_bindings(value):
+        roots.add(binding.measure.procedure)
+        if binding.measure.scale is not None:
+            roots.add(binding.measure.scale)
+        if isinstance(binding, MeasuredBinding):
+            roots.update(r for r in (binding.mapping, binding.proxy) if r is not None)
+    for binding in value.bindings.values():
+        if isinstance(binding, (RuleClassLevels, RuleAnchor)):
+            roots.add(binding.rule)
+    roots.update(output.scale for output in value.outputs.values() if output.scale is not None)
+    if value.calibration is not None:
+        roots.add(value.calibration)
+    return tuple(sorted(roots))
+
+
+def _referents(value: Estimand) -> dict[str, Referent]:
+    result: dict[str, Referent] = {}
+    for name, binding in value.bindings.items():
+        if (
+            isinstance(binding, (RoleBinding, MeasuredBinding, RoleTermLevels, IncrementBinding, RoleAnchor))
+            and binding.member is not None
         ):
-            object.__setattr__(estimand, name, value)
-        return estimand
-
-
-def _require_declared(profile: ProfileSpec, referent: Referent, where: str) -> None:
-    if referent.sort not in profile.sorts:
-        raise EstimandSortMismatch(
-            f"{where}: {referent.term!r} is of sort {referent.sort!r}, which this profile does not declare — a "
-            "term with no position to occupy"
+            result[f"{name}.member"] = binding.member
+        if isinstance(binding, (RoleTermLevels, RuleClassLevels, RuleAnchor)):
+            refs = binding.levels if isinstance(binding, RoleTermLevels) else binding.classes
+            result.update({f"{name}.levels[{i}]": ref for i, ref in enumerate(refs)})
+        if isinstance(binding, RoleAnchor):
+            result[f"{name}.category"] = binding.category
+        nested = (
+            binding.roles
+            if isinstance(binding, RoleLevels)
+            else tuple(b for _, b in binding)
+            if isinstance(binding, tuple)
+            else ()
         )
+        for i, item in enumerate(nested):
+            if item.member is not None:
+                result[f"{name}[{i}].member"] = item.member
+    for i, binding in enumerate(measured_bindings(value)):
+        aspect = binding.measure.observable.aspect
+        if aspect is not None:
+            result[f"measure[{i}].aspect"] = Referent(aspect.sort, aspect.term)
+    result.update({f"control.conditioning[{i}]": ref for i, ref in enumerate(value.control.conditioning)})
+    return result
+
+
+def _check_interval(profile: ProfileSpec, value: IntervalRestriction) -> None:
+    if value.convention is None:
+        return
+    unit = profile.units.get(value.unit)
+    convention = profile.duration_conventions.get(value.convention)
+    if unit is None or not unit.calendar or convention is None:
+        raise ContrastRefused("interval convention must be declared and restrict a calendar unit")
+    conversion = profile.conversions[convention.conversion]
+    if value.unit not in (conversion.from_unit, conversion.to_unit):
+        raise ContrastRefused("interval convention conversion must involve the interval unit")
+
+
+def _check_shape(profile: ProfileSpec, value: Estimand, *, claim: Claim | None, authoring: bool) -> Estimand:
+    decl = profile.functionals.get(value.functional)
+    if decl is None or value.form not in SUPPORTED_ESTIMAND_FORMS or decl.declaration.form != value.form:
+        raise EstimandError("form/functional mismatch")
+    functional = decl.declaration
+    if set(value.bindings) != _VARIABLES[value.form]:
+        raise EstimandError("bindings must be exactly the form's variables")
+    bindings = dict(value.bindings)
+    for binding in bindings.values():
+        sequence = (
+            binding.levels
+            if isinstance(binding, (RoleTermLevels, AxisLevels))
+            else binding.classes
+            if isinstance(binding, (RuleClassLevels, RuleAnchor))
+            else binding.roles
+            if isinstance(binding, RoleLevels)
+            else binding.windows
+            if isinstance(binding, LagBinding)
+            else ()
+        )
+        if not isinstance(sequence, tuple):
+            raise EstimandError("binding sequences must be immutable tuples")
+    for key in ("response",):
+        if key in bindings and not isinstance(bindings[key], MeasuredBinding):
+            raise EstimandError(f"{key} is a measured binding")
+    if value.form == "contrast":
+        grouping = bindings["grouping"]
+        if not isinstance(grouping, (RoleTermLevels, RuleClassLevels, RoleLevels, AxisLevels, IncrementBinding)):
+            raise ContrastRefused("unsupported contrast grouping")
+        if isinstance(grouping, IncrementBinding):
+            if functional.increment != "linear" or finite(grouping.increment, "increment") <= 0:
+                raise ContrastRefused("this functional requires a positive admitted increment")
+            unit = profile.units.get(grouping.unit)
+            if unit is None or unit.quantity_kind != grouping.measure.observable.quantity_kind:
+                raise ContrastRefused("increment unit must have the grouping quantity kind")
+            count = 2
+        else:
+            levels = (
+                grouping.roles
+                if isinstance(grouping, RoleLevels)
+                else grouping.classes
+                if isinstance(grouping, RuleClassLevels)
+                else grouping.levels
+            )
+            count = len(levels)
+            if (
+                count < 2
+                or len(
+                    {
+                        v1.encode(_binding_projection(x))
+                        if isinstance(x, MeasuredBinding)
+                        else v1.encode(restriction_projection(x))
+                        if isinstance(x, IntervalRestriction)
+                        else member_key(x)
+                        for x in levels
+                    }
+                )
+                != count
+            ):
+                raise ContrastRefused("levels must contain at least two distinct entries")
+            if isinstance(grouping, RoleLevels) and count != 2:
+                raise ContrastRefused("role-source grouping has exactly two measured roles")
+            if isinstance(grouping, AxisLevels):
+                for interval in grouping.levels:
+                    _check_interval(profile, interval)
+                response = bindings["response"]
+                assert isinstance(response, MeasuredBinding)
+                if any(
+                    profile.units.get(x.unit) is None
+                    or profile.units[x.unit].quantity_kind != response.measure.observable.quantity_kind
+                    for x in grouping.levels
+                ):
+                    raise ContrastRefused("axis levels require response quantity-kind units")
+        if functional.arity == "two" and count != 2:
+            raise ContrastRefused("functional arity two requires exactly two levels")
+    if value.form in {"association", "law-parameters"}:
+        key = "variables" if value.form == "association" else "independent"
+        rows = bindings[key]
+        if (
+            not isinstance(rows, tuple)
+            or not rows
+            or any(
+                not isinstance(row, tuple)
+                or len(row) != 2
+                or not isinstance(row[0], str)
+                or not row[0]
+                or not isinstance(row[1], MeasuredBinding)
+                for row in rows
+            )
+        ):
+            raise EstimandError(f"{key} is a nonempty ordered named tuple of measured bindings")
+        if len({name for name, _ in rows}) != len(rows):
+            raise EstimandError("variable names must be unique")
+        if value.form == "association":
+            if len(rows) < 2 or (functional.arity == "two" and len(rows) != 2):
+                raise EstimandError("association arity mismatch")
+            if functional.exchange == "symmetric":
+                bindings[key] = tuple(sorted(rows, key=lambda row: (v1.encode(_binding_projection(row[1])), row[0])))
+    if value.form == "event-locked":
+        anchor, lag = bindings["anchor"], bindings["lag"]
+        if not isinstance(anchor, (RuleAnchor, RoleAnchor)) or not isinstance(lag, LagBinding):
+            raise EstimandError("event-locked requires an anchor and lag")
+        unit = profile.units.get(lag.unit)
+        if unit is None or not unit.quantity_kind.endswith("/duration"):
+            raise EstimandError("lag must use a duration unit")
+        if lag.windows and (len(lag.windows) < 2 or (functional.arity == "two" and len(lag.windows) != 2)):
+            raise EstimandError("event window arity mismatch")
+        for interval in lag.windows:
+            _check_interval(profile, interval)
+        if any(w.unit != lag.unit for w in lag.windows):
+            raise EstimandError("lag windows must use the binding's lag unit")
+    if value.form == "enrichment":
+        if (
+            not isinstance(bindings["membership"], RoleBinding)
+            or not isinstance(bindings["reference_set"], RoleBinding)
+            or not isinstance(bindings["universe"], DatasetBinding)
+        ):
+            raise EstimandError("enrichment requires membership, reference-set and dataset bindings")
+        membership = profile.template_of(profile.operator(value.operator)).roles.get(bindings["membership"].role)
+        if membership is None or membership.arity != "many" or bindings["membership"].member is not None:
+            raise EstimandError("enrichment membership names a whole many role")
+        wire.address(bindings["universe"].digest, "sha256")
+    normalized = _mint(
+        **{
+            field.name: bindings if field.name == "bindings" else getattr(value, field.name)
+            for field in fields(Estimand)
+        }
+    )
+    for binding in value.bindings.values():
+        if isinstance(binding, (RoleBinding, MeasuredBinding, RoleTermLevels, IncrementBinding, RoleAnchor)):
+            if value.form == "enrichment" and binding is value.bindings["membership"]:
+                continue
+            referent = _role(profile, value.operator, binding, claim)
+            if isinstance(binding, RoleTermLevels) and any(
+                ref.sort != (referent.sort if referent is not None else binding.levels[0].sort)
+                for ref in binding.levels
+            ):
+                raise ContrastRefused("role-term levels use the bound role's sort")
+            if isinstance(binding, RoleAnchor):
+                sort = profile.sorts.get(binding.category.sort)
+                if sort is None or "class" not in sort.categories:
+                    raise ContrastRefused("an anchor role requires a class-category sort")
+                if referent is not None and binding.category.sort != referent.sort:
+                    raise ContrastRefused("anchor category must use the bound role's sort")
+        elif isinstance(binding, RoleLevels):
+            for role in binding.roles:
+                _role(profile, value.operator, role, claim)
+        elif isinstance(binding, tuple):
+            for _, role in binding:
+                _role(profile, value.operator, role, claim)
+        elif isinstance(binding, (RuleClassLevels, RuleAnchor)):
+            wire.address(binding.rule, "classification-rule")
+            if (
+                not binding.classes
+                or len({member_key(r) for r in binding.classes}) != len(binding.classes)
+                or len({r.sort for r in binding.classes}) != 1
+            ):
+                raise ContrastRefused("rule classes are distinct referents of one sort")
+    for label, referent in _referents(value).items():
+        check_referent(profile, referent, label, world_kind=None, authoring=authoring)
+    for binding in measured_bindings(value):
+        check_measure(profile, binding.measure)
+    control = value.control
+    identification = profile.identification_classes.get(control.identification)
+    if (
+        identification is None
+        or control.design not in profile.designs
+        or control.selection not in profile.selection_mechanisms
+    ):
+        raise ControlRefused("control names declared identification, design and selection terms")
+    if claim is not None and claim.layer not in identification.licenses_layers:
+        raise IdentificationNotLicensed(f"{control.identification} does not license layer {claim.layer}")
+    expected = (
+        {name: (p.typing, p.domain) for name, p in functional.parameters.items()}
+        if functional.parameters is not None
+        else {"estimate": (functional.output, functional.domain)}
+    )
+    if set(value.outputs) != set(expected):
+        raise EstimandError("output names must match the functional declaration")
+    for name, output in value.outputs.items():
+        if not isinstance(output, OutputSpec) or (output.typing, output.domain) != expected[name]:
+            raise EstimandError("output typing and domain must match its declaration")
+        if output.typing == "independent":
+            if output.quantity_kind not in profile.quantity_kinds or (output.unit is None) == (output.scale is None):
+                raise EstimandError("independent parameters require a quantity kind and unit xor scale")
+            if output.unit is not None and (
+                output.unit not in profile.units or profile.units[output.unit].quantity_kind != output.quantity_kind
+            ):
+                raise EstimandError("independent output unit has the wrong quantity kind")
+            if output.scale is not None:
+                wire.address(output.scale, "procedure")
+        elif any(x is not None for x in (output.quantity_kind, output.unit, output.scale)):
+            raise EstimandError("only independent parameters carry output coordinates")
+    refs = value.reference if isinstance(value.reference, Mapping) else {"estimate": value.reference}
+    if set(refs) != set(expected) or ((functional.output == "declared") != isinstance(value.reference, Mapping)):
+        raise ReferenceRefused("references must match the functional outputs")
+    for name, reference in refs.items():
+        if isinstance(reference, ValueReference):
+            if claim is not None and claim.form == "null":
+                raise ReferenceRefused("null claims require regions")
+            in_domain(reference.value, value.outputs[name].domain)
+        elif isinstance(reference, NullReference):
+            if claim is not None and claim.form != "null":
+                raise ReferenceRefused("polar claims require value references")
+            low, high = (
+                in_domain(reference.low, value.outputs[name].domain),
+                in_domain(reference.high, value.outputs[name].domain),
+            )
+            null = {"zero": Decimal(0), "one": Decimal(1), "half": Decimal("0.5")}.get(functional.null)
+            if null is None or not low <= null <= high:
+                raise ReferenceRefused("a null region must contain the functional's null value")
+        else:
+            raise ReferenceRefused("reference must be ValueReference or NullReference")
+    if value.uncertainty not in SUPPORTED_UNCERTAINTY_KINDS or (
+        value.uncertainty == "covariance" and len(value.outputs) < 2
+    ):
+        raise UncertaintyRefused("unsupported uncertainty representation for these outputs")
+    for assumption in value.assumptions:
+        check_instance(profile, assumption)
+    return normalized
 
 
 def admit_estimand(profile: ProfileSpec, estimand: Estimand, claim: Claim, *, authoring: bool) -> frozenset[str]:
-    """The interim admission step (R12): admit `estimand` for `claim`, or refuse.
-
-    The estimand must carry the claim's identity and operator (else
-    `EstimandNotAdmitted`), and a `many`-role contrast's `member` must be a
-    member of the claim's role by canonical member key (else `ContrastRefused`).
-    The declarations read are the estimand declarations of the claim's own
-    admitting set — `profile.admitting(operator, claim.assignment(), …)`, never
-    every instantiation of the operator — with retired declarations excluded when
-    `authoring`. The estimand is admitted when at least one of them admits
-    **every** field (the contrast's level sorts, the measure, identification and
-    conditioning sorts); fields are never combined across declarations. Returns
-    the contracts of the declarations that do, which join the consulted set;
-    refuses `EstimandNotAdmitted` when none does. The result reads the admission
-    index, so it cannot depend on contract activation order."""
-    if not isinstance(estimand, Estimand):
-        raise UntypedEstimandMember(f"admission takes an Estimand, found {type(estimand).__name__}")
-    if not isinstance(claim, Claim):
-        raise UntypedEstimandMember(f"an estimand is admitted against a Claim, found {type(claim).__name__}")
-    identity = claim_identity(claim)
-    if estimand.claim != identity:
-        raise EstimandNotAdmitted(f"the estimand answers claim {estimand.claim[:12]}…, not this claim {identity[:12]}…")
-    if estimand.operator != claim.operator:
-        raise EstimandNotAdmitted(
-            f"the estimand's operator {estimand.operator!r} is not the claim's {claim.operator!r}"
-        )
-    contrast = estimand.contrast
-    if contrast.member is not None:
-        filling = claim.roles.get(contrast.role)
-        members = filling if isinstance(filling, tuple) else ()
-        if member_key(contrast.member) not in {member_key(m.referent) for m in members}:
-            raise ContrastRefused(
-                f"contrast: {contrast.member.term!r} of sort {contrast.member.sort!r} is not a member of the claim's "
-                f"role {contrast.role!r}"
-            )
-    admitting = profile.admitting(claim.operator, claim.assignment(), authoring=authoring)
-    declarations = profile.estimand_declarations(claim.operator, admitting)
-    if not declarations:
-        raise EstimandNotAdmitted(
-            f"no declaration admitting this claim over {claim.operator!r} declares an estimand "
-            f"(admitting: {list(admitting)}); an admitting declaration with none admits no estimand"
-        )
-    refusals = {declaration.target: _unadmitted(declaration, estimand) for declaration in declarations}
-    admitted = frozenset(declaration.contract for declaration in declarations if not refusals[declaration.target])
-    if not admitted:
-        detail = "; ".join(f"{target} refuses {', '.join(fields)}" for target, fields in sorted(refusals.items()))
-        raise EstimandNotAdmitted(
-            f"no estimand declaration of the claim's admitting set admits the whole estimand ({detail}); fields "
-            "are never combined across declarations"
-        )
-    return admitted
-
-
-def _unadmitted(declaration: CompiledEstimandDecl, estimand: Estimand) -> tuple[str, ...]:
-    """The positions of the estimand one declaration does not admit; empty when it admits every field."""
-    refused: list[str] = []
-    contrast = estimand.contrast
-    if isinstance(contrast, LevelsContrast):
-        level_sort = declaration.level_sorts.get(contrast.role)
-        refused.extend(
-            f"contrast.{name}"
-            for name in ("baseline", "comparison")
-            if level_sort is None or getattr(contrast, name).sort != level_sort
-        )
-    elif contrast.quantity.sort != declaration.measure_sort:
-        refused.append("contrast.quantity")
-    if estimand.measure.quantity.sort != declaration.measure_sort:
-        refused.append("measure.quantity")
-    if estimand.control.identification.sort != declaration.identification_sort:
-        refused.append("control.identification")
-    refused.extend(
-        f"control.conditioning[{index}]"
-        for index, member in enumerate(estimand.control.conditioning)
-        if member.sort != declaration.conditioning_sort
-    )
-    return tuple(refused)
-
-
-def _referent_positions(estimand: Estimand) -> dict[str, Referent]:
-    positions: dict[str, Referent] = {}
-    if estimand.contrast.member is not None:
-        positions["contrast.member"] = estimand.contrast.member
-    if isinstance(estimand.contrast, LevelsContrast):
-        positions["contrast.baseline"] = estimand.contrast.baseline
-        positions["contrast.comparison"] = estimand.contrast.comparison
-    else:
-        positions["contrast.quantity"] = estimand.contrast.quantity
-    positions["measure.quantity"] = estimand.measure.quantity
-    positions["control.identification"] = estimand.control.identification
-    for index, member in enumerate(estimand.control.conditioning):
-        positions[f"control.conditioning[{index}]"] = member
-    return positions
-
-
-def _resolve_all(
-    profile: ProfileSpec, snapshot: ResolutionSnapshot, positions: Mapping[str, Referent]
-) -> dict[str, TermOutcome]:
-    outcomes = {
-        label: snapshot.resolve(profile.sorts[referent.sort], referent.term) for label, referent in positions.items()
+    if estimand.claim != claim_identity(claim) or estimand.operator != claim.operator:
+        raise EstimandNotAdmitted("estimand names a different claim")
+    _check_shape(profile, estimand, claim=claim, authoring=authoring)
+    assignment = {
+        role: frozenset({value.sort}) if isinstance(value, Referent) else frozenset(m.referent.sort for m in value)
+        for role, value in claim.roles.items()
+        if role != "within-model"
     }
-    refused = sorted(label for label, outcome in outcomes.items() if outcome.refuses)
-    if refused:
-        raise UnboundReferent(
-            f"{', '.join(refused)}: the term is not in the vocabulary its sort binds, and the vocabulary was read. Nothing was minted."
-        )
-    return outcomes
+    admitting = profile.admitting(claim.operator, assignment, authoring=authoring)
+    contracts = {
+        decl.contract
+        for decl in profile.estimand_declarations(claim.operator, admitting)
+        if estimand.form in decl.forms and all(r.sort in decl.conditioning_sorts for r in estimand.control.conditioning)
+    }
+    if not contracts:
+        raise EstimandNotAdmitted("no single admitting estimand declaration admits the complete value")
+    return frozenset(contracts)
 
 
 def build_estimand(
     profile: ProfileSpec,
     claim: Claim,
     *,
-    contrast: LevelsContrast | ContinuousContrast,
-    measure: Measure,
-    reference: Decimal,
+    form: str,
+    functional: str,
+    bindings: Mapping[str, Binding],
+    outputs: Mapping[str, OutputSpec],
+    reference: Reference | Mapping[str, Reference],
     control: Control,
+    uncertainty: str,
+    assumptions: tuple[AssumptionInstance, ...],
+    calibration: str | None,
+    applicability: Applicability,
     snapshot: ResolutionSnapshot,
-    **richer: object,
+    records: HeldRecords,
+    assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
 ) -> tuple[Estimand, BindingCheckReceipt]:
-    """Type an estimand against the claim it answers, admit it, resolve its referents, or refuse.
-
-    The shape check (`Estimand._checked`) comes first, then admission over the
-    claim's authoring admitting set (`admit_estimand(…, authoring=True)`, retired
-    declarations excluded), then resolution. `**richer` exists to be refused: a
-    second measure, a second reference, a multi-arm contrast handed in under any
-    keyword is outside the inhabited fragment, and the refusal names it rather
-    than flattening it."""
-    if richer:
-        raise EstimandFragmentRefused(
-            f"the inhabited fragment admits one contrast on one role, one measure, one reference, one identification and "
-            f"one flat conditioning set; {sorted(richer)} is outside it and is refused, not flattened"
-        )
-    if not isinstance(claim, Claim):
-        raise UntypedEstimandMember(f"an estimand is built against a Claim, found {type(claim).__name__}")
-    if not isinstance(snapshot, ResolutionSnapshot):
-        raise UntypedEstimandMember("snapshot is not a ResolutionSnapshot — availability is a parameter, never ambient")
-    identity = claim_identity(claim)
-    estimand = Estimand._checked(
-        profile,
-        claim=identity,
+    applicability = check_applicability(profile, claim.operator, applicability.values, authoring=True)
+    value = _mint(
+        claim=claim_identity(claim),
         operator=claim.operator,
-        contrast=contrast,
-        measure=measure,
+        form=form,
+        functional=functional,
+        bindings=bindings,
+        outputs=outputs,
         reference=reference,
         control=control,
+        uncertainty=uncertainty,
+        assumptions=assumptions,
+        calibration=calibration,
+        dependencies=(),
     )
-    admit_estimand(profile, estimand, claim, authoring=True)
-    outcomes = _resolve_all(
-        profile,
-        snapshot,
-        {ReferentPosition.estimand(part).label(): r for part, r in _referent_positions(estimand).items()},
-    )
-    return estimand, _emit_receipt(identity, snapshot, outcomes)
-
-
-def _checked_applicability(
-    profile: ProfileSpec, operator: str, qualifiers: Mapping[str, Qualifier]
-) -> Mapping[str, Qualifier]:
-    """Type an applicability map against the applicability-side dimensions whose
-    `applies_to` names `operator`, or refuse. Shared by `build_applicability` and
-    the stored reader, so the two cannot type one map two ways."""
-    term = profile.operator(operator).term
-    grammar = profile.claim_grammar
-    if not isinstance(qualifiers, Mapping):
-        raise UntypedQualifier(
-            f"applicability is a mapping of dimension → Qualifier, found {type(qualifiers).__name__}"
+    value = _check_shape(profile, value, claim=claim, authoring=True)
+    admit_estimand(profile, value, claim, authoring=True)
+    gathered = list(assumptions)
+    for binding in measured_bindings(value):
+        referent = _role(profile, claim.operator, binding, claim)
+        assert referent is not None
+        check_referent(profile, referent, "measured role", world_kind=None, authoring=True)
+        apt = check_aptness(
+            profile,
+            referent.sort,
+            binding.measure,
+            binding.mapping if isinstance(binding, MeasuredBinding) else None,
+            binding.proxy if isinstance(binding, MeasuredBinding) else None,
+            applicability.restrictions(),
+            records,
+            assessment_dependency=assessment_dependency,
         )
-    for dimension, qualifier in qualifiers.items():
-        if not isinstance(qualifier, Qualifier):
-            raise UntypedQualifier(
-                f"the applicability entry on {dimension!r} is {type(qualifier).__name__}, not a Qualifier"
-            )
-        declared = profile.dimensions.get(dimension)
-        if declared is None:
-            raise UndeclaredDimension(f"no dimension {dimension!r} in this profile.")
-        if declared.placement != _APPLICABILITY_SIDE:
-            raise DimensionNotApplicabilitySide(
-                f"{dimension!r} is placed {declared.placement!r}: it says what a claim asserts, never where an "
-                "estimate applies, so it is not an applicability restriction."
-            )
-        if term not in declared.applies_to:
-            raise UndeclaredDimension(f"{dimension!r} does not apply to {operator!r}.")
-        if qualifier.quantifier not in grammar.quantifiers:
-            raise UnknownQuantifier(
-                f"quantifier {qualifier.quantifier!r} on {dimension!r} is outside the kernel's closed set "
-                f"{list(grammar.quantifiers)}."
-            )
-        if qualifier.restriction.sort != declared.restriction_sort:
-            raise RestrictionSortMismatch(
-                f"{dimension!r} restricts to sort {declared.restriction_sort!r}; "
-                f"{qualifier.restriction.term!r} is of sort {qualifier.restriction.sort!r}."
-            )
-        check_referent(
-            profile, qualifier.restriction, f"the restriction on {dimension!r}", world_kind=None, authoring=False
-        )
-    return MappingProxyType(dict(qualifiers))
-
-
-def build_applicability(
-    profile: ProfileSpec, claim: Claim, qualifiers: Mapping[str, Qualifier], *, snapshot: ResolutionSnapshot
-) -> tuple[Mapping[str, Qualifier], BindingCheckReceipt]:
-    """Type each restriction against an applicability-side dimension whose
-    `applies_to` names the claim's operator, then resolve it. The claim is not
-    re-typed: a claim-side dimension here refuses with
-    `DimensionNotApplicabilitySide`, the converse of the claim's
-    `DimensionNotClaimSide`."""
-    if not isinstance(claim, Claim):
-        raise UntypedEstimandMember(f"applicability is built against a Claim, found {type(claim).__name__}")
-    checked = _checked_applicability(profile, claim.operator, qualifiers)
-    outcomes = _resolve_all(
-        profile,
-        snapshot,
-        {ReferentPosition.restriction(d).label(): q.restriction for d, q in checked.items()},
+        gathered.extend(apt.assumptions)
+    for binding in value.bindings.values():
+        if isinstance(binding, (RuleClassLevels, RuleAnchor)):
+            rule = read_record(records, binding.rule)
+            if not isinstance(rule, ClassificationRule) or any(r.sort != rule.classes for r in binding.classes):
+                raise ContrastRefused("held rule classes disagree with the bound classes sort")
+        elif isinstance(binding, DatasetBinding) and not records.observation_held(binding.digest):
+            raise EstimandError("enrichment universe dataset is not held")
+    if calibration is not None:
+        model = read_record(records, calibration)
+        response = value.bindings.get("response")
+        if (
+            not isinstance(model, ProxyModel)
+            or not isinstance(model.basis, Calibration)
+            or not isinstance(response, MeasuredBinding)
+        ):
+            raise EstimandError("calibration must name a calibrated response proxy")
+        response_ref = _role(profile, claim.operator, response, claim)
+        assert response_ref is not None
+        response_target = check_aptness(
+            profile,
+            response_ref.sort,
+            response.measure,
+            response.mapping,
+            response.proxy,
+            applicability.restrictions(),
+            records,
+            assessment_dependency=assessment_dependency,
+        ).target_observable
+        if model.target.observable != response_target:
+            raise EstimandError("calibration proxy target does not match the response target")
+        if not any(
+            a.kind.endswith("/calibration-transfer") and a.particulars.get("proxy") == calibration for a in assumptions
+        ):
+            raise EstimandError("calibration requires its named transfer assumption")
+    unique = {v1.encode(instance_projection(a)): a for a in gathered}
+    deps = dependency_closure(binding_roots(value), records, profile, assessment_dependency=assessment_dependency)
+    value = _mint(
+        **{
+            f.name: deps
+            if f.name == "dependencies"
+            else tuple(unique[k] for k in sorted(unique))
+            if f.name == "assumptions"
+            else getattr(value, f.name)
+            for f in fields(Estimand)
+        }
     )
-    return checked, _emit_receipt(claim_identity(claim), snapshot, outcomes)
+    outcomes: dict[str, TermOutcome] = {}
+    for label, ref in _referents(value).items():
+        outcome = snapshot.resolve(profile.sorts[ref.sort], ref.term)
+        if outcome.refuses:
+            raise UnboundReferent(f"{label}: the referenced term is not a member")
+        outcomes["estimand:" + label] = outcome
+    return value, _emit_receipt(value.claim, snapshot, outcomes)
 
 
-def _referent(referent: Referent) -> dict[str, str]:
-    return {"sort": referent.sort, "term": referent.term}
+def _ref_projection(ref: Referent) -> dict[str, str]:
+    return {"sort": ref.sort, "term": ref.term}
 
 
-def estimand_projection(estimand: Estimand) -> dict[str, object]:
-    """The canonical projection: `claim`, `operator`, the contrast by kind with
-    its `role` and, for a `many` role, its `member` (absent otherwise, never
-    null), `measure`, `reference`, `control` with conditioning sorted. Decimals
-    stay `Decimal`; identity v1 renders them canonically at encode."""
-    contrast: dict[str, object] = {"role": estimand.contrast.role}
-    if estimand.contrast.member is not None:
-        contrast["member"] = _referent(estimand.contrast.member)
-    if isinstance(estimand.contrast, LevelsContrast):
-        contrast |= {
-            "kind": "levels",
-            "baseline": _referent(estimand.contrast.baseline),
-            "comparison": _referent(estimand.contrast.comparison),
+def _role_projection(
+    binding: RoleBinding | MeasuredBinding | RoleTermLevels | IncrementBinding | RoleAnchor,
+) -> dict[str, object]:
+    return {"role": binding.role, **({"member": _ref_projection(binding.member)} if binding.member is not None else {})}
+
+
+def _binding_projection(binding: Binding) -> object:
+    if isinstance(binding, tuple):
+        return [{"name": name, "binding": _binding_projection(value)} for name, value in binding]
+    if isinstance(binding, MeasuredBinding):
+        return {
+            **_role_projection(binding),
+            "measure": measure_projection(binding.measure),
+            **({"mapping": binding.mapping} if binding.mapping is not None else {}),
+            **({"proxy": binding.proxy} if binding.proxy is not None else {}),
         }
-    else:
-        contrast |= {
-            "kind": "continuous",
-            "quantity": _referent(estimand.contrast.quantity),
-            "increment": estimand.contrast.increment,
+    if isinstance(binding, IncrementBinding):
+        return {
+            **_role_projection(binding),
+            "measure": measure_projection(binding.measure),
+            "increment": {"value": binding.increment, "unit": binding.unit},
         }
+    if isinstance(binding, RoleTermLevels):
+        return {
+            **_role_projection(binding),
+            "levels": {"source": "role-terms", "levels": [_ref_projection(x) for x in binding.levels]},
+        }
+    if isinstance(binding, (RuleClassLevels, RuleAnchor)):
+        return {
+            "rule": binding.rule,
+            "classes": [_ref_projection(x) for x in binding.classes],
+            **({"source": "rule-classes"} if isinstance(binding, RuleClassLevels) else {}),
+        }
+    if isinstance(binding, RoleLevels):
+        return {"source": "roles", "roles": [_binding_projection(x) for x in binding.roles]}
+    if isinstance(binding, AxisLevels):
+        return {"source": "axis", "levels": [restriction_projection(x) for x in binding.levels]}
+    if isinstance(binding, RoleAnchor):
+        return {**_role_projection(binding), "category": _ref_projection(binding.category)}
+    if isinstance(binding, LagBinding):
+        return {"unit": binding.unit, "windows": [restriction_projection(x) for x in binding.windows]}
+    if isinstance(binding, DatasetBinding):
+        return {"digest": binding.digest}
+    return _role_projection(binding)
+
+
+def reference_projection(value: Reference | Mapping[str, Reference]) -> dict[str, object]:
+    if isinstance(value, Mapping):
+        return {name: reference_projection(ref) for name, ref in value.items()}
+    if isinstance(value, ValueReference):
+        return {"kind": "value", "value": value.value}
+    return {"kind": "null", "region": {"low": value.low, "high": value.high}}
+
+
+def estimand_projection(value: Estimand) -> dict[str, object]:
     return {
-        "claim": estimand.claim,
-        "operator": estimand.operator,
-        "contrast": contrast,
-        "measure": {"quantity": _referent(estimand.measure.quantity), "scale": estimand.measure.scale},
-        "reference": estimand.reference,
-        "control": {
-            "identification": _referent(estimand.control.identification),
-            "conditioning": [_referent(member) for member in estimand.control.conditioning],
+        "claim": value.claim,
+        "operator": value.operator,
+        "form": value.form,
+        "functional": value.functional,
+        "bindings": {name: _binding_projection(binding) for name, binding in value.bindings.items()},
+        "outputs": {
+            name: {f.name: getattr(output, f.name) for f in fields(OutputSpec) if getattr(output, f.name) is not None}
+            for name, output in value.outputs.items()
         },
+        "reference": reference_projection(value.reference),
+        "control": {
+            "identification": value.control.identification,
+            "conditioning": [_ref_projection(x) for x in value.control.conditioning],
+            "design": value.control.design,
+            "selection": value.control.selection,
+        },
+        "uncertainty": value.uncertainty,
+        "assumptions": [instance_projection(x) for x in value.assumptions],
+        "dependencies": dependencies_projection(value.dependencies),
+        **({"calibration": value.calibration} if value.calibration is not None else {}),
     }
 
 
-def applicability_projection(qualifiers: Mapping[str, Qualifier]) -> dict[str, object]:
-    return {
-        dimension: {"quantifier": q.quantifier, "restriction": _referent(q.restriction)}
-        for dimension, q in sorted(qualifiers.items())
-    }
+def _read_ref(value: object) -> Referent:
+    body = wire.shape(value, {"sort", "term"})
+    return Referent(wire.term(body["sort"], "referent sort"), cast(str, body["term"]))
 
 
-def uncertainty_projection(uncertainty: Interval | StandardError) -> dict[str, object]:
-    if isinstance(uncertainty, Interval):
-        return {"kind": "interval", "low": uncertainty.low, "high": uncertainty.high, "level": uncertainty.level}
-    return {"kind": "standard-error", "value": uncertainty.value}
+def _read_interval(value: object) -> IntervalRestriction:
+    interval = restriction_from_projection(value, form="interval")
+    assert isinstance(interval, IntervalRestriction)
+    return interval
 
 
-def uncertainty_from_mapping(mapping: object, *, estimate: Decimal | None, scale: str) -> Interval | StandardError:
-    """`uncertainty_projection`'s inverse, checked: decode a `{"kind": …}`
-    body — a rule's raw output or a stored record's restored `typed` member —
-    into an `Interval` or a `StandardError`, then run `check_uncertainty`
-    against the estimate it accompanies and the estimand's scale. The one
-    decoder both `assess.build_assessment` and `stored.assessment_value` call,
-    so the derivation and the stored reader can never decode the same body two
-    different ways. Raises `UncertaintyRefused` throughout; each caller
-    translates it into its own error."""
-    if not isinstance(mapping, Mapping):
-        raise UncertaintyRefused(f"uncertainty is a mapping with a kind, found {type(mapping).__name__}")
-    kind = mapping.get("kind")
-    if kind == "interval" and set(mapping) == {"kind", "low", "high", "level"}:
-        uncertainty: Interval | StandardError = Interval(
-            low=cast(Decimal, mapping["low"]),
-            high=cast(Decimal, mapping["high"]),
-            level=cast(Decimal, mapping["level"]),
+def _read_binding(value: object, variable: str) -> Binding:
+    if variable in {"variables", "independent"}:
+
+        def named(row: object) -> tuple[str, MeasuredBinding]:
+            body = wire.shape(row, {"name", "binding"})
+            binding = _read_binding(body["binding"], "response")
+            assert isinstance(binding, MeasuredBinding)
+            return wire.text(body["name"], "variable name"), binding
+
+        return wire.sequence(value, named)
+    if variable == "universe":
+        body = wire.shape(value, {"digest"})
+        return DatasetBinding(wire.address(body["digest"], "sha256"))
+    if variable == "lag":
+        body = wire.shape(value, {"unit", "windows"})
+        return LagBinding(wire.term(body["unit"], "lag unit"), wire.sequence(body["windows"], _read_interval))
+    if not isinstance(value, Mapping):
+        raise MalformedRecord("binding must be a mapping")
+    if "rule" in value:
+        body = wire.shape(value, {"rule", "classes"}, {"source"} if variable == "grouping" else set())
+        args = wire.address(body["rule"], "classification-rule"), wire.sequence(body["classes"], _read_ref)
+        if variable == "grouping" and body.get("source") != "rule-classes":
+            raise MalformedRecord("grouping rule source must be rule-classes")
+        return RuleClassLevels(*args) if variable == "grouping" else RuleAnchor(*args)
+    if value.get("source") == "roles":
+        body = wire.shape(value, {"source", "roles"})
+        roles = wire.sequence(body["roles"], lambda row: _read_binding(row, "response"))
+        if len(roles) != 2 or not all(isinstance(r, MeasuredBinding) for r in roles):
+            raise MalformedRecord("roles grouping requires two measured roles")
+        return RoleLevels(cast(tuple[MeasuredBinding, MeasuredBinding], roles))
+    if value.get("source") == "axis":
+        body = wire.shape(value, {"source", "levels"})
+        return AxisLevels(wire.sequence(body["levels"], _read_interval))
+    required = {"role"}
+    optional = {"member"}
+    if variable == "response":
+        required.add("measure")
+        optional.update({"mapping", "proxy"})
+    elif variable == "grouping":
+        required.add("increment" if "increment" in value else "levels")
+        if "increment" in value:
+            required.add("measure")
+    elif variable == "anchor":
+        required.add("category")
+    body = wire.shape(value, required, optional)
+    role = wire.text(body["role"], "binding role")
+    member = _read_ref(body["member"]) if "member" in body else None
+    if variable == "response":
+        return MeasuredBinding(
+            role,
+            member,
+            measure_from_projection(body["measure"]),
+            wire.address(body["mapping"], "referent-mapping") if "mapping" in body else None,
+            wire.address(body["proxy"], "proxy-model") if "proxy" in body else None,
         )
-    elif kind == "standard-error" and set(mapping) == {"kind", "value"}:
-        uncertainty = StandardError(value=cast(Decimal, mapping["value"]))
-    else:
-        raise UncertaintyRefused(
-            f"uncertainty kind {kind!r} with members {sorted(mapping)} is neither interval nor standard-error"
+    if variable == "grouping":
+        if "increment" in body:
+            increment = wire.shape(body["increment"], {"value", "unit"})
+            return IncrementBinding(
+                role,
+                member,
+                measure_from_projection(body["measure"]),
+                finite(increment["value"], "increment"),
+                wire.term(increment["unit"], "increment unit"),
+            )
+        levels = wire.shape(body["levels"], {"source", "levels"})
+        if levels["source"] != "role-terms":
+            raise MalformedRecord("role grouping levels require source role-terms")
+        return RoleTermLevels(role, member, wire.sequence(levels["levels"], _read_ref))
+    if variable == "anchor":
+        return RoleAnchor(role, member, _read_ref(body["category"]))
+    return RoleBinding(role, member)
+
+
+def _read_reference(value: object, declared: bool) -> Reference | Mapping[str, Reference]:
+    if declared:
+        if not isinstance(value, Mapping):
+            raise MalformedRecord("declared output references must be a map")
+        return {wire.text(k, "output name"): cast(Reference, _read_reference(v, False)) for k, v in value.items()}
+    if not isinstance(value, Mapping):
+        raise MalformedRecord("reference must be a mapping")
+    if value.get("kind") == "value":
+        body = wire.shape(value, {"kind", "value"})
+        return ValueReference(finite(body["value"], "reference"))
+    body = wire.shape(value, {"kind", "region"})
+    if body["kind"] != "null":
+        raise MalformedRecord("unsupported reference kind")
+    region = wire.shape(body["region"], {"low", "high"})
+    return NullReference(finite(region["low"], "region low"), finite(region["high"], "region high"))
+
+
+def estimand_from_stored(value: object, *, profile: ProfileSpec) -> Estimand:
+    body = wire.shape(
+        value,
+        {
+            "claim",
+            "operator",
+            "form",
+            "functional",
+            "bindings",
+            "outputs",
+            "reference",
+            "control",
+            "uncertainty",
+            "assumptions",
+            "dependencies",
+        },
+        {"calibration"},
+    )
+    if not isinstance(body["bindings"], Mapping) or not isinstance(body["outputs"], Mapping):
+        raise MalformedRecord("bindings and outputs must be mappings")
+    control = wire.shape(body["control"], {"identification", "conditioning", "design", "selection"})
+    outputs = {}
+    for name, raw in body["outputs"].items():
+        fields_ = wire.shape(raw, {"typing", "domain"}, {"quantity_kind", "unit", "scale"})
+        outputs[wire.text(name, "output name")] = OutputSpec(
+            wire.text(fields_["typing"], "output typing"),
+            wire.text(fields_["domain"], "output domain"),
+            wire.term(fields_["quantity_kind"], "output quantity kind") if "quantity_kind" in fields_ else None,
+            wire.term(fields_["unit"], "output unit") if "unit" in fields_ else None,
+            wire.address(fields_["scale"], "procedure") if "scale" in fields_ else None,
         )
-    if estimate is None:
-        raise UncertaintyRefused("an uncertainty with no estimate to be uncertain about")
-    check_uncertainty(uncertainty, estimate, scale)
-    return uncertainty
+    functional = wire.term(body["functional"], "functional")
+    decl = profile.functionals.get(functional)
+    if decl is None:
+        raise EstimandError("undeclared functional")
+    result = _mint(
+        claim=wire.text(body["claim"], "claim identity"),
+        operator=wire.term(body["operator"], "operator"),
+        form=wire.text(body["form"], "form"),
+        functional=functional,
+        bindings={wire.text(k, "variable"): _read_binding(v, k) for k, v in body["bindings"].items()},
+        outputs=outputs,
+        reference=_read_reference(body["reference"], decl.declaration.output == "declared"),
+        control=Control(
+            wire.term(control["identification"], "identification"),
+            wire.sequence(control["conditioning"], _read_ref),
+            wire.term(control["design"], "design"),
+            wire.term(control["selection"], "selection"),
+        ),
+        uncertainty=wire.text(body["uncertainty"], "uncertainty"),
+        assumptions=wire.sequence(body["assumptions"], instance_from_projection),
+        calibration=wire.address(body["calibration"], "proxy-model") if "calibration" in body else None,
+        dependencies=dependencies_from_projection(body["dependencies"]),
+    )
+    encoded_assumptions = [v1.encode(instance_projection(a)) for a in result.assumptions]
+    if encoded_assumptions != sorted(set(encoded_assumptions)):
+        raise MalformedRecord("stored assumptions must be sorted and distinct")
+    result = _check_shape(profile, result, claim=None, authoring=False)
+    if not set(binding_roots(result)) <= {e.id for e in result.dependencies}:
+        raise MalformedRecord("estimand dropped a cited dependency")
+    if estimand_projection(result) != value:
+        raise MalformedRecord("stored estimand is not its canonical projection")
+    return result
 
 
-def commensuration_key(estimand: Estimand) -> dict[str, object]:
-    """The projection with `control.identification` removed: the commensuration
-    key a weight table reads. `identification` is the one member outside it."""
-    projection = estimand_projection(estimand)
-    control: dict[str, object] = dict(projection["control"])  # type: ignore[arg-type]
-    del control["identification"]
-    projection["control"] = control
-    return projection
-
-
-def commensurable(a: Estimand, b: Estimand) -> bool:
-    return commensuration_key(a) == commensuration_key(b)
-
-
-def co_scoped(a: Mapping[str, Qualifier], b: Mapping[str, Qualifier]) -> bool:
-    """Canonical map equality over two applicability maps. Outside the
-    estimand and outside `commensurable`; a successor policy reads both."""
-    return applicability_projection(a) == applicability_projection(b)
-
-
-def check_estimate(estimate: Decimal, scale: str) -> Decimal:
-    if scale not in SUPPORTED_SCALES:
-        raise UncertaintyRefused(f"scale {scale!r} is not operable")
-    estimate = _finite(estimate, "estimate", UncertaintyRefused)
-    if scale == "multiplicative" and estimate <= 0:
-        raise UncertaintyRefused(f"estimate must be > 0 under a multiplicative scale, found {estimate}")
-    return estimate
-
-
-def check_uncertainty(uncertainty: Interval | StandardError, estimate: Decimal, scale: str) -> None:
-    """One meaning per kind: a two-sided central interval at `level` around
-    the estimate on its own scale; a standard error on the scale's additive form."""
-    if scale not in SUPPORTED_SCALES:
-        raise UncertaintyRefused(f"scale {scale!r} is not operable")
-    if isinstance(uncertainty, Interval):
-        low, high, level = (
-            _finite(getattr(uncertainty, n), f"uncertainty.{n}", UncertaintyRefused) for n in ("low", "high", "level")
-        )
-        if not (low <= estimate <= high):
-            raise UncertaintyRefused(f"uncertainty: the interval [{low}, {high}] excludes the estimate {estimate}")
-        if not (0 < level < 1):
-            raise UncertaintyRefused(f"uncertainty.level must lie in (0, 1), found {level}")
-        if scale == "multiplicative" and low <= 0:
-            raise UncertaintyRefused(f"uncertainty.low must be > 0 under a multiplicative scale, found {low}")
-        return
-    if isinstance(uncertainty, StandardError):
-        if _finite(uncertainty.value, "uncertainty.value", UncertaintyRefused) < 0:
-            raise UncertaintyRefused(f"a standard error is non-negative, found {uncertainty.value}")
-        return
-    raise UncertaintyRefused(f"uncertainty holds {type(uncertainty).__name__}, not Interval or StandardError")
+ESTIMAND_ERRORS = (EstimandError, UnboundReferent)

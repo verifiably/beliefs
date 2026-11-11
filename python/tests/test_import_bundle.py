@@ -7,7 +7,7 @@ from typing import ClassVar
 
 import pytest
 from authority import ACTOR, FULL, narrowed
-from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
+from fixtures_cut3 import freeze_context, spec_draft, spec_rules, typed_applicability, typed_estimand, typed_target
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
 from nodes.core.relations import Relation
@@ -411,8 +411,7 @@ def test_ordinary_eligibility_is_evaluated_over_bundle_union(tmp_path, monkeypat
         proposition=proposition.id,
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
     report = import_records(writer_with_port, [assessment, run, proposition, dataset])
@@ -663,7 +662,7 @@ def test_contradictory_nondeterminism_contract_refused(tmp_path, monkeypatch):
     # by `_refuse_r20_contradiction` as document validation).
     writer = _testing_profile_writer(tmp_path, monkeypatch)
     mapping = {
-        **frozen_projection(freeze(spec_draft(), held_rules=spec_rules())),
+        **frozen_projection(freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())),
         "nondeterminism": StochasticUnseeded(rationale="the process has no stable seed surface").projection(),
     }
     identity = v1.digest(SPEC_DOMAIN, mapping)
@@ -689,7 +688,7 @@ def test_malformed_nondeterminism_contract_refuses_without_leaking_a_type_error(
     # member names no string variant — `restore`'s type check refuses it
     # cleanly rather than leaking a `TypeError` out of a `.get` on a list.
     writer_with_port = _testing_profile_writer(tmp_path, monkeypatch)
-    mapping = frozen_projection(freeze(spec_draft(), held_rules=spec_rules()))
+    mapping = frozen_projection(freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()))
     mapping["nondeterminism"] = {"variant": []}
     identity = v1.digest(SPEC_DOMAIN, mapping)
     text = v1.encode(mapping)

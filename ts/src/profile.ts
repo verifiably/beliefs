@@ -171,10 +171,8 @@ export type CompiledOperator = CompiledTemplate | CompiledBridge;
 export interface CompiledEstimandDecl {
   readonly kind: "instantiation" | "bridge";
   readonly target: string;
-  readonly levelSorts: Readonly<Record<string, string>>;
-  readonly measureSort: string;
-  readonly identificationSort: string;
-  readonly conditioningSort: string;
+  readonly forms: readonly string[];
+  readonly conditioningSorts: readonly string[];
 }
 
 export interface CompiledDurationConvention {
@@ -809,26 +807,14 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       const separator = decl.target.indexOf(":");
       const kind = decl.target.slice(0, separator);
       const targetTerm = term(contract.namespace, decl.target.slice(separator + 1));
-      // The parser admits only a target this contract declares, so both lookups hold.
-      const target = kind === "instantiation" ? instantiations[targetTerm] : bridges[targetTerm];
-      const template = templates[target.template];
-      const levelSorts: Record<string, string> = Object.create(null);
-      for (const [role, sort] of Object.entries(decl.levelSorts)) {
-        if (!Object.hasOwn(template.roles, role)) {
-          throw new ProfileError(
-            `${contract.namespace}: ${where}: level_sorts names role ${JSON.stringify(role)}, which ${JSON.stringify(template.term)} does not declare; its roles are ${JSON.stringify(Object.keys(template.roles).sort())}`,
-          );
-        }
-        levelSorts[role] = resolveSort(contract, sort, `${where}: level_sorts.${role}`);
-      }
       const address = `${kind}:${targetTerm}`;
       estimands[address] = Object.freeze({
         kind: kind as "instantiation" | "bridge",
         target: address,
-        levelSorts: Object.freeze(levelSorts),
-        measureSort: resolveSort(contract, decl.measureSort, `${where}: measure_sort`),
-        identificationSort: resolveSort(contract, decl.identificationSort, `${where}: identification_sort`),
-        conditioningSort: resolveSort(contract, decl.conditioningSort, `${where}: conditioning_sort`),
+        forms: sorted(decl.forms),
+        conditioningSorts: sorted(
+          decl.conditioningSorts.map((sort) => resolveSort(contract, sort, `${where}: conditioning_sorts`)),
+        ),
       });
     }
     for (const [name, decl] of Object.entries(contract.durationConventions)) {

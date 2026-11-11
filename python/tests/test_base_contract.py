@@ -330,10 +330,9 @@ class TestClaimGrammarV2:
 class TestEstimandGrammar:
     def test_the_shipped_base_declares_the_three_closed_sets(self, base_contract):
         grammar = base_contract.estimand_grammar
-        assert grammar.version == 1
-        assert grammar.contrast_kinds == ("levels", "continuous")
-        assert grammar.scales == ("additive", "multiplicative")
-        assert grammar.uncertainty_kinds == ("interval", "standard-error")
+        assert grammar.version == 2
+        assert grammar.forms == base.SUPPORTED_ESTIMAND_FORMS
+        assert grammar.uncertainty_kinds == ("interval", "standard-error", "covariance")
 
     def test_a_base_contract_lacking_the_grammar_is_refused(self, base_contract_path):
         import yaml
@@ -364,17 +363,17 @@ class TestEstimandGrammar:
         from beliefs.errors import TagCollision
 
         document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
-        document["estimand_grammar"]["scales"] = ["additive", "additive"]
+        document["estimand_grammar"]["forms"] = ["contrast", "contrast"]
         with pytest.raises(TagCollision):
             parse_base_contract(document, source="<dup>")
 
     @pytest.mark.parametrize(
         ("closed_set", "tags", "unoperable"),
         [
-            ("contrast_kinds", ["levels", "continuous", "ordinal"], "ordinal"),
-            ("scales", ["additive", "multiplicative", "log"], "log"),
-            ("uncertainty_kinds", ["interval", "standard-error", "credible"], "credible"),
-            ("scales", ["additive"], "multiplicative"),
+            ("forms", [*base.SUPPORTED_ESTIMAND_FORMS, "rank-contrast"], "rank-contrast"),
+            ("reference_kinds", ["value", "null", "unknown"], "unknown"),
+            ("uncertainty_kinds", ["interval", "standard-error", "covariance", "credible"], "credible"),
+            ("forms", ["contrast"], "quantity"),
         ],
     )
     def test_a_closed_set_must_exactly_match_the_tags_the_kernel_operates(self, document, closed_set, tags, unoperable):
@@ -382,17 +381,21 @@ class TestEstimandGrammar:
         with pytest.raises(MalformedContract, match=unoperable):
             parse(document)
 
-    def test_the_grammar_enters_the_compiled_identity(self, base_contract_path):
-        import yaml
+    def test_old_field_set_and_version_are_refused(self, document):
+        document["estimand_grammar"] = {
+            "version": 1,
+            "tag_encoding": "science.identity.v1",
+            "contrast_kinds": ["levels", "continuous"],
+            "scales": ["additive", "multiplicative"],
+            "uncertainty_kinds": ["interval", "standard-error"],
+        }
+        with pytest.raises(MalformedContract):
+            parse(document)
 
-        from beliefs.contract.base import parse_base_contract
-        from beliefs.profile import compile_profile
-
-        document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
-        before = compile_profile(parse_base_contract(document, source="<a>"), []).compiled_identity
-        document["estimand_grammar"]["version"] = 2
-        after = compile_profile(parse_base_contract(document, source="<b>"), []).compiled_identity
-        assert before != after
+    def test_another_estimand_grammar_version_is_refused(self, document):
+        document["estimand_grammar"]["version"] = 3
+        with pytest.raises(MalformedContract):
+            parse(document)
 
 
 class TestMeasurementGrammar:

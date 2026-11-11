@@ -132,7 +132,7 @@ _TEMPLATE_OPTIONAL = frozenset({"edge", "definition", "external", "description",
 _ROLE_OPTIONAL = frozenset({"min", "max", "coefficients", "constraint"})
 _INSTANTIATION_FIELDS = frozenset({"template", "roles"})
 _BRIDGE_FIELDS = frozenset({"template", "mapping", "roles"})
-_ESTIMAND_FIELDS = frozenset({"level_sorts", "measure_sort", "identification_sort", "conditioning_sort"})
+_ESTIMAND_FIELDS = frozenset({"forms", "conditioning_sorts"})
 _EDITORIAL = frozenset({"description", "retired"})
 
 _ARITIES = ("one", "many")
@@ -587,33 +587,18 @@ class BridgeDecl:
 
 @dataclass(frozen=True)
 class EstimandDecl:
-    """Which sorts fill the kernel's estimand structure for one instantiation or
-    bridge. Keyed by the typed local address of its target, ``instantiation:<name>``
-    or ``bridge:<name>``, since the two tables are separate namespaces and may
-    share a name. Carries no `retired` of its own — retiring the target retires it.
-
-    Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the
-    estimand structure around these names.
-    """
+    """Whole-row form and conditioning admission for one typed declaration."""
 
     target: str
-    level_sorts: Mapping[str, str]
-    """Role name → sort. A role absent here admits only a `continuous` contrast."""
-    measure_sort: str
-    identification_sort: str
-    conditioning_sort: str
+    forms: tuple[str, ...]
+    conditioning_sorts: frozenset[str]
 
     @property
     def retired(self) -> bool:
         return False
 
     def schema_projection(self) -> dict[str, object]:
-        return {
-            "level_sorts": {role: self.level_sorts[role] for role in sorted(self.level_sorts)},
-            "measure_sort": self.measure_sort,
-            "identification_sort": self.identification_sort,
-            "conditioning_sort": self.conditioning_sort,
-        }
+        return {"forms": sorted(self.forms), "conditioning_sorts": sorted(self.conditioning_sorts)}
 
 
 @dataclass(frozen=True)
@@ -1666,16 +1651,22 @@ def parse_domain_contract(
         target = _parse_estimand_target(key, where, instantiations=instantiations, bridges=bridges)
         decl = _mapping(body, where)
         _fields(decl, _ESTIMAND_FIELDS, frozenset({"description"}), where)
-        level_sorts: dict[str, str] = {}
-        for role, sort in _mapping(decl["level_sorts"], f"{where}: level_sorts").items():
-            _name(role, f"{where}: level_sorts key")
-            level_sorts[role] = resolve(sort, f"{where}: level_sorts.{role}")
+        forms = _closed_list(
+            decl["forms"], base.estimand_grammar.forms, f"{where}: forms", what="estimand form", empty=False
+        )
+        if any(form not in base.estimand_grammar.forms for form in forms):
+            raise MalformedContract(f"{where}: unsupported estimand form")
         estimands[target] = EstimandDecl(
             target=target,
-            level_sorts=MappingProxyType(level_sorts),
-            measure_sort=resolve(decl["measure_sort"], f"{where}: measure_sort"),
-            identification_sort=resolve(decl["identification_sort"], f"{where}: identification_sort"),
-            conditioning_sort=resolve(decl["conditioning_sort"], f"{where}: conditioning_sort"),
+            forms=forms,
+            conditioning_sorts=frozenset(
+                sort
+                for sort in _reference_list(
+                    decl["conditioning_sorts"],
+                    f"{where}: conditioning_sorts",
+                    lambda value, where: resolve(value, where),
+                )
+            ),
         )
 
     duration_conventions: dict[str, DurationConventionDecl] = {}

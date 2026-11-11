@@ -79,9 +79,24 @@ export interface ClaimGrammar {
 
 export interface EstimandGrammar {
   readonly version: number;
-  readonly contrastKinds: readonly string[];
-  readonly scales: readonly string[];
+  readonly forms: readonly string[];
+  readonly arities: readonly string[];
+  readonly responseTransformations: readonly string[];
+  readonly reversals: readonly string[];
+  readonly responseReversals: readonly string[];
+  readonly exchanges: readonly string[];
+  readonly ties: readonly string[];
+  readonly outputs: readonly string[];
+  readonly parameterTypings: readonly string[];
+  readonly domains: readonly string[];
+  readonly nulls: readonly string[];
+  readonly increments: readonly string[];
+  readonly uncertaintyPropagation: readonly string[];
   readonly uncertaintyKinds: readonly string[];
+  readonly levelSources: readonly string[];
+  readonly referenceKinds: readonly string[];
+  readonly restrictionForms: readonly string[];
+  readonly standingClasses: readonly string[];
 }
 
 export interface MeasurementGrammar {
@@ -139,9 +154,7 @@ export const SUPPORTED_EVIDENCE_MODES: readonly string[] = Object.freeze([
 ]);
 
 const SUPPORTED_SHAPES: readonly string[] = ["dag"];
-const SUPPORTED_CONTRAST_KINDS: readonly string[] = ["continuous", "levels"];
-const SUPPORTED_SCALES: readonly string[] = ["additive", "multiplicative"];
-const SUPPORTED_UNCERTAINTY_KINDS: readonly string[] = ["interval", "standard-error"];
+const SUPPORTED_UNCERTAINTY_KINDS: readonly string[] = ["interval", "standard-error", "covariance"];
 /** The one claim-grammar version this implementation reads. */
 const CLAIM_GRAMMAR_VERSION = 2;
 /** The claim-grammar closed sets base v2 adds (design §8.1), mirrored from the Python
@@ -261,9 +274,24 @@ export class BaseContract {
     });
     this.estimandGrammar = Object.freeze({
       version: parts.estimandGrammar.version,
-      contrastKinds: Object.freeze([...parts.estimandGrammar.contrastKinds]),
-      scales: Object.freeze([...parts.estimandGrammar.scales]),
+      forms: Object.freeze([...parts.estimandGrammar.forms]),
+      arities: Object.freeze([...parts.estimandGrammar.arities]),
+      responseTransformations: Object.freeze([...parts.estimandGrammar.responseTransformations]),
+      reversals: Object.freeze([...parts.estimandGrammar.reversals]),
+      responseReversals: Object.freeze([...parts.estimandGrammar.responseReversals]),
+      exchanges: Object.freeze([...parts.estimandGrammar.exchanges]),
+      ties: Object.freeze([...parts.estimandGrammar.ties]),
+      outputs: Object.freeze([...parts.estimandGrammar.outputs]),
+      parameterTypings: Object.freeze([...parts.estimandGrammar.parameterTypings]),
+      domains: Object.freeze([...parts.estimandGrammar.domains]),
+      nulls: Object.freeze([...parts.estimandGrammar.nulls]),
+      increments: Object.freeze([...parts.estimandGrammar.increments]),
+      uncertaintyPropagation: Object.freeze([...parts.estimandGrammar.uncertaintyPropagation]),
       uncertaintyKinds: Object.freeze([...parts.estimandGrammar.uncertaintyKinds]),
+      levelSources: Object.freeze([...parts.estimandGrammar.levelSources]),
+      referenceKinds: Object.freeze([...parts.estimandGrammar.referenceKinds]),
+      restrictionForms: Object.freeze([...parts.estimandGrammar.restrictionForms]),
+      standingClasses: Object.freeze([...parts.estimandGrammar.standingClasses]),
     });
     this.measurementGrammar = Object.freeze({
       version: parts.measurementGrammar.version,
@@ -416,10 +444,8 @@ export interface BridgeDecl {
  */
 export interface EstimandDecl {
   readonly target: string;
-  readonly levelSorts: Readonly<Record<string, string>>;
-  readonly measureSort: string;
-  readonly identificationSort: string;
-  readonly conditioningSort: string;
+  readonly forms: readonly string[];
+  readonly conditioningSorts: readonly string[];
 }
 
 /** A named exact conversion from a calendar unit to elapsed time. */
@@ -934,25 +960,80 @@ export function parseBaseContract(text: string, source: string): BaseContract {
   const estimandDocument = mapping(document.estimand_grammar, `${source}.estimand_grammar`);
   exactFields(
     estimandDocument,
-    ["version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"],
+    [
+      "version",
+      "tag_encoding",
+      "forms",
+      "arities",
+      "response_transformations",
+      "reversals",
+      "response_reversals",
+      "exchanges",
+      "ties",
+      "outputs",
+      "parameter_typings",
+      "domains",
+      "nulls",
+      "increments",
+      "uncertainty_propagation",
+      "uncertainty_kinds",
+      "level_sources",
+      "reference_kinds",
+      "restriction_forms",
+      "standing_classes",
+    ],
     [],
     `${source}.estimand_grammar`,
   );
-  if (estimandDocument.tag_encoding !== TAG_ENCODING) {
-    throw new MalformedContract(
-      `${source}.estimand_grammar.tag_encoding: this implementation carries ${TAG_ENCODING}, the contract names ${JSON.stringify(estimandDocument.tag_encoding)}`,
-    );
+  if (estimandDocument.tag_encoding !== TAG_ENCODING || estimandDocument.version !== 2) {
+    throw new MalformedContract(`${source}.estimand_grammar: requires version 2 and ${TAG_ENCODING}`);
   }
   const estimandGrammar: EstimandGrammar = {
-    version: positiveInt(estimandDocument.version, `${source}.estimand_grammar.version`),
-    contrastKinds: closedSet(estimandDocument.contrast_kinds, `${source}.estimand_grammar.contrast_kinds`),
-    scales: closedSet(estimandDocument.scales, `${source}.estimand_grammar.scales`),
+    version: 2,
+    forms: closedSet(estimandDocument.forms, `${source}.estimand_grammar.forms`),
+    arities: closedSet(estimandDocument.arities, `${source}.estimand_grammar.arities`),
+    responseTransformations: closedSet(
+      estimandDocument.response_transformations,
+      `${source}.estimand_grammar.response_transformations`,
+    ),
+    reversals: closedSet(estimandDocument.reversals, `${source}.estimand_grammar.reversals`),
+    responseReversals: closedSet(estimandDocument.response_reversals, `${source}.estimand_grammar.response_reversals`),
+    exchanges: closedSet(estimandDocument.exchanges, `${source}.estimand_grammar.exchanges`),
+    ties: closedSet(estimandDocument.ties, `${source}.estimand_grammar.ties`),
+    outputs: closedSet(estimandDocument.outputs, `${source}.estimand_grammar.outputs`),
+    parameterTypings: closedSet(estimandDocument.parameter_typings, `${source}.estimand_grammar.parameter_typings`),
+    domains: closedSet(estimandDocument.domains, `${source}.estimand_grammar.domains`),
+    nulls: closedSet(estimandDocument.nulls, `${source}.estimand_grammar.nulls`),
+    increments: closedSet(estimandDocument.increments, `${source}.estimand_grammar.increments`),
+    uncertaintyPropagation: closedSet(
+      estimandDocument.uncertainty_propagation,
+      `${source}.estimand_grammar.uncertainty_propagation`,
+    ),
     uncertaintyKinds: closedSet(estimandDocument.uncertainty_kinds, `${source}.estimand_grammar.uncertainty_kinds`),
+    levelSources: closedSet(estimandDocument.level_sources, `${source}.estimand_grammar.level_sources`),
+    referenceKinds: closedSet(estimandDocument.reference_kinds, `${source}.estimand_grammar.reference_kinds`),
+    restrictionForms: closedSet(estimandDocument.restriction_forms, `${source}.estimand_grammar.restriction_forms`),
+    standingClasses: closedSet(estimandDocument.standing_classes, `${source}.estimand_grammar.standing_classes`),
   };
   for (const [name, declared, supported] of [
-    ["contrast_kinds", estimandGrammar.contrastKinds, SUPPORTED_CONTRAST_KINDS],
-    ["scales", estimandGrammar.scales, SUPPORTED_SCALES],
+    ["forms", estimandGrammar.forms, SUPPORTED_ESTIMAND_FORMS],
+    ["arities", estimandGrammar.arities, SUPPORTED_ESTIMAND_ARITIES],
+    ["response_transformations", estimandGrammar.responseTransformations, SUPPORTED_ESTIMAND_RESPONSE_TRANSFORMATIONS],
+    ["reversals", estimandGrammar.reversals, SUPPORTED_ESTIMAND_REVERSALS],
+    ["response_reversals", estimandGrammar.responseReversals, SUPPORTED_ESTIMAND_RESPONSE_REVERSALS],
+    ["exchanges", estimandGrammar.exchanges, SUPPORTED_ESTIMAND_EXCHANGES],
+    ["ties", estimandGrammar.ties, SUPPORTED_ESTIMAND_TIES],
+    ["outputs", estimandGrammar.outputs, SUPPORTED_ESTIMAND_OUTPUTS],
+    ["parameter_typings", estimandGrammar.parameterTypings, SUPPORTED_ESTIMAND_PARAMETER_TYPINGS],
+    ["domains", estimandGrammar.domains, SUPPORTED_ESTIMAND_DOMAINS],
+    ["nulls", estimandGrammar.nulls, SUPPORTED_ESTIMAND_NULLS],
+    ["increments", estimandGrammar.increments, SUPPORTED_ESTIMAND_INCREMENTS],
+    ["uncertainty_propagation", estimandGrammar.uncertaintyPropagation, SUPPORTED_ESTIMAND_UNCERTAINTY_PROPAGATION],
     ["uncertainty_kinds", estimandGrammar.uncertaintyKinds, SUPPORTED_UNCERTAINTY_KINDS],
+    ["level_sources", estimandGrammar.levelSources, SUPPORTED_ESTIMAND_LEVEL_SOURCES],
+    ["reference_kinds", estimandGrammar.referenceKinds, SUPPORTED_ESTIMAND_REFERENCE_KINDS],
+    ["restriction_forms", estimandGrammar.restrictionForms, SUPPORTED_ESTIMAND_RESTRICTION_FORMS],
+    ["standing_classes", estimandGrammar.standingClasses, SUPPORTED_ESTIMAND_STANDING_CLASSES],
   ] as const) {
     requireOperated(declared, supported, `${source}.estimand_grammar.${name}`);
   }
@@ -2095,25 +2176,17 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     const where = `${source}.estimands.${key}`;
     const target = parseEstimandTarget(key, where, instantiations, bridges);
     const decl = mapping(body, where);
-    exactFields(
-      decl,
-      ["level_sorts", "measure_sort", "identification_sort", "conditioning_sort"],
-      ["description"],
-      where,
-    );
-    const levelSorts: Record<string, string> = Object.create(null);
-    for (const [role, sort] of Object.entries(mapping(decl.level_sorts, `${where}.level_sorts`))) {
-      tag(role, `${where}.level_sorts key`);
-      levelSorts[role] = resolve(sort, `${where}.level_sorts.${role}`);
-    }
+    exactFields(decl, ["forms", "conditioning_sorts"], ["description"], where);
     estimandEntries.push([
       target,
       Object.freeze({
         target,
-        levelSorts: Object.freeze(levelSorts),
-        measureSort: resolve(decl.measure_sort, `${where}.measure_sort`),
-        identificationSort: resolve(decl.identification_sort, `${where}.identification_sort`),
-        conditioningSort: resolve(decl.conditioning_sort, `${where}.conditioning_sort`),
+        forms: Object.freeze(
+          closedList(decl.forms, base.estimandGrammar.forms, `${where}.forms`, "estimand form", false),
+        ),
+        conditioningSorts: Object.freeze(
+          referenceList(decl.conditioning_sorts, `${where}.conditioning_sorts`, resolve),
+        ),
       }),
     ]);
   }

@@ -17,7 +17,7 @@ from atoms.chain.model import (
     decode_entry,
 )
 from authority import ACTOR, FULL
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import path_for, reopen
 from nodes.core.errors import ExecutionError
 from nodes.core.node import Node
@@ -243,8 +243,7 @@ def _mint_assessment_pair(writer: CorpusWriter):
                     proposition=proposition_node.id,
                     outcome=outcome,
                     interpretation_rule="rule:threshold",
-                    estimand=typed_estimand(),
-                    applicability=typed_applicability(),
+                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
                 )
             )
         )
@@ -285,8 +284,7 @@ def test_scope_supersession_preserves_predecessor_evidence(durable_writer):
             proposition=predecessor.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )
     assessment_value = stored.assessment_value(assessment, profile=TESTING_PROFILE)

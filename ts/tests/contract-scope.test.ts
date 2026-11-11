@@ -228,13 +228,11 @@ describe("the v2 testing document", () => {
     });
     expect(contract.estimands["bridge:promotes"]).toEqual({
       target: "bridge:promotes",
-      levelSorts: { cause: "level" },
-      measureSort: "measure",
-      identificationSort: "identification",
-      conditioningSort: "entity",
+      forms: ["contrast", "quantity", "law-parameters", "event-locked", "association", "enrichment"],
+      conditioningSorts: ["entity"],
     });
-    expect(contract.estimands["instantiation:promotes"].levelSorts).toEqual({ subject: "level" });
-    expect(contract.estimands["instantiation:promotes"].measureSort).toBe("outcome");
+    expect(contract.estimands["instantiation:promotes"].forms).toEqual(["quantity"]);
+    expect(contract.estimands["instantiation:promotes"].conditioningSorts).toEqual(["entity"]);
   });
 
   it("reads a definition and an external reference", () => {
@@ -264,7 +262,7 @@ describe("the v2 testing document", () => {
       contract.instantiations["affects-entity-entity"].roles,
       contract.instantiations["affects-entity-entity"].roles.effect,
       contract.bridges.promotes.layers,
-      contract.estimands["bridge:promotes"].levelSorts,
+      contract.estimands["bridge:promotes"].conditioningSorts,
       contract.durationConventions["mean-month"],
     ]) {
       expect(Object.isFrozen(value)).toBe(true);

@@ -9,7 +9,7 @@ from decimal import Decimal
 import pytest
 from authority import FULL
 from closure_fixtures import make_closure, sample_report
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp
 from test_operation_port import durable_port
@@ -251,8 +251,7 @@ def test_bridge_resolves_assessment_ref_and_stamped_basis(certified_work):
         proposition="proposition:" + "p" * 64,
         outcome="supported",
         interpretation_rule="rule:interpretation",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     port.execute(
         (

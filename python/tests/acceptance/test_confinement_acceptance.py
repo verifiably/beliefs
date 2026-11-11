@@ -15,6 +15,7 @@ from fixtures_cut3 import (
     SNAKEFILE_DETERMINISTIC,
     SNAKEFILE_TREE,
     TREE_MEMBERS,
+    freeze_context,
     interp,
     lay_tree,
     replay_of,
@@ -155,7 +156,7 @@ def confined_pair(tmp_path: Path, shared_scratch: Path, *, snakefile=SNAKEFILE_D
 
 
 def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
     assert isinstance(assessment, AssessmentValue), assessment
     run_value = run_record(minted.run)
@@ -192,7 +193,7 @@ def belief_over(minted: RunMinted, verification) -> Belief | NoBelief:
 
 
 def admission_of(minted: RunMinted, verification):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     assessment = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
     assert isinstance(assessment, AssessmentValue), assessment
     run_value = run_record(minted.run)

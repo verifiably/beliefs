@@ -73,7 +73,7 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     and again when the four measurement kinds gained their governed facets,
     and when functional and control declarations entered the schema."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "3fb924891f69f3049ce1f0063f1d88ec7b58266dac943ce64ce05de098d77d7e"
+    assert before.compiled_identity == "44748debf3a88f519fb378e5ea319a3d267d91d78738986a0f09d60270c640b0"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -587,7 +587,10 @@ class TestAdmission:
         admitting = profile.admitting("testing/affects", {"cause": ENTITY, "effect": OUTCOME}, authoring=True)
         declarations = profile.estimand_declarations("testing/affects", admitting)
         assert [decl.target for decl in declarations] == list(admitting)
-        assert [decl.measure_sort for decl in declarations] == ["testing/outcome", "testing/measure"]
+        assert [decl.conditioning_sorts for decl in declarations] == [
+            frozenset({"testing/outcome"}),
+            frozenset({"testing/entity"}),
+        ]
         # In the order given, never re-sorted.
         reversed_ = profile.estimand_declarations("testing/affects", tuple(reversed(admitting)))
         assert [decl.target for decl in reversed_] == list(reversed(admitting))
@@ -613,8 +616,9 @@ class TestAdmission:
         assert bridge_admitting == ("bridge:testing/promotes",)
         (bridge_decl,) = compiled.estimand_declarations("testing/promotes", bridge_admitting)
         assert bridge_decl.target == "bridge:testing/promotes"
-        assert bridge_decl.level_sorts == {"cause": "testing/level"}
-        assert bridge_decl.measure_sort == "testing/measure"
+        assert bridge_decl.kind == "bridge"
+        assert bridge_decl.conditioning_sorts == {"testing/entity"}
+        assert "contrast" in bridge_decl.forms
 
         method, product = frozenset({"testing/method"}), frozenset({"testing/product"})
         inst_admitting = compiled.admitting(
@@ -623,8 +627,9 @@ class TestAdmission:
         assert inst_admitting == ("instantiation:testing/promotes",)
         (inst_decl,) = compiled.estimand_declarations("testing/measured-by", inst_admitting)
         assert inst_decl.target == "instantiation:testing/promotes"
-        assert inst_decl.level_sorts == {"subject": "testing/level"}
-        assert inst_decl.measure_sort == "testing/outcome"
+        assert inst_decl.kind == "instantiation"
+        assert inst_decl.conditioning_sorts == {"testing/entity"}
+        assert inst_decl.forms == ("quantity",)
 
     def test_declaration_at_dereferences_typed_addresses(self, compiled):
         instantiation = compiled.declaration_at("instantiation:testing/promotes")
@@ -729,9 +734,9 @@ class TestCompileRefusals:
         profile = self._compile(base_contract, parse, testing_document)
         assert profile.bridges["testing/promotes"].layers == ("causal", "statistical")
 
-    def test_an_estimand_level_sort_naming_no_role_refuses(self, base_contract, parse, testing_document):
+    def test_an_old_estimand_field_refuses(self, base_contract, parse, testing_document):
         testing_document["estimands"]["bridge:promotes"]["level_sorts"] = {"subject": "level"}
-        with pytest.raises(ProfileError, match="subject"):
+        with pytest.raises(MalformedContract, match="level_sorts"):
             self._compile(base_contract, parse, testing_document)
 
 

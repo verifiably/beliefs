@@ -478,7 +478,7 @@ def project_recipe(
         parameters=spec.parameters,
         nondeterminism=spec.nondeterminism,
         boundary_policy=boundary_policy,
-        rule_bindings=spec.rule_bindings,
+        rule_bindings=tuple((binding.rule, binding.implementation) for binding in spec.rule_bindings),
     )
 
 

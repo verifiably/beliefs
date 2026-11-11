@@ -28,6 +28,7 @@ from fixtures_cut3 import (
     MemoryPort,
     closure,
     definition,
+    freeze_context,
     recipe,
     seed_plan,
     seeded,
@@ -118,7 +119,7 @@ class _NarrowPort(MemoryPort):
 def _assessment(tmp_path, port, **overrides):
     code, held = stage(tmp_path)
     kwargs: dict[str, Any] = {
-        "spec": freeze(spec_draft(), held_rules=spec_rules()),
+        "spec": freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()),
         "port": port,
         "boundary_policy": MINIMAL_POLICY,
         "definition": definition(),
@@ -445,7 +446,7 @@ def test_the_recorded_environment_is_the_executing_environment(minted):
 def test_the_boundary_refuses_a_definition_the_entrypoint_does_not_embody(tmp_path):
     code, held = stage(tmp_path, snakefile=SNAKEFILE_DETERMINISTIC)
     mismatched = execute_assessment_run(
-        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        spec=freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()),
         port=MEMORY_PORT,
         boundary_policy=MINIMAL_POLICY,
         definition=definition(snakefile=SNAKEFILE_NONDETERMINISTIC),
@@ -476,13 +477,13 @@ def test_a_spec_frozen_mid_execution_is_refused_not_downgraded(tmp_path):
     draft = spec_draft()
     refused = run_assessment(tmp_path, spec=draft)
     assert isinstance(refused, RunRefused)
-    frozen_later = freeze(draft, held_rules=spec_rules())
+    frozen_later = freeze(draft, held_rules=spec_rules(), **freeze_context())
     assert isinstance(refused, RunRefused)
     assert frozen_later.identity
 
 
 def test_the_boundary_refuses_a_bare_spec_identity_string(tmp_path):
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     outcome = run_assessment(tmp_path, spec=frozen.identity)
     assert isinstance(outcome, RunRefused) and outcome.reason == "no-frozen-spec"
 
@@ -518,7 +519,7 @@ def test_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectable(tmp_pa
         env={**os.environ, "SCIENCE_TRACE_FILE": str(trace_dir / "events.jsonl")},
     )
     assert returncode == 0
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     attached = closure(recipe=recipe(spec_identity=spec.identity, code_identity=code_id))
     assert attached.address()
     assert "boundary_mediated" not in {f.name for f in dataclasses.fields(RunClosure)}
@@ -527,8 +528,9 @@ def test_an_out_of_band_run_with_a_spec_frozen_afterwards_is_undetectable(tmp_pa
 
 def test_url_valued_input_is_refused_as_a_run_input(tmp_path):
     spec = freeze(
-        spec_draft(input_roles=(SpecInput(role="observes", dataset="https://example.org/series"),)),
+        spec_draft(input_roles=(SpecInput(role="observes", dataset="https://example.org/series", mode="observation"),)),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     outcome = run_assessment(tmp_path, spec=spec)
     assert isinstance(outcome, RunRefused) and outcome.reason == "acquisition-not-a-run"
@@ -536,8 +538,9 @@ def test_url_valued_input_is_refused_as_a_run_input(tmp_path):
 
 def test_an_accession_is_refused_and_no_fallback_synthesizes_a_dataset(tmp_path):
     spec = freeze(
-        spec_draft(input_roles=(SpecInput(role="observes", dataset="accession:GSE00001"),)),
+        spec_draft(input_roles=(SpecInput(role="observes", dataset="accession:GSE00001", mode="observation"),)),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     outcome = run_assessment(tmp_path, spec=spec)
     assert isinstance(outcome, RunRefused) and outcome.reason == "acquisition-not-a-run"
@@ -614,7 +617,7 @@ def test_missing_spec_refusal_publishes_an_unfulfilling_report(tmp_path):
 # --- the boundary checks -------------------------------------------------------
 def test_manifest_missing_output_mints_no_run(tmp_path):
     code, held = stage(tmp_path)
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     outcome = execute_assessment_run(
         spec=spec,
         port=MEMORY_PORT,
@@ -732,7 +735,7 @@ def test_the_boundary_renders_the_configuration_from_the_projected_members(minte
 
 def test_seed_shopping_cannot_occur_at_all(minted):
     successor = revise(
-        freeze(spec_draft(), held_rules=spec_rules()),
+        freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()),
         edits={
             "nondeterminism": Seeded(
                 plan=SeedPlan(
@@ -745,9 +748,10 @@ def test_seed_shopping_cannot_occur_at_all(minted):
         },
         held_rules=spec_rules(),
         recorded_failures=frozenset(),
+        **freeze_context(),
     )
     assert successor.identity != minted.run.recipe.spec_identity
-    assert minted.run.recipe.spec_identity == freeze(spec_draft(), held_rules=spec_rules()).identity
+    assert minted.run.recipe.spec_identity == freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()).identity
 
 
 def test_a_deleted_or_never_recorded_attempt_is_undetectable(tmp_path):
@@ -839,7 +843,7 @@ def _forbid_engines(monkeypatch):
 
 def test_assessment_run_refuses_mismatched_expected_input_before_planning_or_execution(tmp_path, monkeypatch):
     code, held = stage(tmp_path / "mismatched")
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     supplied = {DATA_ADDRESS: held / "data.txt", READS_ADDRESS: held / "palette.txt"}
 
     _forbid_engines(monkeypatch)
@@ -906,7 +910,7 @@ def test_stage_inputs_hashes_copied_staged_bytes_not_source_file(tmp_path, monke
     monkeypatch.setattr(_boundary.shutil, "copy2", tampered_copy2)
     _forbid_engines(monkeypatch)
     outcome = execute_assessment_run(
-        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        spec=freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()),
         port=MEMORY_PORT,
         boundary_policy=MINIMAL_POLICY,
         definition=definition(),
@@ -953,7 +957,7 @@ def test_planning_restage_refuses_source_mutated_after_initial_staging_and_clean
     _forbid_engines(monkeypatch)
 
     outcome = execute_assessment_run(
-        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        spec=freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()),
         port=MEMORY_PORT,
         boundary_policy=policy,
         definition=definition(),
@@ -988,7 +992,7 @@ def test_stage_inputs_refuses_malformed_or_incomplete_expected_inputs(
     code, held = stage(tmp_path)
     _forbid_engines(monkeypatch)
     outcome = execute_assessment_run(
-        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        spec=freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()),
         port=MEMORY_PORT,
         boundary_policy=MINIMAL_POLICY,
         definition=definition(),
@@ -1142,9 +1146,10 @@ def test_boundary_stages_multi_resource_dataset_and_folds_content_digest(tmp_pat
     spec = freeze(
         spec_draft(
             nondeterminism=Deterministic(),
-            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     outcome = execute_assessment_run(
         spec=spec,
@@ -1191,9 +1196,10 @@ def test_boundary_preserves_nested_member_path_for_single_resource_mapping(tmp_p
     spec = freeze(
         spec_draft(
             nondeterminism=Deterministic(),
-            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     outcome = execute_assessment_run(
         spec=spec,
@@ -1278,9 +1284,10 @@ def test_boundary_refuses_when_two_members_swap_bytes_between_initial_and_planni
     spec = freeze(
         spec_draft(
             nondeterminism=Deterministic(),
-            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     outcome = execute_assessment_run(
         spec=spec,
@@ -1326,9 +1333,10 @@ def test_multi_resource_validation_refusals_before_and_during_staging(tmp_path, 
     spec = freeze(
         spec_draft(
             nondeterminism=Deterministic(),
-            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     _forbid_engines(monkeypatch)
 
@@ -1408,11 +1416,12 @@ def test_multi_resource_validation_refusals_before_and_during_staging(tmp_path, 
         spec_draft(
             nondeterminism=Deterministic(),
             input_roles=(
-                SpecInput(role="observes", dataset=DATA_ADDRESS),
-                SpecInput(role="reads", dataset=READS_ADDRESS),
+                SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),
+                SpecInput(role="reads", dataset=READS_ADDRESS, mode="annotation"),
             ),
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     file_collision = _run(
         {
@@ -1843,9 +1852,10 @@ def _tree_assessment(tmp_path: Path, held_inputs, *, scratch_base: Path, policy=
         spec=freeze(
             spec_draft(
                 nondeterminism=Deterministic(),
-                input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+                input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
             ),
             held_rules=spec_rules(),
+            **freeze_context(),
         ),
         port=MEMORY_PORT,
         boundary_policy=policy,

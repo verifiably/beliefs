@@ -20,7 +20,7 @@ import pytest
 from atoms.chain.model import GenesisEntry, encode_entry, entry_digest
 from atoms.core.scratch import CHAIN_LEAF
 from authority import FULL
-from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, run_assessment, spec_draft, spec_rules
+from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, freeze_context, run_assessment, spec_draft, spec_rules
 from profiles import pins_for
 from test_world_log_audit import ABSENT, chain, digest, registration, settlement, state
 from test_world_receipts import hold_shipped, publish
@@ -162,7 +162,9 @@ def world(work_directory):
             moment is the committed settlement."""
             self.freezes += 1
             spec = freeze(
-                spec_draft(target=self.target_a, method=f"fit the model {self.freezes}"), held_rules=spec_rules()
+                spec_draft(target=self.target_a, method=f"fit the model {self.freezes}"),
+                held_rules=spec_rules(),
+                **freeze_context(),
             )
             commit = self.writer_a.operations.add(stored.analysis_spec_node(spec))
             assert type(view_of(self.alpha).entries[-1]) is SettledEntryView
@@ -199,6 +201,7 @@ def world(work_directory):
             spec = freeze(
                 spec_draft(target=self.target_b, method=f"fit the model b{len(view_of(self.beta).entries)}"),
                 held_rules=spec_rules(),
+                **freeze_context(),
             )
             return Event(self.b, self.writer_b.operations.add(stored.analysis_spec_node(spec)).entry_digest)
 

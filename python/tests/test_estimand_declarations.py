@@ -1,11 +1,11 @@
-"""The `estimands:` declaration class: keyed by typed target, `level_sorts` keyed by role."""
+"""The `estimands:` declaration class: keyed by typed target, closed forms and conditioning sorts."""
 
 import copy
 
 import pytest
 
 from beliefs.contract import domain
-from beliefs.errors import MalformedContract, ProfileError, SuccessionViolation
+from beliefs.errors import MalformedContract, SuccessionViolation
 
 
 @pytest.fixture()
@@ -27,24 +27,25 @@ def test_the_fixture_declares_five_estimands(parse, testing_document):
     }
     decl = contract.estimands["instantiation:affects-entity-outcome"]
     assert decl.target == "instantiation:affects-entity-outcome"
-    assert decl.level_sorts == {"cause": "level"}
-    assert (decl.measure_sort, decl.identification_sort, decl.conditioning_sort) == (
-        "measure",
-        "identification",
-        "entity",
-    )
+    assert "contrast" in decl.forms
+    assert decl.conditioning_sorts == {"entity"}
 
 
-def test_level_sorts_are_keyed_by_role(parse, testing_document):
-    contract = parse(testing_document)
-    assert contract.estimands["instantiation:correlates-event-product"].level_sorts == {"parties": "level"}
-    assert contract.estimands["instantiation:promotes"].level_sorts == {"subject": "level"}
+def test_old_fields_are_refused(parse, testing_document):
+    testing_document["estimands"]["bridge:promotes"] = {
+        "level_sorts": {"cause": "level"},
+        "measure_sort": "measure",
+        "identification_sort": "identification",
+        "conditioning_sort": "entity",
+    }
+    with pytest.raises(MalformedContract):
+        parse(testing_document)
 
 
-@pytest.mark.parametrize("key", ["0", "Cause", "", "cause/0"])
-def test_a_level_sorts_key_that_is_not_a_role_name_is_refused(parse, testing_document, key):
-    testing_document["estimands"]["bridge:promotes"]["level_sorts"] = {key: "level"}
-    with pytest.raises(MalformedContract, match="level_sorts"):
+@pytest.mark.parametrize("forms", [[], ["contrast", "contrast"], ["rank-contrast"], "contrast"])
+def test_invalid_forms_refuse(parse, testing_document, forms):
+    testing_document["estimands"]["bridge:promotes"]["forms"] = forms
+    with pytest.raises(MalformedContract):
         parse(testing_document)
 
 
@@ -54,29 +55,24 @@ def test_an_unknown_field_is_refused(parse, testing_document):
         parse(testing_document)
 
 
-@pytest.mark.parametrize("field", ["measure_sort", "identification_sort", "conditioning_sort"])
-def test_an_undeclared_sort_is_refused_at_parse(parse, testing_document, field):
-    testing_document["estimands"]["bridge:promotes"][field] = "assay"
-    with pytest.raises(MalformedContract, match="assay"):
+@pytest.mark.parametrize("sorts", [["assay"], ["entity", "entity"], "entity"])
+def test_invalid_conditioning_sorts_refuse(parse, testing_document, sorts):
+    testing_document["estimands"]["bridge:promotes"]["conditioning_sorts"] = sorts
+    with pytest.raises(MalformedContract):
         parse(testing_document)
 
 
-def test_an_undeclared_level_sort_is_refused_at_parse(parse, testing_document):
-    testing_document["estimands"]["bridge:promotes"]["level_sorts"] = {"cause": "assay"}
-    with pytest.raises(MalformedContract, match="assay"):
-        parse(testing_document)
-
-
-def test_the_projection_sorts_level_sort_keys(parse, testing_document):
+def test_schema_projection_sorts_admission_sets(parse, testing_document):
     document = copy.deepcopy(testing_document)
-    document["estimands"]["bridge:promotes"]["level_sorts"] = {"effect": "outcome", "cause": "level"}
+    document["estimands"]["bridge:promotes"]["forms"] = ["contrast", "quantity"]
+    document["estimands"]["bridge:promotes"]["conditioning_sorts"] = ["entity", "outcome"]
     reordered = copy.deepcopy(document)
-    reordered["estimands"]["bridge:promotes"]["level_sorts"] = {"cause": "level", "effect": "outcome"}
+    reordered["estimands"]["bridge:promotes"]["forms"].reverse()
+    reordered["estimands"]["bridge:promotes"]["conditioning_sorts"].reverse()
     assert (
         parse(document).estimands["bridge:promotes"].schema_projection()
         == parse(reordered).estimands["bridge:promotes"].schema_projection()
     )
-    assert parse(document).content_identity == parse(reordered).content_identity
 
 
 class TestSuccession:
@@ -96,13 +92,7 @@ class TestSuccession:
 
     @pytest.mark.parametrize(
         ("member", "value"),
-        [
-            ("level_sorts", {}),
-            ("level_sorts", {"effect": "level"}),
-            ("measure_sort", "entity"),
-            ("identification_sort", "entity"),
-            ("conditioning_sort", "outcome"),
-        ],
+        [("forms", ["quantity"]), ("conditioning_sorts", ["outcome"])],
     )
     def test_changing_any_member_is_a_redefinition(self, parse, testing_document, member, value):
         prior = parse(testing_document)
@@ -137,10 +127,8 @@ class TestCompile:
     def test_sorts_compile_to_term_identifiers(self, profile):
         decl = profile.estimands["instantiation:testing/affects-entity-outcome"]
         assert decl.target == "instantiation:testing/affects-entity-outcome"
-        assert decl.level_sorts == {"cause": "testing/level"}
-        assert decl.measure_sort == "testing/measure"
-        assert decl.identification_sort == "testing/identification"
-        assert decl.conditioning_sort == "testing/entity"
+        assert "contrast" in decl.forms
+        assert decl.conditioning_sorts == {"testing/entity"}
         assert decl.contract == "testing"
 
     def test_the_table_is_keyed_by_compiled_typed_address(self, profile):
@@ -152,19 +140,11 @@ class TestCompile:
             "instantiation:testing/promotes",
         }
 
-    def test_a_level_sorts_key_naming_no_role_of_the_target_refuses(self, base_contract, testing_document):
-        from beliefs.profile import compile_profile
-
-        testing_document["estimands"]["instantiation:promotes"]["level_sorts"] = {"cause": "level"}
-        contract = domain.parse_domain_contract(testing_document, source="<x>", base=base_contract, predecessor=None)
-        with pytest.raises(ProfileError, match="cause"):
-            compile_profile(base_contract, [contract])
-
     def test_the_declaration_enters_the_compiled_identity(self, base_contract, testing_document):
         from beliefs.profile import compile_profile
 
         changed = copy.deepcopy(testing_document)
-        changed["estimands"]["bridge:promotes"]["conditioning_sort"] = "outcome"
+        changed["estimands"]["bridge:promotes"]["conditioning_sorts"] = ["outcome"]
         one = compile_profile(
             base_contract,
             [domain.parse_domain_contract(testing_document, source="<a>", base=base_contract, predecessor=None)],
@@ -177,7 +157,7 @@ class TestCompile:
     def test_a_cross_contract_sort_resolves_or_refuses_by_namespace(self, base_contract, testing_document):
         from beliefs.profile import compile_profile
 
-        testing_document["estimands"]["bridge:promotes"]["measure_sort"] = "biology/assay"
+        testing_document["estimands"]["bridge:promotes"]["conditioning_sorts"] = ["biology/assay"]
         contract = domain.parse_domain_contract(testing_document, source="<x>", base=base_contract, predecessor=None)
         with pytest.raises(MalformedContract, match="namespace 'biology'"):
             compile_profile(base_contract, [contract])

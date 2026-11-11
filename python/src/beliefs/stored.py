@@ -60,10 +60,10 @@ from nodes.core.relations import Relation
 from beliefs import identifiers
 from beliefs import report as report_values
 from beliefs import source as source_basis_projection
-from beliefs.claim import Qualifier
+from beliefs.assessment_payload import CurvePoint, Uncertainty, payload_from_projection
 from beliefs.classification_rule import ClassificationRule, rule_identity, rule_projection
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
-from beliefs.decode import applicability_from_stored, estimand_from_stored
+from beliefs.dependencies import FrozenAssessmentDependency, HeldRecords
 from beliefs.errors import (
     BasisMissing,
     CanonicalTextRefused,
@@ -77,9 +77,7 @@ from beliefs.errors import (
     MalformedRecord,
     PreGrammarAssessment,
     ProfileError,
-    UncertaintyRefused,
 )
-from beliefs.estimand import Estimand, Interval, StandardError, uncertainty_from_mapping
 from beliefs.holdings.records import (
     HOLDINGS_OBSERVATION_KIND,
     Absent,
@@ -106,6 +104,7 @@ from beliefs.reservation import (
 )
 from beliefs.sealed import sealed
 from beliefs.spec import FrozenSpec, frozen_projection, restore
+from beliefs.target import AssessedTarget, Standing, target_from_projection
 from beliefs.verification import Verification
 
 if TYPE_CHECKING:  # the runtime import is local to each function, to avoid a load-time cycle
@@ -178,6 +177,7 @@ __all__ = [
     "exposure_event_relations",
     "exposure_event_value",
     "external_identifiers",
+    "frozen_assessment_dependency",
     "governed_node",
     "held_source_addresses",
     "holdings_observation_node",
@@ -688,7 +688,9 @@ def inputs_of(node: Node, role: str) -> tuple[str, ...]:
     return tuple(relation.target for relation in node.relations if relation.predicate == role)
 
 
-_ASSESSMENT_FACET_KEYS = frozenset({"spec", "run", "proposition", "outcome", "interpretation_rule", "typed"})
+_ASSESSMENT_FACET_KEYS = frozenset(
+    {"spec", "run", "proposition", "outcome", "interpretation_rule", "standing", "typed"}
+)
 
 
 @sealed
@@ -719,64 +721,60 @@ def assessment_reference(node: Node) -> AssessmentRef:
 
 
 def assessment_value(node: Node, *, profile: ProfileSpec) -> AssessmentValue:
-    """The stored assessment as the typed value: `(spec,
-    run, proposition)` and the facet kernel tables, with `estimand` and
-    `applicability` restored from the `typed` member's canonical text against
-    `profile`. Absent optionals stay absent.
-
-    `run` is handed back bare — the run's address, the world identity the
-    derivation digests — and a facet whose `run` is absent or untyped is
-    malformed. A facet minted before `science.estimand.v1` (no
-    `typed` member, prose `estimand`) is refused by name (`PreGrammarAssessment`),
-    never coerced."""
     facet = _facet(node, ASSESSMENT_FACET)
     if facet is None:
-        raise MalformedRecord(f"{node.id}: an assessment carries an {ASSESSMENT_FACET!r} facet")
-    if "typed" not in facet and isinstance(facet.get("estimand"), str | type(None)):
-        raise PreGrammarAssessment(
-            f"{node.id}: pre-grammar assessment — minted before science.estimand.v1 with prose members. "
-            "Refused, never coerced."
-        )
-    if set(facet) != _ASSESSMENT_FACET_KEYS or any(type(facet[k]) is not str for k in _ASSESSMENT_FACET_KEYS):
-        raise MalformedRecord(
-            f"{node.id}: an assessment facet is exactly {sorted(_ASSESSMENT_FACET_KEYS)}, every member text"
-        )
+        raise MalformedRecord(f"{node.id}: missing assessment facet")
+    if "standing" not in facet:
+        raise PreGrammarAssessment(f"{node.id}: pre-grammar assessment; v2 standing and assessed target required")
+    if set(facet) != _ASSESSMENT_FACET_KEYS or any(type(facet[k]) is not str for k in facet):
+        raise MalformedRecord(f"{node.id}: malformed assessment facet")
     try:
         typed = v1.decode(facet["typed"].encode("utf-8"))
-    except CanonicalTextRefused as refused:
-        raise MalformedRecord(f"{node.id}: the typed member is not canonical text: {refused}") from refused
-    if not isinstance(typed, dict) or not {"estimand", "applicability"} <= set(typed) <= {
-        "estimand",
-        "applicability",
-        "estimate",
-        "uncertainty",
-    }:
-        raise MalformedRecord(
-            f"{node.id}: the typed member carries estimand, applicability, and optionally estimate and uncertainty"
+        if (
+            not isinstance(typed, dict)
+            or not {"estimand", "applicability", "dependencies"} <= typed.keys()
+            or set(typed) - {"estimand", "applicability", "dependencies", "model", "estimates", "uncertainty", "curves"}
+        ):
+            raise MalformedRecord("invalid assessed-target payload")
+        target = target_from_projection(
+            {k: v for k, v in typed.items() if k in {"estimand", "applicability", "dependencies", "model"}},
+            standing=cast(Standing, facet["standing"]),
+            profile=profile,
         )
-    try:
-        estimand = estimand_from_stored(typed["estimand"], profile=profile)
-        applicability = applicability_from_stored(typed["applicability"], profile=profile, operator=estimand.operator)
-    except (DecodeError, EstimandError, ClaimError, ProfileError) as refused:
+        estimates, uncertainty, curves = payload_from_projection(
+            {k: v for k, v in typed.items() if k in {"estimates", "uncertainty", "curves"}}, target.estimand
+        )
+        result = AssessmentValue(
+            spec=facet["spec"],
+            run=local_id("run", facet["run"]),
+            proposition=facet["proposition"],
+            outcome=facet["outcome"],
+            interpretation_rule=facet["interpretation_rule"],
+            target=target,
+            estimates=estimates,
+            uncertainty=uncertainty,
+            curves=curves,
+        )
+        if result.typed_projection() != typed:
+            raise MalformedRecord("typed assessment is not its own projection")
+        return result
+    except (CanonicalTextRefused, DecodeError, EstimandError, ClaimError, ProfileError) as refused:
         raise MalformedRecord(f"{node.id}: the typed members do not restore: {refused}") from refused
-    uncertainty = None
-    if "uncertainty" in typed:
-        try:
-            uncertainty = uncertainty_from_mapping(
-                typed["uncertainty"], estimate=typed.get("estimate"), scale=estimand.measure.scale
-            )
-        except UncertaintyRefused as refused:
-            raise MalformedRecord(f"{node.id}: {refused}") from refused
-    return AssessmentValue(
-        spec=facet["spec"],
-        run=local_id("run", facet["run"]),
-        proposition=facet["proposition"],
-        outcome=facet["outcome"],
-        interpretation_rule=facet["interpretation_rule"],
-        estimand=estimand,
-        applicability=applicability,
-        estimate=typed.get("estimate"),
-        uncertainty=uncertainty,
+
+
+def frozen_assessment_dependency(id: str, *, records: HeldRecords, profile: ProfileSpec) -> FrozenAssessmentDependency:
+    if not records.holds(id):
+        from beliefs.errors import DependencyNotHeld
+
+        raise DependencyNotHeld(f"assessment {id} is not held")
+    node = records.read(id)
+    if node.id != id:
+        raise MalformedRecord("assessment dependency reader returned another identity")
+    value = assessment_value(node, profile=profile)
+    from beliefs.target import target_terms
+
+    return FrozenAssessmentDependency(
+        id, value.facet_digest(), tuple(sorted(target_terms(value.target, profile))), value.dependencies
     )
 
 
@@ -1385,15 +1383,12 @@ def assessment_node(
     spec: str,
     run: str,
     proposition: str,
-    # `proposition` and `run` are corpus refs: the address of the record, which
-    # is what a corpus-local reader can resolve. The claim identity itself lives
-    # on the proposition node, in its own facet.
     outcome: str,
     interpretation_rule: str,
-    estimand: Estimand,
-    applicability: Mapping[str, Qualifier],
-    estimate: Decimal | None = None,
-    uncertainty: Interval | StandardError | None = None,
+    target: AssessedTarget,
+    estimates: Mapping[str, Decimal] | None = None,
+    uncertainty: Uncertainty = None,
+    curves: Mapping[str, tuple[CurvePoint, ...]] | None = None,
 ) -> Node:
     value = AssessmentValue(
         spec=spec,
@@ -1401,18 +1396,19 @@ def assessment_node(
         proposition=proposition,
         outcome=outcome,
         interpretation_rule=interpretation_rule,
-        estimand=estimand,
-        applicability=applicability,
-        estimate=estimate,
+        target=target,
+        estimates={} if estimates is None else estimates,
         uncertainty=uncertainty,
+        curves={} if curves is None else curves,
     )
     node_id = f"assessment:{slug}"
-    facet: dict[str, Any] = {
+    facet = {
         "spec": spec,
         "run": run,
         "proposition": proposition,
         "outcome": outcome,
         "interpretation_rule": interpretation_rule,
+        "standing": target.standing,
         "typed": v1.encode(value.typed_projection()).decode("utf-8"),
     }
     relations = [

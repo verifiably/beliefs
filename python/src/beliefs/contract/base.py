@@ -43,7 +43,6 @@ __all__ = [
     "MEASUREMENT_GRAMMAR_VERSION",
     "SUPPORTED_BINDING_KINDS",
     "SUPPORTED_CARDINALITIES",
-    "SUPPORTED_CONTRAST_KINDS",
     "SUPPORTED_CONVERSION_KINDS",
     "SUPPORTED_ESTIMAND_ARITIES",
     "SUPPORTED_ESTIMAND_DOMAINS",
@@ -69,7 +68,6 @@ __all__ = [
     "SUPPORTED_MONOTONE_DIRECTIONS",
     "SUPPORTED_PLACEMENTS",
     "SUPPORTED_ROLE_CATEGORIES",
-    "SUPPORTED_SCALES",
     "SUPPORTED_SCALE_ORIENTATIONS",
     "SUPPORTED_TRANSFORMATION_DOMAINS",
     "SUPPORTED_TRANSFORMATION_KINDS",
@@ -159,7 +157,30 @@ _RESERVED_ROLE_FIELDS = frozenset({"world_kind"})
 _SUPPORTED_RESERVED_ROLES = ("within-model",)
 """The reserved role names typing admits on every operator; the table's key set
 is a closed set like the others and must match exactly."""
-_ESTIMAND_GRAMMAR_FIELDS = frozenset({"version", "tag_encoding", "contrast_kinds", "scales", "uncertainty_kinds"})
+_ESTIMAND_GRAMMAR_FIELDS = frozenset(
+    {
+        "tag_encoding",
+        "reversals",
+        "parameter_typings",
+        "version",
+        "restriction_forms",
+        "response_reversals",
+        "increments",
+        "domains",
+        "reference_kinds",
+        "nulls",
+        "standing_classes",
+        "forms",
+        "uncertainty_propagation",
+        "ties",
+        "arities",
+        "outputs",
+        "uncertainty_kinds",
+        "level_sources",
+        "exchanges",
+        "response_transformations",
+    }
+)
 _MEASUREMENT_GRAMMAR_FIELDS = frozenset(
     {
         "version",
@@ -236,16 +257,14 @@ SUPPORTED_SHAPES = ("dag",)
 """The shapes this implementation derives. A contract naming a
 shape outside this set is refused at parse: a profile carrying `pag` would
 otherwise run `dag` classification under another shape's name."""
-SUPPORTED_CONTRAST_KINDS = ("continuous", "levels")
-SUPPORTED_SCALES = ("additive", "multiplicative")
-SUPPORTED_UNCERTAINTY_KINDS = ("interval", "standard-error")
+SUPPORTED_UNCERTAINTY_KINDS = ("interval", "standard-error", "covariance")
 """The three estimand closed sets this implementation operates. A contract
 must declare each set exactly: widening would route a new tag through an
 existing operation, while narrowing would declare less than the kernel does."""
 _RELATION_FIELDS = frozenset({"group", "sources", "targets"})
 _RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
-ESTIMAND_GRAMMAR = "science.estimand.v1"
+ESTIMAND_GRAMMAR = "science.estimand.v2"
 COMPOSITE_GRAMMAR = "science.composite.v1"
 """The tag a stored composite facet carries under `grammar`."""
 COMPOSES_SIGNATURE = (("composite",), ("proposition",))
@@ -292,24 +311,52 @@ class ClaimGrammar:
 
 @dataclass(frozen=True)
 class EstimandGrammar:
-    """The closed structural sets an estimand draws from.
-
-    Structural, not vocabulary: each tag names an operation the kernel performs
-    on the value that carries it, which is what keeps these three sets out of
-    the survey's admission rule the way quantifiers are kept out."""
+    """Closed structural tags operated by the v2 estimand reader."""
 
     version: int
-    contrast_kinds: tuple[str, ...]
-    scales: tuple[str, ...]
+    forms: tuple[str, ...]
+    arities: tuple[str, ...]
+    response_transformations: tuple[str, ...]
+    reversals: tuple[str, ...]
+    response_reversals: tuple[str, ...]
+    exchanges: tuple[str, ...]
+    ties: tuple[str, ...]
+    outputs: tuple[str, ...]
+    parameter_typings: tuple[str, ...]
+    domains: tuple[str, ...]
+    nulls: tuple[str, ...]
+    increments: tuple[str, ...]
+    uncertainty_propagation: tuple[str, ...]
     uncertainty_kinds: tuple[str, ...]
+    level_sources: tuple[str, ...]
+    reference_kinds: tuple[str, ...]
+    restriction_forms: tuple[str, ...]
+    standing_classes: tuple[str, ...]
 
     def projection(self) -> dict[str, object]:
-        return {
-            "version": self.version,
-            "contrast_kinds": sorted(self.contrast_kinds),
-            "scales": sorted(self.scales),
-            "uncertainty_kinds": sorted(self.uncertainty_kinds),
-        }
+        return {"version": self.version, **{name: sorted(getattr(self, name)) for name in _ESTIMAND_TAGS}}
+
+
+_ESTIMAND_TAGS = {
+    "forms": SUPPORTED_ESTIMAND_FORMS,
+    "arities": SUPPORTED_ESTIMAND_ARITIES,
+    "response_transformations": SUPPORTED_ESTIMAND_RESPONSE_TRANSFORMATIONS,
+    "reversals": SUPPORTED_ESTIMAND_REVERSALS,
+    "response_reversals": SUPPORTED_ESTIMAND_RESPONSE_REVERSALS,
+    "exchanges": SUPPORTED_ESTIMAND_EXCHANGES,
+    "ties": SUPPORTED_ESTIMAND_TIES,
+    "outputs": SUPPORTED_ESTIMAND_OUTPUTS,
+    "parameter_typings": SUPPORTED_ESTIMAND_PARAMETER_TYPINGS,
+    "domains": SUPPORTED_ESTIMAND_DOMAINS,
+    "nulls": SUPPORTED_ESTIMAND_NULLS,
+    "increments": SUPPORTED_ESTIMAND_INCREMENTS,
+    "uncertainty_propagation": SUPPORTED_ESTIMAND_UNCERTAINTY_PROPAGATION,
+    "uncertainty_kinds": SUPPORTED_UNCERTAINTY_KINDS,
+    "level_sources": SUPPORTED_ESTIMAND_LEVEL_SOURCES,
+    "reference_kinds": SUPPORTED_ESTIMAND_REFERENCE_KINDS,
+    "restriction_forms": SUPPORTED_ESTIMAND_RESTRICTION_FORMS,
+    "standing_classes": SUPPORTED_ESTIMAND_STANDING_CLASSES,
+}
 
 
 @dataclass(frozen=True)
@@ -621,18 +668,13 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             f"{estimand_where}: tag_encoding is {estimand['tag_encoding']!r}; this implementation encodes tags only "
             f"under {TAG_ENCODING!r}."
         )
+    if _positive_int(estimand["version"], f"{estimand_where}: version") != 2:
+        raise MalformedContract(f"{estimand_where}: expected version 2")
     estimand_grammar = EstimandGrammar(
-        version=_positive_int(estimand["version"], f"{estimand_where}: version"),
-        contrast_kinds=_closed_set(estimand["contrast_kinds"], f"{estimand_where}: contrast_kinds"),
-        scales=_closed_set(estimand["scales"], f"{estimand_where}: scales"),
-        uncertainty_kinds=_closed_set(estimand["uncertainty_kinds"], f"{estimand_where}: uncertainty_kinds"),
+        version=2, **{name: _closed_set(estimand[name], f"{estimand_where}: {name}") for name in _ESTIMAND_TAGS}
     )
-    for set_name, declared, supported in (
-        ("contrast_kinds", estimand_grammar.contrast_kinds, SUPPORTED_CONTRAST_KINDS),
-        ("scales", estimand_grammar.scales, SUPPORTED_SCALES),
-        ("uncertainty_kinds", estimand_grammar.uncertainty_kinds, SUPPORTED_UNCERTAINTY_KINDS),
-    ):
-        _require_operated(declared, supported, f"{estimand_where}: {set_name}")
+    for tag_name, supported in _ESTIMAND_TAGS.items():
+        _require_operated(getattr(estimand_grammar, tag_name), supported, f"{estimand_where}: {tag_name}")
 
     measurement_where = f"{source}: measurement_grammar"
     measurement = _mapping(root["measurement_grammar"], measurement_where)

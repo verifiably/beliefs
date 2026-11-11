@@ -1,42 +1,25 @@
 """Run, assessment and source-assertion values for the belief seam.
 
-Runs here are **values with role-typed inputs, not the execution boundary** —
-begin/capture/replay is not built, `spec` is an opaque supplied identity, and
-the guarantees stay at the run boundary. The roles are:
-`observes` is what confers eligibility, `reads` never does in any quantity,
-`transforms` is dataset-production lineage input.
-
-The assessment facet's `estimand` and `applicability`
-are typed against the spec they derive from;
-`estimate` and `uncertainty` are checked against the estimand's scale at
-**every** construction, never coerced. Its identity is `(spec, run,
-proposition)`; its keyed facet digest is what the closure pairs with that
-identity.
+Assessment values own a frozen target and named numerical payload. Their
+execution identity, target key and complete facet digest serve different
+purposes; each is computed from its declared canonical members.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from types import MappingProxyType
 from typing import final
 
-from beliefs.claim import Qualifier
+from beliefs.assessment_payload import CurvePoint, Uncertainty, check_payload, payload_projection
 from beliefs.dataset import DatasetDeclaration
-from beliefs.errors import MalformedRecord, SignatureRefused, UncertaintyRefused
-from beliefs.estimand import (
-    Estimand,
-    Interval,
-    StandardError,
-    applicability_projection,
-    check_estimate,
-    check_uncertainty,
-    estimand_projection,
-    uncertainty_projection,
-)
+from beliefs.dependencies import ASSESSMENT_FACET_DOMAIN, assessment_facet_digest
+from beliefs.errors import MalformedRecord, SignatureRefused
 from beliefs.identity import v1
 from beliefs.sealed import sealed
+from beliefs.target import AssessedTarget, target_projection
 
 __all__ = [
     "ASSESSMENT_DOMAIN",
@@ -54,8 +37,7 @@ ROLES = ("observes", "reads", "transforms")
 OUTCOMES = ("supported", "refuted", "inconclusive")
 SOURCE_ASSERTION_RELATIONS = ("asserts", "denies", "hypothesizes")
 
-ASSESSMENT_DOMAIN = "science.assessment.v1"
-ASSESSMENT_FACET_DOMAIN = "science.assessment-facet.v1"
+ASSESSMENT_DOMAIN = "science.assessment.v2"
 
 
 @sealed
@@ -91,75 +73,68 @@ class RunValue:
 class AssessmentValue:
     spec: str
     run: str
-    """The run's bare closure address — its world identity — on the derived and the stored side alike."""
-
     proposition: str
-    """A claim identity: propositions are typed claims, consumed here."""
-
     outcome: str
     interpretation_rule: str
-    estimand: Estimand
-    applicability: Mapping[str, Qualifier]
-    estimate: Decimal | None = None
-    uncertainty: Interval | StandardError | None = None
+    target: AssessedTarget
+    estimates: Mapping[str, Decimal] = field(default_factory=dict)
+    uncertainty: Uncertainty = None
+    curves: Mapping[str, tuple[CurvePoint, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.outcome not in OUTCOMES:
             raise MalformedRecord(f"outcome {self.outcome!r} is outside the closed set {OUTCOMES}")
-        if type(self.estimand) is not Estimand:
-            raise MalformedRecord(f"estimand is a typed Estimand, found {type(self.estimand).__name__}")
-        if not isinstance(self.applicability, Mapping) or not all(
-            isinstance(q, Qualifier) for q in self.applicability.values()
-        ):
-            raise MalformedRecord("applicability is a mapping of dimension → Qualifier")
-        if self.estimate is not None and type(self.estimate) is not Decimal:
-            raise MalformedRecord(f"estimate is a Decimal or absent, found {type(self.estimate).__name__}")
-        if self.uncertainty is not None and not isinstance(self.uncertainty, (Interval, StandardError)):
-            raise MalformedRecord(
-                f"uncertainty is an Interval, a StandardError or absent, found {type(self.uncertainty).__name__}"
-            )
-        # The numerical invariants hold at **every**
-        # construction — the constructor's, the stored reader's, a test's — so a
-        # stored record cannot carry a negative standard error or an interval
-        # that excludes its estimate any more than a derived one can.
-        try:
-            if self.estimate is not None:
-                check_estimate(self.estimate, self.estimand.measure.scale)
-            if self.uncertainty is not None:
-                if self.estimate is None:
-                    raise UncertaintyRefused("an uncertainty with no estimate to be uncertain about")
-                check_uncertainty(self.uncertainty, self.estimate, self.estimand.measure.scale)
-        except UncertaintyRefused as refused:
-            raise MalformedRecord(str(refused)) from refused
-        object.__setattr__(self, "applicability", MappingProxyType(dict(self.applicability)))
+        if not isinstance(self.target, AssessedTarget):
+            raise MalformedRecord("assessment requires an AssessedTarget")
+        check_payload(self.target.estimand, self.estimates, self.uncertainty, self.curves)
+        object.__setattr__(self, "estimates", MappingProxyType(dict(self.estimates)))
+        object.__setattr__(self, "curves", MappingProxyType(dict(self.curves)))
+        if isinstance(self.uncertainty, Mapping):
+            object.__setattr__(self, "uncertainty", MappingProxyType(dict(self.uncertainty)))
+
+    @property
+    def estimand(self):
+        return self.target.estimand
+
+    @property
+    def applicability(self):
+        return self.target.applicability
+
+    @property
+    def standing(self):
+        return self.target.standing
+
+    @property
+    def dependencies(self):
+        return self.target.dependencies
+
+    @property
+    def model(self):
+        return self.target.model
 
     def identity(self) -> str:
-        """`(spec, run, proposition)` — which is what puts run identity in the
-        belief digest at all."""
         return v1.digest(ASSESSMENT_DOMAIN, {"spec": self.spec, "run": self.run, "proposition": self.proposition})
 
     def typed_projection(self) -> dict[str, object]:
-        """The typed members, as one canonical mapping: what the stored record
-        carries as text and what the facet digest covers. Absent optionals are
-        omitted, never null."""
-        typed: dict[str, object] = {
-            "estimand": estimand_projection(self.estimand),
-            "applicability": applicability_projection(self.applicability),
-        }
-        if self.estimate is not None:
-            typed["estimate"] = self.estimate
-        if self.uncertainty is not None:
-            typed["uncertainty"] = uncertainty_projection(self.uncertainty)
-        return typed
+        return {**target_projection(self.target), **payload_projection(self.estimates, self.uncertainty, self.curves)}
 
     def facet_digest(self) -> str:
+        return assessment_facet_digest(
+            proposition=self.proposition,
+            outcome=self.outcome,
+            interpretation_rule=self.interpretation_rule,
+            standing=self.standing,
+            typed=self.typed_projection(),
+        )
+
+    def key(self) -> str:
         return v1.digest(
-            ASSESSMENT_FACET_DOMAIN,
+            "science.assessed-proposition.v1",
             {
-                "proposition": self.proposition,
-                "outcome": self.outcome,
+                "claim": self.estimand.claim,
+                "target": target_projection(self.target),
                 "interpretation_rule": self.interpretation_rule,
-                **self.typed_projection(),
+                "standing": self.standing,
             },
         )
 

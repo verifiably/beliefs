@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from dataset_fixtures import dataset_ref, pinned
+from fixtures_cut3 import freeze_context, typed_target
 
 from beliefs import stored
 from beliefs.dataset import dataset_address
@@ -181,8 +182,7 @@ def test_assessment_value_hands_back_the_bare_run_and_refuses_an_untyped_one():
         proposition="proposition:p",
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     # `AssessmentRef` reads only the three world-identity members — no
     # profile is needed to hand back the bare run.
@@ -227,7 +227,9 @@ def test_analysis_spec_node_round_trips_through_the_writer_and_the_reader(tmp_pa
     # proposition its own estimand answers, so
     # `spec_draft`'s default `target` must name a real, matching proposition.
     target = writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
-    spec = freeze(spec_draft(target=target.id, parameters={"alpha": Decimal("0.05")}), held_rules=spec_rules())
+    spec = freeze(
+        spec_draft(target=target.id, parameters={"alpha": Decimal("0.05")}), held_rules=spec_rules(), **freeze_context()
+    )
     node = writer.add(stored.analysis_spec_node(spec))
     assert node.id == f"analysis-spec:{spec.identity}"
     assert set(node.facets[stored.ANALYSIS_SPEC_FACET]) == {"identity", "projection"}
@@ -236,7 +238,7 @@ def test_analysis_spec_node_round_trips_through_the_writer_and_the_reader(tmp_pa
 
 
 def test_a_renamed_or_falsely_identified_record_is_malformed(tmp_path):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     node = stored.analysis_spec_node(spec)
     renamed = node.model_copy(update={"id": "analysis-spec:elsewhere"})
     with pytest.raises(MalformedRecord, match="not the spec identity"):

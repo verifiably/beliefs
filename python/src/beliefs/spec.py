@@ -18,8 +18,6 @@ cited registers has no order an identity should depend on. Whether a cited regis
 door's question, not this value's.
 """
 
-# Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the estimand structure around these names.
-
 from __future__ import annotations
 
 import re
@@ -27,27 +25,36 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields
 from hashlib import sha256
 from types import MappingProxyType
-from typing import Protocol, cast, final
+from typing import Literal, Protocol, TypeAlias, cast, final
 
-from beliefs.claim import Qualifier
+from beliefs.applicability import Applicability, applicability_projection
+from beliefs.applicability import checked as checked_applicability
+from beliefs.claim import Claim
+from beliefs.classification_rule import ClassificationRule
 from beliefs.contract.base import ESTIMAND_GRAMMAR
-from beliefs.decode import applicability_from_stored, estimand_from_stored
+from beliefs.dependencies import (
+    FrozenAssessmentDependency,
+    HeldRecords,
+    dependencies_projection,
+    dependency_closure,
+    read_record,
+)
 from beliefs.errors import (
     CanonicalTextRefused,
-    ClaimError,
-    DecodeError,
-    EstimandError,
     MalformedRecord,
     MalformedSpec,
     PreGrammarSpec,
-    ProfileError,
     RuleUnbound,
+    ScienceError,
     UnfreezableSpec,
 )
-from beliefs.estimand import Estimand, applicability_projection, estimand_projection
+from beliefs.estimand import Estimand, admit_estimand, binding_roots, estimand_projection
 from beliefs.identity import v1
+from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
+from beliefs.restriction import check_held_rule_scope
 from beliefs.sealed import sealed
+from beliefs.target import AssessedTarget, Standing, target_from_projection
 
 __all__ = [
     "BITWISE_EQUIVALENCE_RULES",
@@ -55,11 +62,13 @@ __all__ = [
     "SEED_DERIVATION_V1",
     "SPEC_DOMAIN",
     "Deterministic",
+    "EvidenceMode",
     "ExclusionCertification",
     "FrozenSpec",
     "HeldImplementation",
     "NondeterminismContract",
     "RealizedSeeds",
+    "RuleBinding",
     "RuleFixture",
     "RuleImplementation",
     "SeedPlan",
@@ -84,6 +93,8 @@ SEED_DERIVATION_V1 = "seed-derivation/v1"
 BITWISE_EQUIVALENCE_RULES = frozenset({"content-identity-equality/v1", "beliefs/content-identity-equality/v1"})
 DATASET_EQUIVALENCE_RULE = "dataset-content-equality/v1"
 SPEC_INPUT_ROLES = ("observes", "reads")
+EvidenceMode: TypeAlias = Literal["observation", "annotation", "simulation", "derivation", "literature-extraction"]
+_EVIDENCE_MODES = ("observation", "annotation", "simulation", "derivation", "literature-extraction")
 _REGISTER_ID = re.compile(r"assumptions-register:[0-9a-f]{64}")
 
 
@@ -208,9 +219,12 @@ class ExclusionCertification:
 class SpecInput:
     role: str
     dataset: str
+    mode: EvidenceMode
     exclusion: ExclusionCertification | None = None
 
     def __post_init__(self) -> None:
+        if self.mode not in _EVIDENCE_MODES:
+            raise MalformedSpec("unknown evidence mode")
         if self.role not in SPEC_INPUT_ROLES:
             raise MalformedSpec(f"input role {self.role!r} is outside the closed set {SPEC_INPUT_ROLES}")
         if self.exclusion is not None and self.role != "reads":
@@ -273,6 +287,13 @@ def bind_rules(named: tuple[str, ...], held: Mapping[str, HeldImplementation]) -
     return tuple(sorted(bound.items()))
 
 
+@dataclass(frozen=True)
+class RuleBinding:
+    rule: str
+    implementation: str
+    procedure: str | None
+
+
 def _freeze_parameter_value(value: object) -> object:
     if isinstance(value, Mapping):
         return MappingProxyType({key: _freeze_parameter_value(member) for key, member in value.items()})
@@ -299,11 +320,13 @@ class SpecDraft:
     assumptions: str
     falsification: str
     input_roles: tuple[SpecInput, ...]
-    applicability: Mapping[str, Qualifier]
+    applicability: Applicability
     interpretation_rule: str
     equivalence_rule: str
     parameters: Mapping[str, object]
     nondeterminism: Deterministic | Seeded | StochasticUnseeded
+    standing: Standing
+    model: str | None
     registers: tuple[str, ...]
     """The `assumptions-register:` ids the analysis relies on; possibly empty."""
 
@@ -318,11 +341,9 @@ class SpecDraft:
             raise MalformedSpec(
                 f"estimand is a typed Estimand built by build_estimand, found {type(self.estimand).__name__}"
             )
-        if not isinstance(self.applicability, Mapping) or not all(
-            isinstance(q, Qualifier) for q in self.applicability.values()
-        ):
-            raise MalformedSpec("applicability is a mapping of dimension → Qualifier built by build_applicability")
-        object.__setattr__(self, "applicability", MappingProxyType(dict(self.applicability)))
+        if not isinstance(self.applicability, Applicability):
+            raise MalformedSpec("applicability must be a typed Applicability")
+        _check_route(self.standing, self.model, self.estimand)
         object.__setattr__(
             self,
             "parameters",
@@ -335,20 +356,35 @@ class SpecDraft:
 @dataclass(frozen=True, init=False)
 class FrozenSpec:
     target: str
-    estimand: Estimand
+    assessed_target: AssessedTarget
     method: str
     assumptions: str
     falsification: str
     input_roles: tuple[SpecInput, ...]
-    applicability: Mapping[str, Qualifier]
     interpretation_rule: str
     equivalence_rule: str
     parameters: Mapping[str, object]
     nondeterminism: Deterministic | Seeded | StochasticUnseeded
     registers: tuple[str, ...]
-    rule_bindings: tuple[tuple[str, str], ...]
+    rule_bindings: tuple[RuleBinding, ...]
     supersedes: str | None
     identity: str
+
+    @property
+    def estimand(self) -> Estimand:
+        return self.assessed_target.estimand
+
+    @property
+    def applicability(self) -> Applicability:
+        return self.assessed_target.applicability
+
+    @property
+    def standing(self) -> Standing:
+        return self.assessed_target.standing
+
+    @property
+    def model(self) -> str | None:
+        return self.assessed_target.model
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise TypeError("FrozenSpec values are minted by freeze, revise or restore")
@@ -405,7 +441,12 @@ def admit_successor(
     return SuccessorAdmitted(candidate.identity)
 
 
-def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) -> dict[str, object]:
+def _facet_projection(
+    draft: SpecDraft | FrozenSpec, rule_bindings, supersedes, target: AssessedTarget | None = None
+) -> dict[str, object]:
+    if target is None:
+        assert isinstance(draft, FrozenSpec)
+        target = draft.assessed_target
     facet: dict[str, object] = {
         "target": draft.target,
         "estimand_grammar": ESTIMAND_GRAMMAR,
@@ -414,7 +455,7 @@ def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) 
         "assumptions": draft.assumptions,
         "falsification": draft.falsification,
         "input_roles": [
-            {"role": entry.role, "dataset": entry.dataset}
+            {"role": entry.role, "dataset": entry.dataset, "mode": entry.mode}
             | (
                 {"exclusion": {"rationale": entry.exclusion.rationale, "attribution": entry.exclusion.attribution}}
                 if entry.exclusion is not None
@@ -428,29 +469,99 @@ def _facet_projection(draft: SpecDraft | FrozenSpec, rule_bindings, supersedes) 
         "parameters": _project_parameter_value(draft.parameters),
         "nondeterminism": draft.nondeterminism.projection(),
         "registers": sorted(draft.registers),
-        "rule_bindings": [list(pair) for pair in rule_bindings],
+        "rule_bindings": [
+            {
+                "rule": binding.rule,
+                "implementation": binding.implementation,
+                **({"procedure": binding.procedure} if binding.procedure is not None else {}),
+            }
+            for binding in rule_bindings
+        ],
+        "standing": target.standing,
+        "dependencies": dependencies_projection(target.dependencies),
+        **({"model": target.model} if target.model is not None else {}),
     }
     if supersedes is not None:
         facet["supersedes"] = supersedes
     return facet
 
 
+def _check_route(standing: str, model: str | None, estimand: Estimand) -> None:
+    if standing not in {"empirical", "model", "calibrated-model"}:
+        raise MalformedSpec("unknown standing class")
+    calibration = estimand.calibration
+    if (
+        (standing == "empirical" and (model is not None or calibration is not None))
+        or (standing == "model" and (model is None or calibration is not None))
+        or (standing == "calibrated-model" and (model is None or calibration is None))
+    ):
+        raise UnfreezableSpec("standing-route-mismatch: model and calibration disagree with standing")
+
+
 def freeze(
-    draft: SpecDraft, *, held_rules: Mapping[str, HeldImplementation], supersedes: str | None = None
+    draft: SpecDraft,
+    *,
+    held_rules: Mapping[str, HeldImplementation],
+    rule_procedures: Mapping[str, str],
+    profile: ProfileSpec,
+    claim: Claim,
+    records: HeldRecords,
+    assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
+    supersedes: str | None = None,
 ) -> FrozenSpec:
+    if type(draft) is not SpecDraft:
+        raise TypeError("freeze requires a SpecDraft")
     if not draft.target:
         raise MalformedSpec("an assessment spec targets a proposition; an empty target is not a spec")
     if isinstance(draft.nondeterminism, StochasticUnseeded) and draft.equivalence_rule in BITWISE_EQUIVALENCE_RULES:
-        raise UnfreezableSpec(
-            "stochastic-unseeded cannot support a bitwise equivalence rule — a contradiction, "
-            "caught at freeze because both halves are now in one frozen record"
-        )
+        raise UnfreezableSpec("stochastic-unseeded cannot support a bitwise equivalence rule")
+    _check_route(draft.standing, draft.model, draft.estimand)
     _require_register_ids(draft.registers, MalformedSpec, "registers")
-    rule_bindings = bind_rules((draft.interpretation_rule, draft.equivalence_rule), held_rules)
-    identity = v1.digest(SPEC_DOMAIN, _facet_projection(draft, rule_bindings, supersedes))
-    members = {f.name: getattr(draft, f.name) for f in fields(SpecDraft)}
+    admit_estimand(profile, draft.estimand, claim, authoring=True)
+    applicability = checked_applicability(profile, claim.operator, draft.applicability.values, authoring=True)
+    pairs = bind_rules((draft.interpretation_rule, draft.equivalence_rule), held_rules)
+    if not set(rule_procedures) <= {name for name, _ in pairs} or draft.interpretation_rule not in rule_procedures:
+        raise RuleUnbound("rule_procedures must bind the interpretation rule and no unbound rule")
+    for id in rule_procedures.values():
+        if not isinstance(read_record(records, id), Procedure):
+            raise RuleUnbound("a rule procedure must name a held procedure")
+    bindings = tuple(RuleBinding(name, impl, rule_procedures.get(name)) for name, impl in pairs)
+    roots = (
+        set(binding_roots(draft.estimand))
+        | set(applicability.rule_ids())
+        | set(draft.registers)
+        | set(rule_procedures.values())
+    )
+    if draft.model is not None:
+        roots.add(draft.model)
+    own = dependency_closure(
+        binding_roots(draft.estimand), records, profile, assessment_dependency=assessment_dependency
+    )
+    if own != draft.estimand.dependencies:
+        raise UnfreezableSpec("estimand frozen dependency set is incomplete or disagrees with held records")
+    dependencies = dependency_closure(roots, records, profile, assessment_dependency=assessment_dependency)
+    actual = {entry.id: entry for entry in dependencies}
+    if any(actual.get(entry.id) != entry for entry in draft.estimand.dependencies):
+        raise UnfreezableSpec("estimand frozen dependencies disagree with held records")
+
+    def rule_classes(id: str) -> str:
+        rule = read_record(records, id)
+        if not isinstance(rule, ClassificationRule):
+            raise UnfreezableSpec("applicability rule is not a classification rule")
+        return rule.classes
+
+    check_held_rule_scope(profile, applicability.restrictions(), classes_of=rule_classes)
+    target = AssessedTarget(draft.estimand, applicability, dependencies, draft.model, draft.standing)
+    identity = v1.digest(SPEC_DOMAIN, _facet_projection(draft, bindings, supersedes, target))
+    members = {
+        f.name: getattr(draft, f.name)
+        for f in fields(SpecDraft)
+        if f.name not in {"estimand", "applicability", "model", "standing"}
+    }
     members["registers"] = tuple(sorted(draft.registers))
-    return _mint_frozen_spec(**members, rule_bindings=rule_bindings, supersedes=supersedes, identity=identity)
+    return _mint_frozen_spec(
+        **members, assessed_target=target, rule_bindings=bindings, supersedes=supersedes, identity=identity
+    )
 
 
 def _require_register_ids(registers: tuple[str, ...], error: type[MalformedSpec | MalformedRecord], where: str) -> None:
@@ -491,6 +602,8 @@ _FROZEN_MEMBERS = frozenset(
         "nondeterminism",
         "registers",
         "rule_bindings",
+        "standing",
+        "dependencies",
     }
 )
 _TEXT_MEMBERS = ("target", "method", "assumptions", "falsification", "interpretation_rule", "equivalence_rule")
@@ -504,7 +617,12 @@ def _text(mapping: Mapping[str, object], name: str, where: str) -> str:
 
 
 def _restore_input(entry: object, where: str) -> SpecInput:
-    if not isinstance(entry, dict) or not {"role", "dataset"} <= set(entry) <= {"role", "dataset", "exclusion"}:
+    if not isinstance(entry, dict) or not {"role", "dataset", "mode"} <= set(entry) <= {
+        "role",
+        "dataset",
+        "mode",
+        "exclusion",
+    }:
         raise MalformedRecord(f"{where}: a spec input names role and dataset, with an optional exclusion")
     exclusion = None
     if "exclusion" in entry:
@@ -514,7 +632,12 @@ def _restore_input(entry: object, where: str) -> SpecInput:
         exclusion = ExclusionCertification(
             rationale=_text(claim, "rationale", where), attribution=_text(claim, "attribution", where)
         )
-    return SpecInput(role=_text(entry, "role", where), dataset=_text(entry, "dataset", where), exclusion=exclusion)
+    return SpecInput(
+        role=_text(entry, "role", where),
+        dataset=_text(entry, "dataset", where),
+        mode=cast(EvidenceMode, _text(entry, "mode", where)),
+        exclusion=exclusion,
+    )
 
 
 def _restore_nondeterminism(value: object, where: str) -> NondeterminismContract:
@@ -569,20 +692,23 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
             f"{where}: pre-grammar spec — frozen before {ESTIMAND_GRAMMAR}, its estimand and applicability are prose. "
             "Refused, never coerced: a corpus holding one was not recreated."
         )
-    if not isinstance(mapping, dict) or not _FROZEN_MEMBERS <= set(mapping) <= _FROZEN_MEMBERS | {"supersedes"}:
+    if not isinstance(mapping, dict) or not _FROZEN_MEMBERS <= set(mapping) <= _FROZEN_MEMBERS | {
+        "supersedes",
+        "model",
+    }:
         raise MalformedRecord(f"{where}: the projection carries exactly the frozen members")
     if v1.digest(SPEC_DOMAIN, mapping) != identity:
         raise MalformedRecord(f"{where}: the projection does not digest to the identity")
     if mapping["estimand_grammar"] != ESTIMAND_GRAMMAR:
         raise MalformedRecord(f"{where}: estimand_grammar is {mapping['estimand_grammar']!r}, not {ESTIMAND_GRAMMAR!r}")
+    target_body = {
+        key: mapping[key] for key in ("estimand", "applicability", "dependencies", "model") if key in mapping
+    }
     try:
-        estimand = estimand_from_stored(mapping["estimand"], profile=profile)
-        applicability = applicability_from_stored(mapping["applicability"], profile=profile, operator=estimand.operator)
-    except (DecodeError, EstimandError, ClaimError, ProfileError) as refused:
-        # Translated here, not propagated: the audit and `stored_specs` catch
-        # `RecordError`, and a decode-family error escaping a stored reader would
-        # abort an audit instead of becoming its finding.
+        assessed_target = target_from_projection(target_body, standing=mapping["standing"], profile=profile)
+    except ScienceError as refused:
         raise MalformedRecord(f"{where}: the typed members do not restore: {refused}") from refused
+    _check_route(assessed_target.standing, assessed_target.model, assessed_target.estimand)
     text = {name: _text(mapping, name, where) for name in _TEXT_MEMBERS}
     if not text["target"]:
         raise MalformedRecord(f"{where}: an assessment spec targets a proposition; an empty target is not a spec")
@@ -591,10 +717,33 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
     if not isinstance(mapping["parameters"], dict) or any(type(k) is not str for k in mapping["parameters"]):
         raise MalformedRecord(f"{where}: parameters is a mapping with string keys")
     bindings = mapping["rule_bindings"]
-    if not isinstance(bindings, list) or any(
-        not isinstance(pair, list) or len(pair) != 2 or any(type(half) is not str for half in pair) for pair in bindings
+    if not isinstance(bindings, list):
+        raise MalformedRecord("rule bindings must be a list")
+    restored_bindings = []
+    for binding in bindings:
+        if not isinstance(binding, dict) or not {"rule", "implementation"} <= set(binding) <= {
+            "rule",
+            "implementation",
+            "procedure",
+        }:
+            raise MalformedRecord("malformed rule binding")
+        restored_bindings.append(
+            RuleBinding(
+                _text(binding, "rule", where),
+                _text(binding, "implementation", where),
+                _text(binding, "procedure", where) if "procedure" in binding else None,
+            )
+        )
+    ids = tuple(binding.rule for binding in restored_bindings)
+    if ids != tuple(sorted(set(ids))) or set(ids) != {text["interpretation_rule"], text["equivalence_rule"]}:
+        raise MalformedRecord("rule binding names must be sorted and match the spec rules")
+    required = {binding.procedure for binding in restored_bindings if binding.procedure is not None}
+    if not any(
+        binding.rule == text["interpretation_rule"] and binding.procedure is not None for binding in restored_bindings
     ):
-        raise MalformedRecord(f"{where}: rule bindings are string pairs")
+        raise MalformedRecord("the interpretation rule requires an estimator procedure")
+    if not required <= {entry.id for entry in assessed_target.dependencies}:
+        raise MalformedRecord("spec dropped a bound procedure dependency")
     registers = mapping["registers"]
     if not isinstance(registers, list) or any(type(entry) is not str for entry in registers):
         raise MalformedRecord(f"{where}: registers is a list of assumptions-register ids")
@@ -607,13 +756,12 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
         raise MalformedRecord(f"{where}: supersedes is a string")
     spec = _mint_frozen_spec(
         **text,
-        estimand=estimand,
-        applicability=applicability,
+        assessed_target=assessed_target,
         input_roles=tuple(_restore_input(entry, where) for entry in mapping["input_roles"]),
         parameters=mapping["parameters"],
         nondeterminism=nondeterminism,
         registers=tuple(registers),
-        rule_bindings=tuple((pair[0], pair[1]) for pair in bindings),
+        rule_bindings=tuple(restored_bindings),
         supersedes=supersedes,
         identity=identity,
     )
@@ -631,6 +779,11 @@ def revise(
     edits: Mapping[str, object],
     held_rules: Mapping[str, HeldImplementation],
     recorded_failures: frozenset[str],
+    rule_procedures: Mapping[str, str],
+    profile: ProfileSpec,
+    claim: Claim,
+    records: HeldRecords,
+    assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
 ) -> FrozenSpec:
     """The only edit path. Always mints with `supersedes=original.identity`,
     so the successor to a recorded failed replay carries its reference by
@@ -643,11 +796,22 @@ def revise(
         assumptions=cast(str, edits.get("assumptions", original.assumptions)),
         falsification=cast(str, edits.get("falsification", original.falsification)),
         input_roles=cast(tuple[SpecInput, ...], edits.get("input_roles", original.input_roles)),
-        applicability=cast("Mapping[str, Qualifier]", edits.get("applicability", original.applicability)),
+        applicability=cast(Applicability, edits.get("applicability", original.applicability)),
         interpretation_rule=cast(str, edits.get("interpretation_rule", original.interpretation_rule)),
         equivalence_rule=cast(str, edits.get("equivalence_rule", original.equivalence_rule)),
         parameters=cast(Mapping[str, object], edits.get("parameters", original.parameters)),
         nondeterminism=cast(NondeterminismContract, edits.get("nondeterminism", original.nondeterminism)),
         registers=cast(tuple[str, ...], edits.get("registers", original.registers)),
+        standing=cast(Standing, edits.get("standing", original.standing)),
+        model=cast(str | None, edits.get("model", original.model)),
     )
-    return freeze(draft, held_rules=held_rules, supersedes=original.identity)
+    return freeze(
+        draft,
+        held_rules=held_rules,
+        supersedes=original.identity,
+        rule_procedures=rule_procedures,
+        profile=profile,
+        claim=claim,
+        records=records,
+        assessment_dependency=assessment_dependency,
+    )

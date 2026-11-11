@@ -8,7 +8,7 @@ import pytest
 from test_procedure import AID, OBS, PID, node_for
 
 from beliefs.assumptions import AssumptionInstance
-from beliefs.errors import MalformedRecord
+from beliefs.errors import MalformedRecord, MalformedRestriction
 from beliefs.identity import v1
 from beliefs.proxy_model import (
     Calibration,
@@ -249,14 +249,11 @@ def test_crosswalk_needs_two_authorities(source_authority, target_authority):
 
 
 @pytest.mark.parametrize("dimension", ["testing/follow-up", "testing/epoch", "testing/case-status"])
-def test_interim_non_term_forms_cannot_be_silently_dropped(dimension):
-    from fixtures_cut3 import TESTING_PROFILE
+def test_wrong_term_forms_refuse_at_the_typed_applicability_boundary(dimension):
+    from fixtures_cut3 import typed_applicability
 
-    from beliefs.claim import Qualifier, Referent
-    from beliefs.errors import CalibrationNotQualified
-    from beliefs.proxy_model import restrictions_from_interim_applicability
+    from beliefs.applicability import ScopedRestriction
+    from beliefs.restriction import TermRestriction
 
-    with pytest.raises(CalibrationNotQualified, match="calibration-scope-undecidable"):
-        restrictions_from_interim_applicability(
-            TESTING_PROFILE, {dimension: Qualifier("generic", Referent("testing/level", "EX:a"))}
-        )
+    with pytest.raises(MalformedRestriction):
+        typed_applicability({dimension: ScopedRestriction("generic", TermRestriction("testing/level", "EX:a"))})

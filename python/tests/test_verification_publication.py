@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import pytest
 from domain_facet_fixtures import over_kwargs
+from fixtures_cut3 import typed_target
 from test_audit import writer  # noqa: F401 - the fixture
 from test_evaluation import CLAIM_FACET, OTHER_GENE, PHENO
 from verification_fixtures import PROFILE, admission_over, evaluation_kwargs, publish_corpus
@@ -67,9 +68,7 @@ def test_negatives_another_proposition_is_never_gathered_and_a_twin_target_admit
     # identity's three fields — the writer refuses an identity-equal pair
     # whose facets disagree, so the optionals travel with the twin too.
     optional = {
-        n: getattr(value, n)
-        for n in ("estimate", "uncertainty", "estimand", "applicability")
-        if getattr(value, n) is not None
+        n: getattr(value, n) for n in ("estimates", "uncertainty", "curves", "target") if getattr(value, n) is not None
     }
     twin = writer.add(
         stored.assessment_node(
@@ -118,8 +117,7 @@ def test_twins_that_disagree_on_outcome_are_refused_not_silently_resolved(writer
             proposition=published.proposition.id,
             outcome=disagreeing_outcome,
             interpretation_rule=value.interpretation_rule,
-            estimand=value.estimand,
-            applicability=value.applicability,
+            target=typed_target(estimand=value.estimand, applicability=value.applicability),
         )
     )
     assert stored.assessment_value(twin, profile=PROFILE).identity() == value.identity()

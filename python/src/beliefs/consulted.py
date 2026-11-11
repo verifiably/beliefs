@@ -27,7 +27,8 @@ from typing import final
 
 from beliefs.claim import Claim, Member, Referent
 from beliefs.errors import ContractDisagreement, ContractMismatch, EstimandError, MalformedRecord
-from beliefs.estimand import Estimand, _referent_positions, admit_estimand
+from beliefs.estimand import Estimand, admit_estimand
+from beliefs.estimand import _referents as estimand_referents
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 
@@ -107,7 +108,7 @@ def estimand_contracts(artefact: object, profile: ProfileSpec, claim: Claim | No
     if not isinstance(artefact, Estimand):
         return frozenset()
     read = {profile.operator(artefact.operator).contract}
-    read |= {profile.sorts[referent.sort].contract for referent in _referent_positions(artefact).values()}
+    read |= {profile.sorts[referent.sort].contract for referent in estimand_referents(artefact).values()}
     if claim is not None:
         read |= admit_estimand(profile, artefact, claim, authoring=False)
     return frozenset(read)

@@ -18,7 +18,7 @@ import pytest
 from atoms.fs.backend import Backend
 from authority import ACTOR, FULL
 from coordination_fixtures import content_for, coordination_profile, pins_for
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import freeze_context, typed_applicability, typed_estimand, typed_target
 from fixtures_cut6 import PINS
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown
@@ -650,8 +650,7 @@ def assessment(slug: str) -> Node:
         proposition="proposition:p1",
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 
@@ -1407,7 +1406,7 @@ def test_a_run_publication_through_the_operation_port_is_ledgered_against_the_ch
         RequiredCapabilities.for_kinds({"run", "act-report"}, {"run": "run", "act-report": "run"}), "A"
     )
     port = writer.operation_port()
-    closure = assessment_closure(freeze(spec_draft(), held_rules=spec_rules()))
+    closure = assessment_closure(freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()))
     intent = port.append_intent(
         v1.encode({"spec_identity": closure.recipe.spec_identity, "event_token": "tok", "actor": writer.actor})
     )

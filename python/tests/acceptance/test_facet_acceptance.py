@@ -14,6 +14,7 @@ import pytest
 from authority import ACTOR, FULL
 from coordination_fixtures import coordination_contract
 from dataset_fixtures import dataset_ref
+from fixtures_cut3 import freeze_context, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.errors import UnknownKindError
 from nodes.core.node import Node
@@ -354,8 +355,7 @@ def test_eligibility_reads_the_validity_predicate(corpora, acquisition_report):
             proposition="proposition:p",
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         reason = eligibility_refusal(reopen(w.root), assessment, BASE)
         assert reason is not None and expected in reason
@@ -491,13 +491,14 @@ def test_every_builder_facet_is_declared(corpora, acquisition_report):
             proposition="proposition:p",
             outcome="supported",
             interpretation_rule="rule:r",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         ),
         "verification_node": stored.verification_node(
             "v", title="v", assessment="a", assessment_ref="assessment:a", scope="same-environment", verdict="passed"
         ),
-        "analysis_spec_node": stored.analysis_spec_node(freeze(spec_draft(), held_rules=spec_rules())),
+        "analysis_spec_node": stored.analysis_spec_node(
+            freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
+        ),
         "retraction_node": stored.retraction_node(
             title="r",
             target=stored.NodeTarget(dataset_ref("d"), dataset_ref("d"), "1" * 64),

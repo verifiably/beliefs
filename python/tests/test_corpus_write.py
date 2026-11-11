@@ -17,8 +17,8 @@ import pytest
 from authority import ACTOR, FULL, lacking, narrowed
 from coordination_fixtures import coordination_profile, raw_coordination_node
 from dataset_fixtures import dataset_ref, pinned
+from fixtures_cut3 import freeze_context, typed_applicability, typed_estimand, typed_target
 from fixtures_cut3 import report as mint_report
-from fixtures_cut3 import typed_applicability, typed_estimand
 from fixtures_cut6 import PINS
 from nodes.core.errors import CollisionError, ExecutionError, RefError, ValidationError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
@@ -351,8 +351,7 @@ def admissible(writer: CorpusWriter, *, observes=True):
         proposition="proposition:p1",
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 
@@ -615,8 +614,7 @@ class TestTheWriteBoundary:
                     proposition="proposition:p1",
                     outcome="supported",
                     interpretation_rule="rule:threshold",
-                    estimand=typed_estimand(),
-                    applicability=typed_applicability(),
+                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
                 )
             )
 
@@ -704,8 +702,7 @@ class TestTheRefusalsWrapAndOrder:
             proposition="proposition:p1",
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         malformed.kind = "run"  # a document-validation failure, behind an eligibility one
         with pytest.raises(EligibilityUnmet):
@@ -1138,7 +1135,7 @@ def test_a_spec_record_whose_identity_is_false_is_refused_at_add(tmp_path):
 
     writer = _writer(tmp_path / "corpus")
     with pytest.raises(MalformedRecord):
-        writer.add(_false_spec_record(freeze(spec_draft(), held_rules=spec_rules())))
+        writer.add(_false_spec_record(freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())))
     assert writer.read_view.resolve("analysis-spec:forged") is None
 
 
@@ -1245,7 +1242,7 @@ class TestEstimandTargetMatch:
         from fixtures_cut3 import TESTING_CLAIM, spec_draft, spec_rules
 
         target = self._proposition(typed_writer, TESTING_CLAIM)
-        spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
+        spec = freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context())
         assert typed_writer.add(stored.analysis_spec_node(spec)).id == f"analysis-spec:{spec.identity}"
 
     def test_a_spec_built_against_another_claim_at_the_same_operator_is_refused(self, typed_writer):
@@ -1264,25 +1261,25 @@ class TestEstimandTargetMatch:
             polarity="positive",
         )
         target = self._proposition(typed_writer, other)
-        spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())  # estimand built against TESTING_CLAIM
+        spec = freeze(
+            spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context()
+        )  # estimand built against TESTING_CLAIM
         with pytest.raises(ValidationRefused, match="estimand-target-mismatch"):
             typed_writer.add(stored.analysis_spec_node(spec))
 
     def test_an_unresolvable_target_is_refused(self, typed_writer):
         from fixtures_cut3 import spec_draft, spec_rules
 
-        spec = freeze(spec_draft(target="proposition:elsewhere"), held_rules=spec_rules())
+        spec = freeze(spec_draft(target="proposition:elsewhere"), held_rules=spec_rules(), **freeze_context())
         with pytest.raises(ValidationRefused, match="estimand-target-unresolvable"):
             typed_writer.add(stored.analysis_spec_node(spec))
 
     def test_the_inconsistent_stored_pair_is_caught_by_operator_equality(self, typed_writer):
         """The stored-pair case: the target's true claim hash beside another operator."""
-        from decimal import Decimal
 
-        from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, UNCONSULTED, spec_draft, spec_rules
+        from fixtures_cut3 import TESTING_CLAIM, TESTING_PROFILE, spec_draft, spec_rules
 
         from beliefs.claim import Member, Referent, build_claim
-        from beliefs.estimand import ContinuousContrast, Control, Measure, build_estimand
         from beliefs.identity import v1
         from beliefs.projection import claim_identity
         from beliefs.spec import SPEC_DOMAIN, frozen_projection
@@ -1296,16 +1293,14 @@ class TestEstimandTargetMatch:
             layer="statistical",
             polarity="positive",
         )
-        foreign, _ = build_estimand(
-            TESTING_PROFILE,
-            correlates,
-            snapshot=UNCONSULTED,
-            contrast=ContinuousContrast("parties", event, Referent("testing/measure", "EX:tpm"), Decimal(1)),
-            measure=Measure(Referent("testing/measure", "EX:tpm"), "additive"),
-            reference=Decimal(0),
-            control=Control(Referent("testing/identification", "EX:observational"), ()),
+        from fixtures_cut3 import event_estimand
+
+        foreign = event_estimand(correlates)
+        spec = freeze(
+            spec_draft(target=target.id, estimand=foreign),
+            held_rules=spec_rules(),
+            **{**freeze_context(), "claim": correlates},
         )
-        spec = freeze(spec_draft(target=target.id, estimand=foreign), held_rules=spec_rules())
         projection = frozen_projection(spec)
         projection["estimand"]["claim"] = claim_identity(TESTING_CLAIM)  # type: ignore[index]  # the target's true hash, another operator
         text = v1.encode(projection)
@@ -1343,13 +1338,20 @@ class TestEstimandTargetMatch:
         projection["claim"] = claim_identity(entity_entity)
         shape_only = estimand_from_stored(projection, profile=TESTING_PROFILE)
         target = typed_writer.add(stored.proposition_node("ee", title="ee", claim=project_claim(entity_entity)))
-        spec = freeze(spec_draft(target=target.id, estimand=shape_only), held_rules=spec_rules())  # freeze accepts
+        from beliefs.identity import v1
+        from beliefs.spec import SPEC_DOMAIN, frozen_projection, restore
+
+        projection = frozen_projection(
+            freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context())
+        )
+        projection["estimand"] = estimand_projection(shape_only)
+        spec = restore(v1.digest(SPEC_DOMAIN, projection), v1.encode(projection), profile=TESTING_PROFILE)
         with pytest.raises(ValidationRefused, match="estimand-not-admitted"):
             typed_writer.add(stored.analysis_spec_node(spec))
 
         # The same fields over the `entity`→`outcome` claim, which both instantiations admit, write.
         admitted_target = self._proposition(typed_writer, TESTING_CLAIM)
-        admitted = freeze(spec_draft(target=admitted_target.id), held_rules=spec_rules())
+        admitted = freeze(spec_draft(target=admitted_target.id), held_rules=spec_rules(), **freeze_context())
         assert admitted.estimand.claim == claim_identity(TESTING_CLAIM)
         assert typed_writer.add(stored.analysis_spec_node(admitted)).id == f"analysis-spec:{admitted.identity}"
 
@@ -1377,7 +1379,17 @@ class TestTheAssumptionsRegister:
         from beliefs.projection import project_claim
 
         target = writer.add(stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM)))
-        return freeze(spec_draft(target=target.id, registers=tuple(registers)), held_rules=spec_rules())
+        from fixtures_cut3 import MEASUREMENT_RECORDS, FixtureRecords
+
+        records = FixtureRecords()
+        records.nodes.update(MEASUREMENT_RECORDS.nodes)
+        for id in registers:
+            records.nodes[id] = writer.read_view.get(id)
+        return freeze(
+            spec_draft(target=target.id, registers=tuple(registers)),
+            held_rules=spec_rules(),
+            **{**freeze_context(), "records": records},
+        )
 
     def test_register_mints_through_add(self, typed_writer):
         from beliefs.register import register_from_stored, register_identity
@@ -1428,7 +1440,19 @@ class TestTheAssumptionsRegister:
             (register_identity(self._register()), "not held"),
             (register_identity(foreign), "does not activate"),
         ):
-            spec = freeze(spec_draft(target=target, registers=(cited,)), held_rules=spec_rules())
+            from fixtures_cut3 import MEASUREMENT_RECORDS, FixtureRecords
+
+            records = FixtureRecords()
+            records.nodes.update(MEASUREMENT_RECORDS.nodes)
+            # Authorship holds this register even when the receiving corpus does not.
+            external = stored.assumptions_register_node(self._register())
+            records.nodes[external.id] = external
+            records.nodes[register_identity(foreign)] = typed_writer.read_view.get(register_identity(foreign))
+            spec = freeze(
+                spec_draft(target=target, registers=(cited,)),
+                held_rules=spec_rules(),
+                **{**freeze_context(), "records": records},
+            )
             with pytest.raises(RegisterNotCurrent, match=reason):
                 typed_writer.add(stored.analysis_spec_node(spec))
 

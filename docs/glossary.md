@@ -125,8 +125,9 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([guide](guide.md#worlds-identity-and-change))
 - <a id="equivalence-rule"></a>**Equivalence rule** — The rule, frozen in the spec,
   that says when two runs gave the same result. ([guide](guide.md#runs-and-reproducibility))
-- <a id="estimand"></a>**Estimand** — The typed quantity an analysis estimates, built
-  against the claim it answers. ([records](records.md#specs-runs-and-assessments))
+- <a id="estimand"></a>**Estimand** — A functional over one of six typed target
+  forms, with bindings, outputs, reference, control and frozen dependencies,
+  built against the claim it answers. ([records](records.md#specs-runs-and-assessments))
 - <a id="exposure-event"></a>**Exposure event** — A record that some data, or knowledge
   of it, was seen on a channel (`read` or `knowledge`) over some units, with its effect
   and an account. It is content-addressed and append-only.
@@ -167,7 +168,7 @@ the beliefs documents use, each linking the document that specifies or explains 
   ([guide](guide.md#worlds-identity-and-change))
 - <a id="measure"></a>**Measure** — An observable with a unit or procedure-defined
   scale, resulting level of measurement, value type, transformation and producing
-  procedure; represented by `measurement.Measure` alongside the interim estimand value.
+  procedure; represented by `measurement.Measure` in measured estimand bindings.
   ([records](records.md#measurement-records))
 - <a id="nobelief"></a>**NoBelief** — The answer that no belief can be given, with its
   reason, such as `no-eligible-assessment`. ([records](records.md#beliefs))

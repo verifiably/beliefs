@@ -110,12 +110,39 @@ def test_closure_follows_same_as_and_proxy_references(profile):
         source=ProxySource(OBS, procedure_identity(source)), basis=Calibration(OBS, (AID,), ("opaque/rule",), None)
     )
     proxy_id = records.put(p)
-    records.nodes[AID] = Node(id=AID, kind="assessment", title="Opaque calibration")
-    closure = dependency_closure([procedure_identity(follower), proxy_id], records, profile)
-    assert tuple(entry.id for entry in closure) == tuple(
-        sorted([procedure_identity(authority), procedure_identity(follower), procedure_identity(source), proxy_id, AID])
+    from fixtures_cut3 import MEASUREMENT_RECORDS, typed_target
+
+    from beliefs.stored import frozen_assessment_dependency
+
+    records.nodes.update(MEASUREMENT_RECORDS.nodes)
+    records.nodes[AID] = stored.assessment_node(
+        AID.partition(":")[2],
+        title="Calibration",
+        spec="s",
+        run="run:r",
+        proposition="p",
+        outcome="supported",
+        interpretation_rule="rule",
+        target=typed_target(),
     )
-    assert next(entry.terms for entry in closure if entry.id == AID) == ()
+    callback = lambda id: frozen_assessment_dependency(id, records=records, profile=profile)
+    basis = callback(AID)
+    closure = dependency_closure(
+        [procedure_identity(follower), proxy_id], records, profile, assessment_dependency=callback
+    )
+    assert tuple(entry.id for entry in closure) == tuple(
+        sorted(
+            [
+                procedure_identity(authority),
+                procedure_identity(follower),
+                procedure_identity(source),
+                proxy_id,
+                AID,
+                *(e.id for e in basis.dependencies),
+            ]
+        )
+    )
+    assert next(entry.facet_digest for entry in closure if entry.id == AID) == basis.facet_digest
     assert next(entry.terms for entry in closure if entry.id == proxy_id) == (
         "testing/energy",
         "testing/energy-aspect",
@@ -311,3 +338,82 @@ def test_reader_refuses_misdirected_node_and_unsupported_kind():
     records.nodes[other] = Node(id=other, kind="dataset", title="Not a measurement dependency")
     with pytest.raises(errors.MalformedRecord):
         read_record(records, other)
+
+
+def test_assessment_dependencies_bind_facet_and_follow_their_frozen_set(profile):
+    from fixtures_cut3 import MEASUREMENT_RECORDS, typed_target
+
+    from beliefs.dependencies import DependencyEntry, FrozenAssessmentDependency
+    from beliefs.stored import frozen_assessment_dependency
+
+    records = Records()
+    records.nodes.update(MEASUREMENT_RECORDS.nodes)
+    records.nodes[AID] = stored.assessment_node(
+        AID.partition(":")[2],
+        title="Calibration",
+        spec="s",
+        run="run:r",
+        proposition="p",
+        outcome="supported",
+        interpretation_rule="rule",
+        target=typed_target(),
+    )
+    actual = frozen_assessment_dependency(AID, records=records, profile=profile)
+
+    def callback(id):
+        return actual
+
+    with pytest.raises(errors.DependencyNotHeld, match="assessment.*callback"):
+        dependency_closure([AID], records, profile)
+    entries = dependency_closure([AID], records, profile, assessment_dependency=callback)
+    assert all(entry in entries for entry in actual.dependencies)
+    assert next(e for e in entries if e.id == AID).facet_digest == actual.facet_digest
+    with pytest.raises(errors.MalformedRecord):
+        dependency_closure(
+            [AID],
+            records,
+            profile,
+            assessment_dependency=lambda _: FrozenAssessmentDependency(
+                "assessment:" + "b" * 64, actual.facet_digest, (), ()
+            ),
+        )
+    with pytest.raises(errors.DependencyCycle):
+        dependency_closure(
+            [AID],
+            records,
+            profile,
+            assessment_dependency=lambda _: FrozenAssessmentDependency(
+                AID, actual.facet_digest, (), (DependencyEntry(AID, (), actual.facet_digest),)
+            ),
+        )
+
+
+def test_frozen_callback_cannot_bind_a_wrong_actual_assessment_facet(profile):
+    from fixtures_cut3 import MEASUREMENT_RECORDS, typed_target
+
+    from beliefs.dependencies import FrozenAssessmentDependency
+    from beliefs.stored import frozen_assessment_dependency
+
+    records = Records()
+    records.nodes.update(MEASUREMENT_RECORDS.nodes)
+    node = stored.assessment_node(
+        "d" * 64,
+        title="Calibration",
+        spec="s",
+        run="run:r",
+        proposition="p",
+        outcome="supported",
+        interpretation_rule="rule",
+        target=typed_target(),
+    )
+    records.nodes[node.id] = node
+    actual = frozen_assessment_dependency(node.id, records=records, profile=profile)
+    with pytest.raises(errors.MalformedRecord, match="facet"):
+        dependency_closure(
+            [node.id],
+            records,
+            profile,
+            assessment_dependency=lambda _: FrozenAssessmentDependency(
+                actual.id, "0" * 64, actual.terms, actual.dependencies
+            ),
+        )

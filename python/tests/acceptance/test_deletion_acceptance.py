@@ -49,7 +49,7 @@ from atoms.coordinator.commands import inspect_chain_detached
 from atoms.fs.linux import LinuxBackend
 from authority import FULL
 from domain_facet_fixtures import over_kwargs
-from fixtures_cut3 import TESTING_PROFILE, carry_registers, typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, carry_registers, typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import path_for, raw_write, reopen
 from fixtures_cut6 import PINS
 from nodes.core.frontmatter import node_to_markdown
@@ -429,8 +429,7 @@ def _r5_records() -> Records:
         proposition=PROPOSITION,
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     run = RunValue(
         ref=stored.typed_ref("run", "run-a"), spec="spec-a", inputs=(RunInput(role="observes", dataset=R5_DECLARATION),)

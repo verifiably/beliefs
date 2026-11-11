@@ -6,8 +6,8 @@ node→corpus attributions plus per-corpus pins.
 """
 
 from dataclasses import replace
-from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import pytest
 from profiles import WITH_BIOLOGY, biology, pins_for
@@ -16,7 +16,7 @@ from beliefs.claim import Referent, build_claim
 from beliefs.consulted import CorpusPins, claim_contracts, consulted_contracts, estimand_contracts
 from beliefs.contract import domain
 from beliefs.errors import ContractDisagreement, ContractMismatch, MalformedRecord
-from beliefs.estimand import Control, Estimand, LevelsContrast, Measure, build_estimand
+from beliefs.estimand import RoleTermLevels
 from beliefs.profile import compile_profile
 from beliefs.projection import claim_identity
 
@@ -227,19 +227,42 @@ def _walk(profile, claims, estimands=None, pins=None):
     )
 
 
-def _estimand(profile, claim, *, measure="testing/measure"):
-    from fixtures_cut3 import UNCONSULTED
+def _estimand(profile, claim, *, aspect=None):
+    from fixtures_cut3 import MEASUREMENT_RECORDS, RESPONSE, typed_estimand
 
-    estimand, _ = build_estimand(
-        profile,
-        claim,
-        snapshot=UNCONSULTED,
-        contrast=LevelsContrast("cause", None, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
-        measure=Measure(Referent(measure, "EX:m"), "additive"),
-        reference=Decimal(0),
-        control=Control(Referent("testing/identification", "EX:obs"), ()),
+    from beliefs.measurement import Aspect
+    from beliefs.procedure import Procedure
+
+    measured = RESPONSE.measure
+    if aspect is not None:
+        measured = replace(measured, observable=replace(measured.observable, aspect=Aspect(aspect, "EX:m")))
+        pid = MEASUREMENT_RECORDS.put_procedure(
+            Procedure(
+                "testing/assay",
+                "Aspect assay",
+                "Measure.",
+                (measured.observable,),
+                None,
+                {},
+                (),
+                (),
+                None,
+                None,
+                {},
+                None,
+            )
+        )
+        measured = replace(measured, procedure=pid)
+    return typed_estimand(
+        profile=profile,
+        claim=claim,
+        bindings={
+            "response": replace(RESPONSE, measure=measured),
+            "grouping": RoleTermLevels(
+                "cause", None, (Referent("testing/entity", "EX:a"), Referent("testing/entity", "EX:b"))
+            ),
+        },
     )
-    return estimand
 
 
 class TestRoleSorts:
@@ -385,17 +408,12 @@ class TestEstimandPairing:
     def test_unadmitted_estimand_in_walk_is_malformed(self, profile, claim):
         # Shape-valid, but neither `affects` declaration admits level sort
         # `level` with measure `outcome` in full.
-        unadmitted = Estimand._checked(
-            profile,
-            claim=claim_identity(claim),
-            operator=claim.operator,
-            contrast=LevelsContrast(
-                "cause", None, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")
-            ),
-            measure=Measure(Referent("testing/outcome", "EX:m"), "additive"),
-            reference=Decimal(0),
-            control=Control(Referent("testing/identification", "EX:obs"), ()),
-        )
+        from beliefs.estimand import estimand_from_stored, estimand_projection
+
+        # Stored shape may carry a conditioning sort admitted only by another row.
+        body = estimand_projection(_estimand(profile, claim))
+        cast(dict, body["control"])["conditioning"] = [{"sort": "testing/outcome", "term": "EX:y"}]
+        unadmitted = estimand_from_stored(body, profile=profile)
         with pytest.raises(MalformedRecord, match="a1: the estimand is not admitted"):
             _walk(profile, {"p": claim}, {"a1": ("p", unadmitted)})
 
@@ -406,7 +424,7 @@ class TestEstimandPairing:
         )
         estimand = _estimand(profile, other)  # its `claim` is another well-formed digest
         assert estimand.claim == claim_identity(other) != claim_identity(claim)
-        with pytest.raises(MalformedRecord, match="answers claim"):
+        with pytest.raises(MalformedRecord, match="different claim"):
             _walk(profile, {"p": claim}, {"a1": ("p", estimand)})
         assert set(_walk(profile, {}, {"a1": ("p", estimand)})) == {"science", "testing"}
 
@@ -548,16 +566,12 @@ def measured(base_contract, testing_document):
         load_document(fixture, source=str(fixture)), source=str(fixture), base=base_contract, predecessor=None
     )
     document = copy.deepcopy(testing_document)
-    document["estimands"]["instantiation:affects-entity-outcome"]["measure_sort"] = "measures/assay"
+    document["aspects"]["abundance"] = ["measures/assay"]
     testing = domain.parse_domain_contract(document, source="<measured>", base=base_contract, predecessor=None)
     return compile_profile(base_contract, [testing, measures])
 
 
 def test_an_estimand_reaches_a_contract_no_claim_reaches(measured, claim):
-    from fixtures_cut3 import UNCONSULTED
-
-    from beliefs.claim import Referent
-    from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
 
     claim = build_claim(
         profile=measured,
@@ -567,15 +581,7 @@ def test_an_estimand_reaches_a_contract_no_claim_reaches(measured, claim):
         polarity="positive",
         layer="causal",
     )
-    estimand, _ = build_estimand(
-        measured,
-        claim,
-        snapshot=UNCONSULTED,
-        contrast=LevelsContrast("cause", None, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
-        measure=Measure(Referent("measures/assay", "EX:m"), "additive"),
-        reference=Decimal(0),
-        control=Control(Referent("testing/identification", "EX:obs"), ()),
-    )
+    estimand = _estimand(measured, claim, aspect="measures/assay")
     pins = pins_for(measured)
     claim_only = consulted_contracts(
         claims={"p": claim}, profile=measured, node_corpus={}, pins={"c1": pins}, closure_nodes=()
@@ -595,12 +601,8 @@ def test_an_estimand_under_an_unpinned_namespace_refuses(base_contract, testing_
     # A cross-contract measure sort pinned by no corpus is `ContractDisagreement`, as an operator's sort would be.
     import copy
 
-    from fixtures_cut3 import UNCONSULTED
-
-    from beliefs.estimand import Control, LevelsContrast, Measure, build_estimand
-
     document = copy.deepcopy(testing_document)
-    document["estimands"]["instantiation:affects-entity-outcome"]["measure_sort"] = "biology/gene"
+    document["aspects"]["abundance"] = ["biology/gene"]
     testing = domain.parse_domain_contract(document, source="<unpinned>", base=base_contract, predecessor=None)
     bio = biology("fixture")
     profile = compile_profile(base_contract, [testing, bio])
@@ -613,15 +615,7 @@ def test_an_estimand_under_an_unpinned_namespace_refuses(base_contract, testing_
         polarity="positive",
         layer="causal",
     )
-    estimand, _ = build_estimand(
-        profile,
-        claim,
-        snapshot=UNCONSULTED,
-        contrast=LevelsContrast("cause", None, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")),
-        measure=Measure(Referent("biology/gene", "EX:g"), "additive"),
-        reference=Decimal(0),
-        control=Control(Referent("testing/identification", "EX:obs"), ()),
-    )
+    estimand = _estimand(profile, claim, aspect="biology/gene")
     real = pins_for(profile)
     pins_without_biology = CorpusPins(
         science_contract=real.science_contract, domains={"testing": real.domains["testing"]}

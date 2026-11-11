@@ -185,7 +185,11 @@ class WorldAudit:
 _COMPARABLE_ASSESSMENT_MEMBERS = (
     "outcome",
     "interpretation_rule",
-    "estimate",
+    "estimates",
+    "curves",
+    "standing",
+    "dependencies",
+    "model",
     "uncertainty",
     "estimand",
     "applicability",
@@ -286,6 +290,19 @@ def check_verification(
     )
 
 
+@dataclass(frozen=True)
+class _AuditRecordReader:
+    """Structural dependency walks use only heldness and strict record reads."""
+
+    view: ReadView | _ImportView | WorldReadView
+
+    def holds(self, id: str) -> bool:
+        return self.view.holds(id)
+
+    def read(self, id: str) -> Node:
+        return self.view.get(id)
+
+
 def check_assessment(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence, profile: ProfileSpec
 ) -> DerivationOutcome:
@@ -298,6 +315,33 @@ def check_assessment(
     if not isinstance(derived, AssessmentValue):
         return _unchecked(derived.reason)
     disagreements = _assessment_disagreements(stored_value, derived)
+    from beliefs.dependencies import HeldRecords, dependency_closure
+    from beliefs.errors import DependencyNotHeld
+    from beliefs.estimand import binding_roots
+
+    # Eligibility is a separate check. This adapter supplies exactly the two
+    # operations used by structural freezing and the strict assessment callback.
+    records = cast(HeldRecords, _AuditRecordReader(view))
+    spec = evidence.specs[derived.spec]
+    roots = set(binding_roots(spec.estimand)) | set(spec.applicability.rule_ids()) | set(spec.registers)
+    roots.update(binding.procedure for binding in spec.rule_bindings if binding.procedure is not None)
+    if spec.model is not None:
+        roots.add(spec.model)
+
+    def assessment_dependency(id: str):
+        return stored.frozen_assessment_dependency(id, records=records, profile=profile)
+
+    try:
+        actual = dependency_closure(roots, records, profile, assessment_dependency=assessment_dependency)
+        own = dependency_closure(
+            binding_roots(spec.estimand), records, profile, assessment_dependency=assessment_dependency
+        )
+    except DependencyNotHeld as error:
+        return _unchecked(str(error))
+    if actual != spec.assessed_target.dependencies and "dependencies" not in disagreements:
+        disagreements.append("dependencies")
+    if own != spec.estimand.dependencies and "estimand" not in disagreements:
+        disagreements.append("estimand")
     if not disagreements:
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(

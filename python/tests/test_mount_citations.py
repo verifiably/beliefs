@@ -14,8 +14,8 @@ from authority import ACTOR, FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import profile_with
 from domain_facet_fixtures import testing_contract as _testing_contract
+from fixtures_cut3 import freeze_context, typed_applicability, typed_estimand, typed_target
 from fixtures_cut3 import report as acquisition_report
-from fixtures_cut3 import typed_applicability, typed_estimand
 from nodes.core.errors import RefError
 from nodes.core.write_plan import DefaultExecutor
 from profiles import pins_for
@@ -84,8 +84,7 @@ def assessment(slug: str, run, prop):
         proposition=prop.id if not isinstance(prop, str) else prop,
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 
@@ -639,7 +638,7 @@ def test_a_spec_targeting_a_mount_proposition_is_written(tmp_path):
     target = adopted(m_root, TESTING_PROFILE).add(
         stored.proposition_node("p", title="p", claim=project_claim(TESTING_CLAIM))
     )
-    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules())
+    spec = freeze(spec_draft(target=target.id), held_rules=spec_rules(), **freeze_context())
     w = CorpusWriter(w_root, DefaultExecutor, authority=FULL, profile=TESTING_PROFILE, read_mounts=[m_root])
     held = w.add(stored.analysis_spec_node(spec))
     assert held.id == f"analysis-spec:{spec.identity}"

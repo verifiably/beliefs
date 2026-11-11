@@ -4,7 +4,7 @@ Type: data model; document types 1. This document describes the records a belief
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
 encoding, `science.identity.v1`. The shipped base contract is version 2, with
-claim grammar 2 and estimand, measurement and composite grammar 1. The other
+claim and estimand grammar 2 and measurement and composite grammar 1. The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
@@ -291,23 +291,40 @@ or an id cited twice (`MalformedSpec`); reading a stored one refuses either, or 
 list out of sorted order, as `MalformedRecord`. Whether a cited register is current
 is the write door's check (below), not the freeze's.
 
-An estimand names the claim it answers by identity and operator, and its contrast
-names one role of the operator's template (`role`); a contrast on a `many` role
-also names the member of that role it is on (`member`, a `{sort, term}` referent),
-and on a `one` role carries no `member`. The levels of a `levels` contrast share a
-sort. Restoring a stored estimand types only this shape against the profile: the
-operator resolves, the role is the template's, `member` is present exactly on a
-`many` role, and every referent's sort is declared. Whether the estimand is
-admitted for its claim is a separate check against that claim: the estimand must
-carry the claim's identity and operator, a contrast `member` must be a member of
-the claim's role by canonical member key, and some estimand declaration of an
-instantiation (or the bridge) admitting the claim must admit every field at once:
-the contrast's level sort for its role (for a `continuous` contrast, the measure
-sort), the measure sort, the identification sort and the conditioning sort. Fields
-admitted by different declarations do not combine. An estimand that fails this is
-`EstimandNotAdmitted` (or `ContrastRefused` for a member outside the role).
-Authoring an estimand checks admission against the declarations whose
-instantiations are not retired; the write door and the audit include retired ones.
+An estimand names its claim by identity and operator, a functional, and one of
+six forms: `contrast`, `quantity`, `law-parameters`, `event-locked`, `association`
+or `enrichment`. Each form has exactly its declared bindings. A measured binding
+names a role, a member for a `many` role, and a measurement with its yielding
+procedure, mapping and proxy when needed. Contrasts group by role terms, rule
+classes, two measured roles or intervals on the response axis; an admitted
+per-increment contrast instead carries a measured increment and its unit.
+Event-locked targets have a rule or class-category anchor and a duration lag.
+Enrichment names a whole `many` role, a reference set and a held universe digest.
+
+Outputs explicitly record their declared typing and numeric domain. Independent
+law parameters also carry a quantity kind and a unit or scale. Polar claims use
+value references; null claims use regions containing the functional's null value.
+Control names an identification class, conditioning referents, design and selection
+mechanism. Identification must license the claim's layer. A single admitting
+instantiation or bridge must admit both the form and every conditioning sort;
+fields from separate declarations never combine. Authoring excludes retired
+admissions, dimensions and sorts; stored decoding preserves their historical meaning.
+
+`build_estimand` validates measured bindings by aptness and freezes the complete
+transitive closure of cited records. Each dependency contains an id and sorted
+vocabulary terms. An assessment dependency also requires its actual facet digest
+and recursively includes its own frozen set. Missing records, conflicting entries,
+missing assessment callbacks and cycles refuse. Stored decoding checks direct
+citation coverage; freeze and assessment audit recompute transitive completeness.
+
+A frozen spec owns one assessed target: estimand, quantified applicability, complete
+dependencies, optional model procedure and standing (`empirical`, `model` or
+`calibrated-model`). Spec inputs require an evidence mode: `observation`,
+`annotation`, `simulation`, `derivation` or `literature-extraction`. Rule bindings
+name the rule, its implementation and an optional procedure; the interpretation
+rule must bind a held estimator procedure. These members enter spec identity.
+Freeze checks that model and calibration agree with the declared standing route.
+Absent optional fields are omitted from canonical projections, never encoded null.
 
 When a spec is written, its target must resolve in the same corpus to a
 proposition, and the spec's estimand must name that proposition's claim identity
@@ -322,11 +339,11 @@ profile pins for it; otherwise the write is refused (`RegisterNotCurrent`). A sp
 that `freeze` accepts can therefore still be refused at the door, and an old
 analysis never appears to have relied on today's register.
 
-A spec's applicability restricts where its estimate applies: each restriction
-names a dimension placed `applicability` whose `applies_to` names the claim's
-operator (`DimensionNotApplicabilitySide` for a dimension placed `claim`,
-`UndeclaredDimension` otherwise), with a quantifier from the kernel's set and a
-restriction of the dimension's restriction sort. The claim is not typed again.
+A spec's applicability maps applicability-side dimensions to quantified typed
+restrictions. The dimension must permit the claim's operator and the quantifier
+must belong to the kernel set. Restrictions retain the term, interval, time
+interval, rule or union form the dimension declares. The operator-free restriction
+map remains available for geometric scope checks. Claim-side dimensions refuse.
 
 A `run` facet names the spec the run executes, when it has one. A run's inputs are
 typed by role. `observes` names held data and is the only role that can make an
@@ -349,14 +366,22 @@ run ends, after a production run's outputs are exported, and also when the run i
 refused or fails closed; a removal that fails is ignored, as the planning
 directory's is, so it never replaces the run's outcome.
 
-When read, an `assessment` facet must have exactly six text fields: `spec`, `run`,
-`proposition`, `outcome`, `interpretation_rule` and `typed`. `outcome` is
-`supported`, `refuted` or `inconclusive`. `typed` is canonical
-`science.identity.v1` text that carries the estimand and the applicability, and
-optionally the estimate (a decimal) and its uncertainty (an interval with a level,
-or a standard error). A record minted before
-the estimand grammar is refused by name (`PreGrammarAssessment`) and is never
-converted. At the write boundary, a record that carries an `assesses` edge must
+When read, an `assessment` facet has exactly seven text fields: `spec`, `run`,
+`proposition`, `outcome`, `interpretation_rule`, `standing` and `typed`. Outcomes
+remain `supported`, `refuted` and `inconclusive`. `typed` contains the assessed
+target body and optional named `estimates`, `uncertainty` and event-locked `curves`.
+Every supplied numerical map names the complete output set. Values are finite
+decimals within the output domains; intervals contain their estimates and carry
+confidence levels strictly between zero and one; standard errors are nonnegative.
+Covariance matrices have matching names and shape, are symmetric and have
+nonnegative diagonals; positive semidefiniteness is not claimed. Curve lags are
+strictly increasing and window contrasts carry scalar payloads.
+
+Assessment identity uses `science.assessment.v2`; its facet digest uses
+`science.assessment-facet.v2` and includes standing and the complete typed target.
+`AssessmentValue.key()` hashes the claim, target body, interpretation rule and
+standing, independently of the run, outcome or numerical payload. A pre-v2 facet
+is refused by name (`PreGrammarAssessment`), never converted. At the write boundary, a record that carries an `assesses` edge must
 name a run that resolves, and at least one of the run's `observes` inputs must
 have empirical standing — either carrying a valid `empirical-observation` facet
 directly or inheriting standing through a complete, undiverged `lineage-basis`
@@ -619,8 +644,7 @@ transformation; a logarithm refuses ratio-level values. It does not validate an
 aspect term against its sort's identifier class or establish the procedure's yield.
 The latter is checked separately by `check_measure_procedure` and aptness.
 `Measure.coordinates` exposes only quantity kind, unit or scale, value type and
-transformation for conversion. These values coexist with `estimand.Measure`;
-the current estimand, assessment and belief path still uses that interim value.
+transformation for conversion. Estimand measured bindings use this same `measurement.Measure` value.
 
 The `procedure`, `referent_mapping`, `proxy_model` and `classification_rule`
 modules provide frozen record values, canonical facet projections and stored-node
@@ -716,11 +740,9 @@ Each assessment's frozen spec must also be held. Its applicability must be equal
 or broader than the proxy's validity, comparing the union of both scopes' dimensions:
 an assessment-only restriction narrows the scope; a validity-only restriction
 broadens it. Narrower, overlapping, disjoint and unknown comparisons refuse with
-`calibration-scope-overstated`. Interim applicability represents term qualifiers
-only on dimensions declaring a term restriction, using the dimension's restriction
-sort. Other forms refuse with `calibration-scope-undecidable`; no qualifier is
-dropped. Assessment standing, v2 estimand shape and interpretation-rule qualification
-are not checked by this door.
+`calibration-scope-overstated`. Applicability supplies the geometric restrictions
+without dropping its authored quantifiers. Assessment standing, v2 estimand shape
+and interpretation-rule qualification are not checked by this door.
 
 The source observable, any explicit target observable and any calibrated
 observable must pass the observable checks above. The write door also checks
@@ -771,9 +793,10 @@ read. Ordinary interval units also contribute their quantity kinds. Unheld
 references refuse, cycles refuse, and stored readers enforce canonical facets
 and content addresses. While following a procedure or proxy scope, the closure
 also checks that each cited rule has the dimension's classes sort and that the
-class terms fit it. Calibration assessments are held terminal entries with no
-terms in this walk; their internals are not followed. These helpers coexist with
-the interim estimand path, which does not call them.
+class terms fit it. Calibration assessments require an explicit frozen-assessment callback. The walk
+checks its facet digest against the held record, copies its consulted terms and
+follows its complete frozen dependency set. Estimand authoring and spec freeze
+use this walk; omitting the callback when an assessment is reached refuses.
 
 #### Dependency eligibility
 
@@ -797,8 +820,7 @@ or class term raises `MalformedRestriction`. Its `ClosureEligibility` result
 pairs the requested verdicts with sorted, distinct `reads`: every id observed
 by heldness or record reads, including attempted missing ids and members visited
 before a `not-held` or `cycle` verdict. A later snapshot's retraction can change
-eligibility while the frozen ids and terms remain unchanged. These helpers do
-not alter the interim assessment and belief path.
+eligibility while the frozen ids and terms remain unchanged. Eligibility is a snapshot judgment separate from the frozen target identity.
 
 #### Coordinate convertibility
 

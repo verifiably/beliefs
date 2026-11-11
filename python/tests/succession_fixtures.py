@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from authority import FULL
-from fixtures_cut3 import spec_draft, spec_rules, typed_applicability, typed_estimand
+from fixtures_cut3 import freeze_context, spec_draft, spec_rules, typed_applicability, typed_estimand, typed_target
 from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
 from nodes.core.write_plan import CreateOp
@@ -19,6 +19,7 @@ from test_operation_port import durable_port
 
 from beliefs import root as science_root
 from beliefs import stored
+from beliefs.estimand import ValueReference
 from beliefs.identity import v1
 from beliefs.root import init_corpus_root
 from beliefs.spec import FrozenSpec, SuccessorAdmitted, SuccessorRefused, freeze, revise
@@ -38,13 +39,18 @@ def corpus(work: Path, name: str):
 def specs() -> tuple[FrozenSpec, FrozenSpec, FrozenSpec]:
     """`(original, unreferenced, referencing)` — the second supersedes nothing,
     the third supersedes the first by construction."""
-    original = freeze(spec_draft(), held_rules=spec_rules())
-    unreferenced = freeze(spec_draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=spec_rules())
+    original = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
+    unreferenced = freeze(
+        spec_draft(estimand=typed_estimand(reference=ValueReference(Decimal(1)))),
+        held_rules=spec_rules(),
+        **freeze_context(),
+    )
     referencing = revise(
         original,
-        edits={"estimand": typed_estimand(reference=Decimal(1))},
+        edits={"estimand": typed_estimand(reference=ValueReference(Decimal(1)))},
         held_rules=spec_rules(),
         recorded_failures=frozenset(),
+        **freeze_context(),
     )
     return original, unreferenced, referencing
 
@@ -58,8 +64,7 @@ def assessment(spec_identity: str, slug: str = "a1") -> Node:
         proposition=PROPOSITION,
         outcome="refuted",
         interpretation_rule=RULE,
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 

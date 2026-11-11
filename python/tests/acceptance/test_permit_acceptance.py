@@ -11,7 +11,17 @@ from pathlib import Path
 
 import pytest
 from authority import ACTOR, FULL, lacking, narrowed
-from fixtures_cut3 import DATA_ADDRESS, MINIMAL_POLICY, READS_ADDRESS, definition, freeze, spec_draft, spec_rules, stage
+from fixtures_cut3 import (
+    DATA_ADDRESS,
+    MINIMAL_POLICY,
+    READS_ADDRESS,
+    definition,
+    freeze,
+    freeze_context,
+    spec_draft,
+    spec_rules,
+    stage,
+)
 from fixtures_cut6 import PINS
 from profiles import WITH_BIOLOGY
 from test_durable_families import proposition
@@ -105,7 +115,7 @@ def test_the_run_boundary_refuses_with_no_intent_through_a_real_port(durable_roo
     before = _head(durable_root)
     code, held = stage(tmp_path)
     outcome = execute_assessment_run(
-        spec=freeze(spec_draft(), held_rules=spec_rules()),
+        spec=freeze(spec_draft(), held_rules=spec_rules(), **freeze_context()),
         port=port,
         boundary_policy=MINIMAL_POLICY,
         definition=definition(),

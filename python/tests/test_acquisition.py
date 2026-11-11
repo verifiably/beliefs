@@ -5,7 +5,7 @@ from typing import Any, cast
 import lineage_fixtures as lineage
 import pytest
 from dataset_fixtures import dataset_ref, pinned
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from nodes.core.relations import Relation
 from profiles import BASE
 from test_read_side import seed  # the module's raw-write seeding helper
@@ -139,8 +139,7 @@ def test_eligibility_is_existential_and_reports_invalidity(tmp_path):
         proposition="proposition:p",
         outcome="supported",
         interpretation_rule="rule:threshold",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     run = stored.run_node("r", title="r", spec="analysis-spec:s", observes=["dataset:missing", bad.id])
     view = seed(tmp_path / "bad", bad, run)

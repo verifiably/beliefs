@@ -952,6 +952,10 @@ class EstimandError(ScienceError):
     turn, and one class would let a check cover for another's absence."""
 
 
+class IdentificationNotLicensed(EstimandError):
+    """The declared identification class does not license the claim layer."""
+
+
 class UntypedEstimandMember(EstimandError):
     """A member that is not the sealed value the position requires."""
 

@@ -16,7 +16,17 @@ from __future__ import annotations
 import pytest
 from authority import ACTOR
 from durable_fixture import PROPOSITION, RULE, SPEC
-from fixtures_cut3 import D_OUT, TESTING_PROFILE, recipe, spec_draft, spec_rules, typed_applicability, typed_estimand
+from fixtures_cut3 import (
+    D_OUT,
+    TESTING_PROFILE,
+    freeze_context,
+    recipe,
+    spec_draft,
+    spec_rules,
+    typed_applicability,
+    typed_estimand,
+    typed_target,
+)
 from fixtures_cut3 import closure as run_closure
 from fixtures_cut4 import raw_write, reopen
 from profiles import BASE
@@ -99,8 +109,7 @@ def mint_assessment(writer, *, outcome: str, slug_name: str = "a1"):
             proposition=PROPOSITION,
             outcome=outcome,
             interpretation_rule=RULE,
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )
 
@@ -120,7 +129,7 @@ def passed_verification_under_a_tolerance():
     boundary-policy work that is not built here. What the constructor
     supplies, and what this test needs, is the verdict and the rule.
     """
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     bindings = (("content-identity-equality/v1", "impl-tolerance-1e-6"), ("median-difference/v1", "impl-interp-1"))
     original = run_closure(recipe=recipe(spec_identity=spec.identity, rule_bindings=bindings))
     replayed = run_closure(recipe=recipe(spec_identity=spec.identity, rule_bindings=bindings))
@@ -301,8 +310,7 @@ class TestTheForgeryAtTheCorrectAddress:
             proposition=PROPOSITION,
             outcome="supported",  # what the forger wants it to say
             interpretation_rule=RULE,
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         raw_write(durable_root, forgery)  # the basis is (spec, run, proposition): the same address
         return correct
@@ -333,8 +341,7 @@ class TestTheForgeryAtTheCorrectAddress:
                     proposition=PROPOSITION,
                     outcome="refuted",
                     interpretation_rule=RULE,
-                    estimand=typed_estimand(),
-                    applicability=typed_applicability(),
+                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
                 ),
                 profile=TESTING_PROFILE,
             ).identity()
@@ -350,8 +357,7 @@ class TestTheForgeryAtTheCorrectAddress:
                     proposition=PROPOSITION,
                     outcome="refuted",
                     interpretation_rule=RULE,
-                    estimand=typed_estimand(),
-                    applicability=typed_applicability(),
+                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
                 ),
                 profile=TESTING_PROFILE,
             ).facet_digest()

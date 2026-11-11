@@ -13,14 +13,17 @@ import copy
 import inspect
 from dataclasses import replace
 from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 from typing import TypedDict, cast
 
 import pytest
 import yaml
-from fixtures_cut3 import UNCONSULTED, typed_applicability, typed_estimand
+from fixtures_cut3 import UNCONSULTED, typed_applicability, typed_estimand, typed_target
 from profiles import biology, pins_for
 
+from beliefs.applicability import ScopedRestriction, build_applicability
+from beliefs.assessment_payload import Interval
 from beliefs.belief import (
     NO_BELIEF_REASONS,
     Availability,
@@ -34,18 +37,19 @@ from beliefs.belief import (
     evaluate,
     evaluate_traced,
 )
-from beliefs.claim import Qualifier, Referent, build_claim
+from beliefs.claim import Referent, build_claim
 from beliefs.closure import RetractionEnumeration
 from beliefs.consulted import CorpusPins
 from beliefs.contract import domain, load_base_contract
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
-from beliefs.estimand import Control, LevelsContrast, Measure, StandardError, build_applicability, build_estimand
+from beliefs.estimand import RoleTermLevels, ValueReference
 from beliefs.lineage import LineageSnapshot
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.profile import ProfileSpec, compile_profile
 from beliefs.projection import claim_identity
 from beliefs.record import AssessmentValue, RunInput, RunValue, SourceAssertion
+from beliefs.restriction import IntervalRestriction
 from beliefs.stored import typed_ref
 from beliefs.verification import Verification
 
@@ -126,8 +130,7 @@ def _assessment(spec: str, run: str, outcome: str = "supported") -> AssessmentVa
         proposition=PROPOSITION,
         outcome=outcome,
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 
@@ -318,14 +321,29 @@ class TestNoMagnitudeBearingRead:
     @pytest.mark.parametrize(
         "field,overrides",
         [
-            ("estimate", {"estimate": Decimal("0.4")}),
-            ("uncertainty", {"estimate": Decimal("0.4"), "uncertainty": StandardError(Decimal("0.1"))}),
-            ("estimand", {"estimand": typed_estimand(reference=Decimal(1))}),
+            ("estimates", {"estimates": {"estimate": Decimal("0.4")}}),
+            (
+                "uncertainty",
+                {
+                    "estimates": {"estimate": Decimal("0.4")},
+                    "uncertainty": {"estimate": Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95"))},
+                },
+            ),
+            ("target", {"target": typed_target(estimand=typed_estimand(reference=ValueReference(Decimal(1))))}),
             (
                 "applicability",
                 {
-                    "applicability": typed_applicability(
-                        {"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:six-months"))}
+                    "target": typed_target(
+                        applicability=typed_applicability(
+                            {
+                                "testing/follow-up": ScopedRestriction(
+                                    "generic",
+                                    IntervalRestriction(
+                                        "testing/calendar-month", Fraction(6), None, True, False, "testing/mean-month"
+                                    ),
+                                )
+                            }
+                        )
                     )
                 },
             ),
@@ -549,7 +567,7 @@ class TestTheEstimandWalk:
         measures_document["description"] = measures_description
         measures = domain.parse_domain_contract(measures_document, source="<q8-measures>", base=_base, predecessor=None)
         testing_document = copy.deepcopy(_testing_document)
-        testing_document["estimands"]["instantiation:affects-entity-outcome"]["measure_sort"] = "measures/assay"
+        testing_document["aspects"]["abundance"] = ["measures/assay"]
         testing = domain.parse_domain_contract(testing_document, source="<q8-testing>", base=_base, predecessor=None)
         return compile_profile(_base, [testing, measures, biology(biology_description)])
 
@@ -566,16 +584,40 @@ class TestTheEstimandWalk:
             layer="causal",
         )
         proposition = claim_identity(claim)
-        estimand, _receipt = build_estimand(
-            profile,
-            claim,
-            snapshot=UNCONSULTED,
-            contrast=LevelsContrast(
-                "cause", None, Referent("testing/level", "EX:a"), Referent("testing/level", "EX:b")
-            ),
-            measure=Measure(Referent("measures/assay", "EX:m"), "additive"),
-            reference=Decimal(0),
-            control=Control(Referent("testing/identification", "EX:obs"), ()),
+        from fixtures_cut3 import MEASUREMENT_RECORDS, RESPONSE
+
+        from beliefs.measurement import Aspect
+        from beliefs.procedure import Procedure
+
+        measured = replace(
+            RESPONSE.measure, observable=replace(RESPONSE.measure.observable, aspect=Aspect("measures/assay", "EX:m"))
+        )
+        pid = MEASUREMENT_RECORDS.put_procedure(
+            Procedure(
+                "testing/assay",
+                "Aspect assay",
+                "Measure the named aspect.",
+                (measured.observable,),
+                None,
+                {},
+                (),
+                (),
+                None,
+                None,
+                {},
+                None,
+            )
+        )
+        measured = replace(measured, procedure=pid)
+        estimand = typed_estimand(
+            profile=profile,
+            claim=claim,
+            bindings={
+                "response": replace(RESPONSE, measure=measured),
+                "grouping": RoleTermLevels(
+                    "cause", None, (Referent("testing/entity", "EX:a"), Referent("testing/entity", "EX:b"))
+                ),
+            },
         )
         applicability, _receipt = build_applicability(profile, claim, {}, snapshot=UNCONSULTED)
         a1 = AssessmentValue(
@@ -584,8 +626,7 @@ class TestTheEstimandWalk:
             proposition=proposition,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=estimand,
-            applicability=applicability,
+            target=typed_target(estimand=estimand, applicability=applicability),
         )
         a2 = AssessmentValue(
             spec="spec-q8-b",
@@ -593,8 +634,7 @@ class TestTheEstimandWalk:
             proposition=proposition,
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=estimand,
-            applicability=applicability,
+            target=typed_target(estimand=estimand, applicability=applicability),
         )
         runs = {
             "run-q8-a": _run("run-q8-a", "spec-q8-a", DATASET_A),

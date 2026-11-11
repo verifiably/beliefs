@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from authority import ACTOR, FULL
+from fixtures_cut3 import typed_target
 from nodes.core.write_plan import DefaultExecutor
 from profiles import BASE, pins_for
 from test_local_standing import assessment, retracts
@@ -310,8 +311,7 @@ def test_unrelated_retraction_leaves_the_input_digest_unchanged(tmp_path):
             proposition="proposition:q",
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )
     writer.retract(retracts(other, "unrelated"))

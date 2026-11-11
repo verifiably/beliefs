@@ -5,7 +5,9 @@ raw-write half and negative (c) (store, audit).
 
 import dataclasses
 import inspect
+from collections.abc import Mapping
 from decimal import Decimal
+from fractions import Fraction
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +16,7 @@ from fixtures_cut3 import (
     READS_ADDRESS,
     closure,
     closure_kwargs,
+    freeze_context,
     interp,
     recipe,
     result_sensitive,
@@ -22,6 +25,7 @@ from fixtures_cut3 import (
     spec_rules,
     typed_applicability,
     typed_estimand,
+    typed_target,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -31,15 +35,17 @@ from fixtures_cut3 import (
 )
 
 from beliefs.admission import AdmissionRefused, admit
+from beliefs.applicability import ScopedRestriction
 from beliefs.assess import AssessmentFinding, build_assessment, run_record
+from beliefs.assessment_payload import Interval
 from beliefs.boundary import RunMinted
-from beliefs.claim import Qualifier, Referent
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import SignatureRefused
-from beliefs.estimand import Interval, StandardError
+from beliefs.estimand import ValueReference
 from beliefs.recipe import EnvironmentManifest, RecipeInput, project_recipe
 from beliefs.record import AssessmentValue, RunValue
+from beliefs.restriction import IntervalRestriction
 from beliefs.spec import (
     ExclusionCertification,
     RuleFixture,
@@ -59,8 +65,7 @@ def assessment_over(run: RunValue) -> AssessmentValue:
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 
@@ -109,19 +114,21 @@ def test_the_constructor_takes_only_a_run_ref(minted):
 
 
 def test_the_facet_derives_from_the_frozen_spec_and_the_manifest(minted):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp())
     assert isinstance(derived, AssessmentValue)
     assert derived.spec == spec.identity
     assert derived.proposition == spec.target
     assert derived.estimand == spec.estimand and derived.applicability == spec.applicability
     assert derived.interpretation_rule == spec.interpretation_rule
-    assert derived.estimate == Decimal("0.4") and derived.uncertainty == StandardError(Decimal("0.1"))
+    assert derived.estimates["estimate"] == Decimal("0.4") and derived.uncertainty == {
+        "estimate": Interval(Decimal("0.1"), Decimal("0.7"), Decimal("0.95"))
+    }
     assert derived.outcome == "supported" and derived.run == minted.run.address()
 
 
 def test_the_evaluator_resolves_from_the_binding_frozen_in_the_recipe(minted):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     recipe_implementation = RuleImplementation(
         identity="impl-interp-2",
         evaluate=lambda manifest: {"outcome": "refuted"},
@@ -131,8 +138,8 @@ def test_the_evaluator_resolves_from_the_binding_frozen_in_the_recipe(minted):
         minted.run.recipe,
         spec_identity=spec.identity,
         rule_bindings=tuple(
-            (rule, "impl-interp-2" if rule == spec.interpretation_rule else identity)
-            for rule, identity in spec.rule_bindings
+            (binding.rule, "impl-interp-2" if binding.rule == spec.interpretation_rule else binding.implementation)
+            for binding in spec.rule_bindings
         ),
     )
     synthetic = dataclasses.replace(minted.run, recipe=bound_recipe)
@@ -147,10 +154,10 @@ def test_the_evaluator_resolves_from_the_binding_frozen_in_the_recipe(minted):
 
 
 def test_a_spec_mapping_key_cannot_substitute_a_different_frozen_spec(minted):
-    expected = freeze(spec_draft(), held_rules=spec_rules())
+    expected = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     assert minted.run.recipe.spec_identity == expected.identity
     substitutions = (
-        freeze(spec_draft(target="a substituted proposition"), held_rules=spec_rules()),
+        freeze(spec_draft(target="a substituted proposition"), held_rules=spec_rules(), **freeze_context()),
         SimpleNamespace(
             identity=expected.identity,
             target="a forged proposition",
@@ -193,7 +200,7 @@ def test_a_spec_mapping_key_cannot_substitute_a_different_frozen_spec(minted):
     ids=("forged-type", "mismatched-identity", "nonconforming-fixtures"),
 )
 def test_an_implementation_mapping_key_cannot_substitute_unbound_content(minted, implementation):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     bound = dict(minted.run.recipe.rule_bindings)[spec.interpretation_rule]
 
     finding = build_assessment(
@@ -207,7 +214,7 @@ def test_an_implementation_mapping_key_cannot_substitute_unbound_content(minted,
 
 
 def test_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     first = run_assessment(tmp_path / "a", data="hello")
     assert isinstance(first, RunMinted)
     baseline = build_assessment(first.run, specs={spec.identity: spec}, implementations=result_sensitive())
@@ -233,7 +240,7 @@ def test_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path):
         identity="impl-interp-2",
         evaluate=lambda manifest: {
             "outcome": ("refuted" if int(manifest.outputs[0][1].split(":", 1)[1], 16) % 2 == 0 else "supported"),
-            "estimate": Decimal("0.4"),
+            "estimates": {"estimate": Decimal("0.4")},
         },
         fixtures=(),
     )
@@ -242,6 +249,7 @@ def test_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path):
         edits={"interpretation_rule": "inverted-parity/v1"},
         held_rules={**spec_rules(), "inverted-parity/v1": inverted},
         recorded_failures=frozenset(),
+        **freeze_context("inverted-parity/v1"),
     )
     rerun = run_assessment(tmp_path / "rerun", spec=successor, data="hello")
     assert isinstance(rerun, RunMinted)
@@ -258,7 +266,7 @@ def test_the_derived_outcome_moves_only_with_the_result_or_the_rule(tmp_path):
 
 
 def test_a_failing_evaluator_produces_a_finding_never_inconclusive(minted):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     finding = build_assessment(minted.run, specs={spec.identity: spec}, implementations=interp(fail=True))
     assert isinstance(finding, AssessmentFinding)
     assert "inconclusive" not in finding.reason  # machinery failure is not a scientific outcome
@@ -273,17 +281,23 @@ def test_assessment_findings_are_immutable():
 def test_narrowing_applicability_needs_a_successor_spec_and_a_new_run(
     minted,
 ):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     # `follow-up` is the fixture's applicability-side dimension on `affects`; a
     # claim-side one (`population`) is refused in applicability by design.
     narrower = typed_applicability(
-        {"testing/follow-up": Qualifier("generic", Referent("testing/level", "EX:five-years"))}
+        {
+            "testing/follow-up": ScopedRestriction(
+                "generic",
+                IntervalRestriction("testing/calendar-month", Fraction(60), None, True, False, "testing/mean-month"),
+            )
+        }
     )
     narrowed = revise(
         spec,
         edits={"applicability": narrower},
         held_rules=spec_rules(),
         recorded_failures=frozenset(),
+        **freeze_context(),
     )
     assert narrowed.identity != spec.identity
     assert minted.run.recipe.spec_identity == spec.identity  # the recorded run stays attached
@@ -293,7 +307,7 @@ def test_narrowing_applicability_needs_a_successor_spec_and_a_new_run(
 
 
 def test_exchanged_facets_move_the_belief_digest(minted, tmp_path):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     other = run_assessment(tmp_path, data="different bytes")
     assert isinstance(other, RunMinted)
     a = build_assessment(
@@ -322,7 +336,7 @@ def test_the_reach_arm_an_inline_exclusion_moves_the_digest_with_identical_facet
     # certification, both executed for real: byte-identical facet values, a
     # differing belief digest — and editing the certification alone mints a
     # recipe (a description), never a run.
-    observes = SpecInput(role="observes", dataset=DATA_ADDRESS)
+    observes = SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation")
     certified_spec = freeze(
         spec_draft(
             input_roles=(
@@ -331,14 +345,17 @@ def test_the_reach_arm_an_inline_exclusion_moves_the_digest_with_identical_facet
                     role="reads",
                     dataset=READS_ADDRESS,
                     exclusion=ExclusionCertification(rationale="plotting palette", attribution="tester"),
+                    mode="annotation",
                 ),
             )
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     plain_spec = freeze(
-        spec_draft(input_roles=(observes, SpecInput(role="reads", dataset=READS_ADDRESS))),
+        spec_draft(input_roles=(observes, SpecInput(role="reads", dataset=READS_ADDRESS, mode="annotation"))),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     certified_run = run_assessment(tmp_path / "certified", spec=certified_spec)
     plain_run = run_assessment(tmp_path / "plain", spec=plain_spec)
@@ -463,79 +480,93 @@ def _rule(output):
 @pytest.mark.parametrize(
     "output,reason",
     [
-        ({"outcome": "supported", "estimate": 0.4}, "Decimal"),
-        ({"outcome": "supported", "estimate": "0.4"}, "Decimal"),
+        ({"outcome": "supported", "estimates": {"estimate": 0.4}}, "Decimal"),
+        ({"outcome": "supported", "estimates": {"estimate": "0.4"}}, "Decimal"),
         (
             {
                 "outcome": "supported",
-                "estimate": Decimal("0.4"),
+                "estimates": {"estimate": Decimal("0.4")},
                 "uncertainty": {
-                    "kind": "interval",
-                    "low": Decimal("0.5"),
-                    "high": Decimal("0.7"),
-                    "level": Decimal("0.95"),
+                    "estimate": {
+                        "kind": "interval",
+                        "low": Decimal("0.5"),
+                        "high": Decimal("0.7"),
+                        "level": Decimal("0.95"),
+                    }
                 },
             },
-            "excludes the estimate",
+            "contain its estimate",
         ),
         (
             {
                 "outcome": "supported",
-                "estimate": Decimal("0.4"),
-                "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal(1)},
+                "estimates": {"estimate": Decimal("0.4")},
+                "uncertainty": {
+                    "estimate": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal(1)}
+                },
             },
             "level",
         ),
         (
             {
                 "outcome": "supported",
-                "estimate": Decimal("0.4"),
-                "uncertainty": {"kind": "standard-error", "value": Decimal("-0.1")},
+                "estimates": {"estimate": Decimal("0.4")},
+                "uncertainty": {"estimate": {"kind": "standard-error", "value": Decimal("-0.1")}},
             },
-            "non-negative",
+            "nonnegative",
         ),
-        ({"outcome": "supported", "estimate": Decimal("0.4"), "reference": Decimal(0)}, "reference"),
+        ({"outcome": "supported", "estimates": {"estimate": Decimal("0.4")}, "reference": Decimal(0)}, "reference"),
         ({"outcome": "supported", "scale": "additive"}, "scale"),
-        ({"outcome": "supported", "uncertainty": {"kind": "standard-error", "value": Decimal("0.1")}}, "estimate"),
+        (
+            {"outcome": "supported", "uncertainty": {"estimate": {"kind": "standard-error", "value": Decimal("0.1")}}},
+            "estimate",
+        ),
     ],
 )
 def test_an_ill_typed_rule_output_is_a_finding_never_inconclusive(minted, output, reason):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=_rule(output))
     assert isinstance(derived, AssessmentFinding) and reason in derived.reason
     assert "inconclusive" not in derived.reason
 
 
 def test_a_well_typed_output_mints_typed_members(minted):
-    spec = freeze(spec_draft(), held_rules=spec_rules())
+    spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     output = {
         "outcome": "supported",
-        "estimate": Decimal("0.4"),
-        "uncertainty": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal("0.95")},
+        "estimates": {"estimate": Decimal("0.4")},
+        "uncertainty": {
+            "estimate": {"kind": "interval", "low": Decimal("0.1"), "high": Decimal("0.7"), "level": Decimal("0.95")}
+        },
     }
     derived = build_assessment(minted.run, specs={spec.identity: spec}, implementations=_rule(output))
     assert isinstance(derived, AssessmentValue)
-    assert isinstance(derived.uncertainty, Interval)
-    assert derived.estimate == Decimal("0.4") and derived.uncertainty.level == Decimal("0.95")
-    assert derived.estimand == spec.estimand and dict(derived.applicability) == dict(spec.applicability)
+    assert isinstance(derived.uncertainty, Mapping)
+    assert isinstance(derived.uncertainty["estimate"], Interval)
+    assert derived.estimates["estimate"] == Decimal("0.4") and derived.uncertainty["estimate"].level == Decimal("0.95")
+    assert derived.estimand == spec.estimand and derived.applicability == spec.applicability
 
 
 def test_a_multiplicative_estimate_must_be_positive(minted, run_assessment_under):
     from fixtures_cut3 import typed_estimand
 
-    from beliefs.claim import Referent
-    from beliefs.estimand import Measure
+    from beliefs.estimand import OutputSpec
 
     spec = freeze(
         spec_draft(
             estimand=typed_estimand(
-                measure=Measure(Referent("testing/measure", "EX:hr"), "multiplicative"), reference=Decimal(1)
+                functional="testing/ratio-of-means",
+                outputs={"estimate": OutputSpec("dimensionless", "positive")},
+                reference=ValueReference(Decimal(1)),
             )
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     run = run_assessment_under(spec)  # the module's helper that executes a closure under a given frozen spec
     derived = build_assessment(
-        run, specs={spec.identity: spec}, implementations=_rule({"outcome": "supported", "estimate": Decimal(0)})
+        run,
+        specs={spec.identity: spec},
+        implementations=_rule({"outcome": "supported", "estimates": {"estimate": Decimal(0)}}),
     )
-    assert isinstance(derived, AssessmentFinding) and "multiplicative" in derived.reason
+    assert isinstance(derived, AssessmentFinding) and "positive" in derived.reason

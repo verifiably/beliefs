@@ -1,200 +1,117 @@
-"""Round trips and refusals at the decode boundary."""
+"""Stored v2 codecs validate shape without consulting the world."""
 
-from collections.abc import Mapping
+from copy import deepcopy
 from decimal import Decimal
 from typing import cast
 
 import pytest
-from test_estimand import (  # noqa: F401 — fixtures re-exported by name
-    EV,
-    PR,
-    E,
-    I,
-    L,
-    M,
-    O,
-    affects,
-    build,
-    correlates,
-    levels,
-    parts,
-)
+from fixtures_cut3 import TESTING_PROFILE, typed_estimand
 
-from beliefs.claim import Qualifier, Referent
-from beliefs.contract import domain
-from beliefs.decode import WireEstimand, applicability_from_stored, decode_estimand, estimand_from_stored
-from beliefs.errors import ContrastRefused, EstimandSortMismatch, MalformedWireEstimand
-from beliefs.estimand import Control, applicability_projection, build_applicability, estimand_projection
+from beliefs.errors import ScienceError
+from beliefs.estimand import ValueReference, estimand_from_stored, estimand_projection
 from beliefs.identity import v1
-from beliefs.profile import compile_profile
-from beliefs.projection import claim_identity
-from beliefs.resolution import build_snapshot
-
-
-@pytest.fixture()
-def profile(base_contract, testing_document):
-    testing = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
-    return compile_profile(base_contract, [testing])
-
-
-@pytest.fixture()
-def claim(profile):
-    return affects(profile)
-
-
-def ref(sort, term):
-    return {"sort": sort, "term": term}
-
-
-def test_a_projection_round_trips_through_canonical_text(profile, claim):
-    estimand = build(profile, claim, build_snapshot(readable={}))
-    projection = estimand_projection(estimand)
-    restored = estimand_from_stored(cast("Mapping[str, object]", v1.decode(v1.encode(projection))), profile=profile)
-    assert estimand_projection(restored) == projection
-    assert restored.reference == Decimal(0) and type(restored.reference) is Decimal
-
-
-def test_decode_types_a_wire_value_and_resolves_it(profile, claim):
-
-    wire = WireEstimand(
-        claim=claim_identity(claim),
-        operator="testing/affects",
-        contrast={"role": "cause", "kind": "levels", "baseline": ref(L, "EX:ndmm"), "comparison": ref(L, "EX:pd")},
-        measure={"quantity": ref(M, "EX:tpm"), "scale": "additive"},
-        reference=Decimal(0),
-        control={"identification": ref(I, "EX:observational"), "conditioning": []},
-    )
-    estimand, receipt = decode_estimand(wire, profile=profile, snapshot=build_snapshot(readable={}))
-    assert estimand_projection(estimand) == estimand_projection(build(profile, claim, build_snapshot(readable={})))
-    assert "estimand:measure.quantity" in receipt.outcomes
-
-
-def test_a_wire_contrast_on_a_many_role_names_its_member(profile):
-    claim = correlates(profile, Referent(EV, "EX:e-1"), Referent(PR, "EX:p-1"))
-    contrast = {
-        "role": "parties",
-        "member": ref(EV, "EX:e-1"),
-        "kind": "levels",
-        "baseline": ref(L, "EX:ndmm"),
-        "comparison": ref(L, "EX:pd"),
-    }
-    wire = WireEstimand(
-        claim=claim_identity(claim),
-        operator="testing/correlates-with",
-        contrast=contrast,
-        measure={"quantity": ref(M, "EX:tpm"), "scale": "additive"},
-        reference=Decimal(0),
-        control={"identification": ref(I, "EX:observational"), "conditioning": []},
-    )
-    estimand, receipt = decode_estimand(wire, profile=profile, snapshot=build_snapshot(readable={}))
-    built = build(
-        profile, claim, build_snapshot(readable={}), contrast=levels(role="parties", member=Referent(EV, "EX:e-1"))
-    )
-    assert estimand_projection(estimand) == estimand_projection(built)
-    assert estimand_projection(estimand)["contrast"] == contrast
-    assert "estimand:contrast.member" in receipt.outcomes
 
 
 @pytest.mark.parametrize(
-    "contrast,error,match",
+    "field",
     [
-        ({"role": "parties", "kind": "levels"}, ContrastRefused, "is a `many` role"),
-        ({"role": "cause", "member": ref(EV, "EX:e-1"), "kind": "levels"}, ContrastRefused, "not a role"),
-        ({"slot": 0, "kind": "levels"}, MalformedWireEstimand, "contrast.role"),
-        ({"role": 0, "kind": "levels"}, MalformedWireEstimand, "contrast.role"),
-        ({"role": "parties", "member": "EX:e-1", "kind": "levels"}, MalformedWireEstimand, "bare term"),
+        "claim",
+        "operator",
+        "form",
+        "functional",
+        "bindings",
+        "outputs",
+        "reference",
+        "control",
+        "uncertainty",
+        "assumptions",
+        "dependencies",
     ],
 )
-def test_a_wire_contrast_refuses_a_role_or_member_out_of_shape(profile, contrast, error, match):
-    claim = correlates(profile, Referent(EV, "EX:e-1"), Referent(PR, "EX:p-1"))
-    wire = WireEstimand(
-        claim=claim_identity(claim),
-        operator="testing/correlates-with",
-        contrast=contrast | {"baseline": ref(L, "EX:ndmm"), "comparison": ref(L, "EX:pd")},
-        measure={"quantity": ref(M, "EX:tpm"), "scale": "additive"},
-        reference=Decimal(0),
-        control={"identification": ref(I, "EX:observational"), "conditioning": []},
-    )
-    with pytest.raises(error, match=match):
-        decode_estimand(wire, profile=profile, snapshot=build_snapshot(readable={}))
+def test_every_required_field_is_required(field):
+    body = estimand_projection(typed_estimand())
+    del body[field]
+    with pytest.raises(ScienceError):
+        estimand_from_stored(body, profile=TESTING_PROFILE)
 
 
 @pytest.mark.parametrize(
-    "mutate,error",
+    "edit",
     [
-        (lambda p: p.pop("reference"), MalformedWireEstimand),
-        (lambda p: p.__setitem__("extra", 1), MalformedWireEstimand),
-        (lambda p: p["contrast"].__setitem__("kind", "levels-and-continuous"), MalformedWireEstimand),
-        (lambda p: p["contrast"].__setitem__("slot", 0), MalformedWireEstimand),
-        (lambda p: p["contrast"].__setitem__("role", 0), MalformedWireEstimand),
-        (lambda p: p["contrast"].__setitem__("member", None), MalformedWireEstimand),
-        (lambda p: p["contrast"].__setitem__("baseline", {"sort": E, "term": "EX:ndmm"}), EstimandSortMismatch),
-        (lambda p: p["measure"].__setitem__("quantity", {"sort": 7, "term": "EX:tpm"}), MalformedWireEstimand),
-        (lambda p: p["measure"].__setitem__("quantity", {"sort": "", "term": "EX:tpm"}), MalformedWireEstimand),
-        (lambda p: p["measure"].__setitem__("quantity", {"term": "EX:tpm"}), MalformedWireEstimand),
-        (
-            lambda p: p["measure"].__setitem__("quantity", "EX:tpm"),
-            MalformedWireEstimand,
-        ),  # the whole wrapper removed: a bare term is the wire form's
-        (lambda p: p["control"].__setitem__("conditioning", ["EX:c"]), MalformedWireEstimand),
-        (lambda p: p["contrast"].__setitem__("comparison", {"sort": L, "term": "EX:ndmm"}), ContrastRefused),
-        (lambda p: p.__setitem__("reference", "zero"), MalformedWireEstimand),
-        (lambda p: p["control"].__setitem__("conditioning", "none"), MalformedWireEstimand),
+        lambda b: b.update(extra="ignored?"),
+        lambda b: b.update(calibration=None),
+        lambda b: b["bindings"].update(extra={}),
+        lambda b: b["bindings"]["response"].update(member=None),
+        lambda b: b["outputs"]["estimate"].update(unit="testing/tpm"),
+        lambda b: b["reference"].update(value=0.5),
+        lambda b: b["reference"].update(value=Decimal("NaN")),
+        lambda b: b["dependencies"].append(b["dependencies"][0]),
+        lambda b: b["dependencies"].clear(),
+        lambda b: b.update(reference={"kind": "guess", "value": Decimal(1)}),
+        lambda b: b["control"].update(extra="ignored?"),
     ],
 )
-def test_ill_formed_stored_projections_refuse_never_repair(profile, claim, mutate, error):
-    projection = estimand_projection(build(profile, claim, build_snapshot(readable={})))
-    mutate(projection)
-    with pytest.raises(error):
-        estimand_from_stored(projection, profile=profile)
+def test_malformed_or_noncanonical_projection_refuses(edit):
+    body = deepcopy(estimand_projection(typed_estimand()))
+    edit(body)
+    with pytest.raises(ScienceError):
+        estimand_from_stored(body, profile=TESTING_PROFILE)
 
 
-def test_a_duplicate_conditioning_member_refuses_through_the_sealed_constructor(profile, claim):
-    """A stored projection cannot rebuild an estimand `Control.__post_init__`
-    would have refused: the decoder must construct every member through the
-    sealed types, never hand raw tuples straight to `Estimand._checked`."""
-    from beliefs.errors import ControlRefused
-
-    projection = estimand_projection(
-        build(
-            profile,
-            claim,
-            build_snapshot(readable={}),
-            control=Control(identification=Referent(I, "EX:observational"), conditioning=(Referent(E, "EX:c"),)),
-        )
+def test_canonical_numeric_text_and_distinct_reference():
+    a = estimand_projection(typed_estimand())
+    b = estimand_projection(typed_estimand(reference=ValueReference(Decimal("0.500"))))
+    assert a != b
+    assert b"0.5" in v1.encode(b)
+    assert estimand_from_stored(v1.decode(v1.encode(b)), profile=TESTING_PROFILE).reference == ValueReference(
+        Decimal(".5")
     )
-    cast(dict, projection["control"])["conditioning"] = [{"sort": E, "term": "EX:c"}, {"sort": E, "term": "EX:c"}]
-    with pytest.raises(ControlRefused, match="duplicate"):
-        estimand_from_stored(projection, profile=profile)
 
 
-def test_applicability_round_trips_and_refuses_an_undeclared_dimension(profile, claim):
-    from beliefs.errors import DimensionNotApplicabilitySide, UndeclaredDimension
+def test_v1_shape_is_refused():
+    with pytest.raises(ScienceError):
+        estimand_from_stored(
+            {
+                "claim": "x",
+                "operator": "testing/affects",
+                "contrast": {},
+                "measure": {},
+                "reference": Decimal(0),
+                "control": {},
+            },
+            profile=TESTING_PROFILE,
+        )
 
-    six_months, _ = build_applicability(
-        profile,
-        claim,
-        {"testing/follow-up": Qualifier("generic", Referent(L, "EX:six-months"))},
-        snapshot=build_snapshot(readable={}),
+
+def test_many_member_spelling_preserves_the_claims_nfc_identity():
+    from fixtures_cut3 import event_estimand
+
+    from beliefs.claim import Member, Referent, build_claim
+
+    values = []
+    for term in ["EX:e\u0301", "EX:é"]:
+        claim = build_claim(
+            TESTING_PROFILE,
+            operator="testing/correlates-with",
+            roles={"parties": (Member(Referent("testing/event", term)), Member(Referent("testing/product", "EX:p")))},
+            layer="statistical",
+            polarity="positive",
+        )
+        e = event_estimand(claim)
+        body = estimand_projection(e)
+        assert estimand_from_stored(body, profile=TESTING_PROFILE) == e
+        values.append(v1.encode(body))
+    assert values[0] == values[1]
+
+
+def test_duplicate_assumptions_are_not_a_canonical_stored_set():
+    from beliefs.assumptions import AssumptionInstance
+
+    e = typed_estimand(
+        assumptions=(AssumptionInstance("testing/transport-exchangeability", {"dimensions": "", "co_scope": "equal"}),)
     )
-    projection = applicability_projection(six_months)
-    restored = applicability_from_stored(
-        cast("Mapping[str, object]", v1.decode(v1.encode(projection))), profile=profile, operator="testing/affects"
-    )
-    assert applicability_projection(restored) == projection
-    with pytest.raises(UndeclaredDimension):
-        applicability_from_stored(
-            {"testing/regime": projection["testing/follow-up"]}, profile=profile, operator="testing/affects"
-        )
-    with pytest.raises(DimensionNotApplicabilitySide):
-        applicability_from_stored(
-            {"testing/population": {"quantifier": "generic", "restriction": ref("testing/cohort", "EX:adults")}},
-            profile=profile,
-            operator="testing/affects",
-        )
-    with pytest.raises(MalformedWireEstimand, match="bare term"):
-        applicability_from_stored(
-            {"testing/follow-up": {"quantifier": "generic", "restriction": "EX:six-months"}},
-            profile=profile,
-            operator="testing/affects",
-        )
+    body = estimand_projection(e)
+    assumptions = cast(list, body["assumptions"])
+    assumptions.append(assumptions[0])
+    with pytest.raises(ScienceError):
+        estimand_from_stored(body, profile=TESTING_PROFILE)

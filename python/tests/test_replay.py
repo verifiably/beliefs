@@ -22,6 +22,7 @@ from fixtures_cut3 import (
     SNAKEFILE_SEED_VIOLATING,
     closure_kwargs,
     closure_with,
+    freeze_context,
     planned,
     seed_plan,
     spec_draft,
@@ -30,6 +31,7 @@ from fixtures_cut3 import (
     traced_from_key,
     typed_applicability,
     typed_estimand,
+    typed_target,
 )
 from fixtures_cut3 import (
     memory_assessment as run_assessment,
@@ -47,6 +49,7 @@ from beliefs.boundary import RunMinted, RunRefused, execute_assessment_run
 from beliefs.closure import build_closure
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.errors import MalformedRecord
+from beliefs.estimand import ValueReference
 from beliefs.recipe import CAPABILITIES, BoundaryPolicy, ResultManifest, TraceJob, WorkflowDefinitionSnapshot, job_key
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.replay import (
@@ -333,7 +336,7 @@ def test_replay_over_a_closure_is_replay_over_the_minted_result(monkeypatch, tmp
 
     from beliefs import replay as replay_module
 
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     closure = assessment_closure(frozen)
     minted = RunMinted(
         run=closure,
@@ -395,8 +398,7 @@ def existing_assessment_state(original):
         proposition="p",
         outcome="supported",
         interpretation_rule="r",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     admitting = (
         Verification(
@@ -672,7 +674,11 @@ def test_independent_implementation_needs_all_four_conditions(tmp_path):
 
 def test_a_different_spec_identity_is_not_certified(tmp_path):
     a = run_assessment(tmp_path / "a")
-    other_spec = freeze(spec_draft(estimand=typed_estimand(reference=Decimal(1))), held_rules=spec_rules())
+    other_spec = freeze(
+        spec_draft(estimand=typed_estimand(reference=ValueReference(Decimal(1)))),
+        held_rules=spec_rules(),
+        **freeze_context(),
+    )
     b = run_assessment(tmp_path / "b", spec=other_spec)
     assert isinstance(a, RunMinted) and isinstance(b, RunMinted)
     certified = CodeLineageCertification(rationale="claim", attribution="tester")
@@ -753,8 +759,7 @@ def test_unreachable_bytes_with_a_held_copy_move_none_of_the_three(pair):
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="r",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     admitting = (
         Verification(
@@ -961,9 +966,10 @@ def test_replay_multi_resource_and_single_resource_nested_member_mappings(tmp_pa
     spec_multi = freeze(
         spec_draft(
             nondeterminism=Deterministic(),
-            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     defn_multi = definition(snakefile=SNAKEFILE_REPLAY_MULTI, family_streams={})
     orig_assess = execute_assessment_run(
@@ -1114,9 +1120,10 @@ def test_replay_binds_a_tree_input(tmp_path):
     spec = freeze(
         spec_draft(
             nondeterminism=Deterministic(),
-            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS),),
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
         ),
         held_rules=spec_rules(),
+        **freeze_context(),
     )
     assessment = execute_assessment_run(
         spec=spec,

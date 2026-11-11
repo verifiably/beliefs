@@ -10,7 +10,7 @@ import pytest
 from authority import FULL
 from dataset_fixtures import dataset_ref, pinned
 from domain_facet_fixtures import kwargs_for, over_kwargs, profile_with, seed
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.corpus import Corpus
 from nodes.core.errors import RefError
@@ -865,8 +865,7 @@ class TestEvaluationOverTheWorld:
             proposition="proposition:p",
             outcome="supported",
             interpretation_rule="rule-1",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
         original = next(n for n in nodes if n.id == "assessment:a-1")
         assert original.id != twin.id and original.uid != twin.uid
@@ -978,7 +977,7 @@ def split_verification_world(tmp_path: Path):
     scratch = tmp_path / "scratch"
     writer = CorpusWriter(scratch, DefaultExecutor, authority=FULL, profile=BASE)
     writer.adopt_manifest(profile=pins_for(BASE))
-    published = publish_corpus(writer, publish=True)
+    published = publish_corpus(writer, publish=True, store_dependencies=False)
     assert published.node is not None
     forged = self_consistent_forgery(
         writer, published.node, mutate=lambda facet: facet.__setitem__("verdict", "failed")

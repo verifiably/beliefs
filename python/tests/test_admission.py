@@ -6,7 +6,7 @@ reported as `not-present` (world-index territory) nor as `not-member` (a
 finding nobody's look supports).
 """
 
-from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand
+from fixtures_cut3 import TESTING_PROFILE, typed_applicability, typed_estimand, typed_target
 
 from beliefs.admission import AdmissionRefused, Admitted, admit, vocabulary_availability
 from beliefs.dataset import ByteObservation, DatasetDeclaration, ResourceDeclaration, dataset_address
@@ -33,8 +33,7 @@ def assessment() -> AssessmentValue:
         proposition="prop-1",
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
 
 
@@ -151,8 +150,7 @@ def test_admit_matches_a_typed_run_ref_to_the_bare_member():
         proposition="p",
         outcome="supported",
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     other = RunValue(ref="run:r2", spec="s", inputs=())
     refused = admit(assessment, other, {}, ())

@@ -588,7 +588,7 @@ def read_composite(
             identification = tuple(
                 sorted(
                     {
-                        value.estimand.control.identification.term
+                        value.estimand.control.identification
                         for value in inputs.assessments
                         if value.identity() in admission.admitted
                     }

@@ -8,7 +8,7 @@ import pytest
 import yaml
 from authority import ACTOR
 from fixtures_cut3 import report as sample_report
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut6 import OTHER_BIOLOGY_ID, PINS
 from nodes.core.errors import RefError
 from nodes.core.node import Node
@@ -464,8 +464,7 @@ def test_consolidating_equal_basis_retraction_replicas_leaves_the_counter_retrac
                     proposition=proposition.id,
                     outcome="supported",
                     interpretation_rule="rule:threshold",
-                    estimand=typed_estimand(),
-                    applicability=typed_applicability(),
+                    target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
                 )
             )
         )
@@ -612,8 +611,7 @@ def test_retract_refuses_a_target_moved_away(tmp_path):
             proposition=proposition.id,
             outcome="supported",
             interpretation_rule="rule:threshold",
-            estimand=typed_estimand(),
-            applicability=typed_applicability(),
+            target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
         )
     )
     content_identity = stored.stored_semantic_hash(target)

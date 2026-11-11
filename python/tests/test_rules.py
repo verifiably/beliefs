@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from fixtures_cut3 import TESTING_PROFILE, spec_draft
+from fixtures_cut3 import TESTING_PROFILE, freeze_context, spec_draft
 
 from beliefs.errors import UnfreezableSpec
 from beliefs.identity import v1
@@ -65,11 +65,12 @@ def _kernel_draft(**overrides):
 
 
 def test_freeze_binds_the_reference_rules():
-    frozen = freeze(_kernel_draft(), held_rules=REFERENCE_RULES)
-    assert frozen.rule_bindings == (
+    frozen = freeze(_kernel_draft(), held_rules=REFERENCE_RULES, **freeze_context(OUTCOME_FILE_RULE))
+    assert tuple((b.rule, b.implementation) for b in frozen.rule_bindings) == (
         (CONTENT_IDENTITY_RULE, "impl-eq-1"),
         (OUTCOME_FILE_RULE, "impl-outcome-file-1"),
     )
+    assert next(b for b in frozen.rule_bindings if b.rule == OUTCOME_FILE_RULE).procedure is not None
 
 
 def test_the_kernel_equality_identity_is_bitwise_at_freeze():
@@ -78,11 +79,14 @@ def test_the_kernel_equality_identity_is_bitwise_at_freeze():
         freeze(
             _kernel_draft(nondeterminism=StochasticUnseeded(rationale="honest")),
             held_rules=REFERENCE_RULES,
+            **freeze_context(OUTCOME_FILE_RULE),
         )
 
 
 def test_the_kernel_equality_identity_is_bitwise_at_restore():
-    mapping = frozen_projection(freeze(_kernel_draft(), held_rules=REFERENCE_RULES))
+    mapping = frozen_projection(
+        freeze(_kernel_draft(), held_rules=REFERENCE_RULES, **freeze_context(OUTCOME_FILE_RULE))
+    )
     mapping["nondeterminism"] = StochasticUnseeded(rationale="honest").projection()
     identity = v1.digest(SPEC_DOMAIN, mapping)
     with pytest.raises(UnfreezableSpec):

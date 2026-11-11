@@ -13,12 +13,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from decimal import Decimal
 from typing import cast, final
 
+from beliefs.assessment_payload import payload_from_projection
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration
 from beliefs.errors import MalformedClosure, MalformedRecord, SignatureRefused
-from beliefs.estimand import check_estimate, uncertainty_from_mapping
 from beliefs.recipe import RunClosure
 from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.sealed import sealed
@@ -72,24 +71,17 @@ def build_assessment(
         if not isinstance(raw, Mapping):
             raise TypeError("the interpretation rule returned no facet mapping")
         derived = cast(Mapping[str, object], raw)
-        extra = sorted(set(derived) - {"outcome", "estimate", "uncertainty"})
+        extra = sorted(set(derived) - {"outcome", "estimates", "uncertainty", "curves"})
         if extra:
             raise TypeError(
-                f"the interpretation rule returned {extra}; a rule yields outcome, estimate and uncertainty only — "
+                f"the interpretation rule returned {extra}; a rule yields outcome and optional named estimates, uncertainty and curves — "
                 "the reference and scale are the spec's, and a rule restating them is a rule that lies"
             )
         outcome = derived.get("outcome")
         if type(outcome) is not str:
             raise TypeError("the interpretation rule returned no string outcome")
-        scale = spec.estimand.measure.scale
-        estimate = derived.get("estimate")
-        if estimate is not None:
-            estimate = check_estimate(cast(Decimal, estimate), scale)
-        uncertainty_body = derived.get("uncertainty")
-        uncertainty = (
-            None
-            if uncertainty_body is None
-            else uncertainty_from_mapping(uncertainty_body, estimate=estimate, scale=scale)
+        estimates, uncertainty, curves = payload_from_projection(
+            {key: value for key, value in derived.items() if key != "outcome"}, spec.estimand
         )
         return AssessmentValue(
             spec=spec.identity,
@@ -97,10 +89,10 @@ def build_assessment(
             proposition=spec.target,
             outcome=outcome,
             interpretation_rule=spec.interpretation_rule,
-            estimand=spec.estimand,
-            applicability=spec.applicability,
-            estimate=estimate,
+            target=spec.assessed_target,
+            estimates=estimates,
             uncertainty=uncertainty,
+            curves=curves,
         )
     except Exception as error:  # noqa: BLE001 — arbitrary rule machinery records a finding
         return AssessmentFinding(run=run_address, reason=f"evaluation-failed: {error}")

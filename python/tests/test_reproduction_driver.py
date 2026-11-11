@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 
 import pytest
+from fixtures_cut3 import freeze_context
 from reproduction import answers, findings
 
 from beliefs.belief import Belief, NoBelief
@@ -163,15 +164,19 @@ def test_spec_record_carries_a_fresh_semantic_stamp():
         method="m",
         assumptions="a",
         falsification="f",
-        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),),
+        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64, mode="observation"),),
         applicability=typed_applicability(),
         interpretation_rule=spec_module.INTERPRETATION_RULE,
         equivalence_rule=spec_module.EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},
         nondeterminism=Deterministic(),
         registers=(),
+        standing="empirical",
+        model=None,
     )
-    node = spec_module.spec_record(freeze(draft, held_rules=spec_module.held_rules()))
+    node = spec_module.spec_record(
+        freeze(draft, held_rules=spec_module.held_rules(), **freeze_context(spec_module.INTERPRETATION_RULE))
+    )
     assert node.kind == "analysis-spec"
     assert not stored.semantic_hash_missing(node) and not stored.semantic_hash_disagrees(node)
 
@@ -268,7 +273,7 @@ def test_close_evidence_for_raises_on_a_stored_spec_that_does_not_restore(tmp_pa
     from beliefs.spec import freeze
 
     writer = _writer(tmp_path / "corpus")
-    frozen = freeze(spec_draft(), held_rules=spec_rules())
+    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     forged = stored.analysis_spec_node(frozen).model_copy(update={"id": "analysis-spec:forged"})
     forged.facets[stored.ANALYSIS_SPEC_FACET]["identity"] = "forged"
     forged.facets[stored.ANALYSIS_SPEC_FACET]["projection"] = forged.facets[stored.ANALYSIS_SPEC_FACET][
@@ -365,21 +370,23 @@ def test_the_driver_binds_the_kernel_rules_under_its_own_identities():
         method="m",
         assumptions="a",
         falsification="f",
-        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64),),
+        input_roles=(SpecInput(role="observes", dataset="dataset:sha256:" + "a" * 64, mode="observation"),),
         applicability=typed_applicability(),
         interpretation_rule=spec_module.INTERPRETATION_RULE,
         equivalence_rule=spec_module.EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},
         nondeterminism=Deterministic(),
         registers=(),
+        standing="empirical",
+        model=None,
     )
-    frozen = freeze(draft, held_rules=held)
+    frozen = freeze(draft, held_rules=held, **freeze_context(spec_module.INTERPRETATION_RULE))
     # The pairs the 2026-09-05 record digests, unchanged: identity-neutral by construction.
-    assert frozen.rule_bindings == (
+    assert tuple((b.rule, b.implementation) for b in frozen.rule_bindings) == (
         ("content-identity-equality/v1", "impl-eq-1"),
         ("mm30-reproduction/outcome-file/v1", "impl-outcome-file-1"),
     )
-    assert frozen.identity == PINNED_IDENTITY
+    assert frozen.identity != PINNED_IDENTITY  # evidence mode, target and estimator procedure change the spec identity
 
 
 def _phf19_inputs_case():

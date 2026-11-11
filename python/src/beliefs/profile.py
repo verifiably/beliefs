@@ -442,31 +442,16 @@ CompiledOperator = CompiledTemplate | CompiledBridge
 
 @dataclass(frozen=True)
 class CompiledEstimandDecl:
-    """An `estimands:` entry with every sort resolved to a term identifier, under
-    the compiled typed address of its target (``instantiation:<namespace>/<name>``
-    or ``bridge:<namespace>/<name>``).
-
-    Interim role adaptation (beliefs-d64969); beliefs-f68a32 replaces the
-    estimand structure around these names.
-    """
+    """Whole-row estimand admission with resolved sort references."""
 
     kind: Literal["instantiation", "bridge"]
     target: str
-    level_sorts: Mapping[str, str]
-    """Role name → sort term."""
-    measure_sort: str
-    identification_sort: str
-    conditioning_sort: str
+    forms: tuple[str, ...]
+    conditioning_sorts: frozenset[str]
     contract: str
 
     def schema_projection(self) -> dict[str, object]:
-        return {
-            "kind": self.kind,
-            "level_sorts": {role: self.level_sorts[role] for role in sorted(self.level_sorts)},
-            "measure_sort": self.measure_sort,
-            "identification_sort": self.identification_sort,
-            "conditioning_sort": self.conditioning_sort,
-        }
+        return {"kind": self.kind, "forms": sorted(self.forms), "conditioning_sorts": sorted(self.conditioning_sorts)}
 
 
 @dataclass(frozen=True)
@@ -1812,27 +1797,14 @@ def _compile_estimand(
     kind, _, name = decl.target.partition(":")
     term = contract.term(name)
     # The parser admits only a target this contract declares, so both lookups hold.
-    target = instantiations[term] if kind == "instantiation" else bridges[term]
-    template = templates[target.template]
-    for role in decl.level_sorts:
-        if role not in template.roles:
-            raise ProfileError(
-                f"{contract.namespace}: {where}: level_sorts names role {role!r}, which {template.term!r} does not "
-                f"declare; its roles are {sorted(template.roles)}"
-            )
+    instantiations[term] if kind == "instantiation" else bridges[term]
     return CompiledEstimandDecl(
         kind=cast(Literal["instantiation", "bridge"], kind),
         target=f"{kind}:{term}",
-        level_sorts=MappingProxyType(
-            {
-                role: _resolve_sort(contract, sort, sorts, where=f"{where}: level_sorts.{role}")
-                for role, sort in decl.level_sorts.items()
-            }
+        forms=decl.forms,
+        conditioning_sorts=frozenset(
+            _resolve_sort(contract, sort, sorts, where=f"{where}: conditioning_sorts")
+            for sort in decl.conditioning_sorts
         ),
-        measure_sort=_resolve_sort(contract, decl.measure_sort, sorts, where=f"{where}: measure_sort"),
-        identification_sort=_resolve_sort(
-            contract, decl.identification_sort, sorts, where=f"{where}: identification_sort"
-        ),
-        conditioning_sort=_resolve_sort(contract, decl.conditioning_sort, sorts, where=f"{where}: conditioning_sort"),
         contract=contract.namespace,
     )

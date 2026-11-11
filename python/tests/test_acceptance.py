@@ -8,7 +8,7 @@ import pytest
 # These checks fail if acceptance is applied after correction validation/folding.
 from authority import ACTOR
 from domain_facet_fixtures import LOCAL_CORPUS_ID, over_kwargs, profile_with
-from fixtures_cut3 import typed_applicability, typed_estimand
+from fixtures_cut3 import typed_applicability, typed_estimand, typed_target
 from fixtures_cut4 import raw_write, reopen
 from nodes.core.node import Node
 from test_belief import scenario
@@ -309,8 +309,7 @@ def _twin(root, *, outcome="supported"):
         proposition=PROPOSITION_REF,
         outcome=outcome,
         interpretation_rule="rule-1",
-        estimand=typed_estimand(),
-        applicability=typed_applicability(),
+        target=typed_target(estimand=typed_estimand(), applicability=typed_applicability()),
     )
     raw_write(root, node)
     return node
