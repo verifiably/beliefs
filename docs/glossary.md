@@ -35,10 +35,12 @@ the beliefs documents use, each linking the document that specifies or explains 
   an observable is measured; the pack must admit its sort for the quantity kind.
   ([contracts](contracts.md#domain-contracts))
 - <a id="assumptions-register"></a>**Assumptions register** — A content-addressed
-  record of what a domain contract's declarations collapse, license and leave
-  unestablished, entries keyed by typed declaration address (`sort:<ns>/<name>`, …).
-  A spec cites the registers it relies on, and each must be current at the write door.
-  ([records](records.md#assumptions-registers))
+  record (`science.assumptions-register.v2`) of what a domain contract's
+  declarations collapse, license and leave unestablished, together with each
+  entry's `status` (`established` or `provisional`), keyed by typed declaration
+  address across all 21 domain-contract declaration families (`sort:<ns>/<name>`,
+  `template:<ns>/<name>`, …). A spec cites the registers it relies on, and each
+  must be current at the write door. ([records](records.md#assumptions-registers))
 - <a id="authority"></a>**Authority** — A write permit bound to an actor.
   ([writes](writes.md#authority-and-permits))
 - <a id="base-contract"></a>**Base contract** — The Science contract that declares the
@@ -114,10 +116,11 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="declared"></a>**Declared** — A dataset that names its bytes by digest without
   an observation that holds them. It is a real record but never counts as
   evidence. ([records](records.md#datasets-sources-and-holdings))
-- <a id="domain-contract"></a>**Domain contract** — A namespaced contract that adds
-  sorts, dimensions, templates, instantiations, bridges, estimand declarations,
-  measurement vocabulary and admissions, duration conventions and facets.
-  ([contracts](contracts.md#domain-contracts))
+- <a id="domain-contract"></a>**Domain contract** — A namespaced contract,
+  explicitly activated by a profile, that adds sorts, dimensions, templates,
+  instantiations, bridges, estimand declarations, measurement vocabulary and
+  admissions, duration conventions and facets (`domains/general/DOMAIN.yaml` ships
+  the shared cross-scientific layer). ([contracts](contracts.md#domain-contracts))
 - <a id="duration-convention"></a>**Duration convention** — A named exact
   conversion from a calendar unit to a noncalendar unit of the same duration
   quantity kind. A calendar interval may name a convention. Without one, its

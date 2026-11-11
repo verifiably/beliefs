@@ -379,3 +379,161 @@ def test_baseline_sort_roleless_template_and_disjoint_scope_refuse():
     left = {"testing/follow-up": IntervalRestriction("testing/hour", Fraction(0), Fraction(1), True, True)}
     right = {"testing/follow-up": IntervalRestriction("testing/hour", Fraction(2), Fraction(3), True, True)}
     assert co_scope(left, right, TESTING_PROFILE) == "disjoint"
+
+
+def test_general_consumer_estimand_and_register_round_trip_durably(corpora):
+    from fixtures_cut3 import DATA_ADDRESS, FixtureRecords, seed_plan
+
+    from beliefs.applicability import Applicability
+    from beliefs.claim import Member
+    from beliefs.contract import load_domain_contract
+    from beliefs.corpus import corpus_check
+    from beliefs.estimand import Control, MeasuredBinding, OutputSpec, RoleTermLevels, build_estimand
+    from beliefs.measurement import Measure, Observable
+    from beliefs.procedure import Procedure, Scale
+    from beliefs.profile import compile_profile, shipped_assumptions_register, shipped_domain_contract
+    from beliefs.register import AssumptionsRegister, RegisterEntry, register_entry_keys, register_identity
+    from beliefs.resolution import build_snapshot
+    from beliefs.spec import Seeded, SpecDraft, SpecInput
+
+    base = shipped_base_contract()
+    general = shipped_domain_contract("general")
+    consumer = load_domain_contract(
+        REPO_ROOT / "fixtures" / "contracts" / "general-consumer.yaml",
+        base=base,
+        predecessor=None,
+    )
+    profile = compile_profile(base, [general, consumer])
+    writer = corpora(profile=profile)
+
+    general_reg = shipped_assumptions_register("general")
+    general_reg_node = writer.add(stored.assumptions_register_node(general_reg))
+    assert general_reg_node.id == register_identity(general_reg)
+
+    consumer_entry = RegisterEntry(
+        "Synthetic consumer collapse.",
+        "Synthetic consumer license.",
+        "Synthetic consumer scope only.",
+        status="provisional",
+    )
+    consumer_reg = AssumptionsRegister(
+        describes=f"{consumer.namespace}:{consumer.content_identity}",
+        previous=None,
+        entries={key: consumer_entry for key in sorted(register_entry_keys(consumer))},
+    )
+    consumer_reg_node = writer.add(stored.assumptions_register_node(consumer_reg))
+
+    records = FixtureRecords()
+    records.nodes[general_reg_node.id] = general_reg_node
+    records.nodes[consumer_reg_node.id] = consumer_reg_node
+    observable = Observable("general/relative-abundance", "general-consumer/analyte")
+    assay_id = records.put_procedure(
+        Procedure(
+            kind="general/assay",
+            name="Synthetic relative-abundance assay",
+            definition="Synthetic consumer validation scope only; does not certify a real mm30 procedure.",
+            yields=(observable,),
+            scale=Scale(Fraction(0), Fraction(1_000_000), "higher-is-more"),
+            validated_in={},
+            compatible_with=(),
+            evidence=(),
+            implementation=None,
+            inputs=None,
+            parameters={},
+            external=None,
+        )
+    )
+    estimator_id = records.put_procedure(
+        Procedure(
+            kind="general/estimator",
+            name="Synthetic probability-of-superiority estimator",
+            definition="Synthetic consumer validation scope only; does not certify a real mm30 procedure.",
+            yields=(),
+            scale=None,
+            validated_in={},
+            compatible_with=(),
+            evidence=(),
+            implementation=None,
+            inputs=None,
+            parameters={},
+            external=None,
+        )
+    )
+    writer.add(records.read(assay_id))
+    writer.add(records.read(estimator_id))
+
+    analyte = Referent("general-consumer/analyte", "SYN:analyte-a")
+    stratum_high = Referent("general-consumer/stratum", "SYN:arm-high")
+    stratum_low = Referent("general-consumer/stratum", "SYN:arm-low")
+    claim = build_claim(
+        profile,
+        operator="general/covaries-with",
+        roles={"parties": (Member(analyte), Member(stratum_high))},
+        form="polar",
+        polarity="positive",
+        layer="statistical",
+    )
+    prop = writer.add(stored.proposition_node("gen-p", title="Synthetic general claim", claim=project_claim(claim)))
+
+    estimand, _ = build_estimand(
+        profile,
+        claim,
+        snapshot=build_snapshot(readable={}),
+        form="contrast",
+        functional="general/probability-of-superiority",
+        bindings={
+            "response": MeasuredBinding(
+                "parties",
+                analyte,
+                Measure(observable, None, assay_id, "ratio", "level", "general/identity", assay_id),
+                None,
+                None,
+            ),
+            "grouping": RoleTermLevels("parties", stratum_high, (stratum_low, stratum_high)),
+        },
+        outputs={"estimate": OutputSpec("dimensionless", "unit-interval")},
+        reference=ValueReference(Decimal("0.5")),
+        control=Control("general/observational", (), "general/independent-groups", "general/cohort-enrolment"),
+        uncertainty="interval",
+        assumptions=(),
+        calibration=None,
+        applicability=Applicability({}),
+        records=records,
+    )
+    spec = freeze(
+        SpecDraft(
+            target=prop.id,
+            estimand=estimand,
+            method="Synthetic exact half-tie probability of superiority.",
+            assumptions="Synthetic consumer validation scope only.",
+            falsification="Interval fails to clear 0.5.",
+            input_roles=(SpecInput(role="observes", dataset=DATA_ADDRESS, mode="observation"),),
+            applicability=Applicability({}),
+            interpretation_rule="median-difference/v1",
+            equivalence_rule="content-identity-equality/v1",
+            parameters={"alpha": Decimal("0.05")},
+            nondeterminism=Seeded(plan=seed_plan()),
+            registers=(general_reg_node.id, consumer_reg_node.id),
+            standing="empirical",
+            model=None,
+        ),
+        held_rules=spec_rules(),
+        profile=profile,
+        claim=claim,
+        records=records,
+        rule_procedures={"median-difference/v1": estimator_id},
+    )
+    spec_node = writer.add(stored.analysis_spec_node(spec))
+
+    reopened = reopen(writer.root)
+    restored = stored.analysis_spec_value(reopened.get(spec_node.id), profile=profile)
+    assert restored == spec
+    assert general_reg_node.id in restored.registers
+    assert {dep.id for dep in restored.assessed_target.dependencies} == {
+        assay_id,
+        estimator_id,
+        general_reg_node.id,
+        consumer_reg_node.id,
+    }
+    assert corpus_check(reopened, profile) == ()
+    assert audit_corpus(reopened, evidence=NO_EVIDENCE, profile=profile) == ()

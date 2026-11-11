@@ -1,0 +1,69 @@
+# Synthetic consumer contract exercising explicit `general` activation.
+#
+# Deliberately synthetic consumer vocabulary, NOT a biology pack and NOT an
+# mm30 domain revision (`beliefs-709bd9` owns the real biology v2 successor).
+# It declares two bearer sorts (`analyte`, `trait`), one stage/grouping sort
+# (`stratum`), a claim-side dimension (`context`), instantiations and a narrower
+# bridge referencing `general`, local estimand admissions, and local measurement
+# admission referencing `general/relative-abundance`.
+#
+# It declares none of the restricted shared tables (`templates`,
+# `quantity_kinds`, `units`, `constants`, `conversions`, `duration_conventions`,
+# `transformations`, `functionals`, `identification_classes`, `designs`,
+# `selection_mechanisms`, `procedure_kinds`, `aggregation_rules`,
+# `assumption_kinds`).
+
+contract: general-consumer
+version: 1
+lineage: genesis
+
+sorts:
+  analyte:
+    binding: { kind: release, namespace: SYN, release: "2026-01-01" }
+    identifier_class: { prefix: SYN, pattern: 'SYN:.+' }
+    categories: [set]
+  trait:
+    binding: { kind: release, namespace: SYN, release: "2026-01-01" }
+    identifier_class: { prefix: SYN, pattern: 'SYN:.+' }
+    categories: [set]
+  stratum:
+    binding: { kind: scheme, scheme: SYN-STRATA, version: "1" }
+    identifier_class: { prefix: SYN, pattern: 'SYN:.+' }
+
+dimensions:
+  context:
+    restriction_sort: stratum
+    placement: claim
+    applies_to: [general/covaries-with, general/changes-under-intervention, modulates]
+
+instantiations:
+  analyte-covaries:
+    template: general/covaries-with
+    roles: { parties: [analyte] }
+  analyte-stratum-covaries:
+    template: general/covaries-with
+    roles: { parties: [analyte, stratum] }
+  analyte-trait-covaries:
+    template: general/covaries-with
+    roles: { parties: [analyte, trait] }
+  stratum-changes-analyte:
+    template: general/changes-under-intervention
+    roles: { intervention: [stratum], response: [analyte] }
+
+bridges:
+  modulates:
+    template: general/changes-under-intervention
+    mapping: narrower
+    roles: { intervention: [analyte], response: [trait] }
+    layers: [causal]
+
+estimands:
+  instantiation:analyte-stratum-covaries:
+    forms: [contrast]
+    conditioning_sorts: [stratum]
+  instantiation:analyte-covaries:
+    forms: [contrast]
+    conditioning_sorts: [stratum]
+
+measurements:
+  analyte: [general/relative-abundance]

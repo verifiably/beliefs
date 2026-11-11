@@ -164,12 +164,13 @@ corpus reproduced. The recipe also refuses to start, and fails at the end, if th
 tracked Snakefile under `python/tools/reproduction/analysis/workflow/` differs from
 `HEAD`. It deletes nothing and belongs to no gate.
 
-Under base v2 the recreation cannot complete. The driver's contract layer
+Under base v3 the recreation cannot complete. The driver's contract layer
 (`python/tools/reproduction/vocabulary.py`) compiles a profile from the shipped
-biology pack and the v1 mm30 documents beside it; no pack ships and base v2 refuses
-a v1 document, so the first step that compiles that profile or types the claim
-fails. The documents stay in place for the recreation that follows a biology v2
-pack and an mm30 v2 contract.
+biology pack and the v1 mm30 documents beside it; only the shared `general`
+contract ships today, no biology pack ships yet, and base v3 refuses a v1 document,
+so the first step that compiles that profile or types the claim fails. The documents
+stay in place for the recreation that follows a biology v2 pack and an mm30 v2
+contract.
 
 New authors freeze an explicit `standing` with typed estimand and applicability,
 including an evidence mode for each `SpecInput`. They hold the frozen normative
@@ -215,6 +216,16 @@ The vector covers, and `test_parity_fixture.py` asserts that it covers:
   combining accent, composed only in the canonical bytes), and a supplementary-plane
   member beside a BMP member whose UTF-16 order is the reverse of their code-point
   order.
+
+`fixtures/general-claim-identity-v2.json` is the companion frozen parity vector over
+the shipped `domains/general/DOMAIN.yaml` contract and the synthetic consumer fixture
+`fixtures/contracts/general-consumer.yaml`, verified by
+`tests/test_general_integration.py` and `ts/tests/general.test.ts`. TypeScript reads
+the source YAML documents directly (`parseBaseContract`, `parseDomainContract`,
+`compileProfile`) and checks claim construction, symmetric `parties` ordering,
+duplicate-after-NFC refusal, projections, canonical bytes and digests, while
+contract/profile compiled identities, package resource loaders, assumptions registers
+and estimands remain Python-only.
 
 ## Two rules the tests hold closed
 

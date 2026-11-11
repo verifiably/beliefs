@@ -35,7 +35,10 @@ with several faults the two sides can report different ones first. It computes n
 only a genesis domain contract: a `lineage` naming a predecessor, and a `retired`
 field on any declaration, are refused with `UncheckableContract`. It
 also refuses `description` at a domain contract's top level and on a sort or a
-dimension, as an unknown field.
+dimension, as an unknown field, and carries no package resource loader,
+`compiled_identity` calculation, assumptions-register reader or estimand
+implementation — reading source `DOMAIN.yaml` documents directly to type and
+project claims.
 
 ## Documents
 

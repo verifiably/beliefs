@@ -30,8 +30,9 @@ gives the wider picture.
    `revise` covers only prose and a few named facets
    ([records.md](records.md#propositions-and-claims)).
 2. **A profile defines what records may mean.** The Science base contract and the
-   domain contracts a corpus activates compile into one profile, and every write
-   is checked against it.
+   domain contracts a corpus explicitly activates (such as the shipped `general`
+   contract and a field contract) compile into one profile, and every write is
+   checked against it.
 3. **A proposition is a typed claim.** Its operator, the referents in its named
    roles, its qualifiers, form, polarity and layer are its identity. Its wording
    is not.
@@ -175,11 +176,12 @@ module per step, and [development.md](development.md#recreating-the-mm30-corpus)
 says how to run it.
 
 The walk below is the reproduction as it last ran, under the v1 claim grammar.
-Under base v2 the driver's contract layer does not run: its mm30 contract documents
-(`python/tools/reproduction/mm30*.yaml`) are v1 documents that base v2 refuses to
-parse, and no biology pack ships, so the steps that compile the profile or type
-the claim refuse until a biology v2 pack and an mm30 v2 contract exist. The v1
-documents stay in place as the record the recreation reads.
+Under base v3 the driver's contract layer does not run: its mm30 contract documents
+(`python/tools/reproduction/mm30*.yaml`) are v1 documents that base v3 refuses to
+parse, and while the shared `general` contract ships, no biology pack ships yet, so
+the steps that compile the profile or type the claim refuse until a biology v2 pack
+and an mm30 v2 contract exist. The v1 documents stay in place as the record the
+recreation reads.
 
 1. **Open the roots.** `init_world_root`, `init_corpus_root` and `init_store_root`
    register a world, a corpus and a byte store under one `Authority`. The profile

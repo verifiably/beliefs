@@ -1,0 +1,398 @@
+{
+  "fixture": "general-claim-identity",
+  "note": "A frozen cross-language conformance oracle over `domains/general/DOMAIN.yaml` and the synthetic consumer fixture `fixtures/contracts/general-consumer.yaml`. Never regenerate during a test run. Both Python and TypeScript build each claim from its authored components, project it through `pi_claim`, encode it under `science.identity.v1`, and compare projection, canonical bytes and digest.",
+  "claim_domain": "science.claim.v2",
+  "identity_contract": "science.identity.v1",
+  "base_contract": "contracts/science/CONTRACT.yaml",
+  "domain_contracts": [
+    "domains/general/DOMAIN.yaml",
+    "fixtures/contracts/general-consumer.yaml"
+  ],
+  "profile_compiled_identity": "c0a668ec0f355fa84e68efe014f36029e5ce389a6a3ff03301a1192bdf355571",
+  "vector": [
+    {
+      "name": "same-sort-parties-forward",
+      "covers": "same-sort symmetric parties written out of canonical order",
+      "claim": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-b",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-b",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"general/covaries-with\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"},{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-b\"}]}}",
+      "digest": "5893119f6e33aea15203b53d94bb232f4b5f12812463faf4a4d0e5e6d60e6dd1"
+    },
+    {
+      "name": "same-sort-parties-reversed",
+      "covers": "same-sort symmetric parties written in canonical order (identical projection and digest)",
+      "claim": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-b",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-b",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"general/covaries-with\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"},{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-b\"}]}}",
+      "digest": "5893119f6e33aea15203b53d94bb232f4b5f12812463faf4a4d0e5e6d60e6dd1"
+    },
+    {
+      "name": "cross-sort-parties-forward",
+      "covers": "cross-sort symmetric parties written stratum-first",
+      "claim": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/stratum",
+              "term": "SYN:arm-high",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/stratum",
+              "term": "SYN:arm-high",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"general/covaries-with\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"},{\"coefficient\":1,\"sort\":\"general-consumer/stratum\",\"term\":\"SYN:arm-high\"}]}}",
+      "digest": "00ce69d4e5d378151fa7226e5340cb6bec752eee3ea8bd4900d57df1055b167b"
+    },
+    {
+      "name": "cross-sort-parties-reversed",
+      "covers": "cross-sort symmetric parties written analyte-first (identical projection and digest)",
+      "claim": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/stratum",
+              "term": "SYN:arm-high",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/stratum",
+              "term": "SYN:arm-high",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"general/covaries-with\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"},{\"coefficient\":1,\"sort\":\"general-consumer/stratum\",\"term\":\"SYN:arm-high\"}]}}",
+      "digest": "00ce69d4e5d378151fa7226e5340cb6bec752eee3ea8bd4900d57df1055b167b"
+    },
+    {
+      "name": "covaries-null-qualified",
+      "covers": "null-form covaries-with with a claim-side context qualifier",
+      "claim": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/trait",
+              "term": "SYN:trait-y",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {
+          "general-consumer/context": {
+            "quantifier": "universal",
+            "restriction": {
+              "sort": "general-consumer/stratum",
+              "term": "SYN:cohort-1"
+            }
+          }
+        },
+        "form": "null",
+        "polarity": null,
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/trait",
+              "term": "SYN:trait-y",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {
+          "general-consumer/context": {
+            "quantifier": "universal",
+            "restriction": {
+              "sort": "general-consumer/stratum",
+              "term": "SYN:cohort-1"
+            }
+          }
+        },
+        "form": "null",
+        "polarity": "inapt",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"null\",\"layer\":\"statistical\",\"operator\":\"general/covaries-with\",\"polarity\":\"inapt\",\"qualifiers\":{\"general-consumer/context\":{\"quantifier\":\"universal\",\"restriction\":{\"sort\":\"general-consumer/stratum\",\"term\":\"SYN:cohort-1\"}}},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"},{\"coefficient\":1,\"sort\":\"general-consumer/trait\",\"term\":\"SYN:trait-y\"}]}}",
+      "digest": "598a91cabf2cd44b55a98965459062edfe8a351610fe626acff87fbf5ebd7afd"
+    },
+    {
+      "name": "changes-under-intervention-causal",
+      "covers": "directed causal changes-under-intervention over stratum and analyte",
+      "claim": {
+        "operator": "general/changes-under-intervention",
+        "roles": {
+          "intervention": {
+            "sort": "general-consumer/stratum",
+            "term": "SYN:arm-high"
+          },
+          "response": {
+            "sort": "general-consumer/analyte",
+            "term": "SYN:analyte-a"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "general/changes-under-intervention",
+        "roles": {
+          "intervention": {
+            "sort": "general-consumer/stratum",
+            "term": "SYN:arm-high"
+          },
+          "response": {
+            "sort": "general-consumer/analyte",
+            "term": "SYN:analyte-a"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"general/changes-under-intervention\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"intervention\":{\"sort\":\"general-consumer/stratum\",\"term\":\"SYN:arm-high\"},\"response\":{\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"}}}",
+      "digest": "34982b71c78e8e3291a31eacf04c73c95f907c297b4aefba7d83e532b18f06d1"
+    },
+    {
+      "name": "modulates-narrower-bridge",
+      "covers": "consumer narrower bridge over general/changes-under-intervention",
+      "claim": {
+        "operator": "general-consumer/modulates",
+        "roles": {
+          "intervention": {
+            "sort": "general-consumer/analyte",
+            "term": "SYN:analyte-a"
+          },
+          "response": {
+            "sort": "general-consumer/trait",
+            "term": "SYN:trait-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "causal"
+      },
+      "projection": {
+        "operator": "general-consumer/modulates",
+        "roles": {
+          "intervention": {
+            "sort": "general-consumer/analyte",
+            "term": "SYN:analyte-a"
+          },
+          "response": {
+            "sort": "general-consumer/trait",
+            "term": "SYN:trait-y"
+          }
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "negative",
+        "layer": "causal"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"general-consumer/modulates\",\"polarity\":\"negative\",\"qualifiers\":{},\"roles\":{\"intervention\":{\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"},\"response\":{\"sort\":\"general-consumer/trait\",\"term\":\"SYN:trait-y\"}}}",
+      "digest": "ebf4d4a79e75345c3e0a404476cf611f63aa8f6ee57c354d543f165e154558b1"
+    },
+    {
+      "name": "parties-decomposed-referent",
+      "covers": "decomposed NFD party referent preserved in projection and NFC-normalized in canonical bytes",
+      "claim": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:cafe\u0301",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "projection": {
+        "operator": "general/covaries-with",
+        "roles": {
+          "parties": [
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:analyte-a",
+              "coefficient": 1
+            },
+            {
+              "sort": "general-consumer/analyte",
+              "term": "SYN:cafe\u0301",
+              "coefficient": 1
+            }
+          ]
+        },
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "statistical"
+      },
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"statistical\",\"operator\":\"general/covaries-with\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"parties\":[{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:analyte-a\"},{\"coefficient\":1,\"sort\":\"general-consumer/analyte\",\"term\":\"SYN:caf\u00e9\"}]}}",
+      "digest": "0d0a76419fe1c20390b2465fec5e7faaf1ac6b446999e0355549a539d4e30fb7"
+    }
+  ]
+}

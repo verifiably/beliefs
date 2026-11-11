@@ -697,3 +697,42 @@ def test_derived_dataset_inherits_standing_durably(corpora):
     path_for(w.root, d0.id).unlink()
     findings = [(f.severity, f.code, f.ref, f.detail) for f in corpus_check(reopen(w.root), TESTING_PROFILE)]
     assert ("warning", "eligibility-unresolved", a1.id, d0.id) in findings
+
+
+def test_shipped_general_assumptions_register_round_trips_durably(corpora):
+    from beliefs.contract import load_domain_contract
+    from beliefs.profile import shipped_assumptions_register, shipped_domain_contract
+    from beliefs.register import (
+        AssumptionsRegister,
+        RegisterEntry,
+        register_entry_keys,
+        register_from_stored,
+        register_identity,
+    )
+
+    repo_root = Path(__file__).resolve().parents[3]
+    base = shipped_base_contract()
+    general = shipped_domain_contract("general")
+    consumer = load_domain_contract(
+        repo_root / "fixtures" / "contracts" / "general-consumer.yaml",
+        base=base,
+        predecessor=None,
+    )
+    profile = compile_profile(base, [general, consumer])
+    w = corpora(profile=profile)
+
+    general_reg = shipped_assumptions_register("general")
+    general_node = w.add(stored.assumptions_register_node(general_reg))
+    assert general_node.id == register_identity(general_reg)
+
+    consumer_entry = RegisterEntry("c", "l", "u", status="provisional")
+    consumer_reg = AssumptionsRegister(
+        describes=f"{consumer.namespace}:{consumer.content_identity}",
+        previous=None,
+        entries={key: consumer_entry for key in sorted(register_entry_keys(consumer))},
+    )
+    w.add(stored.assumptions_register_node(consumer_reg))
+
+    reopened = reopen(w.root)
+    assert register_from_stored(reopened.get(general_node.id)) == general_reg
+    assert corpus_check(reopened, profile) == ()
