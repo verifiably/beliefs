@@ -718,8 +718,16 @@ class TestEstimandKeys:
         instantiation = contract.estimands["instantiation:promotes"]
         assert bridge.target == "bridge:promotes"
         assert instantiation.target == "instantiation:promotes"
-        assert bridge.level_sorts == {"cause": "level"}
-        assert instantiation.level_sorts == {"subject": "level"}
+        assert set(bridge.forms) == {
+            "contrast",
+            "quantity",
+            "law-parameters",
+            "event-locked",
+            "association",
+            "enrichment",
+        }
+        assert instantiation.forms == ("quantity",)
+        assert bridge.conditioning_sorts == instantiation.conditioning_sorts == {"entity"}
         assert bridge.schema_projection() != instantiation.schema_projection()
 
     @pytest.mark.parametrize(
@@ -829,7 +837,8 @@ class TestSuccession:
             ),
             ("sorts", "entity", "identifier_class", {"prefix": "EX", "pattern": "EX:.+"}, "sort:entity"),
             ("sorts", "entity", "categories", [], "sort:entity"),
-            ("estimands", "bridge:promotes", "measure_sort", "outcome", "estimand:bridge:promotes"),
+            ("estimands", "bridge:promotes", "forms", ["quantity"], "estimand:bridge:promotes"),
+            ("estimands", "bridge:promotes", "conditioning_sorts", ["outcome"], "estimand:bridge:promotes"),
             ("duration_conventions", "mean-month", "conversion", "hour-to-second", "duration-convention:mean-month"),
         ],
     )

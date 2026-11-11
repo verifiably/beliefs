@@ -6,7 +6,7 @@ import secrets
 
 import pytest
 from authority import FULL, narrowed
-from profiles import WITH_BIOLOGY
+from profiles import BASE
 from test_operation_writes import RecordingPort, writer_over
 
 from beliefs import boundary as boundary_values
@@ -24,12 +24,6 @@ def _report(writer, token: str):
         closed_at=now,
         entries=(LocatorEntry("url:https://example.org/a", RetrievalFailed("status 500"), ()),),
     )
-
-
-class BiologyPort(RecordingPort):
-    def __init__(self, authority, root) -> None:
-        super().__init__(authority, root)
-        self.profile = WITH_BIOLOGY
 
 
 def test_none_returns_the_writers_own_port(tmp_path):
@@ -54,7 +48,8 @@ def test_a_port_bound_elsewhere_refuses_before_either_primitive_touches_a_port(t
     elif spoil == "authority":
         port = RecordingPort(narrowed(kinds=("act-report",), families=("corpus-write",)), tmp_path / "a")
     else:
-        port = BiologyPort(FULL, tmp_path / "a")
+        port = RecordingPort(FULL, tmp_path / "a", profile=BASE)
+        assert port.profile.compiled_identity != writer.profile.compiled_identity
     token = secrets.token_hex(16)
     with pytest.raises(PortMismatch):
         writer._append_operation_intent("acquisition", token, writer.authority.actor, port=port)

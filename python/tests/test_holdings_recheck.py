@@ -102,7 +102,7 @@ def portable(tmp_path, views=None):
     store_root.mkdir(parents=True)
     seam = ScriptedStore(observer_root, {} if views is None else views)
     ctx = ActContext(observer_root, store_root, "observer", "instrument", FULL, seam.build(), profile=BASE)
-    port = Ordered(FULL, observer_root, seam.events)
+    port = Ordered(FULL, observer_root, seam.events, profile=BASE)
     writer = CorpusWriter(observer_root, DefaultExecutor, authority=FULL, operation_port=port, profile=BASE)
     return ctx, seam, writer, port
 

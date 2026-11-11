@@ -112,10 +112,10 @@ class TestTheDependencyGraph:
 
 class TestUnequalWeightsAreUnspellable:
     def test_no_input_shape_carries_a_magnitude(self):
-        # The vertex is (uid, sign) and nothing else; weight has no field.
+        # Standing identifies dependence; none of the input fields carries a weight.
         import dataclasses
 
-        assert {f.name for f in dataclasses.fields(DirectionalInput)} == {"assessment", "sign"}
+        assert {f.name for f in dataclasses.fields(DirectionalInput)} == {"assessment", "standing", "sign"}
 
     def test_a_zero_sign_is_refused(self):
         with pytest.raises(MalformedRecord):

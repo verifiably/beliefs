@@ -10,7 +10,7 @@ import pytest
 from authority import FULL, narrowed
 from fixtures_cut4 import raw_write
 from nodes.core.write_plan import DefaultExecutor
-from profiles import BASE
+from profiles import BASE, WITH_BIOLOGY
 from test_operation_writes import RecordingPort, intents_of, writer_over
 from test_read_side import observed_dataset
 
@@ -43,8 +43,8 @@ def stale_dataset(writer) -> str:
 class Ordered(RecordingPort):
     """The recording port with each call's *completion* logged to a shared list."""
 
-    def __init__(self, authority, root, events: list[str]) -> None:
-        super().__init__(authority, root)
+    def __init__(self, authority, root, events: list[str], *, profile=WITH_BIOLOGY) -> None:
+        super().__init__(authority, root, profile=profile)
         self.events = events
 
     def append_intent(self, payload):
@@ -67,7 +67,7 @@ def fulfilling(port: RecordingPort) -> list[tuple[tuple, str]]:
 
 
 def test_a_clean_corpus_closes_through_one_report_with_no_entries(tmp_path):
-    writer, port = writer_over(tmp_path)
+    writer, port = writer_over(tmp_path, profile=BASE)
     outcome = run(writer)
     assert outcome.findings == () and outcome.entries == ()
     assert outcome.report.operation == "audit" and outcome.report.entries == ()
@@ -88,7 +88,7 @@ def test_a_clean_corpus_closes_through_one_report_with_no_entries(tmp_path):
 
 
 def test_findings_become_entries_in_the_evaluators_order_with_no_message(tmp_path):
-    writer, _ = writer_over(tmp_path)
+    writer, _ = writer_over(tmp_path, profile=BASE)
     ref = stale_dataset(writer)
     outcome = run(writer)
     assert [f.code for f in outcome.findings] == ["semantic-hash-stale"]

@@ -68,9 +68,9 @@ ABSENT = "EX:not-in-the-vocabulary"
 PROCEDURE = "procedure:" + "a" * 64
 
 
-def test_a_wire_contrast_kind_without_an_operable_decoder_cannot_enter_the_grammar(base_contract_path):
+def test_a_wire_target_form_without_an_operable_decoder_cannot_enter_the_grammar(base_contract_path):
     document = yaml.safe_load(base_contract_path.read_text(encoding="utf-8"))
-    document["estimand_grammar"]["contrast_kinds"].append("ordinal")
+    document["estimand_grammar"]["forms"].append("ordinal")
 
     with pytest.raises(MalformedContract, match="ordinal"):
         parse_base_contract(document, source="<ordinal>")
