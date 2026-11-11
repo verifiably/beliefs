@@ -147,9 +147,13 @@ def test_the_world_closure_is_complete_and_the_local_one_truncates_durably(chain
     truncated = closure(dataset_ref("d2"), LineageAdjacency(local))
     assert not truncated.reached and truncated.unresolved
     assert (
-        "lineage-incomplete" in certify(lineage_snapshot(local, [dataset_ref("d2")]), (dataset_ref("d2"),), ()).findings
+        "lineage-incomplete"
+        in certify(lineage_snapshot(local, [dataset_ref("d2")]), (dataset_ref("d2"),), (dataset_ref("d2"),)).findings
     )
-    assert certify(lineage_snapshot(view, [dataset_ref("d2")]), (dataset_ref("d2"),), ()).state == "independent"
+    assert (
+        certify(lineage_snapshot(view, [dataset_ref("d2")]), (dataset_ref("d2"),), (dataset_ref("d2"),)).state
+        == "shared-source"
+    )
     assert {e.relation.source for e in view.inbound(dataset_ref("d1")) if e.relation.predicate == "transforms"} == {
         "run:r2"
     }
@@ -194,7 +198,7 @@ def test_an_absent_corpus_is_lineage_incomplete_naming_it_durably(chain):
     assert type(view.locate(dataset_ref("d1"))) is read.NotPresent
     partial = lineage_snapshot(view, [dataset_ref("d2")])
     assert partial.not_present == {dataset_ref("d1"): b}
-    result = certify(partial, (dataset_ref("d2"),), ())
+    result = certify(partial, (dataset_ref("d2"),), (dataset_ref("d2"),))
     assert result.state == "not-certified" and "lineage-incomplete" in result.findings
     assert result.absent == (Absence(dataset_ref("d1"), b),)
     assert snapshot_projection(partial) != snapshot_projection(complete)
@@ -232,7 +236,7 @@ def test_a_published_producer_survives_its_absent_carrier_durably(durable_world)
     assert gone.not_present == {"run:r3": b}
     assert divergence_state(gone, dataset_ref("d3")) == "incomplete"
     assert snapshot_projection(gone)["divergence"] == {dataset_ref("d3"): "incomplete"}
-    result = certify(gone, (dataset_ref("d3"),), ())
+    result = certify(gone, (dataset_ref("d3"),), (dataset_ref("d3"),))
     assert result.absent == (Absence("run:r3", b),)
     assert "lineage-incomplete" in result.findings and "lineage-divergent" not in result.findings
     fabricated = replace(gone, not_present={}, producers={dataset_ref("d3"): (replace(producer, absent=()),)})
@@ -246,7 +250,7 @@ def test_an_absent_dataset_is_incomplete_without_a_comparison_durably(chain):
     snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d1")])
     assert dataset_ref("d1") not in snapshot.bases and dataset_ref("d1") not in snapshot.producers
     assert snapshot.not_present == {dataset_ref("d1"): b}
-    result = certify(snapshot, (dataset_ref("d1"),), ())
+    result = certify(snapshot, (dataset_ref("d1"),), (dataset_ref("d1"),))
     assert result.state == "not-certified" and "lineage-incomplete" in result.findings
     assert "lineage-divergent" not in result.findings
 
@@ -257,7 +261,7 @@ def test_an_absent_root_is_recorded_before_any_walk_durably(chain):
     view = open_world_view(world, published)
     snapshot = lineage_snapshot(view, [dataset_ref("d1")])
     assert snapshot.roots == (dataset_ref("d1"),) and snapshot.not_present == {dataset_ref("d1"): b}
-    assert certify(snapshot, (dataset_ref("d1"),), ()).absent == (Absence(dataset_ref("d1"), b),)
+    assert certify(snapshot, (dataset_ref("d1"),), (dataset_ref("d1"),)).absent == (Absence(dataset_ref("d1"), b),)
     for reader in (view, ReadView.opened_at(roots[a])):
         with pytest.raises(RefError):
             lineage_snapshot(reader, ["dataset:unknown"])
@@ -267,13 +271,13 @@ def test_absence_names_what_each_root_can_discover_durably(chain, durable_world)
     world, roots, published, _a, b = chain
     absent(roots, b)
     snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d2")])
-    result = certify(snapshot, (dataset_ref("d2"),), ())
+    result = certify(snapshot, (dataset_ref("d2"),), (dataset_ref("d2"),))
     assert result.absent == (Absence(dataset_ref("d1"), b),)
     assert all(item.ref != "run:r1" for item in result.absent)
     world, roots, published, _a, b = split_producer(durable_world)
     absent(roots, b)
     snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d3")])
-    assert certify(snapshot, (dataset_ref("d3"),), ()).absent == (Absence("run:r3", b),)
+    assert certify(snapshot, (dataset_ref("d3"),), (dataset_ref("d3"),)).absent == (Absence("run:r3", b),)
 
 
 def test_a_refusal_is_not_absence_durably(chain):

@@ -75,7 +75,7 @@ __all__ = [
 ]
 
 BASIS_TAGS = ("conflict", "single")
-CERTIFICATION_FINDINGS = ("lineage-divergent", "lineage-incomplete")
+CERTIFICATION_FINDINGS = ("lineage-divergent", "lineage-incomplete", "no-roots")
 CERTIFICATION_STATES = ("independent", "not-certified", "shared-source")
 DIVERGENCE_STATES = ("divergent", "incomplete", "undiverged")
 
@@ -410,6 +410,8 @@ def certify(snapshot: LineageSnapshot, roots_a: tuple[str, ...], roots_b: tuple[
     closure_b, findings_b = _walk_all(snapshot, roots_b)
     findings = tuple(dict.fromkeys(findings_a + findings_b))  # dedupe, keep first-seen order
     absent = _absent_references(snapshot, closure_a | closure_b, roots_a + roots_b)
+    if not roots_a or not roots_b:
+        findings += ("no-roots",)
     if findings:
         return Certification(state="not-certified", findings=findings, absent=absent)
     if closure_a & closure_b:

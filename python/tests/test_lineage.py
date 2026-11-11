@@ -212,7 +212,7 @@ class TestAbsenceGatesDivergence:
             not_present={"run:gone": "beta"},
         )
         assert divergence_state(snapshot, "d") == "incomplete"
-        result = certify(snapshot, ("d",), ())
+        result = certify(snapshot, ("d",), ("d",))
         assert result.state == "not-certified"
         assert "lineage-incomplete" in result.findings and "lineage-divergent" not in result.findings
         assert result.absent == (Absence("run:gone", "beta"),)
@@ -225,7 +225,7 @@ class TestAbsenceGatesDivergence:
             producers={"d": (Producer("r", None, (), absent=("beta",)),)},
             not_present={"r": "beta"},
         )
-        result = certify(snapshot, ("d",), ())
+        result = certify(snapshot, ("d",), ("d",))
         assert result.state == "not-certified"
         assert result.findings == ("lineage-incomplete",)
         assert result.absent == (Absence("r", "beta"),)
@@ -247,14 +247,14 @@ class TestAbsenceIsCollectedFromReferences:
             producers={},
             not_present={"run-d": "beta", "dataset:anc": "beta"},
         )
-        result = certify(snapshot, ("d",), ())
+        result = certify(snapshot, ("d",), ("d",))
         assert set(result.absent) == {Absence("run-d", "beta"), Absence("dataset:anc", "beta")}
 
     def test_an_absent_root_is_named(self):
         snapshot = LineageSnapshot(
             roots=("dataset:gone",), bases={}, producers={}, not_present={"dataset:gone": "beta"}
         )
-        result = certify(snapshot, ("dataset:gone",), ())
+        result = certify(snapshot, ("dataset:gone",), ("dataset:gone",))
         assert result.state == "not-certified"
         assert "lineage-incomplete" in result.findings
         assert result.absent == (Absence("dataset:gone", "beta"),)

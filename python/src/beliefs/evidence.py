@@ -16,8 +16,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from typing import TYPE_CHECKING, final
 
+from beliefs.dependencies import Record
+from beliefs.eligibility import ClosureEligibility
+from beliefs.record import AssessmentValue, RunValue
 from beliefs.replay import EquivalenceImplementation
 from beliefs.sealed import sealed
 from beliefs.spec import FrozenSpec, RuleImplementation
@@ -25,7 +29,7 @@ from beliefs.spec import FrozenSpec, RuleImplementation
 if TYPE_CHECKING:
     from beliefs.corpus import Finding
 
-__all__ = ["NO_EVIDENCE", "DerivationEvidence", "DerivationOutcome"]
+__all__ = ["NO_EVIDENCE", "DependencyEvidence", "DerivationEvidence", "DerivationOutcome"]
 
 
 @sealed
@@ -59,3 +63,24 @@ class DerivationOutcome:
     checked: bool
     reason: str
     contradiction: Finding | None
+
+
+@sealed
+@final
+@dataclass(frozen=True)
+class DependencyEvidence:
+    """Only the dependency values and eligibility read from one supplied snapshot."""
+
+    closure: ClosureEligibility
+    records: Mapping[str, Record]
+    assessments: Mapping[str, AssessmentValue]
+    runs: Mapping[str, RunValue]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "closure",
+            ClosureEligibility(MappingProxyType(dict(self.closure.verdicts)), tuple(self.closure.reads)),
+        )
+        for name in ("records", "assessments", "runs"):
+            object.__setattr__(self, name, MappingProxyType(dict(getattr(self, name))))

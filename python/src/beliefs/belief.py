@@ -41,6 +41,7 @@ from beliefs.closure import RetractionEnumeration, build_closure
 from beliefs.consulted import CorpusPins, consulted_contracts
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.errors import ContractDisagreement, MalformedRecord
+from beliefs.evidence import DependencyEvidence
 from beliefs.facet_read import FacetRead
 from beliefs.identity import v1
 from beliefs.lineage import LineageSnapshot, certify
@@ -73,6 +74,7 @@ __all__ = [
     "admitted",
     "evaluate",
     "evaluate_traced",
+    "standing_roots",
 ]
 
 # Base outcome semantics — deliberately not the policy's to choose.
@@ -296,6 +298,44 @@ def _observes_roots(run: RunValue) -> tuple[str, ...]:
     return tuple(
         address for i in run.inputs if i.role == "observes" if (address := dataset_address(i.dataset)) is not None
     )
+
+
+def standing_roots(assessment: AssessmentValue, run: RunValue, dependencies: DependencyEvidence) -> tuple[str, ...]:
+    """Return the declared route's sources; computational repeats share a model."""
+    from beliefs.errors import DependencyCycle, DependencyNotHeld
+    from beliefs.procedure import Procedure
+    from beliefs.proxy_model import Calibration, ProxyModel
+
+    active: set[str] = set()
+
+    def roots(value: AssessmentValue, execution: RunValue) -> set[str]:
+        identity = value.identity()
+        if identity in active:
+            raise DependencyCycle("standing-roots: cyclic calibration assessment")
+        if value.standing == "empirical":
+            return set(_observes_roots(execution))
+        model = dependencies.records.get(value.target.model or "")
+        if not isinstance(model, Procedure) or model.inputs is None or value.target.model is None:
+            raise DependencyNotHeld("standing-roots: model procedure and inputs are required")
+        result = {value.target.model, *model.inputs.datasets, *model.inputs.code}
+        if value.standing == "model":
+            return result
+        proxy = dependencies.records.get(value.estimand.calibration or "")
+        if not isinstance(proxy, ProxyModel) or not isinstance(proxy.basis, Calibration):
+            raise DependencyNotHeld("standing-roots: calibration proxy is required")
+        active.add(identity)
+        try:
+            for ref in proxy.basis.assessments:
+                basis = dependencies.assessments.get(ref)
+                basis_run = None if basis is None else dependencies.runs.get(stored.typed_ref("run", basis.run))
+                if basis is None or basis_run is None:
+                    raise DependencyNotHeld(f"standing-roots: calibration assessment or run is absent: {ref}")
+                result.update(roots(basis, basis_run))
+        finally:
+            active.difference_update((identity,))
+        return result
+
+    return tuple(sorted(roots(assessment, run)))
 
 
 def evaluate_traced(

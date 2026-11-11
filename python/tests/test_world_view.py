@@ -425,14 +425,14 @@ class TestLineageSnapshotOverTheWorld:
         world, roots, published = chain_world(tmp_path)
         complete = lineage_snapshot(open_world_view(world, published), [dataset_ref("d2")])
         assert complete.not_present == {}
-        assert certify(complete, (dataset_ref("d2"),), ()).state == "independent"
+        assert certify(complete, (dataset_ref("d2"),), (dataset_ref("d2"),)).state == "shared-source"
 
         make_absent(roots, BETA)
         partial = lineage_snapshot(open_world_view(world, published), [dataset_ref("d2")])
         assert partial.not_present == {dataset_ref("d1"): BETA}
         (route,) = partial.bases[dataset_ref("d2")].routes
         assert route.resolved_run == "run:r2" and route.resolved_ancestor is None
-        result = certify(partial, (dataset_ref("d2"),), ())
+        result = certify(partial, (dataset_ref("d2"),), (dataset_ref("d2"),))
         assert result.state == "not-certified" and "lineage-incomplete" in result.findings
         assert result.absent == (Absence(dataset_ref("d1"), BETA),)
         assert snapshot_projection(partial) != snapshot_projection(complete)
@@ -445,7 +445,7 @@ class TestLineageSnapshotOverTheWorld:
         make_absent(roots, BETA)
         snapshot = lineage_snapshot(open_world_view(world, published), [dataset_ref("d1")])
         assert snapshot.not_present == {dataset_ref("d1"): BETA} and snapshot.roots == (dataset_ref("d1"),)
-        result = certify(snapshot, (dataset_ref("d1"),), ())
+        result = certify(snapshot, (dataset_ref("d1"),), (dataset_ref("d1"),))
         assert result.state == "not-certified" and result.absent == (Absence(dataset_ref("d1"), BETA),)
 
     def test_an_unknown_root_refuses_in_world_and_corpus_views(self, tmp_path):
@@ -519,7 +519,7 @@ class TestLineageSnapshotOverTheWorld:
         make_absent(roots, BETA)
 
         snapshot = lineage_snapshot(open_world_view(world, published), [dataset.id])
-        result = certify(snapshot, (dataset.id,), ())
+        result = certify(snapshot, (dataset.id,), (dataset.id,))
 
         assert snapshot.producers[dataset.id][0].absent == (BETA,)
         assert result.state == "not-certified" and result.findings == ("lineage-incomplete",)

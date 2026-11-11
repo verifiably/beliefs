@@ -1187,3 +1187,18 @@ the outcomes keyed by their position labels (`role:<name>`, `role:<name>[<i>]`,
   scheme in `evidence` or `prior_runs`), whose stored facet is not the canonical
   form of the value it decodes to (for example an empty `evidence` or `bound`
   written out), or whose id does not recompute from the facet (`MalformedRecord`).
+
+
+### Standing sources for independence
+
+`evidence.DependencyEvidence` contains immutable copies of the dependency records,
+assessments, runs and eligibility captured by its caller. The pure
+`belief.standing_roots` reads only that supplied evidence. Empirical roots are the
+run's observes dataset addresses. Model roots are the model procedure id plus every
+code and dataset digest in its declared inputs. Calibrated-model roots also include
+each calibration assessment's own roots, even under another claim. Repeating one
+model therefore shares a source. Missing calibration records or model inputs refuse.
+
+`lineage.certify` reports `not-certified` with `no-roots` whenever either side is
+empty; an empty source set cannot establish independence. Its existing lineage and
+absence findings remain present.

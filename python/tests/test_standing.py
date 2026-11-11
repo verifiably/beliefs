@@ -222,7 +222,9 @@ def test_empirical_two_variable_calibration_is_qualified():
     qualify_calibration(proxy, records.read, TESTING_PROFILE)
 
 
-def calibrated_prediction(*, prediction_scope=None, validity=None, transfer=False, store_basis=None):
+def calibrated_prediction(
+    *, prediction_scope=None, validity=None, transfer=False, store_basis=None, polarity="positive"
+):
     from decimal import Decimal
 
     from fixtures_cut3 import typed_estimand
@@ -272,7 +274,7 @@ def calibrated_prediction(*, prediction_scope=None, validity=None, transfer=Fals
         operator="testing/correlates-with",
         roles={"parties": (Member(ref), Member(Referent("testing/product", "EX:p")))},
         layer="statistical",
-        polarity="positive",
+        polarity=polarity,
     )
     response = MeasuredBinding(
         "parties",
