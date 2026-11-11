@@ -155,7 +155,7 @@ ROWS = {
 
 
 def declaration(name) -> dict[str, Any]:
-    value = dict(zip(PROPERTIES, ROWS[name], strict=True))
+    value: dict[str, Any] = dict(zip(PROPERTIES, ROWS[name], strict=True))
     value["parameters"] = (
         {"Ea": {"typing": "independent", "domain": "real"}, "lnA": {"typing": "response-log-level", "domain": "real"}}
         if name == "arrhenius"
