@@ -213,9 +213,18 @@ def shipped_assumptions_register(namespace: str) -> AssumptionsRegister:
         contract = shipped_domain_contract(namespace)
     except (ProfileError, MalformedContract) as exc:
         raise ProfileError(f"{source}: broken domain contract binding for {namespace!r}: {exc}") from exc
+
+    def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        obj: dict[str, object] = {}
+        for key, value in pairs:
+            if key in obj:
+                raise ValueError(f"duplicate JSON key {key!r}")
+            obj[key] = value
+        return obj
+
     try:
-        payload = json.loads(resource.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        payload = json.loads(resource.read_text(encoding="utf-8"), object_pairs_hook=_no_duplicate_keys)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         raise ProfileError(f"{source}: invalid JSON resource: {exc}") from exc
     try:
         register = register_from_projection(payload, source=source)

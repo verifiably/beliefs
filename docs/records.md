@@ -3,7 +3,7 @@
 Type: data model; document types 1. This document describes the records a beliefs
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
-encoding, `science.identity.v1`. The shipped base contract is version 2, with
+encoding, `science.identity.v1`. The shipped base contract is version 3, with
 claim and estimand grammar 2 and measurement and composite grammar 1. The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers

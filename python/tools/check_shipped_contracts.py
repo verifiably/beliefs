@@ -107,6 +107,15 @@ def _check_exception_inventory(
     return errors
 
 
+def _strict_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
 def _check_placement(
     contract: DomainContract,
     *,
@@ -114,6 +123,8 @@ def _check_placement(
     placement_exceptions: Mapping[tuple[str, str, str], str],
 ) -> list[str]:
     if contract.namespace == "general":
+        if source_rel != "domains/general/DOMAIN.yaml":
+            return [f"{source_rel}: shadow contract 'general' is forbidden outside domains/general/DOMAIN.yaml"]
         return []
     errors: list[str] = []
     for kind, attr in _SHARED_ONLY_TABLES:
@@ -237,9 +248,9 @@ def _check_shipped_domains(
 
         reg_rel = f"domains/{namespace}/REGISTER.json"
         try:
-            raw_reg = json.loads(reg_bytes.decode("utf-8"))
+            raw_reg = json.loads(reg_bytes.decode("utf-8"), object_pairs_hook=_strict_json_object)
             register = register_from_projection(raw_reg, source=reg_rel)
-        except (UnicodeDecodeError, json.JSONDecodeError, ScienceError) as exc:
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError, ScienceError) as exc:
             errors.append(f"{reg_rel}: {exc}")
             continue
 

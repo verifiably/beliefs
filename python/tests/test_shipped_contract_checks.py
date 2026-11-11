@@ -294,3 +294,52 @@ def test_generic_testing_fixture_contract_still_compiles() -> None:
     testing = load_domain_contract(REPO_ROOT / "fixtures/contracts/testing.yaml", base=base, predecessor=None)
     compiled = compile_profile(base, [testing])
     assert "testing" in compiled.activated_contracts
+
+
+def test_shadow_general_duplicate_register_keys_and_reference_doc_base_version(tmp_path: Path) -> None:
+    checker = _load_checker()
+
+    # Shadow `contract: general` under `python/tools/reproduction/` fails placement validation.
+    shadow_root = _copy_fixture_root(tmp_path / "shadow-general")
+    shadow_yaml = shadow_root / "python/tools/reproduction/shadow_general.yaml"
+    shadow_yaml.write_text(
+        "contract: general\n"
+        "version: 1\n"
+        "lineage: genesis\n"
+        "sorts: {}\n"
+        "dimensions: {}\n"
+        "designs:\n"
+        "  shadow-design: { definition: Shadow design outside domains/general. }\n",
+        encoding="utf-8",
+    )
+    shadow_errors = checker.check(shadow_root)
+    assert any(
+        "python/tools/reproduction/shadow_general.yaml" in err and "domains/general/DOMAIN.yaml" in err
+        for err in shadow_errors
+    ), shadow_errors
+
+    # Duplicate JSON keys in REGISTER.json fail even when post-deduplication keys match coverage.
+    dup_root = _copy_fixture_root(tmp_path / "dup-reg-keys")
+    orig_reg_text = (REPO_ROOT / "domains/general/REGISTER.json").read_text(encoding="utf-8")
+    target_snippet = '"design:general/independent-groups": {'
+    assert target_snippet in orig_reg_text
+    dup_entry = (
+        '"design:general/independent-groups": {\n'
+        '      "collapses": "shadow",\n'
+        '      "licenses": "shadow",\n'
+        '      "not_established": "shadow",\n'
+        '      "status": "provisional"\n'
+        "    },\n    " + target_snippet
+    )
+    dup_text = orig_reg_text.replace(target_snippet, dup_entry, 1)
+    (dup_root / "domains/general/REGISTER.json").write_text(dup_text, encoding="utf-8")
+    (dup_root / "python/src/beliefs/domains/general/REGISTER.json").write_text(dup_text, encoding="utf-8")
+    dup_errors = checker.check(dup_root)
+    assert any("REGISTER.json" in err and "duplicate" in err.lower() for err in dup_errors), dup_errors
+
+    # Authoritative reference docs state base version 3 consistently.
+    records_md = (REPO_ROOT / "docs/records.md").read_text(encoding="utf-8")
+    contracts_md = (REPO_ROOT / "docs/contracts.md").read_text(encoding="utf-8")
+    assert "The shipped base contract is version 3," in records_md
+    assert "The shipped base contract is version 2," not in records_md
+    assert "cannot parse under\nbase v3." in contracts_md

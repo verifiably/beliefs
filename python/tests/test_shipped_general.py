@@ -337,6 +337,22 @@ def test_broken_package_register_bindings_refuse_with_profile_error(
     with pytest.raises(ProfileError, match="domains/general/REGISTER\\.json"):
         profile_module.shipped_assumptions_register("general")
 
+    # Duplicate JSON keys in REGISTER.json refuse even when post-deduplication keys match coverage.
+    orig_reg_text = (REPO_ROOT / "domains/general/REGISTER.json").read_text(encoding="utf-8")
+    target_snippet = '"design:general/independent-groups": {'
+    dup_entry = (
+        '"design:general/independent-groups": {\n'
+        '      "collapses": "shadow",\n'
+        '      "licenses": "shadow",\n'
+        '      "not_established": "shadow",\n'
+        '      "status": "provisional"\n'
+        "    },\n    " + target_snippet
+    )
+    (pkg_dir / "REGISTER.json").write_text(orig_reg_text.replace(target_snippet, dup_entry, 1), encoding="utf-8")
+    profile_module.shipped_assumptions_register.cache_clear()
+    with pytest.raises(ProfileError, match="domains/general/REGISTER\\.json.*duplicate"):
+        profile_module.shipped_assumptions_register("general")
+
     # Restore clean cache at teardown.
     profile_module.shipped_assumptions_register.cache_clear()
     assert contract.namespace == "general"

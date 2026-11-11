@@ -145,7 +145,7 @@ integer), `lineage`, `sorts` and `dimensions`. It may add `description`,
 `identification_classes`, `designs`, `selection_mechanisms`, `measurements`, `aspects` and
 `facets`. Any other top-level field is refused, `kinds` and `relations` included,
 and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
-base v2. Its namespace may be neither `science` nor `coordination`. Each table is
+base v3. Its namespace may be neither `science` nor `coordination`. Each table is
 its own namespace, so a sort and a dimension, or an instantiation and a bridge, may
 share a local name; a bridge may not share a name with a template, since both are
 operators.
