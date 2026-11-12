@@ -618,6 +618,20 @@ register history needs a separate route; the checker cannot infer an omitted
 history from overwritten bytes. Loading a successor does not re-pin any corpus
 manifest, and TypeScript still refuses retirement fields.
 
+The current reproduction source `python/tools/reproduction/mm30-phf19.yaml` is
+an ordinary corpus-local genesis, with its six-entry canonical register. Its three
+literal dataset bindings are reproduced from the exact shipped local-list bytes.
+Its covariance instantiation admits the Cartesian set of gene/factor sorts;
+the driver alone enforces the selected heterogeneous PHF19 pair and exact
+classification-rule/factor connection. The contrast admission belongs to mm30,
+not biology. Its cohort term restricts applicability without asserting assay
+validation. Full HGNC membership comes from the entire held release; the shared
+Ensembl release remains unconsulted. Referent mapping records carry identifier
+provenance and license no RNA-to-protein interpretation. The workflow's explicit
+unknown procedure validation freezes a conditional general assumption, and
+aggregation supplies neither assay validity nor independence. See the
+[authored route](development.md#recreating-the-mm30-corpus) for custody and recovery.
+
 ## Coordination contract
 
 The coordination contract requires `contract` (always `coordination`), `version`,

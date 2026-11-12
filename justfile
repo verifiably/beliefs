@@ -180,45 +180,20 @@ ci-python:
 ci-typescript:
     {{tt}} ci-typescript -- sh -c '{{ci_evidence_cmd}} && {{ci_ts_test_cmd}} && {{ts_check_cmd}}'
 
-# The mm30 recreation in one command (beliefs-9e0b42): the reproduction steps run into a
-# fresh work directory, one process per step, stopping at the first non-zero exit, then
-# the read-only verdict and the tracked Snakefile check. Five steps record a defect and
-# still exit zero, so the verdict, not the exit codes, says whether it reproduced. Not
-# part of any gate, and it deletes nothing. The cut-22 and cut-31 archives default to
-# the fixture's siblings under the main checkout's .work/reproduction/.
-#
-# Recreate the mm30 corpus into WORK, a fresh absolute canonical path, from PREDECESSOR.
+# The full legacy route remains separately owned and cannot run under the current pack.
 mm30-recreate work predecessor cut22="" cut31="":
     #!/usr/bin/env bash
+    echo 'mm30-recreate: unsupported legacy composite/cut route; beliefs-6f039b owns restoration. Use mm30-phf19 for the selected RNA demonstration.' >&2
+    exit 2
+
+# One explicitly declared gene RNA engineering demonstration; no ranking or old cuts.
+mm30-phf19 work predecessor hgnc ensembl declaration="python/tools/reproduction/phf19-inputs.json":
+    #!/usr/bin/env bash
     set -euo pipefail
-    work=$1 predecessor=$2
-    fixtures="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.work/reproduction"
-    cut22=${3:-$fixtures/mm30.cut22} cut31=${4:-$fixtures/mm30.cut31}
-    snakefile=python/tools/reproduction/analysis/workflow/Snakefile
-    refuse() { echo "mm30-recreate: $*" >&2; exit 2; }
-    [[ $work == /* && $(realpath -m "$work") == "$work" ]] || refuse "the work directory must be absolute and canonical: $work"
-    [[ ! -e $work ]] || refuse "the work directory already exists; the verdict is defined over a fresh one: $work"
-    [[ -d $predecessor ]] || refuse "no predecessor root at $predecessor"
-    for archive in "$cut22" "$cut31"; do
-        for required in corpus/corpus.yaml state.json; do
-            [[ -f $archive/$required ]] || refuse "the archive $archive has no $required"
-        done
-    done
-    git diff --quiet -- "$snakefile" || refuse "$snakefile differs from HEAD before the run"
-    export PYTHONPATH=tools SCIENCE_MM30_ROOT=$work MM30_PREDECESSOR=$predecessor MM30_CUT22_ARCHIVE=$cut22
-    steps=(preflight world select_target analysis_inputs "lists prepare" concepts "lists mint" type_target hold spec run belief rederive close compose read "read --again" "transition --archive $cut31")
+    work=$1
+    predecessor=$(realpath -e "$2")
+    hgnc=$(realpath -e "$3")
+    ensembl=$(realpath -e "$4")
+    declaration=$(realpath -e "$5")
     cd python
-    for step in "${steps[@]}"; do
-        echo "== $step"
-        started=$SECONDS
-        # shellcheck disable=SC2086 # a step is a module and its arguments
-        uv run --frozen python -m reproduction.$step || { status=$?; echo "mm30-recreate: stopped at '$step' (exit $status)" >&2; exit $status; }
-        echo "== $step: $((SECONDS - started)) s"
-    done
-    echo "== verdict"
-    status=0
-    uv run --frozen python -m reproduction.verdict || status=$?
-    cd ..
-    git diff --quiet -- "$snakefile" || { echo "FAIL tree: $snakefile differs from HEAD after the run"; status=1; }
-    echo "mm30-recreate: $SECONDS s wall, exit $status, into $work"
-    exit $status
+    PYTHONPATH=tools uv run --frozen python -m reproduction.phf19 "$work" "$predecessor" "$hgnc" "$ensembl" --declaration "$declaration"

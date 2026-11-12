@@ -30,7 +30,7 @@ python/tests/         the test suite; tests/acceptance/ is run by `just test-acc
 python/tools/         fixture generators, the acceptance runner, the mm30 reproduction driver
 ts/                   @verifiably/beliefs: the TypeScript mirror of the shared encoding
 fixtures/             the parity corpus both test suites read and neither writes
-contracts/, domains/  the normative base contract; shipped domain packs and canonical registers (`general`)
+contracts/, domains/  the normative base contract; shipped domain packs and canonical registers (`general`, `biology`)
 tools/                vendored ops tools (tt, ops-check, ops-docs); never edited here
 ```
 
@@ -54,7 +54,7 @@ The kernel's main areas, under `python/src/beliefs/`:
 `contracts/science/CONTRACT.yaml`. `test_shipped_base.py` fails unless the pair is
 byte-identical: edit the root file, then copy it. `python/src/beliefs/domains/` holds
 the packaged copies of `domains/<namespace>/{DOMAIN.yaml,REGISTER.json}` (currently
-`general`), verified byte-identical by `test_shipped_general.py` and
+`general` and `biology`), verified byte-identical by `test_shipped_general.py` and
 `python/tools/check_shipped_contracts.py`. The coordination contracts live only in the
 package. The names `science.identity.v1`, `science.belief.v1` and `contract: science`
 are rule and contract identities, not the package name, and stay as they are.
@@ -148,38 +148,49 @@ test runs.
 
 ## Recreating the mm30 corpus
 
-`just mm30-recreate WORK PREDECESSOR [CUT22] [CUT31]` recreates the mm30 reproduction
-(the walk in [guide.md](guide.md#from-held-data-to-a-belief)) from the predecessor
-mm30 project, whose root must carry a `science.yaml`. `WORK` must be an absolute,
-canonical path that does not exist yet. `CUT22` and `CUT31` are the two archived
-corpus states the transition steps read; they default to `mm30.cut22` and
-`mm30.cut31` under `.work/reproduction/` beside the main checkout. The host needs
-the certified volume and bubblewrap with unprivileged user namespaces, which the
-first step checks.
+`just mm30-phf19 WORK PREDECESSOR HGNC ENSEMBL [DECLARATION]` executes the selected
+PHF19 gene-RNA **engineering demonstration** described in
+[guide.md](guide.md#from-held-data-to-a-belief). The default declaration is
+`python/tools/reproduction/phf19-inputs.json`; direct module invocation requires
+`--declaration`. It selects the original proposition explicitly and never ranks
+new candidates. PREDECESSOR must carry `science.yaml` and the four declared sources.
+HGNC and ENSEMBL name the acquired complete HGNC 2025-09-05 TSV and compressed human
+Ensembl 115/GRCh38.p14 GTF. The declaration pins all six inputs by SHA-256. The
+small committed references under `fixtures/phf19/` are labelled synthetic and
+cannot masquerade as the pinned real releases.
 
-The recipe runs each step of `python/tools/reproduction/` in its own process and
-stops at the first non-zero exit. Some steps record a defect and still exit zero, so
-the final `verdict` step, which reads what they recorded, decides whether the
-corpus reproduced. The recipe also refuses to start, and fails at the end, if the
-tracked Snakefile under `python/tools/reproduction/analysis/workflow/` differs from
-`HEAD`. It deletes nothing and belongs to no gate.
+WORK must be a fresh absolute canonical path strictly below an explicitly supplied
+host-local `WORK_ROOT`, outside this checkout, on the certified volume. There is no
+`.work/` fallback, acquisition or host-configuration change. A storage path can be
+off the certified tuple even on the same host; the kernel reports the exact
+`CapabilityUnavailable` mismatch. Choose a certified local root through an explicit
+environment override for that invocation. Real execution requires its own
+applicable authority; implementation tests confer none.
 
-Under base v3 the recreation cannot complete. The driver's contract layer
-(`python/tools/reproduction/vocabulary.py`) compiles a profile from the shipped
-biology pack and the v1 mm30 documents beside it; only the shared `general`
-contract ships today, no biology pack ships yet, and base v3 refuses a v1 document,
-so the first step that compiles that profile or types the claim fails. The documents
-stay in place for the recreation that follows a biology v2 pack and an mm30 v2
-contract.
+Each run holds about 121.1 MB (115.5 MiB) of exact reference bytes, plus the complete
+HGNC member list, derivation and ordinary store overhead. It holds the GTF compressed.
+The source holdings and mapping are explicitly rechecked through dataset and
+holdings records plus actual byte hashes; digest-only procedure parameters are
+not kernel dependency edges. Readback uses run-held copies, independent of the
+acquisition directory. It recomputes full HGNC membership and the selected mapping.
 
-New authors freeze an explicit `standing` with typed estimand and applicability,
-including an evidence mode for each `SpecInput`. They hold the frozen normative
-dependencies before publishing a spec or assessment. A model route names its
-model procedure; calibrated-model also freezes its qualified empirical basis.
-The belief step mints the verification, reopens the view and then evaluates the
-claim. One assessed key returns its answer; multiple keys produce a
-`multiple-assessed-propositions` finding and exit 2. Use `claim_view` to inspect
-the answers and comparisons for every key instead of choosing one implicitly.
+The workflow uses a local copy under WORK/bundle/analysis and preserves the tracked
+Snakefile. `phf19-report.json` records the exported effect and terminal obligations;
+a fresh process reconstructs stored spec, assessment, comparison and belief. To
+repeat readback, from `python/` run `PYTHONPATH=tools uv run --frozen python -m
+reproduction.phf19 --readback WORK` with the same WORK_ROOT. Missing closure, changed
+bundle/parser, mismatched pins, a step defect or differing recovery fails the
+command. It creates no composite or legacy cut output.
+
+The result is an unpaired computational demonstration over paired source inputs.
+It does not certify independence, upstream assay validation or biological reuse.
+The assay's unknown validation remains an explicit frozen assumption. A full real
+recreation is separately owned by beliefs-dcce70, with renewed pre-mint inventory
+and a smallest end-to-end pilot before any extended run; beliefs-9cbde6 owns its
+independence assessment. `just mm30-recreate` now refuses before creating work and
+names beliefs-6f039b, which owns the remaining legacy relations/composite/cuts.
+The five historical YAML wrappers remain SHA-pinned and unchanged. The new
+`mm30-phf19.yaml` is ordinary current grammar and participates in distribution checks.
 
 ## The claim-identity parity fixture
 
@@ -315,7 +326,9 @@ the current v2 `DOMAIN.yaml` against its archived v1 predecessor and the shipped
 base. `shipped_assumptions_register("general")` checks the register's `describes`,
 complete eleven-entry coverage and immediate-predecessor `previous` link. The v1
 files remain byte-identical in both copies' content-identity `history/` directory
-([history layout](contracts.md#profiles)). Every other namespace refuses with `ProfileError`. Field packs keep sorts,
+([history layout](contracts.md#profiles)). The biology version-1 genesis and twelve-entry canonical register ship at the
+corresponding `domains/biology/` paths with identical packaged copies. Its generic
+loaders use the same checks; unknown namespaces refuse with `ProfileError`. Field packs keep sorts,
 instantiations and bridges in their own namespace and activate `general` explicitly;
 `python/tools/check_shipped_contracts.py` rejects non-`general` declarations in the
 shared numerical and methodological tables across shipped and current reproduction

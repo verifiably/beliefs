@@ -78,7 +78,9 @@ def pins_negative(view: ReadView, key: str) -> None:
 
     st = state.load()
     full = world.open_writer().manifest_pins()
-    without = CorpusPins(science_contract=full.science_contract, domains={"mm30": full.domains["mm30"]})
+    without = CorpusPins(
+        science_contract=full.science_contract, domains={ns: pin for ns, pin in full.domains.items() if ns != "biology"}
+    )
     inputs = gather(
         view,
         st["proposition_ref"],

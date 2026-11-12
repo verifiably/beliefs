@@ -150,7 +150,7 @@ def test_assoc_supported_when_positive_level_is_PDgher_reading_gzip(tmp_path):
     samples = [f"h{i}_PD" for i in range(8)] + [f"l{i}_NDMM" for i in range(8)]
     values = [str(10 + i) for i in range(8)] + [str(i) for i in range(8)]
     groups = assoc.load(_matrix(tmp_path, samples, [["other", *["0"] * 16], ["g1", *values]], gz=True), value_row="g1")
-    outcome, z, p, n = assoc.decide(groups, positive_level="PD")
+    outcome, _effect, z, p, n = assoc.decide(groups, positive_level="PD")
     assert outcome == "supported" and z > 0 and p < 0.05 and n == 16
 
 
@@ -949,10 +949,44 @@ def test_mann_whitney_normalized_u_counts_half_ties():
     from math import sqrt
 
     a, baseline = [1, 2], [2, 3]
-    z, _p = _assoc().mann_whitney(a, baseline)
+    u_reported, z, _p = _assoc().mann_whitney(a, baseline)
     n_a, n_b = len(a), len(baseline)
     sigma = sqrt(n_a * n_b * (n_a + n_b + 1) / 12)
     u = z * sigma + n_a * n_b / 2
     pairwise = sum((x > y) + 0.5 * (x == y) for x in a for y in baseline) / (n_a * n_b)
+    assert u_reported == pytest.approx(u)
     assert pairwise == 0.125
     assert u / (n_a * n_b) == pytest.approx(pairwise, abs=1e-15)
+
+
+@pytest.mark.parametrize(
+    "pd,ndmm,effect",
+    [
+        ([4, 5, 6], [1, 2, 3], 1.0),
+        ([1, 2, 3], [4, 5, 6], 0.0),
+        ([2, 2, 2], [2, 2, 2], 0.5),
+        ([1, 2, 3], [2, 3, 4], 2 / 9),
+    ],
+)
+def test_exported_probability_of_superiority(pd, ndmm, effect):
+    _outcome, actual, _z, _p, n = _assoc().decide({"PD": pd, "NDMM": ndmm}, positive_level="PD")
+    assert actual == pytest.approx(effect)
+    assert n == 6
+    _, reversed_effect, *_ = _assoc().decide({"PD": ndmm, "NDMM": pd}, positive_level="PD")
+    assert reversed_effect == pytest.approx(1 - effect)
+
+
+def test_assoc_refuses_the_wrong_pair_of_two_levels():
+    assoc = _assoc()
+    with pytest.raises(assoc.MalformedInput, match="NDMM and PD"):
+        assoc.decide({"PD": [1, 2, 3], "other": [4, 5, 6]}, positive_level="PD")
+
+
+def test_assoc_rejects_duplicate_features_and_unknown_label_tokens(tmp_path):
+    assoc = _assoc()
+    matrix = _matrix(tmp_path, ["a_NDMM", "b_PD"], [["g1", "1", "2"], ["g1", "3", "4"]])
+    with pytest.raises(assoc.MalformedInput, match="more than once"):
+        assoc.load(matrix, value_row="g1")
+    matrix = _matrix(tmp_path, ["a_NDMM", "b_unknown"], [["g1", "1", "2"]])
+    with pytest.raises(assoc.MalformedInput, match="unknown group token"):
+        assoc.load(matrix, value_row="g1")

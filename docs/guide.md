@@ -186,61 +186,53 @@ are not a configuration `atoms` certifies, every write fails with
 
 ## From held data to a belief
 
-This is the mm30 reproduction, condensed: one real multiple-myeloma claim recreated
-through the kernel as a library. The driver is `python/tools/reproduction/`, one
-module per step, and [development.md](development.md#recreating-the-mm30-corpus)
-says how to run it.
+The PHF19 route is an **engineering demonstration** of one gene-level RNA
+comparison through the kernel. It preserves the source cohort's paired inputs
+while using the existing unpaired computation: independence, assay validity and
+biological reuse remain unestablished. A verified replay establishes the tested
+computation and recovery, not those scientific assumptions.
 
-The walk below is the reproduction as it last ran, under the v1 claim grammar.
-Under base v3 the driver's contract layer does not run: its mm30 contract documents
-(`python/tools/reproduction/mm30*.yaml`) are v1 documents that base v3 refuses to
-parse, and while the shared `general` contract ships, no biology pack ships yet, so
-the steps that compile the profile or type the claim refuse until a biology v2 pack
-and an mm30 v2 contract exist. The v1 documents stay in place as the record the
-recreation reads.
+The driver is `python/tools/reproduction/phf19.py`;
+[development.md](development.md#recreating-the-mm30-corpus) gives the command and
+required pinned inputs. It creates a new question and target; the old
+`protein:PHF19` causal proposition remains provenance. The five legacy contract
+wrappers retain their exact bytes. The full legacy composite/cut route refuses
+explicitly and remains owned by beliefs-6f039b.
 
-1. **Open the roots.** `init_world_root`, `init_corpus_root` and `init_store_root`
-   register a world, a corpus and a byte store under one `Authority`. The profile
-   compiled the base contract, the biology pack then shipped and the
-   reproduction's own mm30 contract, and `adopt_manifest` pinned all three in the
-   corpus manifest.
-2. **Type the claim.** `build_claim` typed *disease stage affects PHF19*: the mm30
-   contract's v1 operator `affects-concept-molecular-entity`, a concept and a
-   biology molecular entity as its arguments, layer causal, polarity positive.
-   `project_claim` gives the stored form, and
-   `writer.add(stored.proposition_node(...))` mints the proposition.
-3. **Hold the data.** The holdings boundary's `write` copies the GEO series
-   GSE179929 expression matrix (6,154,181 bytes) into the store and records a
-   holdings observation of its digest. The dataset record is minted at its content
-   address with an `empirical-observation` facet, and reads as held.
-4. **Freeze the plan.** `freeze` turns a `SpecDraft` into a `FrozenSpec`: a typed
-   estimand (PHF19 expression in progressive against newly diagnosed disease), a
-   two-group rank comparison, the dataset as an `observes` input, and the
-   interpretation and equivalence rules bound to their held implementations.
-   `stored.analysis_spec_node` builds the record.
-5. **Run it confined.** `execute_assessment_run` runs the Snakemake workflow in a
-   sandbox. The outputs are `z = 1.16`, `p = 0.25`, `n = 51`, and the
-   interpretation rule reads them as `inconclusive`. `build_assessment` derives the
-   assessment from the run, and `stored.assessment_node` with `add` stores it.
-6. **Reproduce it.** `replay` runs the analysis again from scratch, `derive_scope`
-   finds `clean-environment`, and `build_verification` compares the two runs:
-   `passed`. `publication_node` builds the verification record and `add` stores it.
-7. **Ask for the belief.** `evaluate_over`, given the proposition, the profile and
-   an exact `PolicyBinding` for `science.belief.v1`, gathers the admitted assessment
-   and answers `NoBelief(no-directional-outcome)`: the one admitted assessment points
-   neither way. A fresh process re-derives the same answer from the records on
-   disk.
+1. **Check the sources.** An explicit declaration selects the original proposition,
+   matrix and crosswalk, HGNC 2025-09-05 and human Ensembl 115/GRCh38.p14. All six
+   byte pins, unique approved correspondence and source-row occurrence must agree.
+   The later mapping establishes no historical annotation release or assay validity.
+2. **Open and hold.** The base plus `general`, `biology` and corpus-local `mm30`
+   profile is activated explicitly. A fresh world, corpus and store hold original
+   sources, compressed references, the complete HGNC ID list and its derivation,
+   mapping members, provenance and local lists. Ensembl membership is unconsulted;
+   inspecting one annotation is not a full membership lookup.
+3. **Type the question.** Shared `general/covaries-with` relates exactly the selected
+   HGNC gene and disease-stage factor, polar/positive/statistical. Canonical party
+   order does not select the measured response; the exact gene member does. The
+   driver enforces this selected pair and the exact label rule, beyond the broader
+   kernel admission of same-sort pairs or another rule with the same class sort.
+4. **Freeze.** Public builders produce the RNA observable, the PD-versus-NDMM
+   probability-of-superiority estimand, cohort applicability and dependency closure.
+   The held assay has explicit unknown validation and a frozen
+   `general/procedure-validity` assumption. It is conditional, never validation
+   evidence. Canonical general/biology/mm30 registers and implementation digests
+   remain recoverable with the target.
+5. **Run and reproduce.** A work-local bundle runs confined and replays. The covered
+   stats artifact exports `effect = U_PD / (n_PD * n_NDMM)`, with half-weighted ties,
+   beside z/p/n diagnostics. The normal approximation has no tie correction or
+   computed interval. Interpretation retains alpha .05 and uses the covered outcome
+   file; a point estimate is not invented from output digests.
+6. **Read the result.** Verification, admission, corpus audit and a separate fresh
+   process must agree with stored spec/assessment/belief recovery. A separate
+   terminal verdict detects a missing obligation or a step recording a defect
+   despite exit zero. It assumes no fixed scientific result and no old cuts.
 
-For a claim with several assessed targets, use `evaluation.claim_view` to see one
-answer per key and the pairwise conversion and synthesis verdicts. The one-answer
-`evaluate_over` convenience refuses that case; it forwards the exact answer when
-there is one key. Supply the same observations to an explicit keyed `gather` and
-to evaluation. Contract collection reads the complete frozen target, including
-its dependency vocabulary, without reopening those records.
-
-That answer is the scientific result, not a failure: the data in hand do not
-separate the two stages. Another admitted, independent assessment that points one
-way would move the answer.
+For several assessed targets, use `evaluation.claim_view` for one answer per key
+and pairwise conversion/synthesis verdicts. The `evaluate_over` convenience refuses
+multiple keys; it forwards the exact answer for one key. Neither aggregation nor a
+successful demonstration certifies independence or biological interpretation.
 
 ## Where each contract is specified
 

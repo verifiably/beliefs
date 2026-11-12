@@ -71,7 +71,7 @@ def main() -> int:
     common = {
         "port": port(),
         "definition": spec.definition(),
-        "code_roots": (spec.CODE_ROOT,),
+        "code_roots": (spec.code_root(),),
         "held_inputs": held,
         "entrypoint": spec.ENTRYPOINT,
         "targets": spec.TARGETS,

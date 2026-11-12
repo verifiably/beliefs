@@ -15,8 +15,10 @@ import gzip
 import math
 import pathlib
 import sys
+from runpy import run_path
 
-from labels import stage_token
+# The confined interpreter omits the script directory from its import path.
+stage_token = run_path(str(pathlib.Path(__file__).with_name("labels.py")))["stage_token"]
 
 ALPHA = 0.05
 MIN_PER_GROUP = 3
@@ -75,7 +77,7 @@ def load(path, *, value_row: str, group_separator: str = "_") -> dict[str, list[
     return groups
 
 
-def mann_whitney(a: list[float], b: list[float]) -> tuple[float, float]:
+def mann_whitney(a: list[float], b: list[float]) -> tuple[float, float, float]:
     pooled = sorted([(v, 0) for v in a] + [(v, 1) for v in b], key=lambda t: t[0])
     ranks: dict[int, float] = {}
     i = 0
@@ -95,32 +97,34 @@ def mann_whitney(a: list[float], b: list[float]) -> tuple[float, float]:
         raise MalformedInput("degenerate groups: zero variance in the rank statistic")
     z = (u_a - mu) / sigma
     p = 2 * (1 - 0.5 * (1 + math.erf(abs(z) / math.sqrt(2))))
-    return z, p
+    return u_a, z, p
 
 
-def decide(groups: dict[str, list[float]], *, positive_level: str) -> tuple[str, float, float, int]:
+def decide(groups: dict[str, list[float]], *, positive_level: str) -> tuple[str, float, float, float, int]:
     levels = sorted(groups)
     if len(levels) != 2:
         raise MalformedInput(f"expected exactly two levels, found {levels}")
+    if set(levels) != {"NDMM", "PD"}:
+        raise MalformedInput("expected NDMM and PD levels")
     if positive_level not in groups:
         raise MalformedInput(f"positive level {positive_level!r} is not among {levels}")
     for level, values in groups.items():
         if len(values) < MIN_PER_GROUP:
             raise MalformedInput(f"group {level!r} has {len(values)} values; at least {MIN_PER_GROUP} are required")
     other = next(level for level in levels if level != positive_level)
-    z, p = mann_whitney(groups[positive_level], groups[other])
+    u, z, p = mann_whitney(groups[positive_level], groups[other])
     outcome = "inconclusive" if p >= ALPHA else ("supported" if z > 0 else "refuted")
-    return outcome, z, p, sum(len(v) for v in groups.values())
+    return outcome, u / (len(groups[positive_level]) * len(groups[other])), z, p, sum(len(v) for v in groups.values())
 
 
 def main(inp: str, stats_out: str, outcome_out: str, value_row: str, group_separator: str, positive_level: str) -> int:
     try:
         groups = load(inp, value_row=value_row, group_separator=group_separator)
-        outcome, z, p, n = decide(groups, positive_level=positive_level)
+        outcome, effect, z, p, n = decide(groups, positive_level=positive_level)
     except MalformedInput as error:
         print(f"malformed input: {error}", file=sys.stderr)
         return 3
-    pathlib.Path(stats_out).write_text(f"z\tp\tn\n{z}\t{p}\t{n}\n")
+    pathlib.Path(stats_out).write_text(f"effect\tz\tp\tn\n{effect}\t{z}\t{p}\t{n}\n")
     pathlib.Path(outcome_out).write_text(outcome + "\n")
     return 0
 

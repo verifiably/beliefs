@@ -29,7 +29,6 @@ from reproduction import paths, state, world
 
 CODE_ROOT = Path(__file__).with_name("analysis")  # bundle name: analysis/
 TEMPLATE = Path(__file__).with_name("Snakefile.template")  # outside the code root: not bundled
-SNAKEFILE = CODE_ROOT / "workflow" / "Snakefile"
 ENTRYPOINT = "analysis/workflow/Snakefile"
 TARGETS = ("outputs/stats.tsv", "outputs/outcome.txt")
 OUTCOME_FILE = rules.OUTCOME_FILE
@@ -44,43 +43,49 @@ def code_root() -> Path:
     return paths.WORK / "bundle" / "analysis"
 
 
-def render_snakefile() -> bytes:
-    target = yaml.safe_load(paths.TARGET.read_text())
+def snakefile_bytes(held_name: str, feature: str, separator: str) -> bytes:
     values = {
-        "HELD_NAME": Path(state.load()["held_file"]).name,
-        "VALUE_ROW": target["value_row"],
-        "GROUP_SEPARATOR": target["group_separator"],
-        "POSITIVE_LEVEL": target["positive_level"],
+        "HELD_INPUT": repr("inputs/" + held_name),
+        "VALUE_ROW": repr(feature),
+        "GROUP_SEPARATOR": repr(separator),
+        "POSITIVE_LEVEL": repr("PD"),
     }
     text = TEMPLATE.read_text()
     for key, value in values.items():
-        text = text.replace("{" + key + "}", str(value))
+        text = text.replace("{" + key + "}", value)
+    return text.encode()
+
+
+def render_snakefile() -> bytes:
+    from reproduction import hold
+
+    inputs = hold.recover_inputs()
+    target = yaml.safe_load(paths.TARGET.read_text())
+    if (target["value_row"], target["group_separator"], target["positive_level"]) != (
+        inputs.feature,
+        inputs.separator,
+        "PD",
+    ):
+        raise RuntimeError("target sidecar differs from the checked question")
+    content = snakefile_bytes(Path(state.load()["held_file"]).name, inputs.feature, inputs.separator)
     bundle = code_root()
     (bundle / "workflow").mkdir(parents=True, exist_ok=True)
     for name in ("assoc.py", "labels.py"):
         shutil.copyfile(CODE_ROOT / name, bundle / name)
-    (bundle / "workflow/Snakefile").write_bytes(text.encode())
-    return text.encode()
+    (bundle / "workflow/Snakefile").write_bytes(content)
+    return content
 
 
 def held_rules() -> dict:
-    """The driver's identities, bound to the kernel's implementations.
-    The record's spec identity is unchanged:
-    `freeze` digests (rule identity, implementation identity) pairs, and both
-    pairs are the ones the 2026-09-05 record carries.
+    """Bind the driver's rule names to the kernel's held implementations.
+
+    Complete spec identity also covers the authored target, procedures and registers.
     """
     return {INTERPRETATION_RULE: INTERPRETATION, EQUIVALENCE_RULE: EQUIVALENCE}
 
 
 def definition() -> WorkflowDefinition:
     return WorkflowDefinition(snakefile=(code_root() / "workflow/Snakefile").read_bytes(), family_streams={})
-
-
-RELOCATED_CLAUSE = (
-    "prose applicability clause 'whose ids carry a stage token and whose value is finite' refused at retyping "
-    "(no declared dimension); re-authored in `method` as estimator behaviour — the estimator refuses a non-finite "
-    "value as malformed input, it does not exclude the sample — an authored judgment"
-)
 
 
 @dataclass(frozen=True)

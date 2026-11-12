@@ -5,6 +5,7 @@ from conftest import REPO_ROOT
 from reproduction import vocabulary
 
 from beliefs import stored
+from beliefs.contract.domain import DatasetBinding
 from beliefs.errors import ScienceError
 from beliefs.resolution import TermOutcome
 
@@ -22,6 +23,7 @@ def test_literal_dataset_bindings_are_minted_from_exact_list_bytes():
             title=name, resources=[{"name": name + ".txt", "digest": "sha256:" + sha256(content).hexdigest()}]
         )
         compiled = vocabulary.binding_for(sort)
+        assert isinstance(compiled.binding, DatasetBinding)
         assert compiled.binding.dataset == node.id
         snap = vocabulary.snapshot_over(stored.dataset_declaration(node), content, compiled)
         assert snap.resolve(compiled, content.decode().splitlines()[0]) == TermOutcome.MEMBER

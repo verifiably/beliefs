@@ -11,10 +11,12 @@ from beliefs import stored
 from beliefs.claim import Member, Referent, build_claim
 from beliefs.classification_rule import rule_identity
 from beliefs.errors import ScienceError
+from beliefs.estimand import MeasuredBinding, RuleClassLevels
 from beliefs.procedure import procedure_identity
 from beliefs.projection import claim_identity
 from beliefs.referent_mapping import mapping_identity
 from beliefs.resolution import build_snapshot
+from beliefs.restriction import TermRestriction
 
 
 def context():
@@ -58,16 +60,22 @@ def context():
 def test_target_is_gene_rna_and_keeps_the_unknown_validity_assumption():
     inputs, args = context()
     estimand, app = type_target.estimand(inputs, **args)
-    assert estimand.bindings["response"].member == Referent("biology/gene", "hgnc:24566")
-    assert estimand.bindings["response"].mapping == mapping_identity(inputs.mapping)
-    assert tuple(x.term for x in estimand.bindings["grouping"].classes) == ("level:ndmm", "level:pd")
+    response = estimand.bindings["response"]
+    grouping = estimand.bindings["grouping"]
+    assert isinstance(response, MeasuredBinding)
+    assert isinstance(grouping, RuleClassLevels)
+    assert response.member == Referent("biology/gene", "hgnc:24566")
+    assert response.mapping == mapping_identity(inputs.mapping)
+    assert tuple(x.term for x in grouping.classes) == ("level:ndmm", "level:pd")
     assert estimand.assumptions[0].particulars == {
         "record": args["assay_id"],
         "co_scope": "unknown",
         "dimensions": "mm30/cohort",
     }
     assert len(estimand.assumptions) == 1
-    assert app.values["mm30/cohort"].restriction.term == "cohort:gse179929"
+    restriction = app.values["mm30/cohort"].restriction
+    assert isinstance(restriction, TermRestriction)
+    assert restriction.term == "cohort:gse179929"
 
 
 def test_party_order_is_canonical_and_selects_the_same_gene_response():
@@ -83,7 +91,9 @@ def test_party_order_is_canonical_and_selects_the_same_gene_response():
         layer="statistical",
     )
     assert claim_identity(args["claim"]) == claim_identity(original)
-    assert type_target.estimand(inputs, **args)[0].bindings["response"].member.term == "hgnc:24566"
+    response = type_target.estimand(inputs, **args)[0].bindings["response"]
+    assert isinstance(response, MeasuredBinding) and response.member is not None
+    assert response.member.term == "hgnc:24566"
 
 
 @pytest.mark.parametrize(
@@ -152,7 +162,9 @@ def test_generic_builder_can_use_a_right_sort_wrong_rule_that_the_driver_refuses
     other = stored.classification_rule_node(replace(rule, definition="Another rule with identical class sort"))
     args["records"].nodes[other.id] = other
     changed = dict(original.bindings)
-    changed["grouping"] = RuleClassLevels(other.id, original.bindings["grouping"].classes)
+    grouping = original.bindings["grouping"]
+    assert isinstance(grouping, RuleClassLevels)
+    changed["grouping"] = RuleClassLevels(other.id, grouping.classes)
     rebuilt, _ = build_estimand(
         args["profile"],
         args["claim"],
@@ -169,7 +181,9 @@ def test_generic_builder_can_use_a_right_sort_wrong_rule_that_the_driver_refuses
         snapshot=args["snapshot"],
         records=args["records"],
     )
-    assert rebuilt.bindings["grouping"].rule == other.id
+    rebuilt_grouping = rebuilt.bindings["grouping"]
+    assert isinstance(rebuilt_grouping, RuleClassLevels)
+    assert rebuilt_grouping.rule == other.id
     with pytest.raises(ScienceError, match="rule"):
         type_target.estimand(inputs, **{**args, "grouping_rule_id": other.id})
 
@@ -192,3 +206,22 @@ def test_wrong_class_sort_and_wrong_observable_refuse():
     args["records"].nodes[wrong_rule.id] = wrong_rule
     with pytest.raises(ScienceError, match="rule"):
         type_target.estimand(inputs, **{**args, "grouping_rule_id": wrong_rule.id})
+
+
+def test_duplicate_canonical_gene_party_refuses_under_mm30_profile():
+    from beliefs.errors import DuplicateMember
+
+    with pytest.raises(DuplicateMember):
+        build_claim(
+            vocabulary.profile(),
+            operator="general/covaries-with",
+            roles={
+                "parties": (
+                    Member(Referent("biology/gene", "hgnc:24566")),
+                    Member(Referent("biology/gene", "hgnc:24566")),
+                )
+            },
+            form="polar",
+            polarity="positive",
+            layer="statistical",
+        )

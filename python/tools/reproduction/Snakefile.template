@@ -6,8 +6,8 @@ import pathlib, subprocess, sys
 ASSOC = str(pathlib.Path(workflow.basedir).parent / "assoc.py")
 
 rule assoc:
-    input: "inputs/{HELD_NAME}"
+    input: {HELD_INPUT}
     output: "outputs/stats.tsv", "outputs/outcome.txt"
     run:
         subprocess.run([sys.executable, ASSOC, input[0], output[0], output[1],
-                        "{VALUE_ROW}", "{GROUP_SEPARATOR}", "{POSITIVE_LEVEL}"], check=True)
+                        {VALUE_ROW}, {GROUP_SEPARATOR}, {POSITIVE_LEVEL}], check=True)
