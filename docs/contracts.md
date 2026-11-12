@@ -558,7 +558,7 @@ carry none of the three; succession compares `external`. A corpus manifest pins 
 activated contract by content identity. A writer whose profile disagrees with
 those pins is refused.
 
-The package ships one genesis domain contract, `general` (`domains/general/DOMAIN.yaml`
+The package ships `general` version 2 (`domains/general/DOMAIN.yaml`
 and its byte-identical packaged copy `python/src/beliefs/domains/general/DOMAIN.yaml`),
 together with its canonical assumptions register (`domains/general/REGISTER.json` and
 `python/src/beliefs/domains/general/REGISTER.json`). `shipped_domain_contract("general")`
@@ -580,8 +580,19 @@ stay unchanged. Loading follows only declared 64-lowercase-hex predecessor ident
 checks each ancestor before its successor, and refuses missing or mismatched files,
 namespace mismatches, cycles and broken register links. The source checker also
 refuses malformed or unreachable archive entries, symlinks, extra files, differing
-package copies and misplaced shared vocabulary in ancestors. The current general
-genesis has no archives yet.
+package copies and misplaced shared vocabulary in ancestors. General's original
+v1 contract and register are preserved under
+`history/cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f/`.
+Version 2 preserves all ten original register entries and adds an eleventh,
+`assumption-kind:general/procedure-validity`. This provisional admission records
+conditional acceptance of an unknown validation domain or recorded scope gap; it
+does not establish procedure validity. The procedure record distinguishes unknown
+validation from a known map whose restrictions cannot be compared.
+
+Mounting resolves domain pins against the current shipped contract only. A corpus
+pinned to general v1 therefore raises `MountPinUnresolved` from the package alone;
+the caller must supply that exact predecessor through `available`. Shipping history
+does not automatically make archived contracts candidates for mount resolution.
 
 This layout has no independent register-only revision chain: a replacement citing
 the prior register for the same contract as `previous` is refused. Prose-only

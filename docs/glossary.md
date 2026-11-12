@@ -202,7 +202,8 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="policy-binding"></a>**Policy binding** — The exact pair of a belief policy's
   rule identity and implementation identity. ([records](records.md#beliefs))
 - <a id="procedure"></a>**Procedure** — A content-addressed measurement definition
-  with complete yield observables, validation scope and optional scale or pinned
+  with complete yield observables, a validation scope (or the exact tag `"unknown"`),
+  and optional scale or pinned
   implementation. Its kind determines whether model inputs are required.
   ([records](records.md#procedure))
 - <a id="profile"></a>**Profile** — The compiled combination of a base contract, domain

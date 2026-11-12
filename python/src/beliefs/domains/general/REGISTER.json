@@ -1,6 +1,12 @@
 {
-  "describes": "general:cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f",
+  "describes": "general:e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee",
   "entries": {
+    "assumption-kind:general/procedure-validity": {
+      "collapses": "The named procedure's unknown validation domain or recorded scope gap is conditionally accepted for this target.",
+      "licenses": "Recording record, co_scope and dimensions under the binding-aptness interface; the first consumer is the mm30 PHF19 gene-RNA assay with no established validation domain.",
+      "not_established": "The assumption does not validate the procedure, supply empirical standing, establish independence or certify biological reuse.",
+      "status": "provisional"
+    },
     "design:general/independent-groups": {
       "collapses": "Pairing and repeated measures are not modeled by this design declaration.",
       "licenses": "Naming the design actually used by the existing unpaired mm30 estimator.",
@@ -27,7 +33,7 @@
     },
     "procedure-kind:general/estimator": {
       "collapses": "Algorithm, parameters, implementation and input assumptions stay in the procedure record.",
-      "licenses": "Classifying the mm30 Mann–Whitney computation; fills_within_model is false.",
+      "licenses": "Classifying the mm30 Mann\u2013Whitney computation; fills_within_model is false.",
       "not_established": "The kind does not prove correctness, identify a functional without its declaration, or supply empirical standing.",
       "status": "provisional"
     },
@@ -61,5 +67,6 @@
       "not_established": "Raw values are not thereby unprocessed observations or comparable across procedures.",
       "status": "provisional"
     }
-  }
+  },
+  "previous": "assumptions-register:02642579cb0fe2330553586e4c22d56f76a227e14b0d2fe849c6917992c3dbf9"
 }

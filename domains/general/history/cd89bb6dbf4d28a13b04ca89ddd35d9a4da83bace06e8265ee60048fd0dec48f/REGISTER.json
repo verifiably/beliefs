@@ -1,0 +1,65 @@
+{
+  "describes": "general:cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f",
+  "entries": {
+    "design:general/independent-groups": {
+      "collapses": "Pairing and repeated measures are not modeled by this design declaration.",
+      "licenses": "Naming the design actually used by the existing unpaired mm30 estimator.",
+      "not_established": "Independence is not certified; the source cohort's pairing remains a limitation to disclose.",
+      "status": "provisional"
+    },
+    "functional:general/probability-of-superiority": {
+      "collapses": "The comparison summarizes distributions through relative ordering and half-weighted ties.",
+      "licenses": "The half-tie target of the mm30 midrank statistic under the complete property declaration in this design.",
+      "not_established": "A mean difference, causal effect, independent samples, valid uncertainty or a reported effect estimate is not established by a z statistic or p value.",
+      "status": "provisional"
+    },
+    "identification-class:general/observational": {
+      "collapses": "The label alone does not encode a causal identification argument.",
+      "licenses": "Statistical-layer targets in the mm30 analysis.",
+      "not_established": "Causal identification is not licensed.",
+      "status": "provisional"
+    },
+    "procedure-kind:general/assay": {
+      "collapses": "Instrument and processing particulars stay in the procedure record.",
+      "licenses": "Classifying the mm30 RNA quantification procedure; fills_within_model is false.",
+      "not_established": "The label alone establishes neither calibration, valid scope nor a model-specification role.",
+      "status": "provisional"
+    },
+    "procedure-kind:general/estimator": {
+      "collapses": "Algorithm, parameters, implementation and input assumptions stay in the procedure record.",
+      "licenses": "Classifying the mm30 Mann–Whitney computation; fills_within_model is false.",
+      "not_established": "The kind does not prove correctness, identify a functional without its declaration, or supply empirical standing.",
+      "status": "provisional"
+    },
+    "quantity-kind:general/relative-abundance": {
+      "collapses": "Component resolution, normalization and the reference total are retained by the observable and procedure rather than this common quantity label.",
+      "licenses": "A dimensionless quantity kind for the mm30 RNA abundance procedure; it supersedes the provisional transcript-abundance name.",
+      "not_established": "This is not any generic proportion: a probability, membership fraction or power fraction is not relative abundance merely because it is unitless. Equal labels do not make denominators, RNA and protein, or quantification pipelines equivalent.",
+      "status": "provisional"
+    },
+    "selection-mechanism:general/cohort-enrolment": {
+      "collapses": "Recruitment and inclusion particulars stay in the analysis and procedure records.",
+      "licenses": "Naming the sampling mechanism for the mm30 cohort analysis.",
+      "not_established": "Random sampling, representativeness and absence of selection bias are not established.",
+      "status": "provisional"
+    },
+    "template:general/changes-under-intervention": {
+      "collapses": "The relation abstracts over interventions and mechanisms; the estimand and procedures retain the particular intervention and response.",
+      "licenses": "A directed causal question and the target of a narrower literature bridge; first use is the biology successor's regulates bridge in architecture section 10.2.",
+      "not_established": "Observational association or a literature label alone does not establish intervention validity, mechanism or empirical support.",
+      "status": "provisional"
+    },
+    "template:general/covaries-with": {
+      "collapses": "A shared relation groups many possible measures and conditioning schemes; the estimand fixes each one.",
+      "licenses": "A symmetric statistical question; first use is the biology/mm30 analysis specified in the accepted measurement design section 12.",
+      "not_established": "Causation, mechanism, exchangeability and interchangeability of measurements are not established.",
+      "status": "provisional"
+    },
+    "transformation:general/identity": {
+      "collapses": "No transformation is applied; upstream preprocessing remains part of the procedure.",
+      "licenses": "The untransformed numerical response consumed by mm30's rank analysis.",
+      "not_established": "Raw values are not thereby unprocessed observations or comparable across procedures.",
+      "status": "provisional"
+    }
+  }
+}

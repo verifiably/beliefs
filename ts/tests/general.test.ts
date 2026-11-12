@@ -21,6 +21,7 @@ import {
   Qualifier,
   Referent,
   type RoleFilling,
+  SuccessionViolation,
   buildClaim,
   claimIdentity,
   compileProfile,
@@ -34,6 +35,15 @@ const REPO_ROOT = new URL("../../", import.meta.url);
 
 function read(relative: string): string {
   return readFileSync(new URL(relative, REPO_ROOT), "utf-8");
+}
+
+const GENERAL_PATH = "domains/general/DOMAIN.yaml";
+const GENERAL_HISTORY =
+  "domains/general/history/cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f/DOMAIN.yaml";
+
+function parseGeneral(base: ReturnType<typeof parseBaseContract>) {
+  const predecessor = parseDomainContract(read(GENERAL_HISTORY), GENERAL_HISTORY, base);
+  return parseDomainContract(read(GENERAL_PATH), GENERAL_PATH, base, predecessor);
 }
 
 interface FixtureReferent {
@@ -111,9 +121,9 @@ describe("general contract explicit consumer activation", () => {
     const rawGeneral = read(generalPath);
     expect(rawGeneral).toBe(read("python/src/beliefs/domains/general/DOMAIN.yaml"));
     const base = parseBaseContract(read(basePath), basePath);
-    const general = parseDomainContract(rawGeneral, generalPath, base);
+    const general = parseGeneral(base);
     expect(general.namespace).toBe("general");
-    expect(general.version).toBe(1);
+    expect(general.version).toBe(2);
 
     const alone = compileProfile(base, [general]);
     expect(Object.keys(alone.sorts)).toEqual([]);
@@ -133,7 +143,7 @@ describe("general contract explicit consumer activation", () => {
 
   it("refuses consumer compilation when general is omitted and succeeds when activated", () => {
     const base = parseBaseContract(read(basePath), basePath);
-    const general = parseDomainContract(read(generalPath), generalPath, base);
+    const general = parseGeneral(base);
     const consumer = parseDomainContract(read(consumerPath), consumerPath, base);
 
     expect(() => compileProfile(base, [consumer])).toThrow(ProfileError);
@@ -150,7 +160,7 @@ describe("general contract explicit consumer activation", () => {
 
   it("preserves party order-invariance and refuses duplicate-after-NFC members", () => {
     const base = parseBaseContract(read(basePath), basePath);
-    const general = parseDomainContract(read(generalPath), generalPath, base);
+    const general = parseGeneral(base);
     const consumer = parseDomainContract(read(consumerPath), consumerPath, base);
     const profile = compileProfile(base, [general, consumer]);
 
@@ -263,7 +273,9 @@ describe("general cross-language claim parity vector", () => {
     const base = parseBaseContract(read(fixture.base_contract), fixture.base_contract);
     const profile = compileProfile(
       base,
-      fixture.domain_contracts.map((path) => parseDomainContract(read(path), path, base)),
+      fixture.domain_contracts.map((path) =>
+        path === GENERAL_PATH ? parseGeneral(base) : parseDomainContract(read(path), path, base),
+      ),
     );
 
     const byName = new Map<string, FixtureRow>();
@@ -307,5 +319,26 @@ describe("general cross-language claim parity vector", () => {
     expect(decomposedParties.some((m) => m.term === nfdTerm)).toBe(true);
     expect(decomposedRow?.canonical_bytes).not.toContain(nfdTerm);
     expect(decomposedRow?.canonical_bytes).toContain(nfdTerm.normalize("NFC"));
+  });
+});
+
+describe("general procedure-validity successor", () => {
+  it("pins both content identities and requires the exact predecessor", () => {
+    const base = parseBaseContract(read("contracts/science/CONTRACT.yaml"), "<base>");
+    const previous = parseDomainContract(read(GENERAL_HISTORY), GENERAL_HISTORY, base);
+    expect(previous.contentIdentity).toBe("cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f");
+    const current = parseGeneral(base);
+    expect(current.contentIdentity).toBe("e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee");
+    expect(current.predecessor).toBe(previous.contentIdentity);
+    const profile = compileProfile(base, [current]);
+    expect(Object.keys(profile.assumptionKinds)).toEqual(["general/procedure-validity"]);
+    expect(new Set(profile.assumptionKinds["general/procedure-validity"].particulars)).toEqual(
+      new Set(["record", "co_scope", "dimensions"]),
+    );
+    expect(profile.assumptionKinds["general/procedure-validity"].collapses).toBe(
+      "The named procedure's unknown validation domain or recorded scope gap is conditionally accepted for this target.",
+    );
+    expect(() => parseDomainContract(read(GENERAL_PATH), GENERAL_PATH, base)).toThrow(SuccessionViolation);
+    expect(() => parseDomainContract(read(GENERAL_PATH), GENERAL_PATH, base, current)).toThrow(SuccessionViolation);
   });
 });

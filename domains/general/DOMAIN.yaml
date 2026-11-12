@@ -1,6 +1,6 @@
 contract: general
-version: 1
-lineage: genesis
+version: 2
+lineage: {successor: cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f}
 
 sorts: {}
 dimensions: {}
@@ -81,3 +81,9 @@ procedure_kinds:
   estimator:
     definition: A specified computation producing an estimate or analysis output from inputs.
     fills_within_model: false
+
+assumption_kinds:
+  procedure-validity:
+    definition: An explicit assumption that a named procedure is valid in the target scope when its validation scope is unknown or does not establish applicability there.
+    collapses: The named procedure's unknown validation domain or recorded scope gap is conditionally accepted for this target.
+    particulars: [record, co_scope, dimensions]

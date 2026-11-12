@@ -49,6 +49,8 @@ def _copy_fixture_root(tmp_path: Path) -> Path:
         dst = root / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(REPO_ROOT / rel, dst)
+    for prefix in ("domains/general", "python/src/beliefs/domains/general"):
+        shutil.copytree(REPO_ROOT / prefix / "history", root / prefix / "history")
     return root
 
 
@@ -347,6 +349,9 @@ def test_shadow_general_duplicate_register_keys_and_reference_doc_base_version(t
 
 def _write_history(root, resources):
     for prefix in ("domains/general", "python/src/beliefs/domains/general"):
+        history = root / prefix / "history"
+        if history.exists():
+            shutil.rmtree(history)
         for relative, text in resources.items():
             path = root / prefix / relative
             path.parent.mkdir(parents=True, exist_ok=True)

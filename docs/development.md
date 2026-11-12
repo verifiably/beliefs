@@ -233,8 +233,8 @@ preserve predecessors under `history/<contract-content-hex>/` in both canonical 
 packaged directories. `beliefs.contract.shipped.load_domain_history` supplies the
 same checked history to package loading and `check_shipped_contracts.py`; the latter
 also enforces exact reachable inventory and byte equality. Tests use temporary
-resource trees rather than replacing installed resources. General's first successor
-must archive its existing bytes; loading alone never changes a corpus pin.
+resource trees rather than replacing installed resources. General v2 preserves its
+original v1 bytes in that archive; loading alone never changes a corpus pin.
 
 ## Two rules the tests hold closed
 
@@ -311,9 +311,11 @@ change), and add the kind to `KIND_ACTS` as above.
 
 The package ships `general` under `domains/general/` and
 `python/src/beliefs/domains/general/`: `shipped_domain_contract("general")` parses
-`DOMAIN.yaml` against the shipped base, and `shipped_assumptions_register("general")`
-decodes `REGISTER.json` and checks its `describes` digest and complete typed key
-coverage. Every other namespace refuses with `ProfileError`. Field packs keep sorts,
+the current v2 `DOMAIN.yaml` against its archived v1 predecessor and the shipped
+base. `shipped_assumptions_register("general")` checks the register's `describes`,
+complete eleven-entry coverage and immediate-predecessor `previous` link. The v1
+files remain byte-identical in both copies' content-identity `history/` directory
+([history layout](contracts.md#profiles)). Every other namespace refuses with `ProfileError`. Field packs keep sorts,
 instantiations and bridges in their own namespace and activate `general` explicitly;
 `python/tools/check_shipped_contracts.py` rejects non-`general` declarations in the
 shared numerical and methodological tables across shipped and current reproduction

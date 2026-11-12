@@ -44,7 +44,7 @@ from beliefs.estimand import (
 )
 from beliefs.identity import v1
 from beliefs.measurement import Measure, Observable
-from beliefs.procedure import Procedure, Scale
+from beliefs.procedure import Procedure, Scale, procedure_from_stored
 from beliefs.profile import (
     compile_profile,
     shipped_assumptions_register,
@@ -135,7 +135,9 @@ def _build_from_row(profile, claim_row: dict[str, object]):
     )
 
 
-def _synthetic_procedures_and_records() -> tuple[FixtureRecords, str, str, Observable]:
+def _synthetic_procedures_and_records(
+    *, unknown_validation: bool = False
+) -> tuple[FixtureRecords, str, str, Observable]:
     records = FixtureRecords()
     observable = Observable("general/relative-abundance", "general-consumer/analyte")
     assay_id = records.put_procedure(
@@ -145,7 +147,7 @@ def _synthetic_procedures_and_records() -> tuple[FixtureRecords, str, str, Obser
             definition="Synthetic consumer validation scope only; does not certify a real mm30 procedure.",
             yields=(observable,),
             scale=Scale(Fraction(0), Fraction(1_000_000), "higher-is-more"),
-            validated_in={},
+            validated_in="unknown" if unknown_validation else {},
             compatible_with=(),
             evidence=(),
             implementation=None,
@@ -476,7 +478,8 @@ def test_parties_member_bindings_select_response_and_grouping_independently_of_o
         )
 
 
-def test_empirical_general_write_door_round_trip(certified_work: Path):
+@pytest.mark.parametrize("unknown_validation", [False, True])
+def test_empirical_general_write_door_round_trip(certified_work: Path, unknown_validation: bool):
     """Minimal empirical write-door round-trip on the certified volume.
 
     Synthetic validation scope only: holds the canonical `general` assumptions
@@ -489,7 +492,9 @@ def test_empirical_general_write_door_round_trip(certified_work: Path):
     """
     consumer = _load_consumer_contract()
     profile = _load_general_consumer_profile()
-    records, assay_id, estimator_id, observable = _synthetic_procedures_and_records()
+    records, assay_id, estimator_id, observable = _synthetic_procedures_and_records(
+        unknown_validation=unknown_validation
+    )
 
     root = certified_work / "general-write-door"
     try:
@@ -547,7 +552,12 @@ def test_empirical_general_write_door_round_trip(certified_work: Path):
             applicability=Applicability({}),
             records=records,
         )
-        assert estimand.assumptions == ()
+        if unknown_validation:
+            (instance,) = estimand.assumptions
+            assert instance.kind == "general/procedure-validity"
+            assert instance.particulars == {"record": assay_id, "co_scope": "unknown", "dimensions": ""}
+        else:
+            assert estimand.assumptions == ()
         assert estimand.calibration is None
 
         draft = SpecDraft(
@@ -579,6 +589,8 @@ def test_empirical_general_write_door_round_trip(certified_work: Path):
         reopened = reopen(root)
         restored_spec = stored.analysis_spec_value(reopened.get(spec_node.id), profile=profile)
         assert restored_spec == spec
+        restored_assay = procedure_from_stored(reopened.get(assay_id))
+        assert restored_assay.validated_in == ("unknown" if unknown_validation else {})
         assert expected_general_reg_id in restored_spec.registers
         assert set(restored_spec.registers) == {general_reg_node.id, consumer_reg_node.id}
         assert {dep.id for dep in restored_spec.assessed_target.dependencies} == {
@@ -615,7 +627,14 @@ def test_base_v2_to_v3_two_field_transition_preserves_claim_identity():
     assert old_base.content_identity == HISTORICAL_BASE_V2_IDENTITY
     assert new_base.content_identity != HISTORICAL_BASE_V2_IDENTITY
 
-    general_doc = parse_document(GENERAL_CONTRACT_PATH.read_text(encoding="utf-8"), source=str(GENERAL_CONTRACT_PATH))
+    # This isolates the historical base-v2-to-v3 transition using the original general genesis.
+    genesis_path = (
+        GENERAL_CONTRACT_PATH.parent
+        / "history"
+        / "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
+        / "DOMAIN.yaml"
+    )
+    general_doc = parse_document(genesis_path.read_text(encoding="utf-8"), source=str(genesis_path))
     consumer_doc = parse_document(
         CONSUMER_CONTRACT_PATH.read_text(encoding="utf-8"), source=str(CONSUMER_CONTRACT_PATH)
     )

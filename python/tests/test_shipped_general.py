@@ -1,8 +1,9 @@
-"""Shipped `general` genesis contract and canonical assumptions register."""
+"""Shipped `general` successor contract and canonical assumptions register."""
 
 from __future__ import annotations
 
 import json
+import shutil
 from importlib import resources
 from pathlib import Path
 
@@ -29,10 +30,10 @@ from beliefs.register import (
     register_projection,
 )
 
-EXPECTED_GENERAL_CONTENT_IDENTITY = "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
-EXPECTED_GENERAL_COMPILED_IDENTITY = "59ec50903f84249644d6d8bfe98f23c96e49b4f648ef33928f070008de7887ab"
+EXPECTED_GENERAL_CONTENT_IDENTITY = "e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee"
+EXPECTED_GENERAL_COMPILED_IDENTITY = "2df4e0f432ae4bd41f91a7aa76f01a7985c42b9dbb4116997a56d4a431fe202a"
 EXPECTED_GENERAL_REGISTER_IDENTITY = (
-    "assumptions-register:02642579cb0fe2330553586e4c22d56f76a227e14b0d2fe849c6917992c3dbf9"
+    "assumptions-register:6939b589ff96806160232b13cba8b32019c7fc80caba0b4b06b9e7d676c98095"
 )
 
 EXPECTED_DEFINITIONS: dict[tuple[str, str], str] = {
@@ -139,6 +140,16 @@ EXPECTED_ENTRIES: dict[str, RegisterEntry] = {
 }
 
 
+EXPECTED_ENTRIES["assumption-kind:general/procedure-validity"] = RegisterEntry(
+    "The named procedure's unknown validation domain or recorded scope gap is conditionally accepted for this target.",
+    "Recording record, co_scope and dimensions under the binding-aptness interface; the first consumer is the "
+    "mm30 PHF19 gene-RNA assay with no established validation domain.",
+    "The assumption does not validate the procedure, supply empirical standing, establish independence or "
+    "certify biological reuse.",
+    status="provisional",
+)
+
+
 def test_top_level_package_facade_is_unchanged() -> None:
     assert not hasattr(beliefs, "shipped_assumptions_register")
 
@@ -153,12 +164,12 @@ def test_packaged_general_resources_match_canonical_sources_byte_for_byte() -> N
     assert register_source.read_bytes() == packaged_register.read_bytes()
 
 
-def test_shipped_general_contract_has_exact_ten_rows_definitions_and_properties() -> None:
+def test_shipped_general_contract_has_exact_eleven_rows_definitions_and_properties() -> None:
     contract = shipped_domain_contract("general")
     assert shipped_domain_contract("general") is contract
     assert contract.namespace == "general"
-    assert contract.version == 1
-    assert contract.predecessor is None
+    assert contract.version == 2
+    assert contract.predecessor == "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
     assert contract.content_identity == EXPECTED_GENERAL_CONTENT_IDENTITY
 
     # Empty required sections and zero unshipped candidate families in genesis.
@@ -170,7 +181,6 @@ def test_shipped_general_contract_has_exact_ten_rows_definitions_and_properties(
         "estimands",
         "duration_conventions",
         "aggregation_rules",
-        "assumption_kinds",
         "measurements",
         "aspects",
         "units",
@@ -272,16 +282,16 @@ def test_shipped_general_register_matches_inventory_and_stored_round_trip() -> N
     assert profile_module.shipped_assumptions_register("general") is register
     assert isinstance(register, AssumptionsRegister)
     assert register.describes == f"general:{contract.content_identity}"
-    assert register.previous is None
+    assert register.previous == "assumptions-register:02642579cb0fe2330553586e4c22d56f76a227e14b0d2fe849c6917992c3dbf9"
     assert set(register.entries) == register_entry_keys(contract)
-    assert len(register.entries) == 10
+    assert len(register.entries) == 11
     assert dict(register.entries) == EXPECTED_ENTRIES
     assert all(entry.status == "provisional" for entry in register.entries.values())
     assert register_identity(register) == EXPECTED_GENERAL_REGISTER_IDENTITY
 
     raw_json = json.loads((REPO_ROOT / "domains/general/REGISTER.json").read_text(encoding="utf-8"))
     assert raw_json == register_projection(register)
-    assert "previous" not in raw_json
+    assert raw_json["previous"] == register.previous
 
     node = stored.assumptions_register_node(register)
     assert node.id == EXPECTED_GENERAL_REGISTER_IDENTITY
@@ -340,7 +350,7 @@ def test_broken_package_register_bindings_refuse_with_profile_error(
 
     pkg_dir = tmp_path / "domains" / "general"
     pkg_dir.mkdir(parents=True)
-    (pkg_dir / "DOMAIN.yaml").write_bytes((REPO_ROOT / "domains/general/DOMAIN.yaml").read_bytes())
+    shutil.copytree(REPO_ROOT / "domains/general", pkg_dir, dirs_exist_ok=True)
 
     monkeypatch.setattr(resources, "files", lambda _pkg: tmp_path)
 
@@ -385,3 +395,56 @@ def test_broken_package_register_bindings_refuse_with_profile_error(
     profile_module.shipped_assumptions_register.cache_clear()
     profile_module._shipped_domain_history.cache_clear()
     assert contract.namespace == "general"
+
+
+def test_general_successor_preserves_exact_genesis_and_adds_only_validity():
+    from hashlib import sha256
+
+    from beliefs.contract.shipped import load_domain_history
+
+    current = shipped_domain_contract("general")
+    assert current.version == 2
+    root = REPO_ROOT / "domains/general"
+    history = load_domain_history(
+        "general", base=shipped_base_contract(), read_text=lambda path: (root / path).read_text()
+    )
+    assert len(history) == 2
+    old, new = history
+    assert old.contract.content_identity == "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
+    assert new.contract == current
+    assert new.contract.predecessor == old.contract.content_identity
+    assert (
+        new.register.previous == "assumptions-register:02642579cb0fe2330553586e4c22d56f76a227e14b0d2fe849c6917992c3dbf9"
+    )
+    expected_bytes = {
+        "DOMAIN.yaml": "d5e7ec6c792d12d9afb08cdc58f7ce15f8512d09f525769e6ee75369841ac6a7",
+        "REGISTER.json": "96946aaf8ee11ede7ecddbafd27348600dce9ecac35a236342389c1807d12c24",
+    }
+    for name, digest in expected_bytes.items():
+        original = (root / old.directory / name).read_bytes()
+        assert sha256(original).hexdigest() == digest
+        assert (REPO_ROOT / "python/src/beliefs/domains/general" / old.directory / name).read_bytes() == original
+    old_doc = parse_document((root / old.directory / "DOMAIN.yaml").read_text(), source="<genesis>")
+    new_doc = parse_document((root / "DOMAIN.yaml").read_text(), source="<successor>")
+    assert isinstance(old_doc, dict) and isinstance(new_doc, dict)
+    assert set(new_doc) == set(old_doc) | {"assumption_kinds"}
+    for key, value in old_doc.items():
+        if key not in {"version", "lineage"}:
+            assert new_doc[key] == value
+    assert set(new.register.entries) - set(old.register.entries) == {"assumption-kind:general/procedure-validity"}
+    for key, entry in old.register.entries.items():
+        assert new.register.entries[key] == entry
+    assert set(current.assumption_kinds) == {"procedure-validity"}
+    assert set(current.assumption_kinds["procedure-validity"].particulars) == {"record", "co_scope", "dimensions"}
+    assert new_doc["assumption_kinds"]["procedure-validity"]["definition"] == (
+        "An explicit assumption that a named procedure is valid in the target scope when its validation scope "
+        "is unknown or does not establish applicability there."
+    )
+    assert new.register.entries["assumption-kind:general/procedure-validity"] == RegisterEntry(
+        "The named procedure's unknown validation domain or recorded scope gap is conditionally accepted for this target.",
+        "Recording record, co_scope and dimensions under the binding-aptness interface; the first consumer is the "
+        "mm30 PHF19 gene-RNA assay with no established validation domain.",
+        "The assumption does not validate the procedure, supply empirical standing, establish independence or "
+        "certify biological reuse.",
+        status="provisional",
+    )
