@@ -44,21 +44,17 @@ def _validity(
     verdict = co_scope(scope, validity, profile)
     if verdict in {"equal", "narrower"}:
         return None
+    dimensions = ",".join(
+        dimension for dimension, result in co_scope_by_dimension(scope, validity, profile).items() if result != "equal"
+    )
+    return _validity_assumption(profile, id, name, verdict, dimensions)
+
+
+def _validity_assumption(profile: ProfileSpec, id: str, name: str, verdict: str, dimensions: str) -> AssumptionInstance:
     kinds = [term for term in profile.assumption_kinds if term.partition("/")[2] == name]
     if len(kinds) != 1:
         raise ProfileError(f"aptness requires exactly one activated {name!r} assumption kind")
-    instance = AssumptionInstance(
-        kinds[0],
-        {
-            "record": id,
-            "co_scope": verdict,
-            "dimensions": ",".join(
-                dimension
-                for dimension, result in co_scope_by_dimension(scope, validity, profile).items()
-                if result != "equal"
-            ),
-        },
-    )
+    instance = AssumptionInstance(kinds[0], {"record": id, "co_scope": verdict, "dimensions": dimensions})
     check_instance(profile, instance)
     return instance
 
@@ -131,7 +127,12 @@ def check_aptness(
 
     check_held_rule_scope(profile, scope, classes_of=held_rule_classes)
     assumptions: list[AssumptionInstance] = []
-    validity = _validity(profile, scope, procedure.validated_in, measure.procedure, "procedure-validity")
+    if procedure.validated_in == "unknown":
+        validity = _validity_assumption(
+            profile, measure.procedure, "procedure-validity", "unknown", ",".join(sorted(scope))
+        )
+    else:
+        validity = _validity(profile, scope, procedure.validated_in, measure.procedure, "procedure-validity")
     if validity is not None:
         assumptions.append(validity)
     if model is not None:

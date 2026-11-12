@@ -417,3 +417,20 @@ def test_frozen_callback_cannot_bind_a_wrong_actual_assessment_facet(profile):
                 actual.id, "0" * 64, actual.terms, actual.dependencies
             ),
         )
+
+
+def test_unknown_validation_closure_keeps_procedure_dependencies(profile):
+    authority = procedure(name="authority", scale=Scale(Fraction(0), Fraction(1), "higher-is-more"))
+    follower = procedure(validated_in="unknown", scale=SameAs(procedure_identity(authority)))
+    records = Records(authority, follower)
+    result = dependency_closure((procedure_identity(follower),), records, profile)
+    assert {entry.id for entry in result} == {procedure_identity(authority), procedure_identity(follower)}
+    assert next(entry.terms for entry in result if entry.id == procedure_identity(follower)) == (
+        "testing/energy",
+        "testing/energy-aspect",
+        "testing/event",
+        "testing/instrument",
+    )
+    del records.nodes[procedure_identity(authority)]
+    with pytest.raises(errors.DependencyNotHeld):
+        dependency_closure((procedure_identity(follower),), records, profile)

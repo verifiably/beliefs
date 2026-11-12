@@ -261,3 +261,40 @@ def test_scale_reader_refuses_numeric_bounds_and_noncanonical_numeric_spelling()
         facet = procedure_projection(value) | {"scale": {"range": bounds, "orientation": "higher-is-more"}}
         with pytest.raises(MalformedRecord):
             procedure_from_stored(node_for("procedure", procedure_identity(value), facet))
+
+
+def test_unknown_validation_is_distinct_and_round_trips():
+    from beliefs.restriction import TermRestriction
+
+    universal = procedure()
+    known = procedure(validated_in={"testing/stage": TermRestriction("testing/stage", "EX:a")})
+    assert procedure_identity(universal) == "procedure:9f77d7564f00e17fa0119331b4de3c1d347d58d8f1b83031b679044e3abff4ce"
+    assert procedure_identity(known) == "procedure:2b015237ba6c2f55d80dc48dc42fd47067b3187eba82f7e8e2750c0a338d90e5"
+    unknown = procedure(validated_in="unknown")
+    facet = procedure_projection(unknown)
+    assert facet["validated_in"] == "unknown"
+    v1.encode(facet)
+    assert len({procedure_identity(v) for v in (universal, known, unknown)}) == 3
+    assert procedure_from_stored(node_for("procedure", procedure_identity(unknown), facet)) == unknown
+    with pytest.raises(MalformedRecord):
+        procedure_from_stored(node_for("procedure", procedure_identity(universal), facet))
+
+
+@pytest.mark.parametrize("value", [None, "", "UNKNOWN", "unvalidated", 0, False, [], ["unknown"]])
+def test_only_exact_unknown_tag_or_restriction_map_is_valid(value):
+    with pytest.raises(MalformedRecord):
+        procedure(validated_in=value)
+    facet = procedure_projection(procedure()) | {"validated_in": value}
+    with pytest.raises(MalformedRecord):
+        procedure_from_stored(node_for("procedure", PID, facet))
+
+
+def test_validation_is_required_and_null_is_not_identity_encodable():
+    from beliefs.errors import IdentityError
+
+    facet = procedure_projection(procedure())
+    del facet["validated_in"]
+    with pytest.raises(MalformedRecord):
+        procedure_from_stored(node_for("procedure", PID, facet))
+    with pytest.raises(IdentityError):
+        v1.encode(procedure_projection(procedure()) | {"validated_in": None})

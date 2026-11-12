@@ -189,7 +189,8 @@ def walk(value: WalkValue, profile: ProfileSpec) -> Walk:
             terms.add(value.kind)
             for observable in value.yields:
                 visit(observable)
-            visit(value.validated_in)
+            if value.validated_in != "unknown":
+                visit(value.validated_in)
             if isinstance(value.scale, SameAs):
                 references.add(value.scale.authority)
         elif isinstance(value, ReferentMapping):
@@ -298,7 +299,7 @@ def dependency_closure(
             follow(reference)
         if isinstance(value, ClassificationRule):
             rule_classes[id] = value.classes
-        elif isinstance(value, Procedure):
+        elif isinstance(value, Procedure) and value.validated_in != "unknown":
             check_held_rule_scope(profile, value.validated_in, classes_of=rule_classes.__getitem__)
         elif isinstance(value, ProxyModel):
             check_held_rule_scope(profile, value.validity, classes_of=rule_classes.__getitem__)

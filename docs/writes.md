@@ -74,11 +74,17 @@ aspect sort must also be declared and admitted for the quantity kind. Pair
 admission in the `measurements` table is checked during binding aptness. See
 [binding aptness](records.md#binding-aptness).
 
-Procedures also require a declared procedure kind, typed `validated_in`, an
-authoritative held `same_as` procedure when present, and `inputs` exactly for
-`fills_within_model` kinds. Referent mappings require declared source and target
-sorts and any aggregation rule. Classification rules require a declared classes
-sort. Proxy models require a held source procedure, an authoritative held
+Procedures also require a declared procedure kind, `validated_in` as a typed
+restriction map or the exact tag `"unknown"`, an authoritative held `same_as`
+procedure when present, and `inputs` exactly for `fills_within_model` kinds.
+Unknown validation skips only the map/rule check and preserves the exact tag.
+Empty maps still assert universal validation; missing/null/other scalar values
+refuse. Existing map identities and the `science.procedure.v1` domain are
+unchanged; older readers refuse tagged records.
+
+Referent mappings require declared source and target sorts and any aggregation
+rule. Classification rules require a declared classes sort.
+Proxy models require a held source procedure, an authoritative held
 `scale_of` when present, typed validity, and valid assumption particulars for
 the basis and any calibration transfer. A rule in `validated_in` or proxy
 validity, including a union member, must resolve in the supplied view to a

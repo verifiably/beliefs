@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass
 from fractions import Fraction
+from typing import Literal
 
 from nodes.core.node import Node
 
@@ -24,6 +25,7 @@ __all__ = [
     "Procedure",
     "SameAs",
     "Scale",
+    "ValidationScope",
     "procedure_from_stored",
     "procedure_identity",
     "procedure_projection",
@@ -31,6 +33,8 @@ __all__ = [
 
 PROCEDURE_DOMAIN = "science.procedure.v1"
 PROCEDURE_KIND = PROCEDURE_FACET = "procedure"
+
+ValidationScope = Mapping[str, Restriction] | Literal["unknown"]
 
 
 @dataclass(frozen=True)
@@ -95,7 +99,7 @@ class Procedure:
     definition: str
     yields: tuple[Observable, ...]
     scale: Scale | SameAs | None
-    validated_in: Mapping[str, Restriction]
+    validated_in: ValidationScope
     compatible_with: tuple[str, ...]
     evidence: tuple[str, ...]
     implementation: Implementation | None
@@ -110,7 +114,8 @@ class Procedure:
         object.__setattr__(self, "yields", record.observables(self.yields))
         if self.scale is not None and not isinstance(self.scale, (Scale, SameAs)):
             raise MalformedRecord("scale must be a range or same_as")
-        object.__setattr__(self, "validated_in", record.scopes(self.validated_in))
+        if self.validated_in != "unknown":
+            object.__setattr__(self, "validated_in", record.scopes(self.validated_in))
         for name, kind in (("compatible_with", "procedure"), ("evidence", "assessment")):
             values = record.sequence(getattr(self, name), lambda v, kind=kind: record.address(v, kind))
             object.__setattr__(self, name, tuple(sorted(set(values))))
@@ -152,7 +157,7 @@ def procedure_projection(value: Procedure) -> dict[str, object]:
         "name": value.name,
         "definition": value.definition,
         "yields": [observable_projection(row) for row in value.yields],
-        "validated_in": record.scope_projection(value.validated_in),
+        "validated_in": "unknown" if value.validated_in == "unknown" else record.scope_projection(value.validated_in),
         "compatible_with": list(value.compatible_with),
         "evidence": list(value.evidence),
         "parameters": dict(value.parameters),
@@ -208,7 +213,7 @@ def _procedure_from(value: object) -> Procedure:
         record.text(fields["definition"], "definition"),
         record.sequence(fields["yields"], record.observable),
         scale,
-        record.scopes(fields["validated_in"], stored=True),
+        "unknown" if fields["validated_in"] == "unknown" else record.scopes(fields["validated_in"], stored=True),
         record.sequence(fields["compatible_with"], lambda v: record.address(v, "procedure")),
         record.sequence(fields["evidence"], lambda v: record.address(v, "assessment")),
         _implementation_from(fields["implementation"]) if "implementation" in fields else None,

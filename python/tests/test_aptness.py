@@ -16,7 +16,7 @@ from beliefs.measurement import Aspect, Measure, Observable
 from beliefs.procedure import SameAs, Scale
 from beliefs.proxy_model import ProxySource, ProxyTarget
 from beliefs.referent_mapping import ReferentMapping
-from beliefs.restriction import IntervalRestriction, RuleRestriction
+from beliefs.restriction import IntervalRestriction, RuleRestriction, TermRestriction
 
 
 @pytest.fixture()
@@ -370,3 +370,66 @@ def test_yield_is_checked_without_any_scale(profile):
     measure = replace(measure, observable=replace(OBS, aspect=None))
     with pytest.raises(errors.ProcedureYieldMismatch):
         apt(profile, records, measure, role="testing/event")
+
+
+@pytest.mark.parametrize("scope", [{}, SCOPE, {"testing/stage": TermRestriction("testing/stage", "EX:b"), **SCOPE}])
+def test_unknown_validation_always_requires_assumption(profile, scope):
+    records, measure, _, _ = setup_binding(validated_in="unknown")
+    result = apt(profile, records, measure, scope=scope, role="testing/event")
+    assert result.assumptions == (
+        AssumptionInstance(
+            "testing/procedure-validity",
+            {"record": measure.procedure, "co_scope": "unknown", "dimensions": ",".join(sorted(scope))},
+        ),
+    )
+
+
+@pytest.mark.parametrize("count", [0, 2])
+def test_unknown_validation_requires_one_activated_kind(base_contract, testing_document, count):
+    from copy import deepcopy
+
+    from beliefs.contract.domain import parse_domain_contract
+    from beliefs.profile import compile_profile
+
+    documents = [deepcopy(testing_document)]
+    if count == 0:
+        del documents[0]["assumption_kinds"]["procedure-validity"]
+    else:
+        documents.append(
+            {
+                "contract": "other",
+                "version": 1,
+                "lineage": "genesis",
+                "sorts": {},
+                "dimensions": {},
+                "assumption_kinds": {
+                    "procedure-validity": deepcopy(testing_document["assumption_kinds"]["procedure-validity"])
+                },
+            }
+        )
+    profile = compile_profile(
+        base_contract,
+        [parse_domain_contract(d, source="<validity>", base=base_contract, predecessor=None) for d in documents],
+    )
+    records, measure, _, _ = setup_binding(validated_in="unknown")
+    with pytest.raises(errors.ProfileError, match="exactly one"):
+        apt(profile, records, measure, role="testing/event")
+
+
+def test_unknown_and_incomparable_validation_are_disambiguated_by_record(profile):
+    from beliefs.assumptions import instance_projection
+    from beliefs.procedure import procedure_from_stored
+    from beliefs.restriction import TermRestriction
+
+    scope = {"testing/stage": TermRestriction("testing/stage", "EX:b")}
+    known = {"testing/stage": TermRestriction("testing/stage", "EX:a")}
+    instances = []
+    for validation in ("unknown", known):
+        records, measure, _, _ = setup_binding(validated_in=validation)
+        result = apt(profile, records, measure, scope=scope, role="testing/event")
+        (instance,) = result.assumptions
+        assert instance.particulars["co_scope"] == "unknown"
+        assert instance.particulars["dimensions"] == "testing/stage"
+        assert procedure_from_stored(records.read(instance.particulars["record"])).validated_in == validation
+        instances.append(instance_projection(instance))
+    assert instances[0] != instances[1]

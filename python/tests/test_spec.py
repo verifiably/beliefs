@@ -778,3 +778,40 @@ def test_restore_reads_registers():
         mapping["registers"] = bad
         with pytest.raises(MalformedRecord, match="register"):
             restore(*_identified(mapping), profile=TESTING_PROFILE)
+
+
+def test_freeze_recovery_distinguishes_unknown_validation_from_incomparable_map():
+    from fixtures_cut3 import RESPONSE, TESTING_CLAIM, TESTING_PROFILE, FixtureRecords
+
+    from beliefs.procedure import procedure_from_stored
+    from beliefs.restriction import TermRestriction
+
+    application = typed_applicability(
+        {"testing/stage": ScopedRestriction("generic", TermRestriction("testing/stage", "EX:b"))}
+    )
+    original = procedure_from_stored(MEASUREMENT_RECORDS.read(YIELDING_PROCEDURE))
+    specs = []
+    for validation in ("unknown", {"testing/stage": TermRestriction("testing/stage", "EX:a")}):
+        records = FixtureRecords()
+        records.nodes.update(MEASUREMENT_RECORDS.nodes)
+        assay_id = records.put_procedure(dataclasses.replace(original, validated_in=validation))
+        response = dataclasses.replace(RESPONSE, measure=dataclasses.replace(RESPONSE.measure, procedure=assay_id))
+        bindings = dict(typed_estimand().bindings) | {"response": response}
+        estimand = typed_estimand(bindings=bindings, applicability=application, records=records)
+        spec = freeze(
+            draft(estimand=estimand, applicability=application),
+            held_rules=held_rules(),
+            profile=TESTING_PROFILE,
+            claim=TESTING_CLAIM,
+            records=records,
+            rule_procedures={"median-difference/v1": ESTIMATOR_PROCEDURE},
+        )
+        restored = stored.analysis_spec_value(stored.analysis_spec_node(spec), profile=TESTING_PROFILE)
+        assert restored == spec
+        (instance,) = restored.estimand.assumptions
+        assert instance.particulars == {"record": assay_id, "co_scope": "unknown", "dimensions": "testing/stage"}
+        assert assay_id in {entry.id for entry in restored.assessed_target.dependencies}
+        assert procedure_from_stored(records.read(assay_id)).validated_in == validation
+        specs.append(restored)
+    assert specs[0].identity != specs[1].identity
+    assert specs[0].assessed_target != specs[1].assessed_target

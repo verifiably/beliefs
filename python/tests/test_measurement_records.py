@@ -137,9 +137,10 @@ def test_a_malformed_facet_is_refused_at_add_and_reported_by_corpus_check(tmp_pa
         ({"scale": SameAs(PID)}, "same_as"),
     ],
 )
-def test_procedure_door_checks(tmp_path, changes, clause):
+@pytest.mark.parametrize("validation", [{}, "unknown"])
+def test_procedure_door_checks(tmp_path, changes, clause, validation):
     writer = _testing_writer(tmp_path / "corpus")
-    node = build("procedure", procedure(**changes))
+    node = build("procedure", procedure(**({"validated_in": validation} | changes)))
     with pytest.raises(errors.MeasurementRecordRefused, match=clause) as raised:
         writer.add(node)
     assert node.id in str(raised.value)
@@ -577,3 +578,23 @@ def test_calibration_reads_assessments_and_specs_through_read_mounts(tmp_path, o
     else:
         with pytest.raises(errors.CalibrationNotQualified, match="calibration-not-supported"):
             writer.add(node)
+
+
+def test_unknown_validation_mints_and_reopens(certified_work):
+    from beliefs.procedure import procedure_from_stored
+
+    writer = _testing_writer(certified_work / "unknown-validation")
+    writer.add(
+        stored.assumptions_register_node(
+            AssumptionsRegister("testing:" + writer.profile.activated_contracts["testing"], None, {})
+        )
+    )
+    values = [
+        procedure(validated_in=scope)
+        for scope in ("unknown", {}, {"testing/stage": TermRestriction("testing/stage", "EX:a")})
+    ]
+    nodes = [writer.add(stored.procedure_node(value)) for value in values]
+    assert len({node.id for node in nodes}) == 3
+    view = reopen(writer.root)
+    assert [procedure_from_stored(view.get(node.id)) for node in nodes] == values
+    assert corpus_check(view, writer.profile) == ()

@@ -708,23 +708,29 @@ their pair is absent from the `measurements` table. For pair admission, see
 #### Procedure
 
 A procedure includes its kind term, name, normative definition, distinct sorted
-complete observables in `yields`, validation restrictions, compatible procedure ids,
-assessment evidence ids and parameters. It can carry a pinned implementation,
+complete observables in `yields`, a required `validated_in` field, compatible
+procedure ids, assessment evidence ids and parameters. It can carry a pinned implementation,
 dataset/code inputs and an external definition mapping (`exact`, `narrower`,
 `broader` or `contextual`). Its optional scale is either a range with low < high and
 an orientation (`higher-is-more` or `higher-is-less`), making it an authority, or
 `same_as`, naming another procedure's authority. Scale bounds and crosswalk
 coefficients have exact finite decimal string projections under the shared
 4096-digit and exponent budget; values with no exact supported projection refuse.
-Validation restrictions retain their optional duration convention. The procedure
-kind must be declared, each yield must pass the observable checks above, and
+`validated_in` is a typed restriction map or the exact string `"unknown"`.
+The tag means no established validation domain; it does not assert invalidity or
+that validation has never occurred. An empty map asserts universal validation.
+Missing values, null and other scalars refuse. Map projections and identities are
+unchanged; the tag has distinct canonical bytes under `science.procedure.v1`.
+Older readers refuse tagged procedures. Validation restrictions retain their
+optional duration convention. The procedure kind must be declared, each yield
+must pass the observable checks above, and
 `inputs` must be present exactly when its kind declares `fills_within_model`.
 A `same_as` id must name a held procedure that declares its own scale range.
 Compatible-procedure and evidence ids are checked for shape, without requiring
 those records to be held.
 
-Validation and proxy-validity scopes must pass `type_restriction_map` under the
-writer's profile. Applicability dimensions need not apply to a particular operator.
+Known procedure-validation maps and proxy-validity scopes must pass
+`type_restriction_map` under the writer's profile. Applicability dimensions need not apply to a particular operator.
 A rule restriction, including each rule member of a union, must cite a held
 classification rule whose classes sort matches the dimension's declared classes
 sort. Its class terms must fit that sort's identifier class. The check reads the
@@ -813,6 +819,12 @@ both the procedure's validation scope and any proxy's validity scope. Equal or
 narrower scope adds nothing. Every other verdict adds
 an instance of the activated `procedure-validity` or `proxy-validity` assumption
 kind, with `record`, `co_scope` and comma-joined, sorted nonequal `dimensions`.
+For a procedure tagged `"unknown"`, aptness always adds `procedure-validity`,
+including for an unrestricted target, with `co_scope: unknown` and every target
+scope dimension sorted and comma-joined (an empty string for an empty scope).
+The immutable procedure named by `record` distinguishes an unestablished domain
+from a known map whose restrictions could not be compared. The assumption
+conditionally accepts the gap; it supplies no validation evidence.
 Exactly one activated contract must declare the required kind by local name.
 An assumption-based proxy also contributes its checked basis instance. Returned
 assumptions are distinct and sorted by canonical projection.
@@ -830,7 +842,8 @@ read. Ordinary interval units also contribute their quantity kinds. Unheld
 references refuse, cycles refuse, and stored readers enforce canonical facets
 and content addresses. While following a procedure or proxy scope, the closure
 also checks that each cited rule has the dimension's classes sort and that the
-class terms fit it. Calibration assessments require an explicit frozen-assessment callback. The walk
+class terms fit it. The unknown tag has no scope terms or rule dependencies; all
+other procedure dependencies remain included. Calibration assessments require an explicit frozen-assessment callback. The walk
 checks its facet digest against the held record, copies its consulted terms and
 follows its complete frozen dependency set. Estimand authoring and spec freeze
 use this walk; omitting the callback when an assessment is reached refuses.

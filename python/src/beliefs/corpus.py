@@ -4643,7 +4643,8 @@ class CorpusWriter:
             assert declaration is not None
             for observable in procedure.yields:
                 checked("yields", lambda observable=observable: check_observable(self._profile, observable))
-            scope("validated_in", scope_projection(procedure.validated_in))
+            if procedure.validated_in != "unknown":
+                scope("validated_in", scope_projection(procedure.validated_in))
             if isinstance(procedure.scale, SameAs):
                 held_procedure(procedure.scale.authority, "scale.same_as", authority=True)
             if (procedure.inputs is not None) != declaration.fills_within_model:
