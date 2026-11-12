@@ -135,6 +135,70 @@ and estimand grammars require version 2; measurement grammar requires version 1.
 
 A writer requires the identity of the shipped base contract.
 
+## Kernel commitments (Layer 0 register)
+
+The kernel is domain-independent, but its representation is not assumption-free.
+This register describes the shipped base version 3 and the operations that use it:
+claim and estimand grammars 2, measurement and composite grammars 1. It records
+what those choices preserve, what they leave unestablished, and the identity cost
+of changing them. Update it when the corresponding behavior changes.
+
+There are four places for commitments:
+
+- **Kernel structure**, recorded here: the closed grammars, identity projections,
+  admission and aggregation rules that every field uses.
+- **Shared vocabulary**, declared by `general`: cross-domain meanings such as
+  quantity kinds, units and relation templates. Activating the pack is explicit;
+  its terms are not built into a claim's grammar.
+- **Field vocabulary**, declared by a field contract: its sorts, bindings,
+  instantiations and bridges, with their scientific commitments.
+- **Analysis particulars**, frozen in the spec: measured bindings, procedures,
+  estimand, applicability, assumptions and dependencies.
+
+Domain declarations have their own immutable
+[assumptions registers](records.md#assumptions-registers), bound to the exact
+contract they describe. Each entry says what it collapses, what it licenses and
+what it does not establish. This Layer 0 reference is documentation, not a held
+register record; editing its prose changes no semantic identity.
+
+### Identity costs
+
+Changing a contract document changes its content identity and requires matching
+corpus pins. It does **not** by itself change every claim identity. The
+[claim projection](records.md#identity) contains identifiers, tags and member
+coefficients, not contract digests, sort bindings or compiled-profile identity.
+A changed projected value changes that claim's identity; changing the projection
+shape or its digest domain changes the identity scheme. The v1-to-v2 claim
+projection change requires recreation, with no identity-preserving mapping.
+
+Contracts consulted during evaluation enter the
+[belief input digest](records.md#beliefs), so a changed consulted contract changes
+that provenance even when the claim bytes stay the same. This separation does
+not permit changing an identifier's meaning in place: domain
+[succession](#succession-and-retirement) preserves meaning-bearing fields. New meanings need
+new identifiers. Analysis particulars instead enter the frozen spec and assessed
+target; changing them can change the spec and assessed-proposition key while
+leaving the broader claim unchanged.
+
+### Commitments and limits
+
+| Commitment | What it preserves and leaves unestablished | Identity cost |
+|---|---|---|
+| **Claim shape and relation meaning.** A claim has an operator, named roles, qualifiers, form, polarity and layer. Templates separate relation meaning from the sort combinations admitted by instantiations; bridges declare their relation to a template. | A typed relation is distinct from its prose description. Typing and a declared bridge mapping do not establish that the relationship holds scientifically. Choosing an instantiation admits a claim; the instantiation's name is not a projected claim field. | Changing an operator, role name, role referent or member coefficient changes the claim. Changing admission declarations changes the contract and consulted provenance, without adding the instantiation name to the claim. |
+| **Quantifiers, form and polarity.** Qualifiers use `generic`, `universal` or `existential`; claims use `polar` or `"null"`, with `positive`, `negative`, `unsigned`, or the sign-inapt tag as typing permits. | Generic is distinct from universal. Unsigned is distinct from having no applicable sign. A null claim is distinct from an inconclusive assessment; its quantitative margin belongs to the estimand. These tags do not prove an effect or its absence. | These tags enter the claim projection. Changing a projected tag changes the claim; changing the base declaration changes contract identity separately. |
+| **Four layers.** `causal`, `structural`, `statistical` and `methodological` are the shipped layer vocabulary. | Layer separates kinds of question. Marking a claim causal is not causal identification; the analysis carries its identification, design and selection commitments. | Layer enters claim identity. The same roles and operator at different layers name different claims. |
+| **Sorted referents and scoped questions.** A role referent carries both sort and term. Claim qualifiers remain a flat map with one quantified referent restriction per dimension. Numeric, interval, union, time and rule restrictions belong to typed applicability. | Distinct sorts preserve distinctions that a shared label could hide. A vocabulary binding does not equate a gene with a protein. Claim typing alone does not prove vocabulary membership; decoding reports resolution against an explicit snapshot. Applicability comparison does not infer undeclared containment. | Sort identifiers and claim-side restrictions enter claim identity; binding releases do not. Applicability enters the spec and assessed target. Moving a dimension between placements changes how the question is represented. |
+| **One observable per measure.** An observable has one quantity kind, a bearer sort and an optional aspect. A measure adds a unit or procedure-defined scale, level, value type, transformation and yielding procedure. | Measurement identity keeps the bearer and method explicit. Coordinate conversion is separate from semantic comparability; convertible numbers need not estimate the same thing. Mappings and proxies carry their own assumptions and validity. | Measures and frozen procedure, mapping and proxy dependencies enter the spec and assessed target. Changing these does not automatically change the claim's projected roles. |
+| **Six estimand forms and keyed assessment.** `contrast`, `quantity`, `law-parameters`, `event-locked`, `association` and `enrichment` have typed bindings, a functional, control, assumptions and output. | A claim names the shared question; the assessed target states what this analysis estimated. Evaluation is per claim and assessed-proposition key. Pairwise conversion and synthesis verdicts do not pool results. | Changing target content, applicability, standing or frozen dependencies changes the key as defined by its projection. A changed spec is a new spec; the broader claim may remain identical. |
+| **Three standing routes.** Empirical admission requires an observed input with empirical standing. Model admission binds the claim's model procedure. Calibrated-model admission requires eligible calibration dependencies. | Reproduction, current dependency eligibility and independence are separate checks. Model replication is not independent empirical corroboration. Empty dependency roots never certify independence. Source assertions have no direct counting route. | Standing and frozen dependency identities enter the assessed key. Later verification or retraction can change eligibility and belief provenance without changing that frozen key. |
+| **DAG-only composites.** Members are polar causal claims with declared edges whose endpoint roles each hold one referent; cycles are refused. | A composite records a directed acyclic structure, not arbitrary feedback, a joint probability model or a separately assessable hypothesis. An assessment cannot target a composite. | Grammar, shape, sorted nodes and member claim identities enter composite identity. Changing these creates a different composite; changing a member's claim can change the composite that names it. |
+| **Explicit aggregation policy.** `science.belief.v1` uses unit-weight directional assessments and certified dependency relationships, with an exact rule and implementation binding. | The result is a signed evidence balance, never a probability or odds. Counting does not validate a field label, a mechanism, a proxy interpretation or the appropriateness of an authored scientific assumption. | Changing the policy requires a different policy binding. It changes the derivation being requested, not the claim projection. |
+
+The record-level rules are in [claims](records.md#propositions-and-claims),
+[measurement records](records.md#measurement-records),
+[standing](records.md#declared-standing-at-write-boundaries),
+[composites](records.md#other-world-records) and [beliefs](records.md#beliefs).
+
 ## Domain contracts
 
 A domain contract requires `contract` (its namespace), `version` (a positive

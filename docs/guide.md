@@ -38,8 +38,10 @@ gives the wider picture.
    is not.
 4. **A run captures a complete execution.** The frozen plan, the held inputs, the
    code, the environment, the parameters and the outputs are all on the record.
-5. **Only a reproduced assessment of held data bears on belief.** A paper's
-   statement is recorded as a source assertion and never counts as evidence.
+5. **Only an admitted assessment bears on belief.** Empirical, model and
+   calibrated-model assessments have separate standing requirements and counting
+   keys. A paper's statement is recorded as a source assertion and has no direct
+   counting route.
 6. **History is additive.** Supersession and retraction are new records. Every
    change made through beliefs, a deletion included, is entered in the root's
    log, where audit can find it.
@@ -52,8 +54,17 @@ contracts + corpus manifest ──▶ compiled profile, which checks every write
 
 ## Claims and belief
 
+The kernel makes representational choices shared by every field: its claim
+forms, layers, measurement structure and rules for counting evidence. The
+[kernel commitments register](contracts.md#kernel-commitments-layer-0-register)
+states what those choices preserve, their limits and their identity costs.
+Activated contracts supply shared and field-specific vocabulary; their immutable
+[assumptions registers](records.md#assumptions-registers) state what each
+declaration collapses and licenses. The analysis spec names the register revisions
+it relies on. Recording an assumption does not establish that it is appropriate.
+
 A claim is a small structure, not a sentence. The **operator** (for example
-*affects*) names the roles the claim fills (such as *cause* and *effect*), each
+`general/covaries-with`) names the roles the claim fills (such as *parties*), each
 with one referent or a set of members; its instantiations say which sorts may
 fill each role. The operator also fixes whether the claim has a direction,
 whether it may be stated as a null (absent) effect, and which layers (causal,
@@ -66,9 +77,14 @@ attached to exactly what they assessed. The rules are in
 
 An **assessment** is the result of one run of a frozen analysis against one
 proposition: `supported`, `refuted` or `inconclusive`, together with the typed
-assessed target and optional named estimates. It counts toward belief only when its run observes held
-data, every input of the run is held, and a verification that passed in a clean
-environment admits it.
+assessed target and optional named estimates. It counts toward belief only when
+its run and inputs are held, its verification state admits it, and its frozen
+dependencies remain eligible. Empirical assessments additionally require observed
+data with empirical standing; model assessments name a held model procedure, and
+calibrated-model assessments also depend on eligible calibrations. These routes
+keep separate assessed-proposition keys; reproducing a model does not turn its
+result into empirical corroboration. See the
+[standing rules](records.md#declared-standing-at-write-boundaries).
 
 A **belief** is calculated when you ask for it, never stored. You name the policy
 exactly (`PolicyBinding`). The shipped policy, `science.belief.v1`, returns a signed
