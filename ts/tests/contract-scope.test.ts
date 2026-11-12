@@ -144,18 +144,18 @@ describe("the v2 testing document", () => {
   it("reads each of the six binding arms", () => {
     expect(contract.sorts.entity.binding).toEqual({ kind: "release", namespace: "EX", release: "2026-01-01" });
     expect(contract.sorts.method.binding).toEqual({ kind: "scheme", scheme: "EX", version: "1" });
-    expect(contract.sorts.cohort.binding).toEqual({ kind: "dataset", dataset: `dataset:${HEX("0")}` });
+    expect(contract.sorts.cohort.binding).toEqual({ kind: "dataset", dataset: `dataset:sha256:${HEX("0")}` });
     expect(contract.sorts.event.binding).toEqual({
       kind: "selection",
-      dataset: `dataset:${HEX("1")}`,
+      dataset: `dataset:sha256:${HEX("1")}`,
       rule: `classification-rule:${HEX("2")}`,
-      selected: `dataset:${HEX("3")}`,
+      selected: `dataset:sha256:${HEX("3")}`,
       annotator: "EX-annotator",
     });
     expect(contract.sorts.product.binding).toEqual({
       kind: "run-output",
       run: `run:${HEX("4")}`,
-      dataset: `dataset:${HEX("5")}`,
+      dataset: `dataset:sha256:${HEX("5")}`,
     });
     expect(contract.sorts["procedure-spec"].binding).toEqual({ kind: "world-kind", worldKind: "procedure" });
   });
@@ -469,9 +469,9 @@ describe("the domain grammar's refusals, mirrored from the Python parser", () =>
 
   const selection = (overrides: Document) => ({
     kind: "selection",
-    dataset: `dataset:${HEX("0")}`,
+    dataset: `dataset:sha256:${HEX("0")}`,
     rule: `classification-rule:${HEX("0")}`,
-    selected: `dataset:${HEX("0")}`,
+    selected: `dataset:sha256:${HEX("0")}`,
     annotator: "EX",
     ...overrides,
   });
@@ -479,21 +479,22 @@ describe("the domain grammar's refusals, mirrored from the Python parser", () =>
   it.each([
     [{ kind: "ontology", namespace: "EX", release: "1" }, /kind/],
     [{ namespace: "EX", release: "1" }, /kind/],
-    [{ kind: "release", namespace: "EX", release: "1", dataset: `dataset:${HEX("0")}` }, /unknown field/],
-    [{ kind: "dataset", dataset: `dataset:${HEX("0")}`, release: "1" }, /unknown field/],
+    [{ kind: "release", namespace: "EX", release: "1", dataset: `dataset:sha256:${HEX("0")}` }, /unknown field/],
+    [{ kind: "dataset", dataset: `dataset:sha256:${HEX("0")}`, release: "1" }, /unknown field/],
     [{ kind: "release", namespace: "EX" }, /missing field/],
     [{ kind: "release", namespace: "EX", release: "" }, /empty string/],
     [{ kind: "release", namespace: "cafe\u0301", release: "1" }, /NFC/],
     [{ kind: "release", namespace: "EX", release: 2026 }, /not a string/],
     [{ kind: "scheme", scheme: "EX", version: null }, /not a string/],
     [{ kind: "dataset", dataset: HEX("0") }, /dataset:/],
-    [{ kind: "dataset", dataset: `dataset:${HEX("A")}` }, /dataset:/],
+    [{ kind: "dataset", dataset: `dataset:sha256:${HEX("A")}` }, /dataset:/],
     [{ kind: "dataset", dataset: `sha256:${HEX("0")}` }, /dataset:/],
     [selection({ rule: `procedure:${HEX("0")}` }), /classification-rule:/],
+    [selection({ rule: `dataset:sha256:${HEX("0")}` }), /classification-rule:/],
     [selection({ selected: "dataset:abc" }), /dataset:/],
-    [{ kind: "run-output", run: `dataset:${HEX("0")}`, dataset: `dataset:${HEX("0")}` }, /run:/],
+    [{ kind: "run-output", run: `dataset:sha256:${HEX("0")}`, dataset: `dataset:sha256:${HEX("0")}` }, /run:/],
     [{ kind: "run-output", run: `run:${HEX("0")}`, dataset: `run:${HEX("0")}` }, /dataset:/],
-    [`dataset:${HEX("0")}`, /mapping/],
+    [`dataset:sha256:${HEX("0")}`, /mapping/],
   ])("refuses the malformed binding %j", (binding, pattern) => {
     refuses((document) => {
       document.sorts.entity.binding = binding;
@@ -636,4 +637,50 @@ describe("a cross-contract reference", () => {
     const bare = CROSSING.replace("cause: [testing/entity]", "cause: [entity]");
     expect(() => parseDomainContract(bare, "<crossing>", base)).toThrow(/not a sort this contract declares/);
   });
+});
+
+describe("content-addressed dataset binding ids", () => {
+  const vector = JSON.parse(read("fixtures/dataset-binding-ids.json")) as { dataset_id: string };
+  const arms = {
+    cohort: { kind: "dataset", dataset: vector.dataset_id },
+    event: {
+      kind: "selection",
+      dataset: vector.dataset_id,
+      rule: `classification-rule:${HEX("0")}`,
+      selected: vector.dataset_id,
+      annotator: "EX",
+    },
+    product: { kind: "run-output", run: `run:${HEX("0")}`, dataset: vector.dataset_id },
+  };
+
+  it("preserves a Python-minted dataset id in every dataset-valued field", () => {
+    const contract = parseTesting(
+      mutated((document) => {
+        for (const [name, binding] of Object.entries(arms)) document.sorts[name].binding = binding;
+      }),
+    );
+    for (const [name, binding] of Object.entries(arms)) expect(contract.sorts[name].binding).toEqual(binding);
+  });
+
+  for (const [name, field] of [
+    ["cohort", "dataset"],
+    ["event", "dataset"],
+    ["event", "selected"],
+    ["product", "dataset"],
+  ] as const) {
+    it.each([
+      `dataset:${HEX("a")}`,
+      `dataset:sha512:${HEX("a")}`,
+      `dataset:sha256:${HEX("A")}`,
+      "dataset:sha256:",
+      `dataset:sha256::${HEX("a")}`,
+    ])(`refuses noncanonical ${name}.${field}: %s`, (bad) => {
+      const text = mutated((document) => {
+        for (const [sort, binding] of Object.entries(arms)) document.sorts[sort].binding = { ...binding };
+        document.sorts[name].binding[field] = bad;
+      });
+      expect(() => parseTesting(text)).toThrow(MalformedContract);
+      expect(() => parseTesting(text)).toThrow(JSON.stringify(bad));
+    });
+  }
 });

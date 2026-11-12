@@ -204,9 +204,10 @@ def _require_text(value: object, where: str) -> str:
 
 def _require_record_id(value: object, kind: str, where: str) -> str:
     text = _require_text(value, where)
-    if not re.fullmatch(f"{re.escape(kind)}:{_HEX64}", text):
+    prefix = "dataset:sha256:" if kind == "dataset" else f"{kind}:"
+    if not re.fullmatch(f"{re.escape(prefix)}{_HEX64}", text):
         raise MalformedContract(
-            f"{where}: {text!r} is not a {kind} record id, `{kind}:` followed by 64 lowercase hex characters"
+            f"{where}: {text!r} is not a {kind} record id, `{prefix}` followed by 64 lowercase hex characters"
         )
     return text
 

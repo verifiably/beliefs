@@ -138,7 +138,7 @@ class TestFunctionOfItsArguments:
             testing = load_domain_contract(Path({str(testing_contract_path)!r}), base=base, predecessor=None)
             profile = compile_profile(base, [testing])
             EX = ReleaseBinding(namespace="EX", release="2026-01-01")
-            COHORT = DatasetBinding(dataset="dataset:" + "0" * 64)
+            COHORT = DatasetBinding(dataset="dataset:sha256:" + "0" * 64)
             snapshot = build_snapshot(readable={{EX: [{GENE!r}, {OTHER_GENE!r}, {OUTCOME!r}], COHORT: [{ADULTS!r}]}})
             node = stored.proposition_node(
                 "p",

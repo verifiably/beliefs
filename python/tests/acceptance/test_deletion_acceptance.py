@@ -839,7 +839,7 @@ def test_claim_from_stored_is_a_function_of_its_arguments_over_a_durable_record(
         testing = load_domain_contract(Path({str(TESTING_CONTRACT)!r}), base=base, predecessor=None)
         profile = compile_profile(base, [testing])
         EX = ReleaseBinding(namespace="EX", release="2026-01-01")
-        COHORT = DatasetBinding(dataset={"dataset:" + "0" * 64!r})
+        COHORT = DatasetBinding(dataset={"dataset:sha256:" + "0" * 64!r})
         snapshot = build_snapshot(readable={{EX: [{GENE!r}, {OTHER_GENE!r}, {OUTCOME!r}], COHORT: [{ADULTS!r}]}})
         node = ReadView.opened_at(Path({str(writer.root)!r})).get({node.id!r})
         decoded, emitted = claim_from_stored(node, profile=profile, snapshot=snapshot)

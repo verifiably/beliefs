@@ -7,10 +7,12 @@ compute, and is not asserted anywhere below.
 
 import copy
 import json
+from hashlib import sha256
 
 import pytest
 import yaml
 
+from beliefs import stored
 from beliefs.contract import domain
 from beliefs.errors import MalformedContract, SubclassRefused, SuccessionViolation
 from beliefs.identity import v1
@@ -279,18 +281,71 @@ class TestNamespaceRules:
 
 
 class TestSortBindings:
+    def test_minted_dataset_ids_construct_every_dataset_binding(self, base_contract, fixtures_dir):
+        vector = json.loads((fixtures_dir / "dataset-binding-ids.json").read_text())
+        digest = "sha256:" + sha256(vector["utf8"].encode("utf-8")).hexdigest()
+        assert digest == vector["resource_digest"]
+        node = stored.dataset_node(title="terms", resources=[{"name": "terms", "digest": digest}])
+        assert node.id == vector["dataset_id"]
+        bindings = [
+            domain.DatasetBinding(dataset=node.id),
+            domain.SelectionBinding(
+                dataset=node.id, rule="classification-rule:" + HEX["0"], selected=node.id, annotator="EX"
+            ),
+            domain.RunOutputBinding(run="run:" + HEX["0"], dataset=node.id),
+        ]
+        for binding in bindings:
+            projection = binding.projection()
+            assert projection["dataset"] == vector["dataset_id"]
+            if binding.kind == "selection":
+                assert projection["selected"] == vector["dataset_id"]
+            assert domain.parse_binding(projection, where="test", base=base_contract).projection() == projection
+
+    @pytest.mark.parametrize(
+        ("arm", "field"),
+        [
+            (domain.DatasetBinding, "dataset"),
+            (domain.SelectionBinding, "dataset"),
+            (domain.SelectionBinding, "selected"),
+            (domain.RunOutputBinding, "dataset"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "bad",
+        [
+            "dataset:" + HEX["a"],
+            "dataset:sha512:" + HEX["a"],
+            "dataset:sha256:" + HEX["a"].upper(),
+            "dataset:sha256:",
+            "dataset:sha256::" + HEX["a"],
+        ],
+    )
+    def test_noncanonical_dataset_ids_refuse_at_each_field(self, base_contract, arm, field, bad):
+        values = {"dataset": "dataset:sha256:" + HEX["0"]}
+        if arm is domain.SelectionBinding:
+            values.update(rule="classification-rule:" + HEX["0"], selected="dataset:sha256:" + HEX["0"], annotator="EX")
+        if arm is domain.RunOutputBinding:
+            values["run"] = "run:" + HEX["0"]
+        values[field] = bad
+        with pytest.raises(MalformedContract, match=f"binding's {field}:"):
+            arm(**values)
+        with pytest.raises(MalformedContract, match=f"binding's {field}:"):
+            domain.parse_binding({"kind": arm.kind, **values}, where="test", base=base_contract)
+
     def test_each_arm_parses_from_the_fixture(self, parse, testing_document):
         sorts = parse(testing_document).sorts
         assert sorts["entity"].binding == domain.ReleaseBinding(namespace="EX", release="2026-01-01")
-        assert sorts["cohort"].binding == domain.DatasetBinding(dataset="dataset:" + HEX["0"])
+        assert sorts["cohort"].binding == domain.DatasetBinding(dataset="dataset:sha256:" + HEX["0"])
         assert sorts["method"].binding == domain.SchemeBinding(scheme="EX", version="1")
         assert sorts["event"].binding == domain.SelectionBinding(
-            dataset="dataset:" + HEX["1"],
+            dataset="dataset:sha256:" + HEX["1"],
             rule="classification-rule:" + HEX["2"],
-            selected="dataset:" + HEX["3"],
+            selected="dataset:sha256:" + HEX["3"],
             annotator="EX-annotator",
         )
-        assert sorts["product"].binding == domain.RunOutputBinding(run="run:" + HEX["4"], dataset="dataset:" + HEX["5"])
+        assert sorts["product"].binding == domain.RunOutputBinding(
+            run="run:" + HEX["4"], dataset="dataset:sha256:" + HEX["5"]
+        )
         assert sorts["procedure-spec"].binding == domain.WorldKindBinding(world_kind="procedure")
 
     def test_six_binding_arms_project_injectively(self):
@@ -298,15 +353,15 @@ class TestSortBindings:
         # coincide (`dataset` alone, against `run-output`'s `dataset`) never encode alike.
         bindings = [
             domain.ReleaseBinding(namespace="EX", release="2026-01-01"),
-            domain.DatasetBinding(dataset="dataset:" + HEX["0"]),
+            domain.DatasetBinding(dataset="dataset:sha256:" + HEX["0"]),
             domain.SchemeBinding(scheme="EX", version="2026-01-01"),
             domain.SelectionBinding(
-                dataset="dataset:" + HEX["0"],
+                dataset="dataset:sha256:" + HEX["0"],
                 rule="classification-rule:" + HEX["0"],
-                selected="dataset:" + HEX["0"],
+                selected="dataset:sha256:" + HEX["0"],
                 annotator="EX",
             ),
-            domain.RunOutputBinding(run="run:" + HEX["0"], dataset="dataset:" + HEX["0"]),
+            domain.RunOutputBinding(run="run:" + HEX["0"], dataset="dataset:sha256:" + HEX["0"]),
             domain.WorldKindBinding(world_kind="procedure"),
         ]
         projections = [binding.projection() for binding in bindings]
@@ -334,22 +389,25 @@ class TestSortBindings:
         [
             ({"kind": "ontology", "namespace": "EX", "release": "1"}, "kind"),
             ({"namespace": "EX", "release": "1"}, "kind"),
-            ({"kind": "release", "namespace": "EX", "release": "1", "dataset": "dataset:" + HEX["0"]}, "unknown field"),
-            ({"kind": "dataset", "dataset": "dataset:" + HEX["0"], "release": "1"}, "unknown field"),
+            (
+                {"kind": "release", "namespace": "EX", "release": "1", "dataset": "dataset:sha256:" + HEX["0"]},
+                "unknown field",
+            ),
+            ({"kind": "dataset", "dataset": "dataset:sha256:" + HEX["0"], "release": "1"}, "unknown field"),
             ({"kind": "release", "namespace": "EX"}, "missing field"),
             ({"kind": "release", "namespace": "EX", "release": ""}, "empty string"),
             ({"kind": "release", "namespace": "cafe\u0301", "release": "1"}, "NFC"),
             ({"kind": "release", "namespace": "EX", "release": 2026}, "not a string"),
             ({"kind": "scheme", "scheme": "EX", "version": None}, "not a string"),
             ({"kind": "dataset", "dataset": HEX["0"]}, "dataset:"),
-            ({"kind": "dataset", "dataset": "dataset:" + HEX["a"].upper()}, "dataset:"),
+            ({"kind": "dataset", "dataset": "dataset:sha256:" + HEX["a"].upper()}, "dataset:"),
             ({"kind": "dataset", "dataset": "sha256:" + HEX["0"]}, "dataset:"),
             (
                 {
                     "kind": "selection",
-                    "dataset": "dataset:" + HEX["0"],
+                    "dataset": "dataset:sha256:" + HEX["0"],
                     "rule": "procedure:" + HEX["0"],
-                    "selected": "dataset:" + HEX["0"],
+                    "selected": "dataset:sha256:" + HEX["0"],
                     "annotator": "EX",
                 },
                 "classification-rule:",
@@ -357,18 +415,31 @@ class TestSortBindings:
             (
                 {
                     "kind": "selection",
-                    "dataset": "dataset:" + HEX["0"],
+                    "dataset": "dataset:sha256:" + HEX["0"],
                     "rule": "classification-rule:" + HEX["0"],
                     "selected": "dataset:abc",
                     "annotator": "EX",
                 },
                 "dataset:",
             ),
-            ({"kind": "run-output", "run": "dataset:" + HEX["0"], "dataset": "dataset:" + HEX["0"]}, "run:"),
+            (
+                {"kind": "run-output", "run": "dataset:sha256:" + HEX["0"], "dataset": "dataset:sha256:" + HEX["0"]},
+                "run:",
+            ),
+            (
+                {
+                    "kind": "selection",
+                    "dataset": "dataset:sha256:" + HEX["0"],
+                    "rule": "dataset:sha256:" + HEX["0"],
+                    "selected": "dataset:sha256:" + HEX["0"],
+                    "annotator": "EX",
+                },
+                "classification-rule:",
+            ),
             ({"kind": "run-output", "run": "run:" + HEX["0"], "dataset": "run:" + HEX["0"]}, "dataset:"),
             ({"kind": "world-kind", "world_kind": "nonexistent"}, "world kind"),
             ({"kind": "world-kind", "world_kind": "classification-ruled"}, "world kind"),
-            ("dataset:" + HEX["0"], "mapping"),
+            ("dataset:sha256:" + HEX["0"], "mapping"),
         ],
     )
     def test_a_malformed_binding_is_refused(self, parse, testing_document, binding, match):

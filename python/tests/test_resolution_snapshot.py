@@ -18,10 +18,10 @@ from beliefs.errors import ResolutionError
 from beliefs.profile import compile_profile
 from beliefs.resolution import TermOutcome, build_snapshot
 
-CATALOGUE = DatasetBinding(dataset="dataset:" + "1" * 64)
+CATALOGUE = DatasetBinding(dataset="dataset:sha256:" + "1" * 64)
 """`testing/event`'s selection `dataset`: the catalogue the rule was applied to."""
-SELECTED = DatasetBinding(dataset="dataset:" + "3" * 64)
-PRODUCED = DatasetBinding(dataset="dataset:" + "5" * 64)
+SELECTED = DatasetBinding(dataset="dataset:sha256:" + "3" * 64)
+PRODUCED = DatasetBinding(dataset="dataset:sha256:" + "5" * 64)
 PROCEDURE = "procedure:" + "a" * 64
 OTHER_PROCEDURE = "procedure:" + "b" * 64
 

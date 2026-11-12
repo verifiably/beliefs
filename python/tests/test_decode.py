@@ -47,11 +47,11 @@ from beliefs.profile import compile_profile
 from beliefs.projection import claim_identity, project_claim
 from beliefs.resolution import BindingCheckReceipt, ReferentPosition, ResolutionSnapshot, TermOutcome, build_snapshot
 
-COHORT_DATASET = DatasetBinding(dataset="dataset:" + "0" * 64)
+COHORT_DATASET = DatasetBinding(dataset="dataset:sha256:" + "0" * 64)
 """The binding `testing`'s `cohort` sort declares."""
-SELECTED = DatasetBinding(dataset="dataset:" + "3" * 64)
+SELECTED = DatasetBinding(dataset="dataset:sha256:" + "3" * 64)
 """The `selected` dataset of `testing/event`'s selection binding."""
-PRODUCED = DatasetBinding(dataset="dataset:" + "5" * 64)
+PRODUCED = DatasetBinding(dataset="dataset:sha256:" + "5" * 64)
 """The produced dataset of `testing/product`'s run-output binding."""
 
 ENTITY = "testing/entity"
@@ -340,7 +340,7 @@ class TestDecodeIsAFunctionOfItsArguments:
             testing = load_domain_contract(Path({str(testing_contract_path)!r}), base=base, predecessor=None)
             profile = compile_profile(base, [testing])
             EX = ReleaseBinding(namespace="EX", release="2026-01-01")
-            COHORT = DatasetBinding(dataset="dataset:" + "0" * 64)
+            COHORT = DatasetBinding(dataset="dataset:sha256:" + "0" * 64)
             snapshot = build_snapshot(readable={{EX: [{GENE!r}, {OTHER_GENE!r}, {OUTCOME!r}], COHORT: [{ADULTS!r}]}})
             wire = WireClaim(
                 operator="testing/affects",

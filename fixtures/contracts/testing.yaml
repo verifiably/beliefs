@@ -53,21 +53,21 @@ sorts:
     binding: { kind: release, namespace: EX, release: "2026-01-01" }
     identifier_class: { prefix: EX, pattern: 'EX:[a-z0-9\-]+' }
   cohort:
-    binding: { kind: dataset, dataset: "dataset:0000000000000000000000000000000000000000000000000000000000000000" }
+    binding: { kind: dataset, dataset: "dataset:sha256:0000000000000000000000000000000000000000000000000000000000000000" }
     identifier_class: { prefix: EX, pattern: 'EX:.+' }
   event:
     binding:
       kind: selection
-      dataset: "dataset:1111111111111111111111111111111111111111111111111111111111111111"
+      dataset: "dataset:sha256:1111111111111111111111111111111111111111111111111111111111111111"
       rule: "classification-rule:2222222222222222222222222222222222222222222222222222222222222222"
-      selected: "dataset:3333333333333333333333333333333333333333333333333333333333333333"
+      selected: "dataset:sha256:3333333333333333333333333333333333333333333333333333333333333333"
       annotator: EX-annotator
     identifier_class: { prefix: EX, pattern: 'EX:.+' }
   product:
     binding:
       kind: run-output
       run: "run:4444444444444444444444444444444444444444444444444444444444444444"
-      dataset: "dataset:5555555555555555555555555555555555555555555555555555555555555555"
+      dataset: "dataset:sha256:5555555555555555555555555555555555555555555555555555555555555555"
     identifier_class: { prefix: EX, pattern: 'EX:.+' }
   procedure-spec:
     binding: { kind: world-kind, world_kind: procedure }

@@ -235,8 +235,10 @@ and a list of them may not repeat a value.
   | `world-kind` | `world_kind` |
 
   `dataset`, `selected` and the run-output `dataset` are dataset record ids
-  (`dataset:` and 64 lowercase hex characters), `rule` is a `classification-rule:`
-  record id and `run` a `run:` record id, each a kind the base contract declares.
+  (`dataset:sha256:` and 64 lowercase hex characters), `rule` is a `classification-rule:`
+  record id and `run` a `run:` record id, each followed by 64 lowercase hex characters.
+  The short `dataset:<64 hex>` spelling is refused. Grammar validation does not
+  establish that a dataset is held or that a term is a member of it.
   `world_kind` names a world kind the base contract declares. A `world-kind` sort
   declares no `identifier_class` (the kernel's record-id grammar is its class);
   every other sort must declare one. A sort's schema projection is its binding

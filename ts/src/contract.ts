@@ -1260,9 +1260,10 @@ function canonicalText(value: unknown, where: string): string {
 }
 
 function recordId(value: string, kind: string, where: string): string {
-  if (!new RegExp(`^${kind}:[0-9a-f]{64}$`).test(value)) {
+  const prefix = kind === "dataset" ? "dataset:sha256:" : `${kind}:`;
+  if (!new RegExp(`^${prefix}[0-9a-f]{64}$`).test(value)) {
     throw new MalformedContract(
-      `${where}: ${JSON.stringify(value)} is not a ${kind} record id, \`${kind}:\` followed by 64 lowercase hex characters`,
+      `${where}: ${JSON.stringify(value)} is not a ${kind} record id, \`${prefix}\` followed by 64 lowercase hex characters`,
     );
   }
   return value;
