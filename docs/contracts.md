@@ -148,7 +148,7 @@ There are four places for commitments:
 - **Kernel structure**, recorded here: the closed grammars, identity projections,
   admission and aggregation rules that every field uses.
 - **Shared vocabulary**, declared by `general`: cross-domain meanings such as
-  quantity kinds, units and relation templates. Activating the pack is explicit;
+  quantity kinds and relation templates. Activating the pack is explicit;
   its terms are not built into a claim's grammar.
 - **Field vocabulary**, declared by a field contract: its sorts, bindings,
   instantiations and bridges, with their scientific commitments.
@@ -175,8 +175,10 @@ Contracts consulted during evaluation enter the
 [belief input digest](records.md#beliefs), so a changed consulted contract changes
 that provenance even when the claim bytes stay the same. This separation does
 not permit changing an identifier's meaning in place: domain
-[succession](#succession-and-retirement) preserves meaning-bearing fields. New meanings need
-new identifiers. Analysis particulars instead enter the frozen spec and assessed
+[succession](#succession-and-retirement) preserves the meaning-bearing schema
+projection. It excludes definition prose, whose semantic consistency remains an
+author and reviewer responsibility. New meanings need new identifiers.
+Analysis particulars instead enter the frozen spec and assessed
 target; changing them can change the spec and assessed-proposition key while
 leaving the broader claim unchanged.
 
