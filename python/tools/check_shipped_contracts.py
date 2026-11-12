@@ -16,7 +16,7 @@ Checks offline and without corpus writes:
 from __future__ import annotations
 
 import hashlib
-import json
+import re
 import sys
 from collections.abc import Mapping
 from pathlib import Path
@@ -32,8 +32,8 @@ import yaml
 from beliefs.contract.base import BaseContract, parse_base_contract
 from beliefs.contract.document import parse_document
 from beliefs.contract.domain import DomainContract, parse_domain_contract
+from beliefs.contract.shipped import load_domain_history
 from beliefs.errors import ScienceError
-from beliefs.register import register_entry_keys, register_from_projection
 
 HERITAGE_REPRODUCTION_EXCLUSIONS: Mapping[str, tuple[str, str]] = MappingProxyType(
     {
@@ -107,15 +107,6 @@ def _check_exception_inventory(
     return errors
 
 
-def _strict_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
-    result: dict[str, object] = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError(f"duplicate JSON key {key!r}")
-        result[key] = value
-    return result
-
-
 def _check_placement(
     contract: DomainContract,
     *,
@@ -123,7 +114,10 @@ def _check_placement(
     placement_exceptions: Mapping[tuple[str, str, str], str],
 ) -> list[str]:
     if contract.namespace == "general":
-        if source_rel != "domains/general/DOMAIN.yaml":
+        if (
+            source_rel != "domains/general/DOMAIN.yaml"
+            and re.fullmatch(r"domains/general/history/[0-9a-f]{64}/DOMAIN\.yaml", source_rel) is None
+        ):
             return [f"{source_rel}: shadow contract 'general' is forbidden outside domains/general/DOMAIN.yaml"]
         return []
     errors: list[str] = []
@@ -170,6 +164,26 @@ def _load_base(root: Path, errors: list[str]) -> BaseContract | None:
         return None
 
 
+def _domain_inventory(directory: Path, prefix: str) -> tuple[set[str], list[str]]:
+    present: set[str] = set()
+    errors: list[str] = []
+    for path in sorted(directory.rglob("*")):
+        rel = path.relative_to(directory).as_posix()
+        present.add(rel)
+        valid = (
+            (rel in {"DOMAIN.yaml", "REGISTER.json"} and path.is_file())
+            or (rel == "history" and path.is_dir())
+            or (re.fullmatch(r"history/[0-9a-f]{64}", rel) is not None and path.is_dir())
+            or (
+                re.fullmatch(r"history/[0-9a-f]{64}/(?:DOMAIN\.yaml|REGISTER\.json)", rel) is not None
+                and path.is_file()
+            )
+        )
+        if path.is_symlink() or not valid:
+            errors.append(f"{prefix}/{rel}: unexpected or invalid shipped domain entry")
+    return present, errors
+
+
 def _check_shipped_domains(
     root: Path,
     base: BaseContract,
@@ -199,72 +213,45 @@ def _check_shipped_domains(
     for namespace in sorted(source_namespaces & pkg_namespaces):
         src_dir = domains_dir / namespace
         pkg_dir = pkg_domains_dir / namespace
-        expected_files = {"DOMAIN.yaml", "REGISTER.json"}
-        for check_dir, prefix in (
-            (src_dir, f"domains/{namespace}"),
-            (pkg_dir, f"python/src/beliefs/domains/{namespace}"),
-        ):
-            present = {p.name for p in check_dir.iterdir()}
-            for extra in sorted(present - expected_files):
-                errors.append(f"{prefix}/{extra}: unexpected file in shipped domain directory")
-            for missing in sorted(expected_files - present):
-                errors.append(f"{prefix}/{missing}: missing required shipped domain file")
-
-        src_domain = src_dir / "DOMAIN.yaml"
-        pkg_domain = pkg_dir / "DOMAIN.yaml"
-        src_reg = src_dir / "REGISTER.json"
-        pkg_reg = pkg_dir / "REGISTER.json"
-        if not (src_domain.is_file() and pkg_domain.is_file() and src_reg.is_file() and pkg_reg.is_file()):
+        src_present, src_errors = _domain_inventory(src_dir, f"domains/{namespace}")
+        pkg_present, pkg_errors = _domain_inventory(pkg_dir, f"python/src/beliefs/domains/{namespace}")
+        errors.extend(src_errors + pkg_errors)
+        if src_errors or pkg_errors:
             continue
-
-        domain_bytes = src_domain.read_bytes()
-        if domain_bytes != pkg_domain.read_bytes():
-            errors.append(
-                f"domains/{namespace}/DOMAIN.yaml: differs from packaged copy "
-                f"python/src/beliefs/domains/{namespace}/DOMAIN.yaml"
-            )
-        reg_bytes = src_reg.read_bytes()
-        if reg_bytes != pkg_reg.read_bytes():
-            errors.append(
-                f"domains/{namespace}/REGISTER.json: differs from packaged copy "
-                f"python/src/beliefs/domains/{namespace}/REGISTER.json"
-            )
-
-        domain_rel = f"domains/{namespace}/DOMAIN.yaml"
         try:
-            contract = parse_domain_contract(
-                parse_document(domain_bytes.decode("utf-8"), source=domain_rel),
-                source=domain_rel,
+            revisions = load_domain_history(
+                namespace,
                 base=base,
-                predecessor=None,
+                read_text=lambda path, directory=src_dir: (directory / path).read_text(encoding="utf-8"),
             )
-        except (UnicodeDecodeError, ScienceError) as exc:
-            errors.append(f"{domain_rel}: {exc}")
+        except ScienceError as exc:
+            errors.append(str(exc))
             continue
-
-        if contract.namespace != namespace:
-            errors.append(f"{domain_rel}: declares contract {contract.namespace!r}, expected directory {namespace!r}")
-        errors.extend(_check_placement(contract, source_rel=domain_rel, placement_exceptions=placement_exceptions))
-
-        reg_rel = f"domains/{namespace}/REGISTER.json"
-        try:
-            raw_reg = json.loads(reg_bytes.decode("utf-8"), object_pairs_hook=_strict_json_object)
-            register = register_from_projection(raw_reg, source=reg_rel)
-        except (UnicodeDecodeError, json.JSONDecodeError, ValueError, ScienceError) as exc:
-            errors.append(f"{reg_rel}: {exc}")
-            continue
-
-        expected_describes = f"{namespace}:{contract.content_identity}"
-        if register.describes != expected_describes:
-            errors.append(f"{reg_rel}: describes {register.describes!r}, expected {expected_describes!r}")
-        expected_keys = register_entry_keys(contract)
-        actual_keys = frozenset(register.entries)
-        if actual_keys != expected_keys:
-            missing_keys = sorted(expected_keys - actual_keys)
-            extra_keys = sorted(actual_keys - expected_keys)
-            errors.append(
-                f"{reg_rel}: entry coverage mismatch against {domain_rel} (missing={missing_keys}, extra={extra_keys})"
+        expected = {"DOMAIN.yaml", "REGISTER.json"}
+        for revision in revisions:
+            prefix = f"{revision.directory}/" if revision.directory else ""
+            if revision.directory:
+                expected.update({"history", revision.directory, prefix + "DOMAIN.yaml", prefix + "REGISTER.json"})
+            errors.extend(
+                _check_placement(
+                    revision.contract,
+                    source_rel=f"domains/{namespace}/{prefix}DOMAIN.yaml",
+                    placement_exceptions=placement_exceptions,
+                )
             )
+        for present, prefix in (
+            (src_present, f"domains/{namespace}"),
+            (pkg_present, f"python/src/beliefs/domains/{namespace}"),
+        ):
+            for extra in sorted(present - expected):
+                errors.append(f"{prefix}/{extra}: unexpected or unreachable history entry")
+            for missing in sorted(expected - present):
+                errors.append(f"{prefix}/{missing}: missing required shipped domain entry")
+        for relative in sorted(expected & src_present & pkg_present):
+            if relative.endswith(("DOMAIN.yaml", "REGISTER.json")) and (
+                (src_dir / relative).read_bytes() != (pkg_dir / relative).read_bytes()
+            ):
+                errors.append(f"domains/{namespace}/{relative}: differs from packaged copy")
 
     return errors
 

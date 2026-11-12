@@ -322,7 +322,7 @@ def test_domain_binding_errors_name_the_register_resource(monkeypatch: pytest.Mo
         assert namespace == "general"
         raise cause
 
-    monkeypatch.setattr(profile_module, "shipped_domain_contract", broken_domain)
+    monkeypatch.setattr(profile_module, "_shipped_domain_history", broken_domain)
     profile_module.shipped_assumptions_register.cache_clear()
     try:
         with pytest.raises(ProfileError, match=r"beliefs/domains/general/REGISTER\.json") as caught:
@@ -348,6 +348,7 @@ def test_broken_package_register_bindings_refuse_with_profile_error(
     stale = {**valid_projection, "describes": f"general:{'0' * 64}"}
     (pkg_dir / "REGISTER.json").write_text(json.dumps(stale), encoding="utf-8")
     profile_module.shipped_assumptions_register.cache_clear()
+    profile_module._shipped_domain_history.cache_clear()
     with pytest.raises(ProfileError, match="domains/general/REGISTER\\.json"):
         profile_module.shipped_assumptions_register("general")
 
@@ -359,6 +360,7 @@ def test_broken_package_register_bindings_refuse_with_profile_error(
     incomplete = {**valid_projection, "entries": entries_copy}
     (pkg_dir / "REGISTER.json").write_text(json.dumps(incomplete), encoding="utf-8")
     profile_module.shipped_assumptions_register.cache_clear()
+    profile_module._shipped_domain_history.cache_clear()
     with pytest.raises(ProfileError, match="domains/general/REGISTER\\.json"):
         profile_module.shipped_assumptions_register("general")
 
@@ -375,9 +377,11 @@ def test_broken_package_register_bindings_refuse_with_profile_error(
     )
     (pkg_dir / "REGISTER.json").write_text(orig_reg_text.replace(target_snippet, dup_entry, 1), encoding="utf-8")
     profile_module.shipped_assumptions_register.cache_clear()
+    profile_module._shipped_domain_history.cache_clear()
     with pytest.raises(ProfileError, match="domains/general/REGISTER\\.json.*duplicate"):
         profile_module.shipped_assumptions_register("general")
 
     # Restore clean cache at teardown.
     profile_module.shipped_assumptions_register.cache_clear()
+    profile_module._shipped_domain_history.cache_clear()
     assert contract.namespace == "general"

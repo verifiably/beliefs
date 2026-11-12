@@ -79,6 +79,7 @@ from beliefs.patterns import IdentifierClass
 from beliefs.sealed import sealed
 
 if TYPE_CHECKING:
+    from beliefs.contract.shipped import ShippedDomainRevision
     from beliefs.register import AssumptionsRegister
 
 __all__ = [
@@ -168,81 +169,35 @@ def _shipped_coordination(version: int) -> CoordinationContract:
 
 
 @cache
-def shipped_domain_contract(namespace: str) -> DomainContract:
-    """Parse a domain contract carried by this package, against the shipped base.
-
-    This package ships ``general``, the shared cross-domain genesis contract;
-    activation remains explicit through ``compile_profile``."""
-    from beliefs.contract.document import parse_document
-    from beliefs.contract.domain import parse_domain_contract
+def _shipped_domain_history(namespace: str) -> tuple[ShippedDomainRevision, ...]:
+    from beliefs.contract.shipped import load_domain_history
 
     try:
         _name(namespace, "namespace")
-    except MalformedContract:
-        raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}") from None
-    source = f"beliefs/domains/{namespace}/DOMAIN.yaml"
-    resource = resources.files("beliefs").joinpath(f"domains/{namespace}/DOMAIN.yaml")
-    if not resource.is_file():
+    except MalformedContract as exc:
+        raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}") from exc
+    root = resources.files("beliefs").joinpath(f"domains/{namespace}")
+    if not root.joinpath("DOMAIN.yaml").is_file():
         raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}")
-    text = resource.read_text(encoding="utf-8")
-    return parse_domain_contract(
-        parse_document(text, source=source), source=source, base=shipped_base_contract(), predecessor=None
+    return load_domain_history(
+        namespace, base=shipped_base_contract(), read_text=lambda path: root.joinpath(path).read_text(encoding="utf-8")
     )
 
 
 @cache
+def shipped_domain_contract(namespace: str) -> DomainContract:
+    """Return the current domain after checking its entire shipped contract/register history."""
+    return _shipped_domain_history(namespace)[-1].contract
+
+
+@cache
 def shipped_assumptions_register(namespace: str) -> AssumptionsRegister:
-    """Decode the canonical assumptions register carried by this package for ``namespace``."""
-    import json
-
-    from beliefs.errors import MalformedRecord
-    from beliefs.register import register_entry_keys, register_from_projection
-
+    """Return the current register from the same checked history as its contract."""
     source = f"beliefs/domains/{namespace}/REGISTER.json"
-    if type(namespace) is not str:
-        raise ProfileError(f"this package ships no assumptions register for namespace {namespace!r} ({source})")
     try:
-        _name(namespace, "namespace")
-    except MalformedContract:
-        raise ProfileError(
-            f"this package ships no assumptions register for namespace {namespace!r} ({source})"
-        ) from None
-    resource = resources.files("beliefs").joinpath(f"domains/{namespace}/REGISTER.json")
-    if not resource.is_file():
-        raise ProfileError(f"this package ships no assumptions register for namespace {namespace!r} ({source})")
-    try:
-        contract = shipped_domain_contract(namespace)
+        return _shipped_domain_history(namespace)[-1].register
     except (OSError, UnicodeDecodeError, ScienceError) as exc:
-        raise ProfileError(f"{source}: broken domain contract binding for {namespace!r}: {exc}") from exc
-
-    def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
-        obj: dict[str, object] = {}
-        for key, value in pairs:
-            if key in obj:
-                raise ValueError(f"duplicate JSON key {key!r}")
-            obj[key] = value
-        return obj
-
-    try:
-        payload = json.loads(resource.read_text(encoding="utf-8"), object_pairs_hook=_no_duplicate_keys)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        raise ProfileError(f"{source}: invalid JSON resource: {exc}") from exc
-    try:
-        register = register_from_projection(payload, source=source)
-    except MalformedRecord as exc:
-        raise ProfileError(str(exc)) from exc
-    expected_describes = f"{namespace}:{contract.content_identity}"
-    if register.describes != expected_describes:
-        raise ProfileError(f"{source}: describes {register.describes!r}, expected {expected_describes!r}")
-    expected_keys = register_entry_keys(contract)
-    actual_keys = frozenset(register.entries)
-    if actual_keys != expected_keys:
-        missing = sorted(expected_keys - actual_keys)
-        extra = sorted(actual_keys - expected_keys)
-        raise ProfileError(
-            f"{source}: entry coverage mismatch against {namespace!r} (missing={missing}, extra={extra})"
-        )
-    return register
+        raise ProfileError(f"{source}: broken domain/register history for {namespace!r}: {exc}") from exc
 
 
 @cache

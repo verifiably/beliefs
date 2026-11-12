@@ -343,3 +343,52 @@ def test_shadow_general_duplicate_register_keys_and_reference_doc_base_version(t
     assert "The shipped base contract is version 3," in records_md
     assert "The shipped base contract is version 2," not in records_md
     assert "cannot parse under\nbase v3." in contracts_md
+
+
+def _write_history(root, resources):
+    for prefix in ("domains/general", "python/src/beliefs/domains/general"):
+        for relative, text in resources.items():
+            path = root / prefix / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+
+
+def test_additive_shipped_history_passes_and_archive_defects_refuse(tmp_path):
+    from shipped_domain_fixtures import history_resources
+
+    resources, contracts, _ = history_resources()
+    root = _copy_fixture_root(tmp_path)
+    _write_history(root, resources)
+    checker = _load_checker()
+    assert checker.check(root) == []
+    ancestor = f"history/{contracts[0].content_identity}/DOMAIN.yaml"
+    package_ancestor = root / "python/src/beliefs/domains/general" / ancestor
+    package_ancestor.write_text(resources[ancestor] + "\n")
+    assert any(ancestor in error and "differs" in error for error in checker.check(root))
+    package_ancestor.unlink()
+    assert any(ancestor in error and "missing" in error for error in checker.check(root))
+
+
+@pytest.mark.parametrize(
+    "extra", ["history/invalid", "history/" + "0" * 64, ".hidden", "history/" + "a" * 64 + "/extra"]
+)
+def test_orphan_and_malformed_archive_entries_refuse(tmp_path, extra):
+    from shipped_domain_fixtures import history_resources
+
+    root = _copy_fixture_root(tmp_path)
+    resources, _, _ = history_resources()
+    _write_history(root, resources)
+    (root / "domains/general" / extra).mkdir(parents=True)
+    errors = _load_checker().check(root)
+    assert errors and any("unexpected" in error or "unreachable" in error or "invalid" in error for error in errors)
+
+
+def test_bad_ancestor_refuses_even_when_current_copies_are_valid(tmp_path):
+    from shipped_domain_fixtures import history_resources
+
+    resources, contracts, _ = history_resources()
+    ancestor = f"history/{contracts[0].content_identity}/REGISTER.json"
+    resources[ancestor] = "{}"
+    root = _copy_fixture_root(tmp_path)
+    _write_history(root, resources)
+    assert any(ancestor in error for error in _load_checker().check(root))

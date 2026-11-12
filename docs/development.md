@@ -224,8 +224,17 @@ the shipped `domains/general/DOMAIN.yaml` contract and the synthetic consumer fi
 the source YAML documents directly (`parseBaseContract`, `parseDomainContract`,
 `compileProfile`) and checks claim construction, symmetric `parties` ordering,
 duplicate-after-NFC refusal, projections, canonical bytes and digests, while
-contract/profile compiled identities, package resource loaders, assumptions registers
-and estimands remain Python-only.
+compiled profile identities, package resource loaders, assumptions registers
+and estimands remain Python-only. Contract content identity and additive succession
+are shared, with `fixtures/contract-succession.json` checked by both languages.
+
+Shipped domain resources keep the current `DOMAIN.yaml`/`REGISTER.json` pair and
+preserve predecessors under `history/<contract-content-hex>/` in both canonical and
+packaged directories. `beliefs.contract.shipped.load_domain_history` supplies the
+same checked history to package loading and `check_shipped_contracts.py`; the latter
+also enforces exact reachable inventory and byte equality. Tests use temporary
+resource trees rather than replacing installed resources. General's first successor
+must archive its existing bytes; loading alone never changes a corpus pin.
 
 ## Two rules the tests hold closed
 

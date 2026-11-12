@@ -562,14 +562,32 @@ The package ships one genesis domain contract, `general` (`domains/general/DOMAI
 and its byte-identical packaged copy `python/src/beliefs/domains/general/DOMAIN.yaml`),
 together with its canonical assumptions register (`domains/general/REGISTER.json` and
 `python/src/beliefs/domains/general/REGISTER.json`). `shipped_domain_contract("general")`
-parses the contract against the shipped base, and `shipped_assumptions_register("general")`
-decodes the canonical register projection while verifying its `describes` digest and
-complete `register_entry_keys(contract)` coverage. Both helpers refuse every other
-namespace with `ProfileError`. `shipped_base()` activates no domain contract: consumers
+and `shipped_assumptions_register("general")` both return the current pair from one
+checked contract/register history under the shipped base. Every register must have
+the matching `describes` digest and exact `register_entry_keys(contract)` coverage.
+A genesis register has no `previous`; a successor register names the immediate
+contract predecessor's register identity. Both helpers are namespace-generic and
+refuse absent packages with `ProfileError`. `shipped_base()` activates no domain contract: consumers
 activate `general` explicitly in `compile_profile`. Distribution validation
 (`python/tools/check_shipped_contracts.py`, run under `just check-hygiene`) rejects
 non-`general` declarations in the numerical tables and shared methodological tables
 except reviewed field-specific `functional` or `procedure-kind` classifications.
+
+Shipped successor archives use
+`domains/<namespace>/history/<contract-content-hex>/DOMAIN.yaml` and `REGISTER.json`,
+with byte-identical copies under `python/src/beliefs/domains/`. The current paths
+stay unchanged. Loading follows only declared 64-lowercase-hex predecessor identities,
+checks each ancestor before its successor, and refuses missing or mismatched files,
+namespace mismatches, cycles and broken register links. The source checker also
+refuses malformed or unreachable archive entries, symlinks, extra files, differing
+package copies and misplaced shared vocabulary in ancestors. The current general
+genesis has no archives yet.
+
+This layout has no independent register-only revision chain: a replacement citing
+the prior register for the same contract as `previous` is refused. Prose-only
+register history needs a separate route; the checker cannot infer an omitted
+history from overwritten bytes. Loading a successor does not re-pin any corpus
+manifest, and TypeScript still refuses retirement fields.
 
 ## Coordination contract
 
