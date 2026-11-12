@@ -14,7 +14,6 @@ import shutil
 import sys
 from dataclasses import dataclass
 from decimal import Decimal
-from functools import cache
 from pathlib import Path
 from typing import cast
 
@@ -26,7 +25,7 @@ from beliefs.adapter import WorkflowDefinition
 from beliefs.dependencies import HeldRecords
 from beliefs.replay import CONTENT_EQUALITY
 from beliefs.spec import Deterministic, FrozenSpec, SpecDraft, SpecInput, freeze
-from reproduction import findings, paths, state, world
+from reproduction import paths, state, world
 
 CODE_ROOT = Path(__file__).with_name("analysis")  # bundle name: analysis/
 TEMPLATE = Path(__file__).with_name("Snakefile.template")  # outside the code root: not bundled
@@ -41,6 +40,10 @@ INTERPRETATION = rules.OUTCOME_FILE_V1
 EQUIVALENCE = CONTENT_EQUALITY
 
 
+def code_root() -> Path:
+    return paths.WORK / "bundle" / "analysis"
+
+
 def render_snakefile() -> bytes:
     target = yaml.safe_load(paths.TARGET.read_text())
     values = {
@@ -52,10 +55,12 @@ def render_snakefile() -> bytes:
     text = TEMPLATE.read_text()
     for key, value in values.items():
         text = text.replace("{" + key + "}", str(value))
-    SNAKEFILE.parent.mkdir(parents=True, exist_ok=True)
-    SNAKEFILE.write_bytes(text.encode())
-    shutil.rmtree(CODE_ROOT / "__pycache__", ignore_errors=True)  # keep the bundle to its two files
-    return SNAKEFILE.read_bytes()
+    bundle = code_root()
+    (bundle / "workflow").mkdir(parents=True, exist_ok=True)
+    for name in ("assoc.py", "labels.py"):
+        shutil.copyfile(CODE_ROOT / name, bundle / name)
+    (bundle / "workflow/Snakefile").write_bytes(text.encode())
+    return text.encode()
 
 
 def held_rules() -> dict:
@@ -68,7 +73,7 @@ def held_rules() -> dict:
 
 
 def definition() -> WorkflowDefinition:
-    return WorkflowDefinition(snakefile=SNAKEFILE.read_bytes(), family_streams={})
+    return WorkflowDefinition(snakefile=(code_root() / "workflow/Snakefile").read_bytes(), family_streams={})
 
 
 RELOCATED_CLAUSE = (
@@ -90,60 +95,59 @@ class _HeldRecords:
     def read(self, id: str) -> Node:
         return self.view.get(id)
 
+    def retraction_in_force(self, id: str) -> bool:
+        return False
+
+    def observation_held(self, digest: str) -> bool:
+        return False
+
+    def crosswalks(self, a: str, b: str) -> tuple[str, ...]:
+        return ()
+
 
 def _context():
-    from reproduction import type_target, vocabulary
+    from beliefs.corpus import ReadView
+    from reproduction import hold, type_target, vocabulary
 
     st = state.load()
-    target = yaml.safe_load(paths.TARGET.read_text())
-    profile, plan = vocabulary.profile(), vocabulary.plan()
-    claim = type_target.typed(target, profile, plan)
-    # profile() continues to refuse until beliefs-709bd9 supplies the biology v2 genesis.
-    # That recreation authors a complete v2 estimand and holds both procedures;
-    # this lane never guesses a measure, functional or identification vocabulary.
-    records = cast(HeldRecords, _HeldRecords(world.open_writer().read_view))
-    return st, target, profile, claim, vocabulary.snapshot(), records
+    inputs = hold.recover_inputs()
+    profile = vocabulary.profile()
+    claim = type_target.typed(inputs, profile)
+    records = cast(HeldRecords, _HeldRecords(ReadView.opened_at(paths.CORPUS_ROOT)))
+    return st, inputs, profile, claim, vocabulary.snapshot(), records
 
 
 def _draft(context) -> SpecDraft:
-    from beliefs.applicability import build_applicability
-    from beliefs.estimand import build_estimand, estimand_from_stored
+    from reproduction import type_target
 
-    st, target, profile, claim, snapshot, records = context
-    authored = estimand_from_stored(target["estimand"], profile=profile)
-    applicability, _ = build_applicability(profile, claim, {}, snapshot=snapshot)
-    estimand, _ = build_estimand(
-        profile,
-        claim,
-        form=authored.form,
-        functional=authored.functional,
-        bindings=authored.bindings,
-        outputs=authored.outputs,
-        reference=authored.reference,
-        control=authored.control,
-        uncertainty=authored.uncertainty,
-        assumptions=authored.assumptions,
-        calibration=authored.calibration,
-        applicability=applicability,
-        snapshot=snapshot,
+    st, inputs, profile, claim, snapshot, records = context
+    parser, estimator = type_target.implementation_digests(code_root())
+    if (parser, estimator) != type_target.implementation_digests():
+        raise RuntimeError("analysis bundle differs from the authored parser/estimator")
+    estimand, applicability = type_target.estimand(
+        inputs,
+        profile=profile,
+        claim=claim,
         records=records,
+        snapshot=snapshot,
+        assay_id=st["assay_ref"],
+        grouping_rule_id=st["grouping_rule_ref"],
+        parser_digest=parser,
+        estimator_digest=estimator,
     )
     return SpecDraft(
         target=st["proposition_ref"],
         estimand=estimand,
-        method=(
-            "two-group rank comparison (Mann-Whitney U, normal approximation), standard library; "
-            "a sample whose value is not finite is malformed input and the run refuses (assoc.py's own rule)"
-        ),
-        assumptions="independent samples; the stage is a two-level factor carried by each sample id",
-        falsification="no difference at alpha 0.05, or a difference opposite the proposition's polarity",
+        method="Engineering demonstration: gene RNA PD versus NDMM, unpaired half-tie probability of superiority; z/p diagnostics have no tie correction or computed interval.",
+        assumptions="Source pairing is not modeled; independence and assay validation remain unestablished. The frozen procedure-validity assumption is conditional, not evidence.",
+        falsification="No difference at alpha .05 or a difference opposite the selected positive orientation.",
         input_roles=(SpecInput(role="observes", dataset=st["dataset_address"], mode="observation"),),
         applicability=applicability,
         interpretation_rule=INTERPRETATION_RULE,
         equivalence_rule=EQUIVALENCE_RULE,
         parameters={"alpha": Decimal("0.05")},
         nondeterminism=Deterministic(),
-        registers=(),
+        registers=tuple(st["registers"]),
         standing="empirical",
         model=None,
     )
@@ -153,14 +157,13 @@ def draft() -> SpecDraft:
     return _draft(_context())
 
 
-@cache
 def frozen() -> FrozenSpec:
     context = _context()
-    _, target, profile, claim, _, records = context
+    st, _, profile, claim, _, records = context
     return freeze(
         _draft(context),
         held_rules=held_rules(),
-        rule_procedures={INTERPRETATION_RULE: target["estimator_procedure"]},
+        rule_procedures={INTERPRETATION_RULE: st["estimator_ref"]},
         profile=profile,
         claim=claim,
         records=records,
@@ -177,14 +180,17 @@ def main() -> int:
     spec = frozen()
     minted = world.open_writer().add(spec_record(spec))
     state.save(spec_identity=spec.identity, spec_ref=minted.id, held_name=Path(state.load()["held_file"]).name)
-    findings.record(
-        4,
-        "design-gap",
-        "build_assessment hands the interpretation rule a ResultManifest of digests, not output bytes; "
-        "the verdict is routed through a canonical outcome file whose digest the rule maps",
-        filed="the computation change (where an interpretation rule reads content)",
+    from beliefs.applicability import applicability_projection
+    from beliefs.estimand import estimand_projection
+    from beliefs.identity import v1
+
+    target = yaml.safe_load(paths.TARGET.read_text())
+    target.update(
+        estimand=estimand_projection(spec.estimand),
+        applicability=applicability_projection(spec.applicability),
+        estimator_procedure=state.load()["estimator_ref"],
     )
-    findings.record(4, "corpus-work", RELOCATED_CLAUSE)
+    paths.TARGET.write_bytes(v1.encode(target))
     print(f"frozen spec {spec.identity} targeting {spec.target}; record {minted.id}")
     return 0
 

@@ -1,8 +1,9 @@
 """Synthetic PHF19 construction helpers; never real-release evidence."""
 
 import json
+from pathlib import Path
 
-from conftest import REPO_ROOT
+REPO_ROOT = Path(__file__).resolve().parents[2]
 from reproduction import paths, world
 
 FIXTURE = REPO_ROOT / "fixtures/phf19"

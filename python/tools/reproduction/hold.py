@@ -144,3 +144,139 @@ def restore(saved: dict, view) -> bytes:
     if "sha256:" + sha256(content).hexdigest() != saved["digest"]:
         raise RuntimeError("held source digest mismatch")
     return content
+
+
+def _membership(inputs, original: bytes):
+    import json
+    from dataclasses import replace
+
+    from reproduction import analysis_inputs
+
+    members = analysis_inputs.hgnc_members(original)
+    manifest = json.dumps(
+        {
+            "release": "2025-09-05",
+            "source_sha256": sha256(original).hexdigest(),
+            "parser_sha256": sha256(Path(analysis_inputs.__file__).read_bytes()).hexdigest(),
+            "output_sha256": sha256(members).hexdigest(),
+            "member_count": len(members.splitlines()),
+        },
+        sort_keys=True,
+    ).encode()
+    refs = {}
+    for name, content in [("hgnc_members", members), ("hgnc_derivation", manifest)]:
+        digest = "sha256:" + sha256(content).hexdigest()
+        refs[name + "_sha256"] = digest.removeprefix("sha256:")
+        refs[name + "_dataset"] = stored.dataset_node(title=name, resources=[{"name": name, "digest": digest}]).id
+    return (
+        replace(inputs, mapping=replace(inputs.mapping, reference={**inputs.mapping.reference, **refs})),
+        members,
+        manifest,
+    )
+
+
+def prepare_phf19(declaration, *, predecessor: Path, hgnc: Path, ensembl: Path) -> None:
+    """Prepare only the checked selected route; every reference is held in this run."""
+    import json
+
+    from beliefs.profile import shipped_assumptions_register
+    from beliefs.register import register_from_projection
+    from reproduction import analysis_inputs, type_target, vocabulary
+
+    checked = analysis_inputs.resolve_phf19(declaration, predecessor=predecessor, hgnc=hgnc, ensembl=ensembl)
+    checked, members, manifest = _membership(checked, hgnc.read_bytes())
+    locations = {**analysis_inputs.declared_paths(declaration, predecessor), "hgnc": hgnc, "ensembl": ensembl}
+    sources = {key: source(path.name, path.read_bytes(), empirical=key == "matrix") for key, path in locations.items()}
+    for name in vocabulary.HELD_SORTS:
+        content = (Path(__file__).with_name("phf19-vocabulary") / (name + ".txt")).read_bytes()
+        sources[name] = source(name + ".txt", content)
+    sources["hgnc-members"] = source("hgnc-members.txt", members)
+    sources["hgnc-derivation"] = source("hgnc-derivation.json", manifest)
+    sources["mapping-members"] = source("mapping-members.tsv", checked.mapping_members)
+    provenance = {"declaration": declaration, "source_datasets": {k: v["dataset"] for k, v in sources.items()}}
+    sources["provenance"] = source("provenance.json", json.dumps(provenance, sort_keys=True).encode())
+    parser, estimator = type_target.implementation_digests()
+    assay, estimate, rule = type_target.procedures(checked, parser_digest=parser, estimator_digest=estimator)
+    writer = world.open_writer()
+    mapping_node = writer.add(stored.referent_mapping_node(checked.mapping))
+    assay_node = writer.add(stored.procedure_node(assay))
+    estimator_node = writer.add(stored.procedure_node(estimate))
+    rule_node = writer.add(stored.classification_rule_node(rule))
+    registers = [shipped_assumptions_register(ns) for ns in ("general", "biology")]
+    registers.append(
+        register_from_projection(
+            json.loads(Path(__file__).with_name("mm30-phf19-register.json").read_text()),
+            source="mm30-phf19-register.json",
+        )
+    )
+    register_ids = [writer.add(stored.assumptions_register_node(r)).id for r in registers]
+    state.save(
+        sources=sources,
+        assay_ref=assay_node.id,
+        estimator_ref=estimator_node.id,
+        mapping_ref=mapping_node.id,
+        grouping_rule_ref=rule_node.id,
+        registers=register_ids,
+        dataset_address=sources["matrix"]["dataset"],
+        dataset_ref=sources["matrix"]["dataset"],
+        held_file=str(paths.STORE_ROOT / sources["matrix"]["relative"]),
+        held_digest=sources["matrix"]["digest"],
+    )
+    import yaml
+
+    paths.TARGET.write_text(
+        yaml.safe_dump(
+            {
+                "value_row": checked.feature,
+                "group_separator": checked.separator,
+                "positive_level": "PD",
+                "source_proposition": checked.source_proposition,
+                "source_dataset": checked.source_dataset,
+            },
+            sort_keys=True,
+        )
+    )
+
+
+def recover_inputs():
+    """Recheck correspondence from run-held sources, independent of acquisition paths."""
+    import json
+
+    from beliefs.corpus import ReadView
+    from beliefs.referent_mapping import mapping_from_stored
+    from reproduction import analysis_inputs, vocabulary
+
+    st = state.load()
+    view = ReadView.opened_at(paths.CORPUS_ROOT)
+    sources = st["sources"]
+    for item in sources.values():
+        restore(item, view)
+    provenance = json.loads(restore(sources["provenance"], view))
+    if provenance["source_datasets"] != {k: v["dataset"] for k, v in sources.items() if k != "provenance"}:
+        raise RuntimeError("provenance source inventory differs from held closure")
+    declaration = {
+        **provenance["declaration"],
+        "paths": {k: sources[k]["relative"] for k in ("proposition", "dataset", "matrix", "crosswalk")},
+    }
+    checked = analysis_inputs.resolve_phf19(
+        declaration,
+        predecessor=paths.STORE_ROOT,
+        hgnc=paths.STORE_ROOT / sources["hgnc"]["relative"],
+        ensembl=paths.STORE_ROOT / sources["ensembl"]["relative"],
+    )
+    checked, _members, _manifest = _membership(checked, restore(sources["hgnc"], view))
+    if restore(sources["mapping-members"], view) != checked.mapping_members:
+        raise RuntimeError("held mapping member bytes differ")
+    vocabulary.check_members(
+        restore(sources["hgnc"], view),
+        restore(sources["hgnc-members"], view),
+        restore(sources["hgnc-derivation"], view),
+    )
+    if mapping_from_stored(view.get(st["mapping_ref"])) != checked.mapping:
+        raise RuntimeError("held mapping differs from checked sources")
+    return checked
+
+
+def verify_sources() -> bool:
+    recover_inputs()
+    return True

@@ -1,95 +1,232 @@
-"""Step 2: build_claim over the target and mint the proposition record.
-
-Before the mint, one pure measurement: `build_claim` under the modal-sorted
-vocabulary, which excludes the target's concept→protein pair by its stated
-rule. Its refusal is recorded as the answer to "what `build_claim` refused
-and why"; nothing is minted from it.
-"""
+"""The selected PHF19 gene RNA question, procedures and checked estimand authoring."""
 
 from __future__ import annotations
 
-import sys
-import time
-
-import yaml
+from decimal import Decimal
+from fractions import Fraction
+from hashlib import sha256
+from pathlib import Path
 
 from beliefs import stored
-from beliefs.claim import Referent, build_claim
-from beliefs.errors import ClaimError
+from beliefs.applicability import ScopedRestriction, build_applicability
+from beliefs.claim import Member, Referent, build_claim
+from beliefs.classification_rule import ClassificationRule, rule_identity
+from beliefs.dependencies import read_record
+from beliefs.errors import EstimandError
+from beliefs.estimand import Control, MeasuredBinding, OutputSpec, RuleClassLevels, ValueReference, build_estimand
+from beliefs.measurement import Aspect, Measure, Observable
+from beliefs.procedure import Implementation, Procedure, Scale, procedure_identity
 from beliefs.projection import claim_identity, project_claim
-from reproduction import findings, paths, state, vocabulary, world
+from beliefs.referent_mapping import mapping_identity
+from beliefs.resolution import TermOutcome
+from beliefs.restriction import TermRestriction
+from reproduction import state, vocabulary, world
+from reproduction.analysis_inputs import PHF19Inputs
+
+DISPLAY = "PHF19 gene-level RNA abundance is higher in PD than NDMM in this cohort comparison."
+OBSERVABLE = Observable(
+    "general/relative-abundance", "biology/gene", Aspect("biology/molecular-aspect", "biology-aspect:rna")
+)
 
 
-def referent(term: str, plan: dict) -> Referent:
-    kind, colon, tail = term.partition(":")
-    if not colon or not kind or not tail:
-        raise ClaimError(f"term {term!r} carries no `<kind>:` prefix")
-    if kind not in plan["sorts"]:
-        raise ClaimError(f"term {term!r}: kind prefix {kind!r} maps to no sort in the plan")
-    return Referent(sort=plan["sorts"][kind], term=term)
+def implementation_digests(code: Path | None = None) -> tuple[str, str]:
+    root = code if code is not None else Path(__file__).with_name("analysis")
+    return tuple("sha256:" + sha256((root / name).read_bytes()).hexdigest() for name in ("labels.py", "assoc.py"))
 
 
-def typed(target: dict, profile, plan: dict):
-    subject_kind = target["subject"].partition(":")[0]
-    object_kind = target["object"].partition(":")[0]
+def check_inputs(inputs: PHF19Inputs) -> None:
+    if (
+        inputs.source_proposition,
+        inputs.source_dataset,
+        inputs.feature,
+        inputs.gene,
+        inputs.factor,
+        inputs.baseline,
+        inputs.comparison,
+        inputs.separator,
+    ) != (
+        "proposition:concept-disease-stage-affects-protein-phf19",
+        "dataset:gse179929",
+        "ENSG00000119403",
+        "hgnc:24566",
+        "concept:disease-stage",
+        "level:ndmm",
+        "level:pd",
+        "_",
+    ):
+        raise EstimandError("inputs differ from the selected PHF19 question")
+    mapping = inputs.mapping
+    if (mapping.source_sort, mapping.target_sort, mapping.cardinality, mapping.aggregation) != (
+        "biology/ensembl-gene",
+        "biology/gene",
+        "one-to-one",
+        None,
+    ):
+        raise EstimandError("selected mapping sorts/cardinality/aggregation differ")
+    if (
+        inputs.mapping_members != b"ensembl:ENSG00000119403\thgnc:24566\n"
+        or mapping.members != "sha256:" + sha256(inputs.mapping_members).hexdigest()
+    ):
+        raise EstimandError("selected mapping member bytes differ")
+    for key, value in {
+        "hgnc_release": "2025-09-05",
+        "ensembl_release": "115",
+        "assembly": "GRCh38.p14",
+        "hgnc_sha256": inputs.digests["hgnc"],
+        "ensembl_sha256": inputs.digests["ensembl"],
+    }.items():
+        if mapping.reference.get(key) != value:
+            raise EstimandError("selected mapping reference release/digest differs")
+
+
+def typed(inputs: PHF19Inputs, profile):
+    check_inputs(inputs)
     return build_claim(
         profile,
-        operator=vocabulary.operator_for(plan, target["predicate"], subject_kind, object_kind),
-        args=(referent(target["subject"], plan), referent(target["object"], plan)),
-        layer=plan["layers"][target["claim_layer"]],
-        polarity=plan["polarities"][target["polarity"]],
+        operator="general/covaries-with",
+        roles={
+            "parties": (
+                Member(Referent("mm30/clinical-factor", inputs.factor)),
+                Member(Referent("biology/gene", inputs.gene)),
+            )
+        },
+        qualifiers={},
+        form="polar",
+        polarity="positive",
+        layer="statistical",
     )
+
+
+def procedures(
+    inputs: PHF19Inputs, *, parser_digest: str, estimator_digest: str
+) -> tuple[Procedure, Procedure, ClassificationRule]:
+    check_inputs(inputs)
+    provenance = {
+        **dict(inputs.digests),
+        "source_proposition": inputs.source_proposition,
+        "source_dataset": inputs.source_dataset,
+        "source_feature": inputs.feature,
+        "mapping": mapping_identity(inputs.mapping),
+        "hgnc_release": "2025-09-05",
+        "ensembl_release": "115",
+        "assembly": "GRCh38.p14",
+        "historical_quantifier": "unknown",
+        "historical_annotation_release": "unknown",
+        "historical_aggregation": "unknown",
+        "evidence": inputs.mapping.reference["evidence"],
+    }
+    for key, digest in inputs.digests.items():
+        provenance[key + "_dataset"] = stored.dataset_node(
+            title=key, resources=[{"name": key, "digest": "sha256:" + digest}]
+        ).id
+    provenance.update(
+        {k: v for k, v in inputs.mapping.reference.items() if k.startswith(("hgnc_members_", "hgnc_derivation_"))}
+    )
+    assay = Procedure(
+        kind="general/assay",
+        name="PHF19 matrix gene RNA interpretation",
+        definition="Gene-level RNA as represented by the held matrix, using an explicitly later identifier correspondence; upstream quantifier, annotation and aggregation are unknown.",
+        yields=(OBSERVABLE,),
+        scale=Scale(Fraction(0), Fraction(1000000), "higher-is-more"),
+        validated_in="unknown",
+        compatible_with=(),
+        evidence=(),
+        implementation=None,
+        inputs=None,
+        parameters=provenance,
+        external=None,
+    )
+    estimator = Procedure(
+        kind="general/estimator",
+        name="PHF19 unpaired midrank estimator",
+        definition="Engineering demonstration: independent-groups Mann-Whitney U, half-tie probability of superiority, untie-corrected normal diagnostics; no computed interval or certified independence.",
+        yields=(),
+        scale=None,
+        validated_in="unknown",
+        compatible_with=(),
+        evidence=(),
+        implementation=Implementation("analysis/assoc.py", estimator_digest),
+        inputs=None,
+        parameters={"label_parser": parser_digest, "comparison": "PD", "baseline": "NDMM", "alpha": "0.05"},
+        external=None,
+    )
+    rule = ClassificationRule(
+        classes="mm30/stage-level",
+        reads=(),
+        definition="For concept:disease-stage only: classify the final suffix after _ as NDMM -> level:ndmm or PD -> level:pd; refuse missing, empty or other tokens. This classifies supplied labels, not clinical diagnoses.",
+        external=None,
+        implementation=Implementation("analysis/labels.py", parser_digest),
+        annotator=None,
+    )
+    return assay, estimator, rule
+
+
+def estimand(
+    inputs,
+    *,
+    profile,
+    claim,
+    records,
+    snapshot,
+    assay_id: str,
+    grouping_rule_id: str,
+    parser_digest: str,
+    estimator_digest: str,
+):
+    expected_claim = typed(inputs, profile)
+    if claim_identity(claim) != claim_identity(expected_claim):
+        raise EstimandError("claim is not the selected gene/factor PHF19 shape")
+    assay, _estimator, rule = procedures(inputs, parser_digest=parser_digest, estimator_digest=estimator_digest)
+    if assay_id != procedure_identity(assay) or read_record(records, assay_id) != assay:
+        raise EstimandError("held assay differs from the selected observable/provenance")
+    if grouping_rule_id != rule_identity(rule) or read_record(records, grouping_rule_id) != rule:
+        raise EstimandError("grouping rule differs from the selected factor/parser association")
+    map_id = mapping_identity(inputs.mapping)
+    if read_record(records, map_id) != inputs.mapping:
+        raise EstimandError("held map differs from the checked PHF19 correspondence")
+    if snapshot.resolve(profile.sorts["biology/gene"], inputs.gene) != TermOutcome.MEMBER:
+        raise EstimandError("selected HGNC membership has not been established")
+    app, _ = build_applicability(
+        profile,
+        claim,
+        {"mm30/cohort": ScopedRestriction("generic", TermRestriction("mm30/cohort", "cohort:gse179929"))},
+        snapshot=snapshot,
+    )
+    measure = Measure(OBSERVABLE, None, assay_id, "ratio", "level", "general/identity", assay_id)
+    value, _ = build_estimand(
+        profile,
+        claim,
+        form="contrast",
+        functional="general/probability-of-superiority",
+        bindings={
+            "response": MeasuredBinding("parties", Referent("biology/gene", inputs.gene), measure, map_id, None),
+            "grouping": RuleClassLevels(
+                grouping_rule_id,
+                (Referent("mm30/stage-level", inputs.baseline), Referent("mm30/stage-level", inputs.comparison)),
+            ),
+        },
+        outputs={"estimate": OutputSpec("dimensionless", "unit-interval")},
+        reference=ValueReference(Decimal("0.5")),
+        control=Control("general/observational", (), "general/independent-groups", "general/cohort-enrolment"),
+        uncertainty="interval",
+        assumptions=(),
+        calibration=None,
+        applicability=app,
+        snapshot=snapshot,
+        records=records,
+    )
+    return value, app
 
 
 def main() -> int:
-    target = yaml.safe_load(paths.TARGET.read_text())
-    # The measurement: the modal-sorted vocabulary, no mint.
-    try:
-        typed(target, vocabulary.profile(vocabulary.MODAL_SORTED), vocabulary.plan(vocabulary.MODAL_SORTED))
-        modal = "typed (unexpected: the modal rule assigns `affects` [concept, concept])"
-    except (ClaimError, KeyError) as refused:
-        modal = f"{type(refused).__name__}: {refused}"
-    findings.record(
-        2,
-        "corpus-work",
-        f"under mm30-modal-sorted, build_claim on the target: {modal}",
-        filed="the exercise types under the unsorted vocabulary",
-    )
-    print(f"modal-sorted measurement: {modal}")
-    # The mint, under the exercise's vocabulary.
-    plan = vocabulary.plan()
-    started = time.monotonic()
-    try:
-        claim = typed(target, vocabulary.profile(), plan)
-    except (ClaimError, KeyError) as refused:
-        findings.record(2, "corpus-work", f"build_claim refused the target: {type(refused).__name__}: {refused}")
-        print(f"REFUSED at build_claim: {refused}")
-        return 2
-    slug = target["proposition_id"].split(":", 1)[1]
-    minted = world.open_writer().add(
+    from reproduction import hold
+
+    inputs = hold.recover_inputs()
+    claim = typed(inputs, vocabulary.profile())
+    node = world.open_writer().add(
         stored.proposition_node(
-            slug,
-            title=target["proposition_id"],
-            claim=project_claim(claim),
-            display_statement=f"{target['subject']} {target['predicate']} {target['object']}",
+            "phf19-rna-pd-vs-ndmm", title=DISPLAY, claim=project_claim(claim), display_statement=DISPLAY
         )
     )
-    state.save(
-        proposition_ref=minted.id,
-        claim_identity=claim_identity(claim),
-        typing_seconds=round(time.monotonic() - started, 1),
-    )
-    snapshot = vocabulary.snapshot()
-    concept = snapshot.resolve(vocabulary.concept_binding(), target["subject"])
-    findings.record(
-        2,
-        "closed",
-        f"slot 0 {target['subject']} resolved {concept.value} against the held concept list; "
-        "slot 1 is biology/molecular-entity, not-consulted",
-    )
-    print(f"minted {minted.id}; claim identity {claim_identity(claim)}")
+    state.save(proposition_ref=node.id, claim_identity=claim_identity(claim))
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
