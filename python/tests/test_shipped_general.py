@@ -308,7 +308,7 @@ def test_general_activation_is_explicit_and_compiles_alone() -> None:
 
 @pytest.mark.parametrize(
     "namespace",
-    ["", "unknown", "biology", "testing", "../general", "general/sub", "general.bad"],
+    ["", "unknown", "testing", "../general", "general/sub", "general.bad"],
 )
 def test_unknown_and_traversal_namespaces_refuse_with_resource_path(namespace: str) -> None:
     with pytest.raises(ProfileError, match="domains/.*/REGISTER\\.json"):

@@ -261,7 +261,7 @@ class TestNoSecondAuthoredOperatorArtifact:
 
 def test_shipped_domain_contract_ships_general_and_refuses_other_namespaces():
     assert shipped_domain_contract("general").namespace == "general"
-    for namespace in ("biology", "testing", "chemistry", "biology/../biology", "biology.bad", "../general"):
+    for namespace in ("testing", "chemistry", "biology/../biology", "biology.bad", "../general"):
         with pytest.raises(ProfileError, match="ships no domain contract"):
             shipped_domain_contract(namespace)
 

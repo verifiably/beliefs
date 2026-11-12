@@ -573,6 +573,24 @@ activate `general` explicitly in `compile_profile`. Distribution validation
 non-`general` declarations in the numerical tables and shared methodological tables
 except reviewed field-specific `functional` or `procedure-kind` classifications.
 
+The human biology genesis ships alongside `general`: [DOMAIN.yaml](../domains/biology/DOMAIN.yaml)
+and [REGISTER.json](../domains/biology/REGISTER.json), with identical packaged copies.
+Activate both explicitly. Its five sorts distinguish HGNC gene nomenclature (2025-09-05),
+unversioned human Ensembl gene annotations, versioned transcript and translation
+annotations (Ensembl 115, GRCh38.p14), and the authored RNA aspect. Identifier syntax
+is separate from held-release membership. Ensembl translations can over-split
+identical sequences and identify neither measured proteins nor proteoforms.
+`transcribed-from` relates transcript to Ensembl gene annotations; `translated-from`
+relates translation to transcript annotations. Neither structural template has an
+edge or implies expression, equivalence or another claim. The gene-only `regulates`
+bridge narrows `general/changes-under-intervention` and inherits its causal edge;
+it admits no estimand and supplies no observational support. Gene RNA measurement
+uses an explicit procedure and checked Ensembl-to-HGNC correspondence. No protein
+or Ensembl-gene measurement is admitted. Its twelve provisional register entries
+state these commitments; aggregation does not establish their biological validity.
+This is a new genesis replacing the retired v1 molecular-entity vocabulary, with
+no cross-base succession or restoration of `affects` and `associates-with`.
+
 Shipped successor archives use
 `domains/<namespace>/history/<contract-content-hex>/DOMAIN.yaml` and `REGISTER.json`,
 with byte-identical copies under `python/src/beliefs/domains/`. The current paths

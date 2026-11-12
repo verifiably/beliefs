@@ -289,6 +289,10 @@ the beliefs documents use, each linking the document that specifies or explains 
 - <a id="target-observable"></a>**Target observable** — The measure's observable
   without a proxy, or the cited proxy's explicit target observable.
   ([records](records.md#binding-aptness))
+- **Biology gene, transcript and protein** — Distinct typed terms in the human
+  biology pack: HGNC gene nomenclature, Ensembl transcript annotations and
+  transcript-associated translation annotations. Typed structural relations connect
+  annotations; they are never coreference. ([contracts](contracts.md#domain-contracts))
 - <a id="template"></a>**Template** — A relation template: named roles (`one` or `many`),
   sign aptness, layers, forms and an optional cause/effect edge. Its
   `<namespace>/<name>` is the operator a claim names.

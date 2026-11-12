@@ -1,0 +1,122 @@
+{
+  "biology_content_identity": "05e6f4fd06de8112d8f13d235c0793b6767404208cbf4210b7b9b24fc1840aca",
+  "profile_compiled_identity": "f60236ec979a6292886bb3c0b61af3b1e057066e7cf5d6cb18031f1e2155b565",
+  "purpose": "Annotation examples establish grammar only, not held release membership.",
+  "register_identity": "assumptions-register:f81b9ad496b745d850a872260f3f691020ab5ab9e3eb2b64758aeaf5dd1cfb67",
+  "vector": [
+    {
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"structural\",\"operator\":\"biology/transcribed-from\",\"polarity\":\"inapt\",\"qualifiers\":{},\"roles\":{\"gene\":{\"sort\":\"biology/ensembl-gene\",\"term\":\"ensembl:ENSG00000119403\"},\"transcript\":{\"sort\":\"biology/transcript\",\"term\":\"ensembl:ENST00000312189.10\"}}}",
+      "claim": {
+        "form": "polar",
+        "layer": "structural",
+        "operator": "biology/transcribed-from",
+        "polarity": null,
+        "qualifiers": {},
+        "roles": {
+          "gene": {
+            "sort": "biology/ensembl-gene",
+            "term": "ensembl:ENSG00000119403"
+          },
+          "transcript": {
+            "sort": "biology/transcript",
+            "term": "ensembl:ENST00000312189.10"
+          }
+        }
+      },
+      "digest": "8aadca9be312a014b2f560f2ccefe717f2c8c72e0465fb4927a6d8681d8a2b54",
+      "projection": {
+        "form": "polar",
+        "layer": "structural",
+        "operator": "biology/transcribed-from",
+        "polarity": "inapt",
+        "qualifiers": {},
+        "roles": {
+          "gene": {
+            "sort": "biology/ensembl-gene",
+            "term": "ensembl:ENSG00000119403"
+          },
+          "transcript": {
+            "sort": "biology/transcript",
+            "term": "ensembl:ENST00000312189.10"
+          }
+        }
+      }
+    },
+    {
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"structural\",\"operator\":\"biology/translated-from\",\"polarity\":\"inapt\",\"qualifiers\":{},\"roles\":{\"protein\":{\"sort\":\"biology/protein\",\"term\":\"ensembl:ENSP00000310372.6\"},\"transcript\":{\"sort\":\"biology/transcript\",\"term\":\"ensembl:ENST00000312189.10\"}}}",
+      "claim": {
+        "form": "polar",
+        "layer": "structural",
+        "operator": "biology/translated-from",
+        "polarity": null,
+        "qualifiers": {},
+        "roles": {
+          "protein": {
+            "sort": "biology/protein",
+            "term": "ensembl:ENSP00000310372.6"
+          },
+          "transcript": {
+            "sort": "biology/transcript",
+            "term": "ensembl:ENST00000312189.10"
+          }
+        }
+      },
+      "digest": "ff7a127ef6661bfbec7c901309575e958d1dedb99538402fb0e79860599a7173",
+      "projection": {
+        "form": "polar",
+        "layer": "structural",
+        "operator": "biology/translated-from",
+        "polarity": "inapt",
+        "qualifiers": {},
+        "roles": {
+          "protein": {
+            "sort": "biology/protein",
+            "term": "ensembl:ENSP00000310372.6"
+          },
+          "transcript": {
+            "sort": "biology/transcript",
+            "term": "ensembl:ENST00000312189.10"
+          }
+        }
+      }
+    },
+    {
+      "canonical_bytes": "{\"form\":\"polar\",\"layer\":\"causal\",\"operator\":\"biology/regulates\",\"polarity\":\"positive\",\"qualifiers\":{},\"roles\":{\"intervention\":{\"sort\":\"biology/gene\",\"term\":\"hgnc:24566\"},\"response\":{\"sort\":\"biology/gene\",\"term\":\"hgnc:5\"}}}",
+      "claim": {
+        "form": "polar",
+        "layer": "causal",
+        "operator": "biology/regulates",
+        "polarity": "positive",
+        "qualifiers": {},
+        "roles": {
+          "intervention": {
+            "sort": "biology/gene",
+            "term": "hgnc:24566"
+          },
+          "response": {
+            "sort": "biology/gene",
+            "term": "hgnc:5"
+          }
+        }
+      },
+      "digest": "d1f4c174b9bfa0375a511b509fd11078f548461022fc0560db0e42fb75282797",
+      "projection": {
+        "form": "polar",
+        "layer": "causal",
+        "operator": "biology/regulates",
+        "polarity": "positive",
+        "qualifiers": {},
+        "roles": {
+          "intervention": {
+            "sort": "biology/gene",
+            "term": "hgnc:24566"
+          },
+          "response": {
+            "sort": "biology/gene",
+            "term": "hgnc:5"
+          }
+        }
+      }
+    }
+  ]
+}

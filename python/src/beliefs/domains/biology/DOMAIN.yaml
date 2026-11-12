@@ -1,0 +1,50 @@
+contract: biology
+version: 1
+lineage: genesis
+sorts:
+  gene:
+    binding: {kind: release, namespace: hgnc, release: '2025-09-05'}
+    identifier_class: {prefix: hgnc, pattern: 'hgnc:[1-9][0-9]*'}
+  ensembl-gene:
+    binding: {kind: release, namespace: ensembl, release: '115'}
+    identifier_class: {prefix: ensembl, pattern: 'ensembl:ENSG[0-9]{11}'}
+  transcript:
+    binding: {kind: release, namespace: ensembl, release: '115'}
+    identifier_class: {prefix: ensembl, pattern: 'ensembl:ENST[0-9]{11}\.[1-9][0-9]*'}
+  protein:
+    binding: {kind: release, namespace: ensembl, release: '115'}
+    identifier_class: {prefix: ensembl, pattern: 'ensembl:ENSP[0-9]{11}\.[1-9][0-9]*'}
+  molecular-aspect:
+    binding: {kind: scheme, scheme: biology-molecular-aspect, version: '1'}
+    identifier_class: {prefix: biology-aspect, pattern: 'biology-aspect:rna'}
+dimensions: {}
+templates:
+  transcribed-from:
+    definition: An Ensembl transcript annotation is assigned to an Ensembl gene annotation in the pinned human reference.
+    roles: {transcript: {arity: one}, gene: {arity: one}}
+    sign_apt: false
+    layers: [structural]
+    forms: [polar]
+  translated-from:
+    definition: An Ensembl translation annotation is assigned to an Ensembl transcript annotation in the pinned human reference.
+    roles: {protein: {arity: one}, transcript: {arity: one}}
+    sign_apt: false
+    layers: [structural]
+    forms: [polar]
+instantiations:
+  transcript-gene:
+    template: transcribed-from
+    roles: {transcript: [transcript], gene: [ensembl-gene]}
+  protein-transcript:
+    template: translated-from
+    roles: {protein: [protein], transcript: [transcript]}
+bridges:
+  regulates:
+    template: general/changes-under-intervention
+    mapping: narrower
+    roles: {intervention: [gene], response: [gene]}
+    layers: [causal]
+measurements:
+  gene: [general/relative-abundance]
+aspects:
+  general/relative-abundance: [molecular-aspect]

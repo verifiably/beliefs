@@ -1,0 +1,77 @@
+{
+  "describes": "biology:05e6f4fd06de8112d8f13d235c0793b6767404208cbf4210b7b9b24fc1840aca",
+  "entries": {
+    "aspect:biology/molecular-aspect": {
+      "collapses": "The molecular aspect distinguishes RNA under a shared abundance kind.",
+      "licenses": "The explicit biology RNA facet on relative abundance.",
+      "not_established": "No protein abundance, absolute copy number, activity or common normalization is established.",
+      "status": "provisional"
+    },
+    "bridge:biology/regulates": {
+      "collapses": "A gene-only literature verb collapses diverse regulatory mechanisms into a directed causal commitment.",
+      "licenses": "A narrower causal bridge to general/changes-under-intervention, with inherited edge eligibility for explicit claims.",
+      "not_established": "Directness, mechanism, tissue activity, causal estimands and support from observational PHF19 data are not established; retired affects and associates-with are not restored.",
+      "status": "provisional"
+    },
+    "instantiation:biology/protein-transcript": {
+      "collapses": "Translation and transcript annotations remain distinct sorts.",
+      "licenses": "Typing their explicitly authored reference association.",
+      "not_established": "No unique sequence, expression or automatically related claim is established.",
+      "status": "provisional"
+    },
+    "instantiation:biology/transcript-gene": {
+      "collapses": "The direct reference link uses Ensembl annotations rather than HGNC nomenclature.",
+      "licenses": "Typing a transcript and its annotated Ensembl gene.",
+      "not_established": "An HGNC crosswalk, reverse equivalence or gene-to-protein implication is not supplied.",
+      "status": "provisional"
+    },
+    "measurement:biology/gene": {
+      "collapses": "Gene-bearing RNA abundance uses an explicitly checked identifier correspondence from Ensembl rows to HGNC.",
+      "licenses": "A relative-abundance measurement on an HGNC gene when the procedure and mapping supply its particulars.",
+      "not_established": "Mapping, aggregation and belief policy do not validate the assay, RNA-to-protein inference or independence; no ENSG or protein measurement is admitted.",
+      "status": "provisional"
+    },
+    "sort:biology/ensembl-gene": {
+      "collapses": "An unversioned ENSG collapses gene-model versions within human Ensembl 115 on GRCh38.p14.",
+      "licenses": "Naming the source annotation row and an explicit later correspondence to HGNC.",
+      "not_established": "The historical matrix annotation release, HGNC identity and assay validity are not established.",
+      "status": "provisional"
+    },
+    "sort:biology/gene": {
+      "collapses": "HGNC locus nomenclature collapses isoforms, proteoforms and gene-model diversity.",
+      "licenses": "Human HGNC locus terms from release 2025-09-05; replaces the retired v1 molecular-entity sort without succession.",
+      "not_established": "RNA isoforms, protein abundance, activity and a complete biological gene model are not identified.",
+      "status": "provisional"
+    },
+    "sort:biology/molecular-aspect": {
+      "collapses": "The closed authored RNA facet abstracts over RNA species.",
+      "licenses": "Distinguishing RNA interpretation on a relative-abundance observable.",
+      "not_established": "Scheme syntax establishes no external ontology membership or protein interpretation.",
+      "status": "provisional"
+    },
+    "sort:biology/protein": {
+      "collapses": "Versioned Ensembl translations over-split identical amino-acid sequences.",
+      "licenses": "Human transcript-associated translation annotation identity under Ensembl 115 on GRCh38.p14.",
+      "not_established": "A unique sequence, measured protein, modified proteoform, complex or UniProt equivalence is not established.",
+      "status": "provisional"
+    },
+    "sort:biology/transcript": {
+      "collapses": "A versioned human Ensembl transcript is an annotation model.",
+      "licenses": "Transcript annotation identity under Ensembl 115 on GRCh38.p14.",
+      "not_established": "Actual expression, measured RNA and unversioned transcript membership are not established.",
+      "status": "provisional"
+    },
+    "template:biology/transcribed-from": {
+      "collapses": "An annotation relation abstracts over transcription mechanisms.",
+      "licenses": "A structural transcript-to-Ensembl-gene question.",
+      "not_established": "Expression, abundance, universal coding, uniqueness, causation and coreference are not inferred.",
+      "status": "provisional"
+    },
+    "template:biology/translated-from": {
+      "collapses": "The annotation relation abstracts over translation mechanisms.",
+      "licenses": "A structural translation-to-transcript question.",
+      "not_established": "Translation rate, protein quantity, expression and coreference are not inferred.",
+      "status": "provisional"
+    }
+  }
+}
