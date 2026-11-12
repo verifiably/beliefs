@@ -312,7 +312,8 @@ the vocabulary tables and the two pack tables carry no `retired`. Templates
 require at least one role at parse time. Compiled instantiations, bridges and
 estimand declarations carry an explicit declaration kind.
 
-The five measurement tables may be declared by any domain namespace. Their
+The five measurement tables may be declared by any domain namespace; shipped packs
+restrict them to `general` (see [Profiles](#profiles)). Their
 references are local names or terms from other activated contracts, resolved in
 dependency order at compile. Their optional `definition` is prose outside every
 schema projection; the full document content identity still covers it. Numerical

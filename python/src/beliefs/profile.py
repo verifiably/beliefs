@@ -70,6 +70,7 @@ from beliefs.errors import (
     DuplicateContribution,
     MalformedContract,
     ProfileError,
+    ScienceError,
     UnparsedContract,
     WithdrawnFromAuthoring,
 )
@@ -211,7 +212,7 @@ def shipped_assumptions_register(namespace: str) -> AssumptionsRegister:
         raise ProfileError(f"this package ships no assumptions register for namespace {namespace!r} ({source})")
     try:
         contract = shipped_domain_contract(namespace)
-    except (ProfileError, MalformedContract) as exc:
+    except (OSError, UnicodeDecodeError, ScienceError) as exc:
         raise ProfileError(f"{source}: broken domain contract binding for {namespace!r}: {exc}") from exc
 
     def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:

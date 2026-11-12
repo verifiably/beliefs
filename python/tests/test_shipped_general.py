@@ -13,7 +13,7 @@ import beliefs
 from beliefs import profile as profile_module
 from beliefs import stored
 from beliefs.contract.document import parse_document
-from beliefs.errors import ProfileError
+from beliefs.errors import CanonicalTextRefused, MalformedContract, ProfileError
 from beliefs.profile import (
     compile_profile,
     shipped_base,
@@ -305,6 +305,33 @@ def test_unknown_and_traversal_namespaces_refuse_with_resource_path(namespace: s
         profile_module.shipped_assumptions_register(namespace)
     with pytest.raises(ProfileError, match="ships no domain contract"):
         shipped_domain_contract(namespace)
+
+
+@pytest.mark.parametrize(
+    "cause",
+    [
+        OSError("cannot read domain resource"),
+        UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
+        CanonicalTextRefused("invalid canonical domain text"),
+        MalformedContract("invalid domain contract"),
+        ProfileError("missing domain contract"),
+    ],
+)
+def test_domain_binding_errors_name_the_register_resource(
+    monkeypatch: pytest.MonkeyPatch, cause: Exception
+) -> None:
+    def broken_domain(namespace: str) -> None:
+        assert namespace == "general"
+        raise cause
+
+    monkeypatch.setattr(profile_module, "shipped_domain_contract", broken_domain)
+    profile_module.shipped_assumptions_register.cache_clear()
+    try:
+        with pytest.raises(ProfileError, match=r"beliefs/domains/general/REGISTER\.json") as caught:
+            profile_module.shipped_assumptions_register("general")
+        assert caught.value.__cause__ is cause
+    finally:
+        profile_module.shipped_assumptions_register.cache_clear()
 
 
 def test_broken_package_register_bindings_refuse_with_profile_error(

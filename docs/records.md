@@ -1232,7 +1232,10 @@ both test suites read and neither writes:
   digest);
 - `fixtures/claim-identity-v2.json` holds claims built from their components under
   the base contract and `fixtures/contracts/testing.yaml`, with their projections,
-  canonical bytes and `science.claim.v2` digests.
+  canonical bytes and `science.claim.v2` digests;
+- `fixtures/general-claim-identity-v2.json` holds the companion claim vectors under
+  the shipped `general` contract and `fixtures/contracts/general-consumer.yaml`,
+  with their projections, canonical bytes and `science.claim.v2` digests.
 
 The TypeScript side computes neither contract nor profile identity. It refuses any
 contract that declares a predecessor or a retired identifier.
