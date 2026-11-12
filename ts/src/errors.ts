@@ -5,7 +5,7 @@
  * One class has no Python counterpart and is the more important one:
  * `UncheckableContract`. `ts/` implements the **shared-encoding path** and not a
  * second system, so there are contract
- * features it cannot validate — succession, and retirement's authoring
+ * features it cannot validate — retirement's authoring
  * semantics. It **refuses** those inputs rather than parsing past them. A
  * reduced parser that quietly accepted what the other implementation refuses
  * would be a second, weaker reading of the normative source, which is exactly
@@ -88,6 +88,8 @@ export class UnparsedContract extends ContractError {}
  * that depends on either is not one this side may claim to have read.
  */
 export class UncheckableContract extends ContractError {}
+
+export class SuccessionViolation extends ContractError {}
 
 /**
  * Two contracts, each genuine, that were not typed against one another.

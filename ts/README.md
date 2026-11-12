@@ -17,12 +17,11 @@ components to identity.
 
 ## What this side deliberately does not do
 
-It computes **no contract identity and no compiled profile identity**: compilation is
-not a shared encoding, and no parity obligation reaches it.
+It computes contract content identities and checks additive succession against an
+explicit predecessor. It computes no compiled profile identity.
 
-It reads only base contracts and genesis domain contracts, and it **refuses** a
-contract that declares a predecessor or a `retired` identifier rather than parsing
-past it ([contracts.md](../docs/contracts.md#scope)). A reduced parser that quietly
+It reads base contracts and genesis or checked successor domain contracts. It
+**refuses** every `retired` field, including false, rather than parsing past it ([contracts.md](../docs/contracts.md#scope)). A reduced parser that quietly
 accepted what the Python reading refuses would be a second, weaker reading of the same
 contract, and it would look like agreement.
 
@@ -47,3 +46,8 @@ under `../contracts/` and `../fixtures/contracts/`. The document-reading and
 identifier-pattern suites read `../fixtures/document-reading-v1.json` and
 `../fixtures/identifier-patterns-v1.json`, the oracles the Python suite reads too. No
 test writes them.
+
+Additive succession vectors in `../fixtures/contract-succession.json` cover all 21
+declaration families. `parseDomainContract(text, source, base, predecessor?)` checks
+content identity, namespace, base identity and preserved schemas. Schema equality
+does not establish that editorial prose retains its scientific meaning.

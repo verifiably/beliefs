@@ -1,0 +1,4035 @@
+{
+  "families": [
+    "sort",
+    "dimension",
+    "template",
+    "instantiation",
+    "bridge",
+    "estimand",
+    "duration-convention",
+    "functional",
+    "identification-class",
+    "design",
+    "selection-mechanism",
+    "procedure-kind",
+    "aggregation-rule",
+    "assumption-kind",
+    "measurement",
+    "aspect",
+    "quantity-kind",
+    "unit",
+    "constant",
+    "conversion",
+    "transformation"
+  ],
+  "genesis": {
+    "contract": "testing",
+    "version": 1,
+    "lineage": "genesis",
+    "sorts": {
+      "entity": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        },
+        "categories": [
+          "set"
+        ]
+      },
+      "outcome": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "method": {
+        "binding": {
+          "kind": "scheme",
+          "scheme": "EX",
+          "version": "1"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "level": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "measure": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "identification": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "cohort": {
+        "binding": {
+          "kind": "dataset",
+          "dataset": "dataset:sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:.+"
+        }
+      },
+      "event": {
+        "binding": {
+          "kind": "selection",
+          "dataset": "dataset:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+          "selected": "dataset:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "annotator": "EX-annotator"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:.+"
+        }
+      },
+      "product": {
+        "binding": {
+          "kind": "run-output",
+          "run": "run:4444444444444444444444444444444444444444444444444444444444444444",
+          "dataset": "dataset:sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:.+"
+        }
+      },
+      "procedure-spec": {
+        "binding": {
+          "kind": "world-kind",
+          "world_kind": "procedure"
+        }
+      },
+      "population": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "energy-aspect": {
+        "binding": {
+          "kind": "scheme",
+          "scheme": "EX",
+          "version": "1"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "stage": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      }
+    },
+    "dimensions": {
+      "population": {
+        "restriction_sort": "cohort",
+        "placement": "claim",
+        "applies_to": [
+          "affects",
+          "correlates-with",
+          "promotes"
+        ]
+      },
+      "setting": {
+        "restriction_sort": "entity",
+        "placement": "claim",
+        "applies_to": [
+          "affects"
+        ]
+      },
+      "follow-up": {
+        "restriction": {
+          "form": "interval",
+          "quantity_kind": "duration"
+        },
+        "restriction_sort": "level",
+        "placement": "applicability",
+        "applies_to": [
+          "affects",
+          "correlates-with"
+        ]
+      },
+      "stage": {
+        "restriction_sort": "stage",
+        "restriction": {
+          "form": "term",
+          "sort": "stage"
+        },
+        "placement": "applicability",
+        "applies_to": [
+          "affects",
+          "correlates-with"
+        ]
+      },
+      "epoch": {
+        "restriction_sort": "level",
+        "restriction": {
+          "form": "time-interval"
+        },
+        "placement": "applicability",
+        "applies_to": [
+          "affects"
+        ]
+      },
+      "case-status": {
+        "restriction_sort": "level",
+        "restriction": {
+          "form": "rule",
+          "classes": "level"
+        },
+        "placement": "applicability",
+        "applies_to": [
+          "affects"
+        ]
+      }
+    },
+    "templates": {
+      "affects": {
+        "roles": {
+          "cause": {
+            "arity": "one"
+          },
+          "effect": {
+            "arity": "one"
+          }
+        },
+        "sign_apt": true,
+        "layers": [
+          "causal",
+          "statistical"
+        ],
+        "forms": [
+          "polar",
+          "null"
+        ],
+        "edge": {
+          "cause": "cause",
+          "effect": "effect"
+        },
+        "description": "An editorial field. Changing it must move contract identity and nothing else."
+      },
+      "correlates-with": {
+        "roles": {
+          "parties": {
+            "arity": "many",
+            "min": 2,
+            "max": 2
+          }
+        },
+        "sign_apt": true,
+        "layers": [
+          "statistical"
+        ],
+        "forms": [
+          "polar",
+          "null"
+        ]
+      },
+      "transforms": {
+        "roles": {
+          "inputs": {
+            "arity": "many",
+            "min": 1,
+            "coefficients": true
+          },
+          "outputs": {
+            "arity": "many",
+            "min": 1,
+            "coefficients": true
+          },
+          "facilitators": {
+            "arity": "many",
+            "min": 0
+          }
+        },
+        "sign_apt": false,
+        "layers": [
+          "structural",
+          "causal"
+        ],
+        "forms": [
+          "polar"
+        ],
+        "edge": {
+          "cause": "inputs",
+          "effect": "outputs"
+        }
+      },
+      "measured-by": {
+        "roles": {
+          "subject": {
+            "arity": "one"
+          },
+          "instrument": {
+            "arity": "one"
+          }
+        },
+        "sign_apt": false,
+        "layers": [
+          "methodological"
+        ],
+        "forms": [
+          "polar"
+        ]
+      }
+    },
+    "instantiations": {
+      "affects-entity-outcome": {
+        "template": "affects",
+        "roles": {
+          "cause": [
+            "entity"
+          ],
+          "effect": [
+            "outcome"
+          ]
+        }
+      },
+      "affects-entity-entity": {
+        "template": "affects",
+        "roles": {
+          "cause": [
+            "entity"
+          ],
+          "effect": [
+            "entity",
+            "outcome"
+          ]
+        }
+      },
+      "correlates-entity-outcome": {
+        "template": "correlates-with",
+        "roles": {
+          "parties": [
+            "entity",
+            "outcome"
+          ]
+        }
+      },
+      "correlates-event-product": {
+        "template": "correlates-with",
+        "roles": {
+          "parties": [
+            "event",
+            "product"
+          ]
+        }
+      },
+      "transforms-entities": {
+        "template": "transforms",
+        "roles": {
+          "inputs": [
+            "entity"
+          ],
+          "outputs": [
+            "entity"
+          ],
+          "facilitators": [
+            "entity"
+          ]
+        }
+      },
+      "measured-by-entity-method": {
+        "template": "measured-by",
+        "roles": {
+          "subject": [
+            "entity"
+          ],
+          "instrument": [
+            "method"
+          ]
+        }
+      },
+      "promotes": {
+        "template": "measured-by",
+        "roles": {
+          "subject": [
+            "product"
+          ],
+          "instrument": [
+            "method"
+          ]
+        }
+      }
+    },
+    "bridges": {
+      "promotes": {
+        "template": "affects",
+        "mapping": "narrower",
+        "roles": {
+          "cause": [
+            "entity"
+          ],
+          "effect": [
+            "outcome"
+          ]
+        },
+        "layers": [
+          "causal"
+        ]
+      }
+    },
+    "estimands": {
+      "instantiation:affects-entity-outcome": {
+        "forms": [
+          "contrast",
+          "quantity",
+          "law-parameters",
+          "event-locked",
+          "association",
+          "enrichment"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      },
+      "instantiation:affects-entity-entity": {
+        "forms": [
+          "quantity"
+        ],
+        "conditioning_sorts": [
+          "outcome"
+        ]
+      },
+      "instantiation:correlates-event-product": {
+        "forms": [
+          "contrast",
+          "quantity",
+          "law-parameters",
+          "event-locked",
+          "association",
+          "enrichment"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      },
+      "bridge:promotes": {
+        "forms": [
+          "contrast",
+          "quantity",
+          "law-parameters",
+          "event-locked",
+          "association",
+          "enrichment"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      },
+      "instantiation:promotes": {
+        "forms": [
+          "quantity"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      }
+    },
+    "duration_conventions": {
+      "mean-month": {
+        "conversion": "mean-month-to-second",
+        "definition": "Fixed mean month of 30.4375 days."
+      }
+    },
+    "quantity_kinds": {
+      "duration": {
+        "dimension": {
+          "T": 1
+        },
+        "definition": "Elapsed time."
+      },
+      "rate": {
+        "dimension": {
+          "T": -1
+        },
+        "definition": "Events per time."
+      },
+      "energy": {
+        "dimension": {
+          "M": 1,
+          "L": 2,
+          "T": -2
+        },
+        "definition": "Energy per entity."
+      },
+      "molar-energy": {
+        "dimension": {
+          "M": 1,
+          "L": 2,
+          "T": -2,
+          "N": -1
+        },
+        "definition": "Energy per amount."
+      },
+      "reciprocal-amount": {
+        "dimension": {
+          "N": -1
+        },
+        "definition": "Reciprocal amount."
+      },
+      "temperature": {
+        "dimension": {
+          "Θ": 1
+        },
+        "definition": "Thermodynamic temperature."
+      },
+      "abundance": {
+        "dimension": "construct",
+        "definition": "Transcript abundance."
+      },
+      "count": {
+        "dimension": "counted",
+        "definition": "Number of items."
+      },
+      "score": {
+        "dimension": "construct",
+        "definition": "An assigned score."
+      },
+      "fraction": {
+        "dimension": "dimensionless",
+        "definition": "A proportion."
+      }
+    },
+    "units": {
+      "second": {
+        "symbol": "s",
+        "quantity_kind": "duration",
+        "definition": "A second."
+      },
+      "calendar-month": {
+        "symbol": "mo",
+        "quantity_kind": "duration",
+        "calendar": true,
+        "definition": "A calendar duration requiring a named convention."
+      },
+      "hour": {
+        "symbol": "h",
+        "quantity_kind": "duration",
+        "definition": "An hour."
+      },
+      "per-second": {
+        "symbol": "s^-1",
+        "quantity_kind": "rate",
+        "definition": "Per second."
+      },
+      "per-hour": {
+        "symbol": "h^-1",
+        "quantity_kind": "rate",
+        "definition": "Per hour."
+      },
+      "electronvolt": {
+        "symbol": "eV",
+        "quantity_kind": "energy",
+        "definition": "An electronvolt."
+      },
+      "kilojoule-per-mole": {
+        "symbol": "kJ/mol",
+        "quantity_kind": "molar-energy",
+        "definition": "Kilojoules per mole."
+      },
+      "per-mole": {
+        "symbol": "mol^-1",
+        "quantity_kind": "reciprocal-amount",
+        "definition": "Per mole."
+      },
+      "kelvin": {
+        "symbol": "K",
+        "quantity_kind": "temperature",
+        "definition": "A kelvin."
+      },
+      "celsius": {
+        "symbol": "°C",
+        "quantity_kind": "temperature",
+        "definition": "A degree Celsius."
+      },
+      "millikelvin": {
+        "symbol": "mK",
+        "quantity_kind": "temperature",
+        "definition": "A millikelvin."
+      },
+      "tpm": {
+        "symbol": "TPM",
+        "quantity_kind": "abundance",
+        "definition": "Transcripts per million."
+      },
+      "ktpm": {
+        "symbol": "kTPM",
+        "quantity_kind": "abundance",
+        "definition": "Thousands of transcripts per million."
+      },
+      "item": {
+        "symbol": "item",
+        "quantity_kind": "count",
+        "definition": "An item."
+      },
+      "point": {
+        "symbol": "point",
+        "quantity_kind": "score",
+        "definition": "A point."
+      },
+      "unity": {
+        "symbol": "1",
+        "quantity_kind": "fraction",
+        "definition": "Unity."
+      }
+    },
+    "constants": {
+      "avogadro": {
+        "value": "6.02214076E23",
+        "unit": "per-mole",
+        "exact": true,
+        "definition": "The Avogadro constant."
+      }
+    },
+    "conversions": {
+      "hour-to-second": {
+        "from": "hour",
+        "to": "second",
+        "kind": "multiplicative",
+        "factor": "3600",
+        "exact": true,
+        "definition": "Hours to seconds."
+      },
+      "mean-month-to-second": {
+        "from": "calendar-month",
+        "to": "second",
+        "kind": "multiplicative",
+        "factor": "2629800",
+        "exact": true,
+        "definition": "A fixed mean month in seconds."
+      },
+      "per-second-to-per-hour": {
+        "from": "per-second",
+        "to": "per-hour",
+        "kind": "multiplicative",
+        "factor": "3600",
+        "exact": true,
+        "definition": "Per second to per hour."
+      },
+      "kelvin-to-celsius": {
+        "from": "kelvin",
+        "to": "celsius",
+        "kind": "affine",
+        "factor": "1",
+        "offset": "-273.15",
+        "exact": true,
+        "definition": "Kelvin to Celsius."
+      },
+      "kelvin-to-millikelvin": {
+        "from": "kelvin",
+        "to": "millikelvin",
+        "kind": "multiplicative",
+        "factor": "1000",
+        "exact": true,
+        "definition": "Kelvin to millikelvin."
+      },
+      "tpm-to-ktpm": {
+        "from": "tpm",
+        "to": "ktpm",
+        "kind": "multiplicative",
+        "factor": "0.001",
+        "exact": true,
+        "definition": "TPM to thousands of TPM."
+      },
+      "electronvolt-to-kilojoule-per-mole": {
+        "from": "electronvolt",
+        "to": "kilojoule-per-mole",
+        "kind": "multiplicative",
+        "factor": "96.48533212",
+        "exact": false,
+        "error": "0.0000000005",
+        "constant": "avogadro",
+        "definition": "Energy per entity to energy per amount."
+      }
+    },
+    "transformations": {
+      "identity": {
+        "kind": "identity",
+        "domain": "real",
+        "invertible": true,
+        "definition": "Leave the value unchanged."
+      },
+      "negate": {
+        "kind": "affine",
+        "scale": "-1",
+        "offset": "0",
+        "domain": "real",
+        "invertible": true,
+        "definition": "Negate the value."
+      },
+      "log2": {
+        "kind": "logarithm",
+        "base": "2",
+        "domain": "positive",
+        "invertible": true,
+        "definition": "Base two logarithm."
+      },
+      "ln": {
+        "kind": "logarithm",
+        "base": "2.718281828459045235360287471352662",
+        "domain": "positive",
+        "invertible": true,
+        "definition": "Natural logarithm."
+      },
+      "log2-plus-one": {
+        "kind": "monotone",
+        "direction": "increasing",
+        "fixed": true,
+        "domain": "nonnegative",
+        "invertible": true,
+        "definition": "Base two logarithm after adding one."
+      },
+      "logit": {
+        "kind": "monotone",
+        "direction": "increasing",
+        "fixed": true,
+        "domain": "unit-interval",
+        "invertible": true,
+        "definition": "Log odds."
+      },
+      "standardize": {
+        "kind": "monotone",
+        "direction": "increasing",
+        "fixed": false,
+        "domain": "real",
+        "invertible": true,
+        "definition": "Standardize against the sample."
+      },
+      "negated-standardize": {
+        "kind": "monotone",
+        "direction": "decreasing",
+        "fixed": false,
+        "domain": "real",
+        "invertible": true,
+        "definition": "Negate a sample standardization."
+      }
+    },
+    "facets": {
+      "axis": {
+        "attaches_to": [
+          "dataset"
+        ],
+        "fields": {
+          "axis": {
+            "type": "string",
+            "required": true
+          },
+          "vocabulary": {
+            "type": "ref",
+            "required": false,
+            "kinds": [
+              "dataset"
+            ]
+          }
+        }
+      },
+      "annotation": {
+        "attaches_to": [
+          "dataset",
+          "proposition"
+        ],
+        "fields": {
+          "note": {
+            "type": "string",
+            "required": true
+          },
+          "count": {
+            "type": "integer",
+            "required": false
+          },
+          "final": {
+            "type": "boolean",
+            "required": false
+          }
+        }
+      }
+    },
+    "procedure_kinds": {
+      "assay": {
+        "fills_within_model": false
+      },
+      "instrument": {
+        "fills_within_model": false
+      },
+      "questionnaire": {
+        "fills_within_model": false
+      },
+      "estimator": {
+        "fills_within_model": false
+      },
+      "model-specification": {
+        "fills_within_model": true
+      }
+    },
+    "aggregation_rules": {
+      "sum": {},
+      "mean": {}
+    },
+    "assumption_kinds": {
+      "transport-exchangeability": {
+        "collapses": "Transport across the declared dimensions and co-scope.",
+        "particulars": [
+          "dimensions",
+          "co_scope"
+        ]
+      },
+      "proxy-validity": {
+        "collapses": "The proxy's validity within the declared scope.",
+        "particulars": [
+          "record",
+          "co_scope",
+          "dimensions"
+        ]
+      },
+      "procedure-validity": {
+        "collapses": "The procedure's validity within the declared scope.",
+        "particulars": [
+          "record",
+          "co_scope",
+          "dimensions"
+        ]
+      },
+      "calibration-transfer": {
+        "collapses": "Transfer from the calibrated observable to the target observable.",
+        "particulars": [
+          "proxy",
+          "calibrated_observable",
+          "target_observable"
+        ]
+      }
+    },
+    "measurements": {
+      "entity": [
+        "abundance",
+        "count"
+      ],
+      "outcome": [
+        "score",
+        "duration"
+      ],
+      "product": [
+        "abundance"
+      ],
+      "event": [
+        "energy",
+        "rate",
+        "temperature"
+      ],
+      "cohort": []
+    },
+    "aspects": {
+      "energy": [
+        "energy-aspect"
+      ]
+    },
+    "functionals": {
+      "difference-of-means": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "equivariant-affine",
+        "reversal": "negate",
+        "response_reversal": "negate",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "response-difference",
+        "domain": "real",
+        "null": "zero",
+        "increment": "linear",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "ratio-of-means": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "invariant-positive-scaling",
+        "reversal": "reciprocal",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "dimensionless",
+        "domain": "positive",
+        "null": "one",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "probability-of-superiority": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "invariant-strictly-increasing",
+        "reversal": "complement",
+        "response_reversal": "complement",
+        "exchange": "not-applicable",
+        "ties": "midrank",
+        "output": "dimensionless",
+        "domain": "unit-interval",
+        "null": "half",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "hodges-lehmann-shift": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "equivariant-positive-affine",
+        "reversal": "negate",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "midrank",
+        "output": "response-difference",
+        "domain": "real",
+        "null": "zero",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "log-odds-ratio": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "fixed",
+        "reversal": "negate",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "dimensionless",
+        "domain": "real",
+        "null": "zero",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "spearman-correlation": {
+        "form": "association",
+        "arity": "two",
+        "response_transformation": "invariant-strictly-increasing",
+        "reversal": "not-applicable",
+        "response_reversal": "negate",
+        "exchange": "symmetric",
+        "ties": "midrank",
+        "output": "dimensionless",
+        "domain": "signed-unit-interval",
+        "null": "zero",
+        "increment": "not-applicable",
+        "uncertainty": "recompute",
+        "parameters": "not-applicable"
+      },
+      "transfer-entropy": {
+        "form": "association",
+        "arity": "two",
+        "response_transformation": "invariant-strictly-increasing",
+        "reversal": "not-applicable",
+        "response_reversal": "invariant",
+        "exchange": "directed",
+        "ties": "undefined",
+        "output": "dimensionless",
+        "domain": "nonnegative",
+        "null": "zero",
+        "increment": "not-applicable",
+        "uncertainty": "none",
+        "parameters": "not-applicable"
+      },
+      "peak-power-fraction": {
+        "form": "quantity",
+        "arity": "one",
+        "response_transformation": "none",
+        "reversal": "not-applicable",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "dimensionless",
+        "domain": "unit-interval",
+        "null": "none",
+        "increment": "not-applicable",
+        "uncertainty": "none",
+        "parameters": "not-applicable"
+      },
+      "arrhenius": {
+        "form": "law-parameters",
+        "arity": "not-applicable",
+        "response_transformation": "by-parameters",
+        "reversal": "not-applicable",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "declared",
+        "domain": "not-applicable",
+        "null": "none",
+        "increment": "not-applicable",
+        "uncertainty": "exact",
+        "parameters": {
+          "Ea": {
+            "typing": "independent",
+            "domain": "real"
+          },
+          "lnA": {
+            "typing": "response-log-level",
+            "domain": "real"
+          }
+        }
+      }
+    },
+    "identification_classes": {
+      "observational": {
+        "licenses_layers": [
+          "statistical"
+        ]
+      },
+      "randomized": {
+        "licenses_layers": [
+          "statistical",
+          "causal"
+        ]
+      },
+      "conditional-on-observables": {
+        "licenses_layers": [
+          "statistical",
+          "causal"
+        ]
+      },
+      "instrumental": {
+        "licenses_layers": [
+          "statistical",
+          "causal"
+        ]
+      }
+    },
+    "designs": {
+      "independent-groups": {}
+    },
+    "selection_mechanisms": {
+      "cohort-enrolment": {}
+    }
+  },
+  "genesis_identity": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c",
+  "genesis_schema": {
+    "sort:entity": {
+      "binding": {
+        "kind": "release",
+        "namespace": "EX",
+        "release": "2026-01-01"
+      },
+      "categories": [
+        "set"
+      ],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:outcome": {
+      "binding": {
+        "kind": "release",
+        "namespace": "EX",
+        "release": "2026-01-01"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:method": {
+      "binding": {
+        "kind": "scheme",
+        "scheme": "EX",
+        "version": "1"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:level": {
+      "binding": {
+        "kind": "release",
+        "namespace": "EX",
+        "release": "2026-01-01"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:measure": {
+      "binding": {
+        "kind": "release",
+        "namespace": "EX",
+        "release": "2026-01-01"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:identification": {
+      "binding": {
+        "kind": "release",
+        "namespace": "EX",
+        "release": "2026-01-01"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:cohort": {
+      "binding": {
+        "kind": "dataset",
+        "dataset": "dataset:sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:.+"
+      }
+    },
+    "sort:event": {
+      "binding": {
+        "kind": "selection",
+        "dataset": "dataset:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+        "selected": "dataset:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "annotator": "EX-annotator"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:.+"
+      }
+    },
+    "sort:product": {
+      "binding": {
+        "kind": "run-output",
+        "run": "run:4444444444444444444444444444444444444444444444444444444444444444",
+        "dataset": "dataset:sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:.+"
+      }
+    },
+    "sort:procedure-spec": {
+      "binding": {
+        "kind": "world-kind",
+        "world_kind": "procedure"
+      },
+      "categories": []
+    },
+    "sort:population": {
+      "binding": {
+        "kind": "release",
+        "namespace": "EX",
+        "release": "2026-01-01"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:energy-aspect": {
+      "binding": {
+        "kind": "scheme",
+        "scheme": "EX",
+        "version": "1"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "sort:stage": {
+      "binding": {
+        "kind": "release",
+        "namespace": "EX",
+        "release": "2026-01-01"
+      },
+      "categories": [],
+      "identifier_class": {
+        "prefix": "EX",
+        "pattern": "EX:[a-z0-9\\-]+"
+      }
+    },
+    "dimension:population": {
+      "restriction_sort": "cohort",
+      "placement": "claim",
+      "applies_to": [
+        "affects",
+        "correlates-with",
+        "promotes"
+      ]
+    },
+    "dimension:setting": {
+      "restriction_sort": "entity",
+      "placement": "claim",
+      "applies_to": [
+        "affects"
+      ]
+    },
+    "dimension:follow-up": {
+      "restriction_sort": "level",
+      "placement": "applicability",
+      "applies_to": [
+        "affects",
+        "correlates-with"
+      ],
+      "restriction": {
+        "form": "interval",
+        "quantity_kind": "duration"
+      }
+    },
+    "dimension:stage": {
+      "restriction_sort": "stage",
+      "placement": "applicability",
+      "applies_to": [
+        "affects",
+        "correlates-with"
+      ],
+      "restriction": {
+        "form": "term",
+        "sort": "stage"
+      }
+    },
+    "dimension:epoch": {
+      "restriction_sort": "level",
+      "placement": "applicability",
+      "applies_to": [
+        "affects"
+      ],
+      "restriction": {
+        "form": "time-interval"
+      }
+    },
+    "dimension:case-status": {
+      "restriction_sort": "level",
+      "placement": "applicability",
+      "applies_to": [
+        "affects"
+      ],
+      "restriction": {
+        "form": "rule",
+        "classes": "level"
+      }
+    },
+    "template:affects": {
+      "roles": {
+        "cause": {
+          "arity": "one",
+          "coefficients": false,
+          "constraint": []
+        },
+        "effect": {
+          "arity": "one",
+          "coefficients": false,
+          "constraint": []
+        }
+      },
+      "sign_apt": true,
+      "layers": [
+        "causal",
+        "statistical"
+      ],
+      "forms": [
+        "null",
+        "polar"
+      ],
+      "edge": {
+        "cause": "cause",
+        "effect": "effect"
+      }
+    },
+    "template:correlates-with": {
+      "roles": {
+        "parties": {
+          "arity": "many",
+          "coefficients": false,
+          "constraint": [],
+          "min": 2,
+          "max": 2
+        }
+      },
+      "sign_apt": true,
+      "layers": [
+        "statistical"
+      ],
+      "forms": [
+        "null",
+        "polar"
+      ]
+    },
+    "template:transforms": {
+      "roles": {
+        "inputs": {
+          "arity": "many",
+          "coefficients": true,
+          "constraint": [],
+          "min": 1
+        },
+        "outputs": {
+          "arity": "many",
+          "coefficients": true,
+          "constraint": [],
+          "min": 1
+        },
+        "facilitators": {
+          "arity": "many",
+          "coefficients": false,
+          "constraint": [],
+          "min": 0
+        }
+      },
+      "sign_apt": false,
+      "layers": [
+        "causal",
+        "structural"
+      ],
+      "forms": [
+        "polar"
+      ],
+      "edge": {
+        "cause": "inputs",
+        "effect": "outputs"
+      }
+    },
+    "template:measured-by": {
+      "roles": {
+        "subject": {
+          "arity": "one",
+          "coefficients": false,
+          "constraint": []
+        },
+        "instrument": {
+          "arity": "one",
+          "coefficients": false,
+          "constraint": []
+        }
+      },
+      "sign_apt": false,
+      "layers": [
+        "methodological"
+      ],
+      "forms": [
+        "polar"
+      ]
+    },
+    "instantiation:affects-entity-outcome": {
+      "template": "affects",
+      "roles": {
+        "cause": [
+          "entity"
+        ],
+        "effect": [
+          "outcome"
+        ]
+      }
+    },
+    "instantiation:affects-entity-entity": {
+      "template": "affects",
+      "roles": {
+        "cause": [
+          "entity"
+        ],
+        "effect": [
+          "entity",
+          "outcome"
+        ]
+      }
+    },
+    "instantiation:correlates-entity-outcome": {
+      "template": "correlates-with",
+      "roles": {
+        "parties": [
+          "entity",
+          "outcome"
+        ]
+      }
+    },
+    "instantiation:correlates-event-product": {
+      "template": "correlates-with",
+      "roles": {
+        "parties": [
+          "event",
+          "product"
+        ]
+      }
+    },
+    "instantiation:transforms-entities": {
+      "template": "transforms",
+      "roles": {
+        "inputs": [
+          "entity"
+        ],
+        "outputs": [
+          "entity"
+        ],
+        "facilitators": [
+          "entity"
+        ]
+      }
+    },
+    "instantiation:measured-by-entity-method": {
+      "template": "measured-by",
+      "roles": {
+        "subject": [
+          "entity"
+        ],
+        "instrument": [
+          "method"
+        ]
+      }
+    },
+    "instantiation:promotes": {
+      "template": "measured-by",
+      "roles": {
+        "subject": [
+          "product"
+        ],
+        "instrument": [
+          "method"
+        ]
+      }
+    },
+    "bridge:promotes": {
+      "template": "affects",
+      "mapping": "narrower",
+      "roles": {
+        "cause": [
+          "entity"
+        ],
+        "effect": [
+          "outcome"
+        ]
+      },
+      "layers": [
+        "causal"
+      ]
+    },
+    "estimand:instantiation:affects-entity-outcome": {
+      "forms": [
+        "association",
+        "contrast",
+        "enrichment",
+        "event-locked",
+        "law-parameters",
+        "quantity"
+      ],
+      "conditioning_sorts": [
+        "entity"
+      ]
+    },
+    "estimand:instantiation:affects-entity-entity": {
+      "forms": [
+        "quantity"
+      ],
+      "conditioning_sorts": [
+        "outcome"
+      ]
+    },
+    "estimand:instantiation:correlates-event-product": {
+      "forms": [
+        "association",
+        "contrast",
+        "enrichment",
+        "event-locked",
+        "law-parameters",
+        "quantity"
+      ],
+      "conditioning_sorts": [
+        "entity"
+      ]
+    },
+    "estimand:bridge:promotes": {
+      "forms": [
+        "association",
+        "contrast",
+        "enrichment",
+        "event-locked",
+        "law-parameters",
+        "quantity"
+      ],
+      "conditioning_sorts": [
+        "entity"
+      ]
+    },
+    "estimand:instantiation:promotes": {
+      "forms": [
+        "quantity"
+      ],
+      "conditioning_sorts": [
+        "entity"
+      ]
+    },
+    "duration-convention:mean-month": {
+      "conversion": "mean-month-to-second"
+    },
+    "functional:difference-of-means": {
+      "form": "contrast",
+      "arity": "two",
+      "response_transformation": "equivariant-affine",
+      "reversal": "negate",
+      "response_reversal": "negate",
+      "exchange": "not-applicable",
+      "ties": "not-applicable",
+      "output": "response-difference",
+      "domain": "real",
+      "null": "zero",
+      "increment": "linear",
+      "uncertainty": "exact",
+      "parameters": "not-applicable"
+    },
+    "functional:ratio-of-means": {
+      "form": "contrast",
+      "arity": "two",
+      "response_transformation": "invariant-positive-scaling",
+      "reversal": "reciprocal",
+      "response_reversal": "not-applicable",
+      "exchange": "not-applicable",
+      "ties": "not-applicable",
+      "output": "dimensionless",
+      "domain": "positive",
+      "null": "one",
+      "increment": "none",
+      "uncertainty": "exact",
+      "parameters": "not-applicable"
+    },
+    "functional:probability-of-superiority": {
+      "form": "contrast",
+      "arity": "two",
+      "response_transformation": "invariant-strictly-increasing",
+      "reversal": "complement",
+      "response_reversal": "complement",
+      "exchange": "not-applicable",
+      "ties": "midrank",
+      "output": "dimensionless",
+      "domain": "unit-interval",
+      "null": "half",
+      "increment": "none",
+      "uncertainty": "exact",
+      "parameters": "not-applicable"
+    },
+    "functional:hodges-lehmann-shift": {
+      "form": "contrast",
+      "arity": "two",
+      "response_transformation": "equivariant-positive-affine",
+      "reversal": "negate",
+      "response_reversal": "not-applicable",
+      "exchange": "not-applicable",
+      "ties": "midrank",
+      "output": "response-difference",
+      "domain": "real",
+      "null": "zero",
+      "increment": "none",
+      "uncertainty": "exact",
+      "parameters": "not-applicable"
+    },
+    "functional:log-odds-ratio": {
+      "form": "contrast",
+      "arity": "two",
+      "response_transformation": "fixed",
+      "reversal": "negate",
+      "response_reversal": "not-applicable",
+      "exchange": "not-applicable",
+      "ties": "not-applicable",
+      "output": "dimensionless",
+      "domain": "real",
+      "null": "zero",
+      "increment": "none",
+      "uncertainty": "exact",
+      "parameters": "not-applicable"
+    },
+    "functional:spearman-correlation": {
+      "form": "association",
+      "arity": "two",
+      "response_transformation": "invariant-strictly-increasing",
+      "reversal": "not-applicable",
+      "response_reversal": "negate",
+      "exchange": "symmetric",
+      "ties": "midrank",
+      "output": "dimensionless",
+      "domain": "signed-unit-interval",
+      "null": "zero",
+      "increment": "not-applicable",
+      "uncertainty": "recompute",
+      "parameters": "not-applicable"
+    },
+    "functional:transfer-entropy": {
+      "form": "association",
+      "arity": "two",
+      "response_transformation": "invariant-strictly-increasing",
+      "reversal": "not-applicable",
+      "response_reversal": "invariant",
+      "exchange": "directed",
+      "ties": "undefined",
+      "output": "dimensionless",
+      "domain": "nonnegative",
+      "null": "zero",
+      "increment": "not-applicable",
+      "uncertainty": "none",
+      "parameters": "not-applicable"
+    },
+    "functional:peak-power-fraction": {
+      "form": "quantity",
+      "arity": "one",
+      "response_transformation": "none",
+      "reversal": "not-applicable",
+      "response_reversal": "not-applicable",
+      "exchange": "not-applicable",
+      "ties": "not-applicable",
+      "output": "dimensionless",
+      "domain": "unit-interval",
+      "null": "none",
+      "increment": "not-applicable",
+      "uncertainty": "none",
+      "parameters": "not-applicable"
+    },
+    "functional:arrhenius": {
+      "form": "law-parameters",
+      "arity": "not-applicable",
+      "response_transformation": "by-parameters",
+      "reversal": "not-applicable",
+      "response_reversal": "not-applicable",
+      "exchange": "not-applicable",
+      "ties": "not-applicable",
+      "output": "declared",
+      "domain": "not-applicable",
+      "null": "none",
+      "increment": "not-applicable",
+      "uncertainty": "exact",
+      "parameters": {
+        "Ea": {
+          "typing": "independent",
+          "domain": "real"
+        },
+        "lnA": {
+          "typing": "response-log-level",
+          "domain": "real"
+        }
+      }
+    },
+    "identification-class:observational": {
+      "licenses_layers": [
+        "statistical"
+      ]
+    },
+    "identification-class:randomized": {
+      "licenses_layers": [
+        "causal",
+        "statistical"
+      ]
+    },
+    "identification-class:conditional-on-observables": {
+      "licenses_layers": [
+        "causal",
+        "statistical"
+      ]
+    },
+    "identification-class:instrumental": {
+      "licenses_layers": [
+        "causal",
+        "statistical"
+      ]
+    },
+    "design:independent-groups": {},
+    "selection-mechanism:cohort-enrolment": {},
+    "procedure-kind:assay": {
+      "fills_within_model": false
+    },
+    "procedure-kind:instrument": {
+      "fills_within_model": false
+    },
+    "procedure-kind:questionnaire": {
+      "fills_within_model": false
+    },
+    "procedure-kind:estimator": {
+      "fills_within_model": false
+    },
+    "procedure-kind:model-specification": {
+      "fills_within_model": true
+    },
+    "aggregation-rule:sum": {},
+    "aggregation-rule:mean": {},
+    "assumption-kind:transport-exchangeability": {
+      "collapses": "Transport across the declared dimensions and co-scope.",
+      "particulars": [
+        "co_scope",
+        "dimensions"
+      ]
+    },
+    "assumption-kind:proxy-validity": {
+      "collapses": "The proxy's validity within the declared scope.",
+      "particulars": [
+        "co_scope",
+        "dimensions",
+        "record"
+      ]
+    },
+    "assumption-kind:procedure-validity": {
+      "collapses": "The procedure's validity within the declared scope.",
+      "particulars": [
+        "co_scope",
+        "dimensions",
+        "record"
+      ]
+    },
+    "assumption-kind:calibration-transfer": {
+      "collapses": "Transfer from the calibrated observable to the target observable.",
+      "particulars": [
+        "calibrated_observable",
+        "proxy",
+        "target_observable"
+      ]
+    },
+    "measurement:entity": {
+      "quantity_kinds": [
+        "abundance",
+        "count"
+      ]
+    },
+    "measurement:outcome": {
+      "quantity_kinds": [
+        "duration",
+        "score"
+      ]
+    },
+    "measurement:product": {
+      "quantity_kinds": [
+        "abundance"
+      ]
+    },
+    "measurement:event": {
+      "quantity_kinds": [
+        "energy",
+        "rate",
+        "temperature"
+      ]
+    },
+    "measurement:cohort": {
+      "quantity_kinds": []
+    },
+    "aspect:energy": {
+      "aspect_sorts": [
+        "energy-aspect"
+      ]
+    },
+    "quantity-kind:duration": {
+      "dimension": {
+        "T": 1
+      }
+    },
+    "quantity-kind:rate": {
+      "dimension": {
+        "T": -1
+      }
+    },
+    "quantity-kind:energy": {
+      "dimension": {
+        "M": 1,
+        "L": 2,
+        "T": -2
+      }
+    },
+    "quantity-kind:molar-energy": {
+      "dimension": {
+        "M": 1,
+        "L": 2,
+        "T": -2,
+        "N": -1
+      }
+    },
+    "quantity-kind:reciprocal-amount": {
+      "dimension": {
+        "N": -1
+      }
+    },
+    "quantity-kind:temperature": {
+      "dimension": {
+        "Θ": 1
+      }
+    },
+    "quantity-kind:abundance": {
+      "dimension": "construct"
+    },
+    "quantity-kind:count": {
+      "dimension": "counted"
+    },
+    "quantity-kind:score": {
+      "dimension": "construct"
+    },
+    "quantity-kind:fraction": {
+      "dimension": "dimensionless"
+    },
+    "unit:second": {
+      "symbol": "s",
+      "quantity_kind": "duration",
+      "calendar": false
+    },
+    "unit:calendar-month": {
+      "symbol": "mo",
+      "quantity_kind": "duration",
+      "calendar": true
+    },
+    "unit:hour": {
+      "symbol": "h",
+      "quantity_kind": "duration",
+      "calendar": false
+    },
+    "unit:per-second": {
+      "symbol": "s^-1",
+      "quantity_kind": "rate",
+      "calendar": false
+    },
+    "unit:per-hour": {
+      "symbol": "h^-1",
+      "quantity_kind": "rate",
+      "calendar": false
+    },
+    "unit:electronvolt": {
+      "symbol": "eV",
+      "quantity_kind": "energy",
+      "calendar": false
+    },
+    "unit:kilojoule-per-mole": {
+      "symbol": "kJ/mol",
+      "quantity_kind": "molar-energy",
+      "calendar": false
+    },
+    "unit:per-mole": {
+      "symbol": "mol^-1",
+      "quantity_kind": "reciprocal-amount",
+      "calendar": false
+    },
+    "unit:kelvin": {
+      "symbol": "K",
+      "quantity_kind": "temperature",
+      "calendar": false
+    },
+    "unit:celsius": {
+      "symbol": "°C",
+      "quantity_kind": "temperature",
+      "calendar": false
+    },
+    "unit:millikelvin": {
+      "symbol": "mK",
+      "quantity_kind": "temperature",
+      "calendar": false
+    },
+    "unit:tpm": {
+      "symbol": "TPM",
+      "quantity_kind": "abundance",
+      "calendar": false
+    },
+    "unit:ktpm": {
+      "symbol": "kTPM",
+      "quantity_kind": "abundance",
+      "calendar": false
+    },
+    "unit:item": {
+      "symbol": "item",
+      "quantity_kind": "count",
+      "calendar": false
+    },
+    "unit:point": {
+      "symbol": "point",
+      "quantity_kind": "score",
+      "calendar": false
+    },
+    "unit:unity": {
+      "symbol": "1",
+      "quantity_kind": "fraction",
+      "calendar": false
+    },
+    "constant:avogadro": {
+      "value": "6.02214076E23",
+      "unit": "per-mole",
+      "exact": true
+    },
+    "conversion:hour-to-second": {
+      "from": "hour",
+      "to": "second",
+      "kind": "multiplicative",
+      "factor": "3600",
+      "exact": true
+    },
+    "conversion:mean-month-to-second": {
+      "from": "calendar-month",
+      "to": "second",
+      "kind": "multiplicative",
+      "factor": "2629800",
+      "exact": true
+    },
+    "conversion:per-second-to-per-hour": {
+      "from": "per-second",
+      "to": "per-hour",
+      "kind": "multiplicative",
+      "factor": "3600",
+      "exact": true
+    },
+    "conversion:kelvin-to-celsius": {
+      "from": "kelvin",
+      "to": "celsius",
+      "kind": "affine",
+      "factor": "1",
+      "offset": "-273.15",
+      "exact": true
+    },
+    "conversion:kelvin-to-millikelvin": {
+      "from": "kelvin",
+      "to": "millikelvin",
+      "kind": "multiplicative",
+      "factor": "1000",
+      "exact": true
+    },
+    "conversion:tpm-to-ktpm": {
+      "from": "tpm",
+      "to": "ktpm",
+      "kind": "multiplicative",
+      "factor": "0.001",
+      "exact": true
+    },
+    "conversion:electronvolt-to-kilojoule-per-mole": {
+      "from": "electronvolt",
+      "to": "kilojoule-per-mole",
+      "kind": "multiplicative",
+      "factor": "96.48533212",
+      "error": "0.0000000005",
+      "exact": false,
+      "constant": "avogadro"
+    },
+    "transformation:identity": {
+      "kind": "identity",
+      "fixed": true,
+      "domain": "real",
+      "invertible": true
+    },
+    "transformation:negate": {
+      "kind": "affine",
+      "scale": "-1",
+      "offset": "0",
+      "fixed": true,
+      "domain": "real",
+      "invertible": true
+    },
+    "transformation:log2": {
+      "kind": "logarithm",
+      "base": "2",
+      "fixed": true,
+      "domain": "positive",
+      "invertible": true
+    },
+    "transformation:ln": {
+      "kind": "logarithm",
+      "base": "2.718281828459045235360287471352662",
+      "fixed": true,
+      "domain": "positive",
+      "invertible": true
+    },
+    "transformation:log2-plus-one": {
+      "kind": "monotone",
+      "fixed": true,
+      "domain": "nonnegative",
+      "invertible": true,
+      "direction": "increasing"
+    },
+    "transformation:logit": {
+      "kind": "monotone",
+      "fixed": true,
+      "domain": "unit-interval",
+      "invertible": true,
+      "direction": "increasing"
+    },
+    "transformation:standardize": {
+      "kind": "monotone",
+      "fixed": false,
+      "domain": "real",
+      "invertible": true,
+      "direction": "increasing"
+    },
+    "transformation:negated-standardize": {
+      "kind": "monotone",
+      "fixed": false,
+      "domain": "real",
+      "invertible": true,
+      "direction": "decreasing"
+    }
+  },
+  "added": {
+    "contract": "testing",
+    "version": 2,
+    "lineage": {
+      "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+    },
+    "sorts": {
+      "entity": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        },
+        "categories": [
+          "set"
+        ]
+      },
+      "outcome": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "method": {
+        "binding": {
+          "kind": "scheme",
+          "scheme": "EX",
+          "version": "1"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "level": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "measure": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "identification": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "cohort": {
+        "binding": {
+          "kind": "dataset",
+          "dataset": "dataset:sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:.+"
+        }
+      },
+      "event": {
+        "binding": {
+          "kind": "selection",
+          "dataset": "dataset:sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+          "selected": "dataset:sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "annotator": "EX-annotator"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:.+"
+        }
+      },
+      "product": {
+        "binding": {
+          "kind": "run-output",
+          "run": "run:4444444444444444444444444444444444444444444444444444444444444444",
+          "dataset": "dataset:sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:.+"
+        }
+      },
+      "procedure-spec": {
+        "binding": {
+          "kind": "world-kind",
+          "world_kind": "procedure"
+        }
+      },
+      "population": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "energy-aspect": {
+        "binding": {
+          "kind": "scheme",
+          "scheme": "EX",
+          "version": "1"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      },
+      "stage": {
+        "binding": {
+          "kind": "release",
+          "namespace": "EX",
+          "release": "2026-01-01"
+        },
+        "identifier_class": {
+          "prefix": "EX",
+          "pattern": "EX:[a-z0-9\\-]+"
+        }
+      }
+    },
+    "dimensions": {
+      "population": {
+        "restriction_sort": "cohort",
+        "placement": "claim",
+        "applies_to": [
+          "affects",
+          "correlates-with",
+          "promotes"
+        ]
+      },
+      "setting": {
+        "restriction_sort": "entity",
+        "placement": "claim",
+        "applies_to": [
+          "affects"
+        ]
+      },
+      "follow-up": {
+        "restriction": {
+          "form": "interval",
+          "quantity_kind": "duration"
+        },
+        "restriction_sort": "level",
+        "placement": "applicability",
+        "applies_to": [
+          "affects",
+          "correlates-with"
+        ]
+      },
+      "stage": {
+        "restriction_sort": "stage",
+        "restriction": {
+          "form": "term",
+          "sort": "stage"
+        },
+        "placement": "applicability",
+        "applies_to": [
+          "affects",
+          "correlates-with"
+        ]
+      },
+      "epoch": {
+        "restriction_sort": "level",
+        "restriction": {
+          "form": "time-interval"
+        },
+        "placement": "applicability",
+        "applies_to": [
+          "affects"
+        ]
+      },
+      "case-status": {
+        "restriction_sort": "level",
+        "restriction": {
+          "form": "rule",
+          "classes": "level"
+        },
+        "placement": "applicability",
+        "applies_to": [
+          "affects"
+        ]
+      }
+    },
+    "templates": {
+      "affects": {
+        "roles": {
+          "cause": {
+            "arity": "one"
+          },
+          "effect": {
+            "arity": "one"
+          }
+        },
+        "sign_apt": true,
+        "layers": [
+          "causal",
+          "statistical"
+        ],
+        "forms": [
+          "polar",
+          "null"
+        ],
+        "edge": {
+          "cause": "cause",
+          "effect": "effect"
+        },
+        "description": "An editorial field. Changing it must move contract identity and nothing else."
+      },
+      "correlates-with": {
+        "roles": {
+          "parties": {
+            "arity": "many",
+            "min": 2,
+            "max": 2
+          }
+        },
+        "sign_apt": true,
+        "layers": [
+          "statistical"
+        ],
+        "forms": [
+          "polar",
+          "null"
+        ]
+      },
+      "transforms": {
+        "roles": {
+          "inputs": {
+            "arity": "many",
+            "min": 1,
+            "coefficients": true
+          },
+          "outputs": {
+            "arity": "many",
+            "min": 1,
+            "coefficients": true
+          },
+          "facilitators": {
+            "arity": "many",
+            "min": 0
+          }
+        },
+        "sign_apt": false,
+        "layers": [
+          "structural",
+          "causal"
+        ],
+        "forms": [
+          "polar"
+        ],
+        "edge": {
+          "cause": "inputs",
+          "effect": "outputs"
+        }
+      },
+      "measured-by": {
+        "roles": {
+          "subject": {
+            "arity": "one"
+          },
+          "instrument": {
+            "arity": "one"
+          }
+        },
+        "sign_apt": false,
+        "layers": [
+          "methodological"
+        ],
+        "forms": [
+          "polar"
+        ]
+      }
+    },
+    "instantiations": {
+      "affects-entity-outcome": {
+        "template": "affects",
+        "roles": {
+          "cause": [
+            "entity"
+          ],
+          "effect": [
+            "outcome"
+          ]
+        }
+      },
+      "affects-entity-entity": {
+        "template": "affects",
+        "roles": {
+          "cause": [
+            "entity"
+          ],
+          "effect": [
+            "entity",
+            "outcome"
+          ]
+        }
+      },
+      "correlates-entity-outcome": {
+        "template": "correlates-with",
+        "roles": {
+          "parties": [
+            "entity",
+            "outcome"
+          ]
+        }
+      },
+      "correlates-event-product": {
+        "template": "correlates-with",
+        "roles": {
+          "parties": [
+            "event",
+            "product"
+          ]
+        }
+      },
+      "transforms-entities": {
+        "template": "transforms",
+        "roles": {
+          "inputs": [
+            "entity"
+          ],
+          "outputs": [
+            "entity"
+          ],
+          "facilitators": [
+            "entity"
+          ]
+        }
+      },
+      "measured-by-entity-method": {
+        "template": "measured-by",
+        "roles": {
+          "subject": [
+            "entity"
+          ],
+          "instrument": [
+            "method"
+          ]
+        }
+      },
+      "promotes": {
+        "template": "measured-by",
+        "roles": {
+          "subject": [
+            "product"
+          ],
+          "instrument": [
+            "method"
+          ]
+        }
+      }
+    },
+    "bridges": {
+      "promotes": {
+        "template": "affects",
+        "mapping": "narrower",
+        "roles": {
+          "cause": [
+            "entity"
+          ],
+          "effect": [
+            "outcome"
+          ]
+        },
+        "layers": [
+          "causal"
+        ]
+      }
+    },
+    "estimands": {
+      "instantiation:affects-entity-outcome": {
+        "forms": [
+          "contrast",
+          "quantity",
+          "law-parameters",
+          "event-locked",
+          "association",
+          "enrichment"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      },
+      "instantiation:affects-entity-entity": {
+        "forms": [
+          "quantity"
+        ],
+        "conditioning_sorts": [
+          "outcome"
+        ]
+      },
+      "instantiation:correlates-event-product": {
+        "forms": [
+          "contrast",
+          "quantity",
+          "law-parameters",
+          "event-locked",
+          "association",
+          "enrichment"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      },
+      "bridge:promotes": {
+        "forms": [
+          "contrast",
+          "quantity",
+          "law-parameters",
+          "event-locked",
+          "association",
+          "enrichment"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      },
+      "instantiation:promotes": {
+        "forms": [
+          "quantity"
+        ],
+        "conditioning_sorts": [
+          "entity"
+        ]
+      }
+    },
+    "duration_conventions": {
+      "mean-month": {
+        "conversion": "mean-month-to-second",
+        "definition": "Fixed mean month of 30.4375 days."
+      }
+    },
+    "quantity_kinds": {
+      "duration": {
+        "dimension": {
+          "T": 1
+        },
+        "definition": "Elapsed time."
+      },
+      "rate": {
+        "dimension": {
+          "T": -1
+        },
+        "definition": "Events per time."
+      },
+      "energy": {
+        "dimension": {
+          "M": 1,
+          "L": 2,
+          "T": -2
+        },
+        "definition": "Energy per entity."
+      },
+      "molar-energy": {
+        "dimension": {
+          "M": 1,
+          "L": 2,
+          "T": -2,
+          "N": -1
+        },
+        "definition": "Energy per amount."
+      },
+      "reciprocal-amount": {
+        "dimension": {
+          "N": -1
+        },
+        "definition": "Reciprocal amount."
+      },
+      "temperature": {
+        "dimension": {
+          "Θ": 1
+        },
+        "definition": "Thermodynamic temperature."
+      },
+      "abundance": {
+        "dimension": "construct",
+        "definition": "Transcript abundance."
+      },
+      "count": {
+        "dimension": "counted",
+        "definition": "Number of items."
+      },
+      "score": {
+        "dimension": "construct",
+        "definition": "An assigned score."
+      },
+      "fraction": {
+        "dimension": "dimensionless",
+        "definition": "A proportion."
+      }
+    },
+    "units": {
+      "second": {
+        "symbol": "s",
+        "quantity_kind": "duration",
+        "definition": "A second."
+      },
+      "calendar-month": {
+        "symbol": "mo",
+        "quantity_kind": "duration",
+        "calendar": true,
+        "definition": "A calendar duration requiring a named convention."
+      },
+      "hour": {
+        "symbol": "h",
+        "quantity_kind": "duration",
+        "definition": "An hour."
+      },
+      "per-second": {
+        "symbol": "s^-1",
+        "quantity_kind": "rate",
+        "definition": "Per second."
+      },
+      "per-hour": {
+        "symbol": "h^-1",
+        "quantity_kind": "rate",
+        "definition": "Per hour."
+      },
+      "electronvolt": {
+        "symbol": "eV",
+        "quantity_kind": "energy",
+        "definition": "An electronvolt."
+      },
+      "kilojoule-per-mole": {
+        "symbol": "kJ/mol",
+        "quantity_kind": "molar-energy",
+        "definition": "Kilojoules per mole."
+      },
+      "per-mole": {
+        "symbol": "mol^-1",
+        "quantity_kind": "reciprocal-amount",
+        "definition": "Per mole."
+      },
+      "kelvin": {
+        "symbol": "K",
+        "quantity_kind": "temperature",
+        "definition": "A kelvin."
+      },
+      "celsius": {
+        "symbol": "°C",
+        "quantity_kind": "temperature",
+        "definition": "A degree Celsius."
+      },
+      "millikelvin": {
+        "symbol": "mK",
+        "quantity_kind": "temperature",
+        "definition": "A millikelvin."
+      },
+      "tpm": {
+        "symbol": "TPM",
+        "quantity_kind": "abundance",
+        "definition": "Transcripts per million."
+      },
+      "ktpm": {
+        "symbol": "kTPM",
+        "quantity_kind": "abundance",
+        "definition": "Thousands of transcripts per million."
+      },
+      "item": {
+        "symbol": "item",
+        "quantity_kind": "count",
+        "definition": "An item."
+      },
+      "point": {
+        "symbol": "point",
+        "quantity_kind": "score",
+        "definition": "A point."
+      },
+      "unity": {
+        "symbol": "1",
+        "quantity_kind": "fraction",
+        "definition": "Unity."
+      }
+    },
+    "constants": {
+      "avogadro": {
+        "value": "6.02214076E23",
+        "unit": "per-mole",
+        "exact": true,
+        "definition": "The Avogadro constant."
+      }
+    },
+    "conversions": {
+      "hour-to-second": {
+        "from": "hour",
+        "to": "second",
+        "kind": "multiplicative",
+        "factor": "3600",
+        "exact": true,
+        "definition": "Hours to seconds."
+      },
+      "mean-month-to-second": {
+        "from": "calendar-month",
+        "to": "second",
+        "kind": "multiplicative",
+        "factor": "2629800",
+        "exact": true,
+        "definition": "A fixed mean month in seconds."
+      },
+      "per-second-to-per-hour": {
+        "from": "per-second",
+        "to": "per-hour",
+        "kind": "multiplicative",
+        "factor": "3600",
+        "exact": true,
+        "definition": "Per second to per hour."
+      },
+      "kelvin-to-celsius": {
+        "from": "kelvin",
+        "to": "celsius",
+        "kind": "affine",
+        "factor": "1",
+        "offset": "-273.15",
+        "exact": true,
+        "definition": "Kelvin to Celsius."
+      },
+      "kelvin-to-millikelvin": {
+        "from": "kelvin",
+        "to": "millikelvin",
+        "kind": "multiplicative",
+        "factor": "1000",
+        "exact": true,
+        "definition": "Kelvin to millikelvin."
+      },
+      "tpm-to-ktpm": {
+        "from": "tpm",
+        "to": "ktpm",
+        "kind": "multiplicative",
+        "factor": "0.001",
+        "exact": true,
+        "definition": "TPM to thousands of TPM."
+      },
+      "electronvolt-to-kilojoule-per-mole": {
+        "from": "electronvolt",
+        "to": "kilojoule-per-mole",
+        "kind": "multiplicative",
+        "factor": "96.48533212",
+        "exact": false,
+        "error": "0.0000000005",
+        "constant": "avogadro",
+        "definition": "Energy per entity to energy per amount."
+      }
+    },
+    "transformations": {
+      "identity": {
+        "kind": "identity",
+        "domain": "real",
+        "invertible": true,
+        "definition": "Leave the value unchanged."
+      },
+      "negate": {
+        "kind": "affine",
+        "scale": "-1",
+        "offset": "0",
+        "domain": "real",
+        "invertible": true,
+        "definition": "Negate the value."
+      },
+      "log2": {
+        "kind": "logarithm",
+        "base": "2",
+        "domain": "positive",
+        "invertible": true,
+        "definition": "Base two logarithm."
+      },
+      "ln": {
+        "kind": "logarithm",
+        "base": "2.718281828459045235360287471352662",
+        "domain": "positive",
+        "invertible": true,
+        "definition": "Natural logarithm."
+      },
+      "log2-plus-one": {
+        "kind": "monotone",
+        "direction": "increasing",
+        "fixed": true,
+        "domain": "nonnegative",
+        "invertible": true,
+        "definition": "Base two logarithm after adding one."
+      },
+      "logit": {
+        "kind": "monotone",
+        "direction": "increasing",
+        "fixed": true,
+        "domain": "unit-interval",
+        "invertible": true,
+        "definition": "Log odds."
+      },
+      "standardize": {
+        "kind": "monotone",
+        "direction": "increasing",
+        "fixed": false,
+        "domain": "real",
+        "invertible": true,
+        "definition": "Standardize against the sample."
+      },
+      "negated-standardize": {
+        "kind": "monotone",
+        "direction": "decreasing",
+        "fixed": false,
+        "domain": "real",
+        "invertible": true,
+        "definition": "Negate a sample standardization."
+      }
+    },
+    "facets": {
+      "axis": {
+        "attaches_to": [
+          "dataset"
+        ],
+        "fields": {
+          "axis": {
+            "type": "string",
+            "required": true
+          },
+          "vocabulary": {
+            "type": "ref",
+            "required": false,
+            "kinds": [
+              "dataset"
+            ]
+          }
+        }
+      },
+      "annotation": {
+        "attaches_to": [
+          "dataset",
+          "proposition"
+        ],
+        "fields": {
+          "note": {
+            "type": "string",
+            "required": true
+          },
+          "count": {
+            "type": "integer",
+            "required": false
+          },
+          "final": {
+            "type": "boolean",
+            "required": false
+          }
+        }
+      }
+    },
+    "procedure_kinds": {
+      "assay": {
+        "fills_within_model": false
+      },
+      "instrument": {
+        "fills_within_model": false
+      },
+      "questionnaire": {
+        "fills_within_model": false
+      },
+      "estimator": {
+        "fills_within_model": false
+      },
+      "model-specification": {
+        "fills_within_model": true
+      }
+    },
+    "aggregation_rules": {
+      "sum": {},
+      "mean": {}
+    },
+    "assumption_kinds": {
+      "transport-exchangeability": {
+        "collapses": "Transport across the declared dimensions and co-scope.",
+        "particulars": [
+          "dimensions",
+          "co_scope"
+        ]
+      },
+      "proxy-validity": {
+        "collapses": "The proxy's validity within the declared scope.",
+        "particulars": [
+          "record",
+          "co_scope",
+          "dimensions"
+        ]
+      },
+      "procedure-validity": {
+        "collapses": "The procedure's validity within the declared scope.",
+        "particulars": [
+          "record",
+          "co_scope",
+          "dimensions"
+        ]
+      },
+      "calibration-transfer": {
+        "collapses": "Transfer from the calibrated observable to the target observable.",
+        "particulars": [
+          "proxy",
+          "calibrated_observable",
+          "target_observable"
+        ]
+      }
+    },
+    "measurements": {
+      "entity": [
+        "abundance",
+        "count"
+      ],
+      "outcome": [
+        "score",
+        "duration"
+      ],
+      "product": [
+        "abundance"
+      ],
+      "event": [
+        "energy",
+        "rate",
+        "temperature"
+      ],
+      "cohort": []
+    },
+    "aspects": {
+      "energy": [
+        "energy-aspect"
+      ]
+    },
+    "functionals": {
+      "difference-of-means": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "equivariant-affine",
+        "reversal": "negate",
+        "response_reversal": "negate",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "response-difference",
+        "domain": "real",
+        "null": "zero",
+        "increment": "linear",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "ratio-of-means": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "invariant-positive-scaling",
+        "reversal": "reciprocal",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "dimensionless",
+        "domain": "positive",
+        "null": "one",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "probability-of-superiority": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "invariant-strictly-increasing",
+        "reversal": "complement",
+        "response_reversal": "complement",
+        "exchange": "not-applicable",
+        "ties": "midrank",
+        "output": "dimensionless",
+        "domain": "unit-interval",
+        "null": "half",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "hodges-lehmann-shift": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "equivariant-positive-affine",
+        "reversal": "negate",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "midrank",
+        "output": "response-difference",
+        "domain": "real",
+        "null": "zero",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "log-odds-ratio": {
+        "form": "contrast",
+        "arity": "two",
+        "response_transformation": "fixed",
+        "reversal": "negate",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "dimensionless",
+        "domain": "real",
+        "null": "zero",
+        "increment": "none",
+        "uncertainty": "exact",
+        "parameters": "not-applicable"
+      },
+      "spearman-correlation": {
+        "form": "association",
+        "arity": "two",
+        "response_transformation": "invariant-strictly-increasing",
+        "reversal": "not-applicable",
+        "response_reversal": "negate",
+        "exchange": "symmetric",
+        "ties": "midrank",
+        "output": "dimensionless",
+        "domain": "signed-unit-interval",
+        "null": "zero",
+        "increment": "not-applicable",
+        "uncertainty": "recompute",
+        "parameters": "not-applicable"
+      },
+      "transfer-entropy": {
+        "form": "association",
+        "arity": "two",
+        "response_transformation": "invariant-strictly-increasing",
+        "reversal": "not-applicable",
+        "response_reversal": "invariant",
+        "exchange": "directed",
+        "ties": "undefined",
+        "output": "dimensionless",
+        "domain": "nonnegative",
+        "null": "zero",
+        "increment": "not-applicable",
+        "uncertainty": "none",
+        "parameters": "not-applicable"
+      },
+      "peak-power-fraction": {
+        "form": "quantity",
+        "arity": "one",
+        "response_transformation": "none",
+        "reversal": "not-applicable",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "dimensionless",
+        "domain": "unit-interval",
+        "null": "none",
+        "increment": "not-applicable",
+        "uncertainty": "none",
+        "parameters": "not-applicable"
+      },
+      "arrhenius": {
+        "form": "law-parameters",
+        "arity": "not-applicable",
+        "response_transformation": "by-parameters",
+        "reversal": "not-applicable",
+        "response_reversal": "not-applicable",
+        "exchange": "not-applicable",
+        "ties": "not-applicable",
+        "output": "declared",
+        "domain": "not-applicable",
+        "null": "none",
+        "increment": "not-applicable",
+        "uncertainty": "exact",
+        "parameters": {
+          "Ea": {
+            "typing": "independent",
+            "domain": "real"
+          },
+          "lnA": {
+            "typing": "response-log-level",
+            "domain": "real"
+          }
+        }
+      }
+    },
+    "identification_classes": {
+      "observational": {
+        "licenses_layers": [
+          "statistical"
+        ]
+      },
+      "randomized": {
+        "licenses_layers": [
+          "statistical",
+          "causal"
+        ]
+      },
+      "conditional-on-observables": {
+        "licenses_layers": [
+          "statistical",
+          "causal"
+        ]
+      },
+      "instrumental": {
+        "licenses_layers": [
+          "statistical",
+          "causal"
+        ]
+      }
+    },
+    "designs": {
+      "independent-groups": {},
+      "paired-groups": {}
+    },
+    "selection_mechanisms": {
+      "cohort-enrolment": {}
+    }
+  },
+  "added_identity": "1dc89a8075b2fa0b6ee121d940c02eb74cf6413f78210ba25056d2e4b11cb74c",
+  "cases": [
+    {
+      "name": "addition",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "designs",
+            "paired-groups"
+          ],
+          "value": {}
+        }
+      ],
+      "outcome": "accept",
+      "identity": "1dc89a8075b2fa0b6ee121d940c02eb74cf6413f78210ba25056d2e4b11cb74c"
+    },
+    {
+      "name": "second-addition",
+      "previous": "added",
+      "lineage": {
+        "successor": "1dc89a8075b2fa0b6ee121d940c02eb74cf6413f78210ba25056d2e4b11cb74c"
+      },
+      "changes": [
+        {
+          "path": [
+            "designs",
+            "matched-groups"
+          ],
+          "value": {}
+        }
+      ],
+      "outcome": "accept",
+      "identity": "b13012a7ee213c740f93242a1f7819fae8123c69e67ca9550961d5abee7d15f9"
+    },
+    {
+      "name": "missing-predecessor",
+      "previous": null,
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [],
+      "outcome": "SuccessionViolation",
+      "identity": "c37f3a823d4f45ab7820effa33883f0a100574f59fd075fb0385cc3f09ff5d9e"
+    },
+    {
+      "name": "wrong-predecessor",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "changes": [],
+      "outcome": "SuccessionViolation",
+      "identity": "64df223df52f1cd5068daf450eb12e95b31d5cc30a20ae699930231c5cb44d30"
+    },
+    {
+      "name": "genesis-with-predecessor",
+      "previous": "genesis",
+      "lineage": "genesis",
+      "changes": [],
+      "outcome": "SuccessionViolation",
+      "identity": "c2fca4f8c5aab0a427e0a7a4e22f1cb3e2c94ce8dc1f67b410db7cccc8eb1428"
+    },
+    {
+      "name": "different-namespace",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "contract"
+          ],
+          "value": "other"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "fd1731d0fa7495d094993e198a25cbb82ef107a1533a5a846a4a215c843f21a2"
+    },
+    {
+      "name": "drop-sort",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "sorts",
+            "entity"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "MalformedContract",
+      "identity": "94d215463aec530294551c01ac028173b2d7e46c0dd517e7ce01f3aca7a10aba"
+    },
+    {
+      "name": "drop-dimension",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "dimensions",
+            "population"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "be6b396813dabc421c4f096034a261a52639284b772021a037e1d68b6afbb81c"
+    },
+    {
+      "name": "drop-template",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "templates",
+            "affects"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "ab569b9527148a9a8c053780b93c992b1e6ffffcf83e89deb5e17c19678bd46c"
+    },
+    {
+      "name": "drop-instantiation",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "instantiations",
+            "affects-entity-outcome"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "MalformedContract",
+      "identity": "931635a46295894f655175fded840c9c7734354a656e99fc6d489809dbffdbea"
+    },
+    {
+      "name": "drop-bridge",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "bridges",
+            "promotes"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "MalformedContract",
+      "identity": "84c7dbb32b67a385b380cc1527b4b4de6d286986de6ef8576d896ec970ee2b9e"
+    },
+    {
+      "name": "drop-estimand",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "estimands",
+            "instantiation:affects-entity-outcome"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "49b9aa6b27a78878b3d18ae3108bca98ffae406457fa781cd549f267155345b4"
+    },
+    {
+      "name": "drop-duration-convention",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "duration_conventions",
+            "mean-month"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "2fba49981e7a5a308f7f3eea83663f653755c20ef5fbc4b80b94420c73f057cc"
+    },
+    {
+      "name": "drop-functional",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "functionals",
+            "difference-of-means"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "bc9707247df3da4dd879a247a7f3223412541cb62875db854dcc4758aa915141"
+    },
+    {
+      "name": "drop-identification-class",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "identification_classes",
+            "observational"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "b670e837f56b5a49d11b6153c28d97dfb25ecff96d02f47e1c1caeb41e617383"
+    },
+    {
+      "name": "drop-design",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "designs",
+            "independent-groups"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "b3adef79c6ccb07497f13b99de86f6da4721d840c6438dc1eb3d2bc787824797"
+    },
+    {
+      "name": "drop-selection-mechanism",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "selection_mechanisms",
+            "cohort-enrolment"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "569741fee7b137213914e79a1b0392bed6a60388628fff717bdf20a24a5fb3b1"
+    },
+    {
+      "name": "drop-procedure-kind",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "procedure_kinds",
+            "assay"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "78c095cceed30c98cbabb3492be98378d0c840aee4803d8c305e8bdabd643366"
+    },
+    {
+      "name": "drop-aggregation-rule",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "aggregation_rules",
+            "sum"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "50c2407f50c5a8610078e1880e1e77a3355c78cb584e6e2ee620b6692476a056"
+    },
+    {
+      "name": "drop-assumption-kind",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "assumption_kinds",
+            "transport-exchangeability"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "d9bfc634a8fc5f4328257cffb70166ee883d5e278bee2f35c99b61ced9571ee0"
+    },
+    {
+      "name": "drop-measurement",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "measurements",
+            "entity"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "50674129272c48be02e9d1ad3564a2a768cc49d86ffca57f06cb3d835f44732a"
+    },
+    {
+      "name": "drop-aspect",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "aspects",
+            "energy"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "651eadd6b3ddb568579395b82a2ec67c0432eb22c46f454787cf17d871d3a593"
+    },
+    {
+      "name": "drop-quantity-kind",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "quantity_kinds",
+            "duration"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "ef2e203f69fd1fd0953ee78544887ad58177bfda0443e276c1b292438e873bf7"
+    },
+    {
+      "name": "drop-unit",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "units",
+            "second"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "c29d0e9d20bca54f937a3fab4bc1530f318b7607f6fe2ed7630037f950ccea82"
+    },
+    {
+      "name": "drop-constant",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "constants",
+            "avogadro"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "06e4c9918950cf880c4564ebd40e22a31cf74f25dc9e75458be244d20ea7b04b"
+    },
+    {
+      "name": "drop-conversion",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "conversions",
+            "hour-to-second"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "fb965b5e328b9250b8da3db11d0549adc698e7a84080b4600a66ae8c03a085cd"
+    },
+    {
+      "name": "drop-transformation",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "transformations",
+            "identity"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "00d39a4aa307f438824441060ff743fb844a554a4d4aa10b936d043419d27314"
+    },
+    {
+      "name": "change-sort",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "sorts",
+            "entity",
+            "binding",
+            "release"
+          ],
+          "value": "2027-01-01"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "970fe4a1bc25f64022b7b888de8412261f8d6ef3c45e459d14a059917e6881d1"
+    },
+    {
+      "name": "change-dimension",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "dimensions",
+            "population",
+            "applies_to"
+          ],
+          "value": [
+            "affects"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "6e1ce9452c77f9e80c7c9dbea36e9631a60862f4dd67295514b3cb8b8e624bf4"
+    },
+    {
+      "name": "change-template",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "templates",
+            "affects",
+            "layers"
+          ],
+          "value": [
+            "causal"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "f6a0fb0291988cfdc8a0b80104b7857b7eebb7668b6e45d8cc5047aed85e763c"
+    },
+    {
+      "name": "change-instantiation",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "instantiations",
+            "affects-entity-outcome",
+            "roles",
+            "cause"
+          ],
+          "value": [
+            "entity",
+            "outcome"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "7bf13779e27e6c675e3ae13afa2ee9f2e5fed31b49bb3c0bb3a62f727b8eadb4"
+    },
+    {
+      "name": "change-bridge",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "bridges",
+            "promotes",
+            "mapping"
+          ],
+          "value": "contextual"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "3bff8487e3178a10f734dd59a5c4f27e1e2dc7d24d84a6f26737ae204d7bed63"
+    },
+    {
+      "name": "change-estimand",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "estimands",
+            "instantiation:affects-entity-outcome",
+            "conditioning_sorts"
+          ],
+          "value": []
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "9bd598ea7d5ebbf1b594d890f00b86941de0674818db3654d81f8454c122192d"
+    },
+    {
+      "name": "change-duration-convention",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "duration_conventions",
+            "mean-month",
+            "conversion"
+          ],
+          "value": "hour-to-second"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "b81f6ec645f2b413ebf4d6e49e26a8f9f5f45f2c3abc9a7cf3e4e1dcf78decf8"
+    },
+    {
+      "name": "change-functional",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "functionals",
+            "difference-of-means",
+            "uncertainty"
+          ],
+          "value": "recompute"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "f634b24c6b218c6035254d43e62f1df8b82b5d324f753067dce1b6840b5332de"
+    },
+    {
+      "name": "change-identification-class",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "identification_classes",
+            "observational",
+            "licenses_layers"
+          ],
+          "value": [
+            "causal"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "2377864ccdbb3d1315297cdd09941e80684dd0b5335cf11b680206ea73e73e0a"
+    },
+    {
+      "name": "change-procedure-kind",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "procedure_kinds",
+            "assay",
+            "fills_within_model"
+          ],
+          "value": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "bbadbbb647b7446cd61d20cb7fdda7c88f64752b35d41e49aad2b0b4ed99908b"
+    },
+    {
+      "name": "change-assumption-kind",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "assumption_kinds",
+            "transport-exchangeability",
+            "particulars"
+          ],
+          "value": [
+            "co_scope"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "10e38ce6871abdbe18aab2ae0ffa9f6b663cfc917df58fe7a774b8a95c81948a"
+    },
+    {
+      "name": "change-measurement",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "measurements",
+            "entity"
+          ],
+          "value": [
+            "count"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "2f1897e7a3e97b4373f10dea452672b96ad3d34b03ea4aa50d0fc2d4dbfc9844"
+    },
+    {
+      "name": "change-aspect",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "aspects",
+            "energy"
+          ],
+          "value": [
+            "stage"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "d6b8b96f1267ca9ec756e7025ad03f2aed949be6efc121b07df21db6c81be0e3"
+    },
+    {
+      "name": "change-quantity-kind",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "quantity_kinds",
+            "duration",
+            "dimension"
+          ],
+          "value": {
+            "L": 1
+          }
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "0c250129aca94dd7fb644655b96bec00ac2f770a339a17d543f01fd1fdcb0dc6"
+    },
+    {
+      "name": "change-unit",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "units",
+            "second",
+            "symbol"
+          ],
+          "value": "sec"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "79d0c505e1e292c507e923099d09a784f306665cdd2b63d136e101a93b470bb4"
+    },
+    {
+      "name": "change-constant",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "constants",
+            "avogadro",
+            "value"
+          ],
+          "value": "6.02214077E23"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "c2530d7f011cafff0aedde7656ca069ccb855014b76ffa4e1a7a6b56df0f0075"
+    },
+    {
+      "name": "change-conversion",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "conversions",
+            "hour-to-second",
+            "factor"
+          ],
+          "value": "3601"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "b26855689551d087f1ad19d3a3be3bf4d157ea2946dbca96a7a727c387d6e698"
+    },
+    {
+      "name": "change-transformation",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "transformations",
+            "identity",
+            "domain"
+          ],
+          "value": "positive"
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "772ab1f25ee5c0694065c7daf5dc13da4e08cd1e2f38fedeae2469fe5527b03b"
+    },
+    {
+      "name": "editorial",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "templates",
+            "affects",
+            "description"
+          ],
+          "value": "Revised explanation"
+        },
+        {
+          "path": [
+            "templates",
+            "affects",
+            "definition"
+          ],
+          "value": "A relation"
+        },
+        {
+          "path": [
+            "designs",
+            "independent-groups",
+            "definition"
+          ],
+          "value": "Two groups"
+        },
+        {
+          "path": [
+            "aggregation_rules",
+            "sum",
+            "definition"
+          ],
+          "value": "Add"
+        },
+        {
+          "path": [
+            "selection_mechanisms",
+            "cohort-enrolment",
+            "definition"
+          ],
+          "value": "Enrollment"
+        }
+      ],
+      "outcome": "accept",
+      "identity": "9e47db2ab33ae2618bcb531b8190ece38f74069ce755df7acc88b14306eb5a33"
+    },
+    {
+      "name": "set-order",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "templates",
+            "affects",
+            "layers"
+          ],
+          "value": [
+            "statistical",
+            "causal"
+          ]
+        },
+        {
+          "path": [
+            "templates",
+            "affects",
+            "forms"
+          ],
+          "value": [
+            "null",
+            "polar"
+          ]
+        },
+        {
+          "path": [
+            "measurements",
+            "entity"
+          ],
+          "value": [
+            "count",
+            "abundance"
+          ]
+        },
+        {
+          "path": [
+            "assumption_kinds",
+            "transport-exchangeability",
+            "particulars"
+          ],
+          "value": [
+            "co_scope",
+            "dimensions"
+          ]
+        }
+      ],
+      "outcome": "accept",
+      "identity": "344e02bf38bce0e629f59b3a2717c93ee298b065258b74e1f5505509cb513c93"
+    },
+    {
+      "name": "external-reference",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "templates",
+            "affects",
+            "external"
+          ],
+          "value": {
+            "reference": "https://example.org/relation",
+            "mapping": "exact"
+          }
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "3f879dc79df5b868c68ace76a3be9fd15d3f86737220b5dd028e8ecd53ccac18"
+    },
+    {
+      "name": "nested-role",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "templates",
+            "transforms",
+            "roles",
+            "inputs",
+            "min"
+          ],
+          "value": 2
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "57ac3e3fbff9a77f9cbdc12734f932399813326922602a1213f186b1466aa03f"
+    },
+    {
+      "name": "explicit-bridge-layers",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      },
+      "changes": [
+        {
+          "path": [
+            "bridges",
+            "promotes",
+            "layers"
+          ],
+          "value": [
+            "causal",
+            "statistical"
+          ]
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "540e6a1e7c561e6716bc96b8f7e3280eaa075f16783afdc1eeb865ae4ca65725"
+    }
+  ]
+}

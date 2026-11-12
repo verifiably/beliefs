@@ -31,9 +31,9 @@ grammar described below and profile compilation against the same rules, with two
 known differences: the emptiness check on a `definition` strips JavaScript's
 whitespace set rather than Python's, so a value of only U+FEFF, or only U+0085 or
 U+001C–U+001F, is refused by one side and accepted by the other; and on a document
-with several faults the two sides can report different ones first. It computes no content identity and runs no succession check. So it reads
-only a genesis domain contract: a `lineage` naming a predecessor, and a `retired`
-field on any declaration, are refused with `UncheckableContract`. It
+with several faults the two sides can report different ones first. It computes contract content identities and checks successor lineage against an
+explicit predecessor through `parseDomainContract(text, source, base, predecessor?)`.
+A `retired` field on any declaration, even false, is refused with `UncheckableContract`. It
 also refuses `description` at a domain contract's top level and on a sort or a
 dimension, as an unknown field, and carries no package resource loader,
 `compiled_identity` calculation, assumptions-register reader or estimand
@@ -473,9 +473,14 @@ any of the following holds:
 
 - a genesis contract is given a predecessor, or a successor contract is given none;
 - the predecessor's identity or namespace differs from the one declared;
+- the predecessor was typed under a different base content identity;
 - the successor drops a claim-vocabulary declaration its predecessor declared;
 - the successor changes the schema projection of a claim-vocabulary declaration;
 - the successor un-retires a claim-vocabulary declaration.
+
+Both languages check additive succession; TypeScript continues to refuse retirement
+fields. Parsed TypeScript domains expose `contentIdentity` and `predecessor` metadata.
+Schema equality does not validate the scientific meaning of changed editorial prose.
 
 The claim vocabulary covers all 21 domain declaration families: sorts, dimensions,
 templates, instantiations, bridges, estimand declarations, duration conventions,

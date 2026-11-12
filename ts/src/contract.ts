@@ -6,20 +6,10 @@
  * artifact would give the base contract a Python-privileged reading, which is
  * the arrangement a parity obligation exists to prevent.
  *
- * **What this side deliberately does not do**, because `ts/` is scoped to the
- * shared-encoding path and the parity fixture is the only
- * cross-implementation row:
- *
- * * no **contract content identity** and no **compiled profile identity** — compilation is
- *   Python-only, since it is not a shared encoding;
- * * no **succession validation**;
- * * no **retirement** semantics.
- *
- * The last two are not skipped, they are **refused**. A contract declaring a
- * predecessor, or carrying a retired declaration, is rejected with
- * `UncheckableContract`. Parsing past them would make this a second, weaker
- * reading of the normative source — which is worse than not reading it, because
- * it would look like agreement.
+ * This side computes contract content identity and checks additive succession
+ * against a supplied predecessor. Compiled profile identity remains Python-only.
+ * Retirement semantics remain unsupported: every `retired` field is refused,
+ * never silently ignored.
  *
  * **The parsed contracts are branded and deeply frozen**, and that is the root
  * of the trust chain rather than a detail of it. `compileProfile` promises that
@@ -32,14 +22,34 @@
  * after it is read.
  */
 
+import { claimVocabulary } from "./contract-succession.js";
 import { readDocument } from "./document.js";
-import { MalformedContract, SubclassRefused, UncheckableContract, UnparsedContract } from "./errors.js";
+import {
+  MalformedContract,
+  SubclassRefused,
+  SuccessionViolation,
+  UncheckableContract,
+  UnparsedContract,
+} from "./errors.js";
+import { type IdentityValue, digest, encode } from "./identity/v1.js";
 import { IdentifierClass } from "./patterns.js";
 
 const TAG_ENCODING = "science.identity.v1";
 const NAME = /^[a-z][a-z0-9-]*$/;
 
 const MINT = Symbol("science.contract.mint");
+const baseIdentities = new WeakMap<BaseContract, string>();
+
+/** Parsed YAML uses safe number integers; identity v1 represents them as bigint. */
+function identityDocument(value: unknown): IdentityValue {
+  if (typeof value === "string" || typeof value === "boolean") return value;
+  if (typeof value === "number" && Number.isSafeInteger(value)) return BigInt(value);
+  if (Array.isArray(value)) return value.map(identityDocument);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, identityDocument(child)]));
+  }
+  throw new MalformedContract("contract content contains an unsupported identity value");
+}
 
 /**
  * A declaration table: local name → declaration.
@@ -612,6 +622,8 @@ export class DomainContract {
   #minted = true;
   readonly namespace: string;
   readonly version: number;
+  readonly contentIdentity: string;
+  readonly predecessor: string | null;
   readonly sorts: DeclarationTable<SortDecl>;
   readonly dimensions: DeclarationTable<DimensionDecl>;
   readonly templates: DeclarationTable<TemplateDecl>;
@@ -647,8 +659,8 @@ export class DomainContract {
    * check was never on either contract; it is **between** them, and this field
    * is what makes it possible.
    *
-   * Held as the object, compared by reference. Python records the base's content
-   * identity instead, since it computes one and this side deliberately does not do.
+   * Held as the object, compared by reference when compiling a profile. Succession
+   * separately compares base content identities, as Python does.
    * Reference equality is the **stricter** of the two — it also refuses
    * two separate parses of identical bytes — and strictness is the safe
    * direction for the reduced implementation: it can refuse what Python accepts,
@@ -661,6 +673,8 @@ export class DomainContract {
     parts: {
       namespace: string;
       version: number;
+      contentIdentity: string;
+      predecessor: string | null;
       sorts: DeclarationTable<SortDecl>;
       dimensions: DeclarationTable<DimensionDecl>;
       templates: DeclarationTable<TemplateDecl>;
@@ -697,6 +711,8 @@ export class DomainContract {
     }
     this.namespace = parts.namespace;
     this.version = parts.version;
+    this.contentIdentity = parts.contentIdentity;
+    this.predecessor = parts.predecessor;
     this.sorts = parts.sorts;
     this.dimensions = parts.dimensions;
     this.templates = parts.templates;
@@ -1176,7 +1192,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets, sameKind })]);
   }
   const relations = frozenTable(relationEntries);
-  return new BaseContract(MINT, {
+  const contract = new BaseContract(MINT, {
     version: positiveInt(document.version, `${source}.version`),
     claimGrammar: {
       version: grammarVersion,
@@ -1198,6 +1214,8 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     relations,
     facets,
   });
+  baseIdentities.set(contract, digest("science.contract.v1", identityDocument(document)));
+  return contract;
 }
 
 // --- domain contracts -------------------------------------------------------------
@@ -1205,8 +1223,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
 // Mirrored from the Python parser (`beliefs.contract.domain`), refusal for
 // refusal: both implementations read one document, and a case one refuses and
 // the other reads is the divergence the parity obligation exists to prevent.
-// The two places this side is narrower are named where they act: `refuseRetired`
-// and the genesis-only lineage.
+// The remaining retirement boundary is explicit in `refuseRetired`.
 
 /** The v1 grammar's top-level tables, refused by name under base v2. */
 const V1_FIELDS = ["operators", "edges"];
@@ -1991,7 +2008,12 @@ function parseRestriction(
   }
 }
 
-export function parseDomainContract(text: string, source: string, base: BaseContract): DomainContract {
+export function parseDomainContract(
+  text: string,
+  source: string,
+  base: BaseContract,
+  predecessor?: DomainContract,
+): DomainContract {
   if (!BaseContract.is(base)) {
     throw new UnparsedContract(
       "the base contract was not parsed from its document — use parseBaseContract(text, source). A domain's " +
@@ -2037,10 +2059,16 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     source,
   );
 
+  if (predecessor !== undefined && !DomainContract.is(predecessor)) {
+    throw new UnparsedContract(`${source}: predecessor must be a parsed DomainContract`);
+  }
+  let predecessorIdentity: string | null = null;
   if (document.lineage !== "genesis") {
-    throw new UncheckableContract(
-      `${source}.lineage: succession is validated against a declared predecessor, which this implementation does not carry. Only a genesis contract is readable here.`,
-    );
+    const lineage = mapping(document.lineage, `${source}.lineage`);
+    exactFields(lineage, ["successor"], [], `${source}.lineage`);
+    const identity = canonicalText(lineage.successor, `${source}.lineage.successor`);
+    if (!/^[0-9a-f]{64}$/.test(identity)) throw new MalformedContract(`${source}.lineage: expected a content identity`);
+    predecessorIdentity = identity;
   }
   const namespace = tag(document.contract, `${source}.contract`);
   if (namespace === "coordination") {
@@ -2336,9 +2364,11 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     ),
   );
 
-  return new DomainContract(MINT, {
+  const contract = new DomainContract(MINT, {
     namespace,
     version,
+    contentIdentity: digest("science.contract.v1", identityDocument(document)),
+    predecessor: predecessorIdentity,
     sorts,
     dimensions,
     templates,
@@ -2363,4 +2393,29 @@ export function parseDomainContract(text: string, source: string, base: BaseCont
     facets,
     base,
   });
+  checkSuccession(contract, predecessor);
+  return contract;
+}
+
+function checkSuccession(contract: DomainContract, predecessor?: DomainContract): void {
+  if (contract.predecessor === null) {
+    if (predecessor !== undefined) throw new SuccessionViolation(`${contract.namespace}: genesis with a predecessor`);
+    return;
+  }
+  if (predecessor === undefined) throw new SuccessionViolation(`${contract.namespace}: succession needs a predecessor`);
+  if (predecessor.contentIdentity !== contract.predecessor)
+    throw new SuccessionViolation(`${contract.namespace}: wrong predecessor identity`);
+  if (predecessor.namespace !== contract.namespace)
+    throw new SuccessionViolation(`${contract.namespace}: predecessor namespace differs`);
+  if (baseIdentities.get(predecessor.base) !== baseIdentities.get(contract.base)) {
+    throw new SuccessionViolation(`${contract.namespace}: predecessor was typed against a different base contract`);
+  }
+  const current = claimVocabulary(contract);
+  for (const [key, previous] of claimVocabulary(predecessor)) {
+    const value = current.get(key);
+    if (value === undefined) throw new SuccessionViolation(`${contract.namespace}: drops declaration ${key}`);
+    if (!Buffer.from(encode(value)).equals(Buffer.from(encode(previous)))) {
+      throw new SuccessionViolation(`${contract.namespace}: ${key} has a different canonical schema projection`);
+    }
+  }
 }

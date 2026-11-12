@@ -1840,6 +1840,9 @@ def check_succession(contract: DomainContract, predecessor: DomainContract | Non
             f"{contract.namespace}: cannot succeed a contract in namespace {predecessor.namespace!r}"
         )
 
+    if predecessor.base_identity != contract.base_identity:
+        raise SuccessionViolation(f"{contract.namespace}: predecessor was typed against a different base contract")
+
     current, prior = contract.claim_vocabulary(), predecessor.claim_vocabulary()
 
     dropped = sorted(set(prior) - set(current))

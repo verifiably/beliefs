@@ -317,9 +317,7 @@ def test_unknown_and_traversal_namespaces_refuse_with_resource_path(namespace: s
         ProfileError("missing domain contract"),
     ],
 )
-def test_domain_binding_errors_name_the_register_resource(
-    monkeypatch: pytest.MonkeyPatch, cause: Exception
-) -> None:
+def test_domain_binding_errors_name_the_register_resource(monkeypatch: pytest.MonkeyPatch, cause: Exception) -> None:
     def broken_domain(namespace: str) -> None:
         assert namespace == "general"
         raise cause

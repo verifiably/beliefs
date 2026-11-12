@@ -840,6 +840,22 @@ class TestSuccession:
     that matters; the property is that no contract reaches a caller without it.
     """
 
+    def test_succession_refuses_a_predecessor_typed_under_a_different_base(
+        self, parse, testing_document, base_contract_path
+    ):
+        from beliefs.contract.base import parse_base_contract
+        from beliefs.contract.document import parse_document
+
+        predecessor = parse(testing_document)
+        base_document = parse_document(base_contract_path.read_text(), source="base")
+        assert isinstance(base_document, dict)
+        base_document["version"] += 1
+        other_base = parse_base_contract(base_document, source="other-base")
+        successor = successor_document(testing_document, predecessor)
+        with pytest.raises(SuccessionViolation, match="base"):
+            domain.parse_domain_contract(successor, source="successor", base=other_base, predecessor=predecessor)
+        assert parse(successor, predecessor=predecessor).predecessor == predecessor.content_identity
+
     @pytest.fixture()
     def genesis(self, parse, testing_document):
         return parse(testing_document)

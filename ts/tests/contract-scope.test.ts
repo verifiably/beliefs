@@ -2,12 +2,11 @@
  * What this implementation refuses to read, and why refusing is the point.
  *
  * `ts/` carries the shared-encoding path, so there are contract features
- * it cannot validate: succession needs a declared predecessor and a two-contract
- * diff, and retirement is an authoring-boundary rule this side
+ * it cannot validate: retirement is an authoring-boundary rule this side
  * has no authoring boundary to enforce.
  *
  * The failure mode this file exists to prevent is **quiet divergence**. A
- * reduced parser that skipped `lineage` and ignored `retired` would accept
+ * reduced parser that ignored `retired` would accept
  * documents the normative reading refuses, and would look like agreement — two
  * implementations reading one SSOT differently, with nothing to notice it. So
  * the unimplemented rules are refusals, not omissions.
@@ -21,7 +20,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
-import { MalformedContract, ProfileError, UncheckableContract } from "../src/errors.js";
+import { MalformedContract, ProfileError, SuccessionViolation, UncheckableContract } from "../src/errors.js";
 import { IdentifierClass } from "../src/patterns.js";
 import { compileProfile } from "../src/profile.js";
 
@@ -46,10 +45,10 @@ function mutated(edit: (document: Document) => void, text: string = TESTING): st
 const parseTesting = (text: string) => parseDomainContract(text, "<testing>", base);
 
 describe("the rules this implementation does not carry are refused, not skipped", () => {
-  it("refuses a successor contract, because it cannot check succession", () => {
-    const successor = TESTING.replace("lineage: genesis", "lineage: { successor: deadbeef }");
+  it("refuses a successor contract without its declared predecessor", () => {
+    const successor = TESTING.replace("lineage: genesis", `lineage: { successor: ${HEX("a")} }`);
     expect(successor).not.toBe(TESTING);
-    expect(() => parseTesting(successor)).toThrow(UncheckableContract);
+    expect(() => parseTesting(successor)).toThrow(SuccessionViolation);
     expect(() => parseTesting(successor)).toThrow(/succession/);
   });
 

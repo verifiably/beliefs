@@ -460,6 +460,8 @@ describe("a contract that nobody authored cannot be compiled", () => {
         new DomainContract(Symbol("forged"), {
           namespace: "forged",
           version: 1,
+          contentIdentity: "0".repeat(64),
+          predecessor: null,
           sorts: {},
           dimensions: {},
           templates: {},
@@ -505,6 +507,8 @@ describe("a contract that nobody authored cannot be compiled", () => {
         new RogueDomain(Symbol("forged"), {
           namespace: "x",
           version: 1,
+          contentIdentity: "0".repeat(64),
+          predecessor: null,
           sorts: {},
           dimensions: {},
           templates: {},
