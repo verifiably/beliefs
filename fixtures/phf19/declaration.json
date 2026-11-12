@@ -1,0 +1,28 @@
+{
+  "assembly": "GRCh38.p14",
+  "baseline": "level:ndmm",
+  "comparison": "level:pd",
+  "digests": {
+    "crosswalk": "34469c668845702b965a839b500404a3d455884eca2faa355f4314a101237cb2",
+    "dataset": "2b1814a644fbc8cceafd091e3941c20a6a24a987da650ae7c1239eb82dcebc0c",
+    "ensembl": "8d26d6946418168a554ff6c7b5591cb7f3eac8cd66551928f00985a658ee2462",
+    "hgnc": "8897ba2f1e7b039b83ce420c5b15b10ec053578ff5bbe6f4f74c03166ea4f578",
+    "matrix": "05f34f8d05a6295a88d0b482748fe80959af1fe045189a3c6cf61f3fd5df4d83",
+    "proposition": "da9109ca1a993632ee2cd58f067234bf950d06fc90bca4f67fdd7f444884906d"
+  },
+  "ensembl_release": "115",
+  "evidence": "synthetic",
+  "factor": "concept:disease-stage",
+  "feature": "ENSG00000119403",
+  "gene": "hgnc:24566",
+  "hgnc_release": "2025-09-05",
+  "paths": {
+    "crosswalk": "data/annotables/annotables-grch38.tsv.gz",
+    "dataset": "entities/datasets/gse179929.md",
+    "matrix": "data/supp/orig/misund2022/GSE179929_gene_tpm.txt.gz",
+    "proposition": "entities/propositions/concept-disease-stage-affects-protein-phf19.md"
+  },
+  "separator": "_",
+  "source_dataset": "dataset:gse179929",
+  "source_proposition": "proposition:concept-disease-stage-affects-protein-phf19"
+}

@@ -1,0 +1,28 @@
+contract: mm30
+version: 1
+lineage: genesis
+sorts:
+  clinical-factor:
+    binding: {kind: dataset, dataset: dataset:sha256:a1c20139a88103e1ec83a9272dc028683f59ad34bed3d57f4a7db2b16bca4877}
+    identifier_class: {prefix: concept, pattern: 'concept:[a-z][a-z0-9\-]*'}
+  stage-level:
+    binding: {kind: dataset, dataset: dataset:sha256:85b5e3477d98ec0191b0e54da86202ec8c0d4081c45e7ddac103a30f8feb12a8}
+    identifier_class: {prefix: level, pattern: 'level:[a-z][a-z0-9\-]*'}
+    categories: [class]
+  cohort:
+    binding: {kind: dataset, dataset: dataset:sha256:1178ee4e936a984ba5915318bbbf863c7f228aed7cbf353fa0657993d8c7f129}
+    identifier_class: {prefix: cohort, pattern: 'cohort:[a-z][a-z0-9\-]*'}
+dimensions:
+  cohort:
+    restriction_sort: cohort
+    restriction: {form: term, sort: cohort}
+    placement: applicability
+    applies_to: [general/covaries-with]
+instantiations:
+  covaries-with-gene-stage:
+    template: general/covaries-with
+    roles: {parties: [clinical-factor, biology/gene]}
+estimands:
+  instantiation:covaries-with-gene-stage:
+    forms: [contrast]
+    conditioning_sorts: []

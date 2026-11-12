@@ -79,7 +79,13 @@ def _assoc():
     if spec is None or spec.loader is None:
         raise ImportError(f"cannot load {path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    import sys
+
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(path.parent))
     return module
 
 
@@ -100,12 +106,12 @@ def _matrix(tmp_path, samples, rows, *, gz=False):
 def test_assoc_refuses_a_missing_row(tmp_path):
     assoc = _assoc()
     with pytest.raises(assoc.MalformedInput, match="row"):
-        assoc.load(_matrix(tmp_path, ["s1_a", "s2_b"], [["g1", "1", "2"]]), value_row="g9")
+        assoc.load(_matrix(tmp_path, ["s1_NDMM", "s2_PD"], [["g1", "1", "2"]]), value_row="g9")
 
 
 def test_assoc_refuses_non_finite_values(tmp_path):
     assoc = _assoc()
-    samples = [f"s{i}_{'a' if i % 2 else 'b'}" for i in range(6)]
+    samples = [f"s{i}_{'NDMM' if i % 2 else 'PD'}" for i in range(6)]
     with pytest.raises(assoc.MalformedInput, match="finite"):
         assoc.load(_matrix(tmp_path, samples, [["g1", "nan", "2", "3", "4", "5", "6"]]), value_row="g1")
 
@@ -113,20 +119,20 @@ def test_assoc_refuses_non_finite_values(tmp_path):
 def test_assoc_refuses_a_sample_without_a_group_token(tmp_path):
     assoc = _assoc()
     with pytest.raises(assoc.MalformedInput, match="group token"):
-        assoc.load(_matrix(tmp_path, ["s1_a", "s2"], [["g1", "1", "2"]]), value_row="g1")
+        assoc.load(_matrix(tmp_path, ["s1_NDMM", "s2"], [["g1", "1", "2"]]), value_row="g1")
 
 
 def test_assoc_refuses_a_group_below_the_floor(tmp_path):
     assoc = _assoc()
-    samples = ["s1_a", "s2_a", "s3_a", "s4_b"]
+    samples = ["s1_NDMM", "s2_NDMM", "s3_NDMM", "s4_PD"]
     groups = assoc.load(_matrix(tmp_path, samples, [["g1", "1", "2", "3", "4"]]), value_row="g1")
     with pytest.raises(assoc.MalformedInput, match="at least"):
-        assoc.decide(groups, positive_level="a")
+        assoc.decide(groups, positive_level="NDMM")
 
 
 def test_assoc_refuses_a_positive_level_that_is_absent(tmp_path):
     assoc = _assoc()
-    samples = [f"s{i}_{'a' if i % 2 else 'b'}" for i in range(1, 11)]
+    samples = [f"s{i}_{'NDMM' if i % 2 else 'PD'}" for i in range(1, 11)]
     groups = assoc.load(_matrix(tmp_path, samples, [["g1", *[str(i) for i in range(1, 11)]]]), value_row="g1")
     with pytest.raises(assoc.MalformedInput, match="positive level"):
         assoc.decide(groups, positive_level="zzz")
@@ -134,18 +140,17 @@ def test_assoc_refuses_a_positive_level_that_is_absent(tmp_path):
 
 def test_assoc_refuses_more_than_two_levels(tmp_path):
     assoc = _assoc()
-    samples = ["s1_a", "s2_b", "s3_c"]
-    groups = assoc.load(_matrix(tmp_path, samples, [["g1", "1", "2", "3"]]), value_row="g1")
+    groups = {"NDMM": [1, 2, 3], "PD": [4, 5, 6], "other": [7, 8, 9]}
     with pytest.raises(assoc.MalformedInput, match="two levels"):
-        assoc.decide(groups, positive_level="a")
+        assoc.decide(groups, positive_level="NDMM")
 
 
-def test_assoc_supported_when_positive_level_is_higher_reading_gzip(tmp_path):
+def test_assoc_supported_when_positive_level_is_PDgher_reading_gzip(tmp_path):
     assoc = _assoc()
-    samples = [f"h{i}_hi" for i in range(8)] + [f"l{i}_lo" for i in range(8)]
+    samples = [f"h{i}_PD" for i in range(8)] + [f"l{i}_NDMM" for i in range(8)]
     values = [str(10 + i) for i in range(8)] + [str(i) for i in range(8)]
     groups = assoc.load(_matrix(tmp_path, samples, [["other", *["0"] * 16], ["g1", *values]], gz=True), value_row="g1")
-    outcome, z, p, n = assoc.decide(groups, positive_level="hi")
+    outcome, z, p, n = assoc.decide(groups, positive_level="PD")
     assert outcome == "supported" and z > 0 and p < 0.05 and n == 16
 
 

@@ -1,0 +1,9 @@
+# Selected question; source identifiers remain provenance, never causal/protein support.
+source_proposition: proposition:concept-disease-stage-affects-protein-phf19
+source_dataset: dataset:gse179929
+feature: ENSG00000119403
+gene: hgnc:24566
+factor: concept:disease-stage
+baseline: level:ndmm
+comparison: level:pd
+separator: _

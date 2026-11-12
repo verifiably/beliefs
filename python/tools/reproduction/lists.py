@@ -29,27 +29,13 @@ from reproduction.vocabulary import profile
 OBSERVER = "mm30-reproduction-observer"
 INSTRUMENT = "mm30-reproduction/lists.v1"
 
-# `identification` carries the predecessor's two-axis values; `none` is
-# deliberately absent, because an estimand with no identification does not
-# freeze.
+# Literal resources are also used to derive the contract's immutable dataset pins.
 LISTS: dict[str, tuple[str, list[str]]] = {
+    "clinical-factors": ("clinical-factors.txt", ["concept:disease-stage"]),
     "levels": ("mm30-stage-levels.txt", ["level:ndmm", "level:pd"]),
-    "measures": ("mm30-measures.txt", ["measure:rna-seq-tpm"]),
-    "identifications": (
-        "mm30-identifications.txt",
-        [
-            "identification:interventional",
-            "identification:longitudinal",
-            "identification:observational",
-            "identification:structural",
-        ],
-    ),
+    "cohorts": ("cohorts.txt", ["cohort:gse179929"]),
 }
-TITLES = {
-    "levels": "mm30 stage-level vocabulary",
-    "measures": "mm30 measure vocabulary",
-    "identifications": "mm30 identification vocabulary",
-}
+TITLES = {name: "PHF19 " + name + " vocabulary" for name in LISTS}
 
 
 def list_lines(terms: Iterable[str]) -> bytes:

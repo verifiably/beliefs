@@ -16,6 +16,8 @@ import math
 import pathlib
 import sys
 
+from labels import stage_token
+
 ALPHA = 0.05
 MIN_PER_GROUP = 3
 
@@ -42,9 +44,10 @@ def load(path, *, value_row: str, group_separator: str = "_") -> dict[str, list[
         samples = header[1:]
         groups_of: list[str] = []
         for sample in samples:
-            group = sample.rsplit(group_separator, 1)[-1] if group_separator in sample else ""
-            if not group:
-                raise MalformedInput(f"sample {sample!r} carries no group token after {group_separator!r}")
+            try:
+                group = stage_token(sample, group_separator)
+            except ValueError as error:
+                raise MalformedInput(str(error)) from error
             groups_of.append(group)
         row: list[str] | None = None
         for number, line in enumerate(handle, start=2):

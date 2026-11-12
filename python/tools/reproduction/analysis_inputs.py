@@ -147,3 +147,198 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+# The explicit route preserves the heritage selectors above for read-only callers.
+import re
+from collections.abc import Mapping
+from dataclasses import dataclass
+from hashlib import sha256
+from io import StringIO
+from types import MappingProxyType
+
+from beliefs.referent_mapping import ReferentMapping
+from reproduction.analysis.labels import stage_token
+
+
+@dataclass(frozen=True)
+class PHF19Inputs:
+    source_proposition: str
+    source_dataset: str
+    feature: str
+    gene: str
+    factor: str
+    baseline: str
+    comparison: str
+    separator: str
+    digests: Mapping[str, str]
+    mapping: ReferentMapping
+    mapping_members: bytes
+
+
+def hgnc_members(content: bytes) -> bytes:
+    """Derive the entire ID set, including entries unrelated to the selected row."""
+    try:
+        rows = csv.DictReader(StringIO(content.decode("utf-8")), delimiter="\t")
+        if rows.fieldnames is None or "hgnc_id" not in rows.fieldnames:
+            raise InputsRefused("HGNC input has no hgnc_id column")
+        members = set()
+        for row in rows:
+            raw = row["hgnc_id"]
+            if not isinstance(raw, str) or re.fullmatch(r"HGNC:[1-9][0-9]*", raw) is None:
+                raise InputsRefused("malformed HGNC member identifier")
+            term = "hgnc:" + raw.partition(":")[2]
+            if term in members:
+                raise InputsRefused("duplicate HGNC member identifier")
+            members.add(term)
+        if not members:
+            raise InputsRefused("empty HGNC release")
+        return "".join(x + "\n" for x in sorted(members)).encode()
+    except (UnicodeError, csv.Error) as error:
+        raise InputsRefused("unreadable HGNC TSV") from error
+
+
+def declared_paths(declaration: Mapping[str, object], predecessor: Path) -> dict[str, Path]:
+    raw = declaration.get("paths")
+    if not isinstance(raw, dict) or set(raw) != {"proposition", "dataset", "matrix", "crosswalk"}:
+        raise InputsRefused("explicit proposition, dataset, matrix and crosswalk paths required")
+    result = {}
+    for name, value in raw.items():
+        if not isinstance(value, str) or Path(value).is_absolute() or ".." in Path(value).parts:
+            raise InputsRefused("source paths must be predecessor-relative")
+        path = predecessor / value
+        if not path.resolve().is_relative_to(predecessor.resolve()) or not path.is_file():
+            raise InputsRefused(f"missing or escaping source file: {name}")
+        result[name] = path
+    return result
+
+
+def resolve_phf19(declaration: Mapping[str, object], *, predecessor: Path, hgnc: Path, ensembl: Path) -> PHF19Inputs:
+    """Check pinned sources and the selected correspondence, without ranking or analysis."""
+    expected = {
+        "source_proposition": "proposition:concept-disease-stage-affects-protein-phf19",
+        "source_dataset": "dataset:gse179929",
+        "feature": "ENSG00000119403",
+        "gene": "hgnc:24566",
+        "factor": "concept:disease-stage",
+        "baseline": "level:ndmm",
+        "comparison": "level:pd",
+        "separator": "_",
+        "hgnc_release": "2025-09-05",
+        "ensembl_release": "115",
+        "assembly": "GRCh38.p14",
+    }
+    if any(declaration.get(k) != v for k, v in expected.items()):
+        raise InputsRefused("declaration changes the frozen PHF19 question or reference release")
+    if set(declaration) != set(expected) | {"paths", "digests", "evidence"}:
+        raise InputsRefused("missing or unknown PHF19 declaration fields")
+    if declaration["evidence"] not in ("held-release", "synthetic"):
+        raise InputsRefused("reference evidence must be labelled held-release or synthetic")
+    digests = declaration["digests"]
+    if not isinstance(digests, dict) or set(digests) != {
+        "proposition",
+        "dataset",
+        "matrix",
+        "crosswalk",
+        "hgnc",
+        "ensembl",
+    }:
+        raise InputsRefused("all six source digest pins required")
+    if any(not isinstance(x, str) or re.fullmatch("[0-9a-f]{64}", x) is None for x in digests.values()):
+        raise InputsRefused("source digest is not lowercase SHA256")
+    if declaration["evidence"] == "held-release":
+        import json
+
+        approved = json.loads(Path(__file__).with_name("phf19-inputs.json").read_text())
+        if digests != approved["digests"]:
+            raise InputsRefused("held-release pins differ from the approved acquisition and predecessor")
+    locations = {**declared_paths(declaration, predecessor), "hgnc": hgnc, "ensembl": ensembl}
+    try:
+        for key, path in locations.items():
+            if sha256(path.read_bytes()).hexdigest() != digests[key]:
+                raise InputsRefused(f"{key} digest differs from declared source")
+        if front(locations["proposition"]).get("id") != expected["source_proposition"]:
+            raise InputsRefused("source proposition id mismatch")
+        if front(locations["dataset"]).get("id") != expected["source_dataset"]:
+            raise InputsRefused("source dataset id mismatch")
+        hgnc_content = hgnc.read_bytes()
+        members = hgnc_members(hgnc_content)
+        if b"hgnc:24566\n" not in members.splitlines(keepends=True):
+            raise InputsRefused("selected HGNC entry is absent")
+        rows = list(csv.DictReader(StringIO(hgnc_content.decode()), delimiter="\t"))
+        hits = [
+            r
+            for r in rows
+            if r.get("hgnc_id") == "HGNC:24566" or "ENSG00000119403" in r.get("ensembl_gene_id", "").split("|")
+        ]
+        if len(hits) != 1 or any(
+            hits[0].get(k) != v
+            for k, v in {
+                "hgnc_id": "HGNC:24566",
+                "symbol": "PHF19",
+                "status": "Approved",
+                "ensembl_gene_id": "ENSG00000119403",
+            }.items()
+        ):
+            raise InputsRefused("HGNC correspondence is absent, unapproved or ambiguous")
+        headers, genes = [], []
+        with gzip.open(ensembl, "rt", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("#!"):
+                    headers.append(line.rstrip())
+                elif not line.startswith("#"):
+                    fields = line.rstrip().split("\t")
+                    if len(fields) == 9 and fields[2] == "gene":
+                        attrs = dict(re.findall(r'(\w+) "([^"]*)"', fields[8]))
+                        if attrs.get("gene_id") == "ENSG00000119403":
+                            genes.append(attrs)
+        if "#!genome-build GRCh38.p14" not in headers or "#!genome-build-accession GCA_000001405.29" not in headers:
+            raise InputsRefused("Ensembl assembly mismatch")
+        if len(genes) != 1 or genes[0].get("gene_name") != "PHF19" or genes[0].get("gene_version") != "16":
+            raise InputsRefused("Ensembl gene annotation is absent, duplicate or inconsistent")
+        with _open(locations["crosswalk"]) as handle:
+            corroboration = [r for r in csv.DictReader(handle, delimiter="\t") if r.get("ensgene") == "ENSG00000119403"]
+        if len(corroboration) != 1 or corroboration[0].get("symbol") != "PHF19":
+            raise InputsRefused("original source crosswalk is absent or ambiguous")
+        if (
+            sorted({stage_token(s, "_") for s in matrix_header(locations["matrix"])[1:]}) != ["NDMM", "PD"]
+            or row_hits(locations["matrix"], "ENSG00000119403") != 1
+        ):
+            raise InputsRefused("matrix feature or group-label inventory mismatch")
+    except (OSError, UnicodeError, ValueError, csv.Error) as error:
+        raise InputsRefused(f"unreadable PHF19 source: {error}") from error
+    mapping_members = b"ensembl:ENSG00000119403\thgnc:24566\n"
+    mapping = ReferentMapping(
+        "biology/ensembl-gene",
+        "biology/gene",
+        {
+            "hgnc_release": "2025-09-05",
+            "ensembl_release": "115",
+            "assembly": "GRCh38.p14",
+            "evidence": str(declaration["evidence"]),
+            "hgnc_sha256": digests["hgnc"],
+            "ensembl_sha256": digests["ensembl"],
+            "historical_matrix_annotation_release": "unknown",
+        },
+        "one-to-one",
+        None,
+        "sha256:" + sha256(mapping_members).hexdigest(),
+    )
+    return PHF19Inputs(
+        *(
+            expected[k]
+            for k in (
+                "source_proposition",
+                "source_dataset",
+                "feature",
+                "gene",
+                "factor",
+                "baseline",
+                "comparison",
+                "separator",
+            )
+        ),
+        MappingProxyType(dict(digests)),
+        mapping,
+        mapping_members,
+    )

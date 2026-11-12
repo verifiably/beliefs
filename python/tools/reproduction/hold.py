@@ -37,7 +37,6 @@ def dataset_record(*, name: str, digest: str, title: str, accession: str) -> tup
         title=title,
         resources=[{"name": name, "digest": digest}],
         empirical_observation={"locator": f"accession:{accession}", "attested_by": AUTHORITY.actor},
-        domain_facets={"biology/gene-axis": {"axis": "rows", "namespace": "HGNC"}},
     )
     return node, node.id
 
@@ -74,7 +73,7 @@ def main() -> int:
     findings.record(
         3,
         "closed",
-        "biology/gene-axis {axis: rows, namespace: HGNC} validated at write by the write seam",
+        "Source Ensembl gene rows retained; interpretation belongs to the explicit assay and mapping",
     )
     state.save(
         dataset_ref=minted.id,
@@ -90,3 +89,58 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def source(name: str, content: bytes, *, empirical: bool = False) -> dict[str, str]:
+    """Hold exact bytes in this run's existing store and retain both record addresses."""
+    if Path(name).name != name or name in {"", ".", ".."}:
+        raise ValueError("a held source name is one basename")
+    st = state.load()
+    digest = "sha256:" + sha256(content).hexdigest()
+    relative = "phf19-sources/" + name
+    ctx = ActContext(
+        paths.CORPUS_ROOT, paths.STORE_ROOT, OBSERVER, INSTRUMENT, AUTHORITY, holdings_seam(), profile=profile()
+    )
+    observation = write(ctx, StoreLocator(st["store_id"], relative), content, expected=digest)
+    kwargs = (
+        {"empirical_observation": {"locator": "accession:GSE179929", "attested_by": AUTHORITY.actor}}
+        if empirical
+        else {}
+    )
+    node = stored.dataset_node(title="PHF19 source " + name, resources=[{"name": name, "digest": digest}], **kwargs)
+    minted = world.open_writer().add(node)
+    return {
+        "dataset": minted.id,
+        "holdings": "holdings-observation:" + observation.record.identity(),
+        "digest": digest,
+        "relative": relative,
+        "name": name,
+    }
+
+
+def restore(saved: dict, view) -> bytes:
+    """Recover only through matching run-held dataset, observation, location and digest."""
+    from beliefs.holdings.records import Found
+
+    declared = stored.dataset_declaration(view.get(saved["dataset"]))
+    (resource,) = declared.resources
+    observation = stored.holdings_observation_value(view.get(saved["holdings"]))
+    location = observation.location
+    if (
+        not isinstance(location, StoreLocator)
+        or location.store_id != state.load()["store_id"]
+        or location.relative_path != saved["relative"]
+        or not isinstance(observation.outcome, Found)
+        or resource.digest != saved["digest"]
+        or observation.outcome.digest != saved["digest"]
+        or observation.expected != saved["digest"]
+        or resource.name != saved["name"]
+    ):
+        raise RuntimeError("held source record, location or digest mismatch")
+    path = paths.STORE_ROOT / location.relative_path
+    if not path.resolve().is_relative_to(paths.STORE_ROOT.resolve()):
+        raise RuntimeError("held source escapes run store")
+    content = path.read_bytes()
+    if "sha256:" + sha256(content).hexdigest() != saved["digest"]:
+        raise RuntimeError("held source digest mismatch")
+    return content

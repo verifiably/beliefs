@@ -1,0 +1,41 @@
+{
+  "describes": "mm30:5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d",
+  "entries": {
+    "dimension:mm30/cohort": {
+      "collapses": "Applicability groups the source matrix.",
+      "licenses": "A term restriction outside claim identity.",
+      "not_established": "Application scope is not a validation domain.",
+      "status": "provisional"
+    },
+    "estimand:instantiation:mm30/covaries-with-gene-stage": {
+      "collapses": "Contrast admission does not choose its rule.",
+      "licenses": "PHF19 probability of superiority, NDMM baseline and PD comparison; driver verifies the rule/factor connection.",
+      "not_established": "Independent sampling and biological validity are not established by admission or aggregation.",
+      "status": "provisional"
+    },
+    "instantiation:mm30/covaries-with-gene-stage": {
+      "collapses": "The Cartesian sort set over-admits gene-gene and factor-factor pairs.",
+      "licenses": "Statistical covariance; the driver requires exactly the selected gene and factor.",
+      "not_established": "No causation or composite edge; kernel typing does not enforce heterogeneous pairs.",
+      "status": "provisional"
+    },
+    "sort:mm30/clinical-factor": {
+      "collapses": "One disease-stage factor abstracts over clinical staging.",
+      "licenses": "The selected concept:disease-stage question, separate from stage values.",
+      "not_established": "No sample classification or diagnosis is established.",
+      "status": "provisional"
+    },
+    "sort:mm30/cohort": {
+      "collapses": "One matrix cohort abstracts over recruitment and subject pairing.",
+      "licenses": "The cohort:gse179929 applicability restriction.",
+      "not_established": "Independence, annotation release and assay validity are not established.",
+      "status": "provisional"
+    },
+    "sort:mm30/stage-level": {
+      "collapses": "Two source-label tokens abstract over clinical disease states.",
+      "licenses": "Ordered NDMM and PD classes under a held parser; driver checks its association with the factor.",
+      "not_established": "Correct class sort alone does not establish the rule-to-factor connection.",
+      "status": "provisional"
+    }
+  }
+}
