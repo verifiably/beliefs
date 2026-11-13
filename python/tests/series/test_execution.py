@@ -315,3 +315,33 @@ def test_series_input_check_preserves_dataset_resource_repetition(portable):
         records=p.case.records,
     )
     assert result.verdict == "passed"
+
+
+def test_verification_reports_incompatible_frozen_series_modes_as_failed(portable):
+    from beliefs.identity import v1
+    from beliefs.spec import SPEC_DOMAIN, frozen_projection, restore
+
+    p = portable
+    from .fixtures import raw_object
+
+    body = raw_object(v1.encode(frozen_projection(p.spec)))
+    # A portable, structurally coherent spec can carry a byte-incompatible mode.
+    table = next(row.ref.dataset for row in p.value.series_graph if row.format == "science.series-table.v1")
+    for entry in body["input_roles"]:
+        if entry["dataset"] == table:
+            entry["mode"] = "annotation"
+    spec = restore(v1.digest(SPEC_DOMAIN, body), v1.encode(body), profile=p.profile)
+    original = replace(p.closure, recipe=replace(p.closure.recipe, spec_identity=spec.identity))
+    result = build_verification(
+        original,
+        original,
+        specs={spec.identity: spec},
+        held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY},
+        contract_identity="science:" + p.profile.base_contract_identity,
+        epoch="fixture",
+        series_evidence=p.case.evidence(),
+        profile=p.profile,
+        records=p.case.records,
+    )
+    assert result.verdict == "failed"
+    assert any("series" in diagnostic and "mode" in diagnostic for diagnostic in result.report.diagnostics)

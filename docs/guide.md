@@ -109,6 +109,22 @@ conversion, observable, procedure, control, scope and standing checks. Its read-
 synthesis verdict carries any additional assumptions; it does not pool results.
 See [assessed-target comparison](records.md#assessed-target-comparison).
 
+A measured binding may also name an immutable selected series channel. Its table
+owns coordinates, units, origin, grid and support; selection derives the selected
+count, span and rate. Authoring checks explicit local bytes and freezes their
+complete graph into the assessed target. Changing the selection, member or
+provenance changes that target while the broader claim can remain the same.
+Series-required functionals refuse absent or unsuitable axes. Event lags use
+fixed semantic durations; calendar applicability keeps its separate convention
+rules. See [series bindings](records.md#series-bindings).
+
+Portable stored records carry the graph without fetching payloads. Execution and
+new verification require local evidence again and check the actual staged
+copies; a copied graph proves no bytes. These checks establish finite geometry
+and linkage, not event truth, clock calibration or numerical aggregate correctness.
+The base's exact external time-role names are an explicit kernel commitment,
+separate from external vocabulary admission.
+
 An **analysis spec** freezes the plan before anything runs: the target proposition,
 the estimand, the method, the input roles, the interpretation rule that turns
 outputs into an outcome, and the equivalence rule that says what "the same result"

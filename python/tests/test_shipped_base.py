@@ -86,3 +86,34 @@ def test_membership_is_exactly_what_it_was_before_this_slice():
 
 def test_the_import_graph_is_acyclic():
     subprocess.run([sys.executable, "-c", "import beliefs.stored"], check=True)
+
+
+def test_base_cutover_refuses_v3_corpus(tmp_path):
+    from pathlib import Path
+
+    import pytest
+    from test_read_side import seed
+
+    from beliefs.contract.document import parse_document
+    from beliefs.errors import ContractMismatch, MountPinUnresolved
+    from beliefs.identity import v1
+    from beliefs.mount import compile_mount_profile
+    from beliefs.profile import shipped_domain_contract
+
+    document = parse_document((Path(__file__).parent / "fixtures/science-v3.yaml").read_text(), source="<original v3>")
+    old_identity = v1.digest("science.contract.v1", document)
+    assert old_identity == "fe98a998e5a6a9a7988f4ab8708e2167a9e873744345732a330bdb39c257f437"
+    node = stored.proposition_node("historical", title="Untouched coarse claim", claim={"operator": "affects"})
+    view = seed(tmp_path, node, science_contract="science:" + old_identity)
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert [n.id for n in view.iter_stored()] == [node.id]
+    with pytest.raises(ContractMismatch, match="science_contract"):
+        view.get(node.id)
+    with pytest.raises(MountPinUnresolved):
+        compile_mount_profile(tmp_path, available=(shipped_domain_contract("general"),))
+    after = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert after == before
+    assert stored.SEMANTIC_DOMAINS["assessment"] == "science.assessment.v2"
+    from beliefs.dependencies import ASSESSMENT_FACET_DOMAIN
+
+    assert ASSESSMENT_FACET_DOMAIN == "science.assessment-facet.v2"

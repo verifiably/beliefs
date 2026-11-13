@@ -3,8 +3,8 @@
 Type: data model; document types 1. This document describes the records a beliefs
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
-encoding, `science.identity.v1`. The shipped base contract is version 3, with
-claim and estimand grammar 2 and measurement and composite grammar 1. The other
+encoding, `science.identity.v1`. The shipped base contract is version 4, with
+claim grammar 2, estimand grammar 3, and measurement and composite grammar 1. The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
@@ -295,10 +295,14 @@ An estimand names its claim by identity and operator, a functional, and one of
 six forms: `contrast`, `quantity`, `law-parameters`, `event-locked`, `association`
 or `enrichment`. Each form has exactly its declared bindings. A measured binding
 names a role, a member for a `many` role, and a measurement with its yielding
-procedure, mapping and proxy when needed. Contrasts group by role terms, rule
+procedure, mapping and proxy when needed, plus an optional immutable `series`
+reference. Contrasts group by role terms, rule
 classes, two measured roles or intervals on the response axis; an admitted
 per-increment contrast instead carries a measured increment and its unit.
-Event-locked targets have a rule or class-category anchor and a duration lag.
+Event-locked targets have a rule or class-category anchor and a fixed duration
+lag. A series-bearing event target requires a RuleAnchor and matching anchor
+bytes; calendar lags refuse even with a convention. General calendar
+applicability restrictions retain their explicit-convention behavior.
 Enrichment names a whole `many` role, a reference set and a held universe digest.
 
 Outputs explicitly record their declared typing and numeric domain. Independent
@@ -397,6 +401,112 @@ folded only when a route in the chain records an identity, which boundary-minted
 routes never do; a malformed or cyclic retraction then refuses standing.
 `corpus_check` reports an unmet rule as `eligibility-unmet`, and one resting on a
 run, producer or ancestor the corpus does not hold as `eligibility-unresolved`.
+
+
+## Series bindings
+
+Stored estimands use `science.estimand.v3`. A measured binding's optional
+`series` is `{dataset, resource, member?}`: a `dataset:sha256:<64hex>` address,
+a declared `sha256:<64hex>` or `sha256-tree:<64hex>` resource, and a canonical
+relative member path exactly for a tree. Resource names are not selectors.
+Absence makes no series assertion. Every present series is checked at authoring;
+a functional's `response_axis` can also require one on its measured response.
+Regular elapsed consumers require at least two selected points.
+
+The reader accepts four closed canonical `science.identity.v1` JSON objects:
+
+| Format | Meaning-bearing fields |
+|---|---|
+| `science.series-view.v1` | `table`, `channel`, increasing nonempty zero-based `selection`; optional `anchors`, `selection_procedure`, `transform` |
+| `science.series-table.v1` | `axis`, `coordinates`, `channels`; optional half-open `support` |
+| `science.series-origins.v1` | `origins`, mapping keys to `{label}` |
+| `science.series-anchors.v1` | Elapsed `axis` without grid, classification `rule`, and `rows` of `{key, class: {sort,term}, coordinate}` |
+
+Each channel has `coordinates` and finite decimal-string `values`. Its coordinate
+object is `{quantity_kind, value_type, transformation, unit?, scale?}`, with
+exactly one of unit or scale. It must equal the directly bound Measure's
+coordinates. The full Measure still carries its bearer, yielding procedure,
+mapping and proxy. Every channel's shape is checked; semantic profile lookups
+and graph terms/records cover only selected channels, unioned when several views
+select one table. An unused well-formed inactive channel grants no meaning to a
+selected channel.
+
+Axes are index, elapsed or UTC civil labels. Index coordinates are increasing
+nonnegative integers and infer no time or Hz. Elapsed axes declare a unit,
+`origin: {source, key}`, `basis: native-elapsed | synthetic` and an irregular or
+regular grid. A regular grid declares positive decimal spacing and optional
+positive rate in hertz. Arithmetic is exact: points satisfy
+`t[i] = t[0] + i*dt`, span is `(N-1)*dt`, and a supplied rate must satisfy
+`rate_Hz * spacing_seconds = 1`. A selected view derives its own spacing and rate.
+The [base time roles](contracts.md#base-contract) check quantity identity,
+dimension, source and licensed exact conversion together; a suffix or time
+exponent alone does not license a duration. Origins are symbolic relative
+references, with no timestamp shortcut or implicit clock map.
+
+An absolute axis is `{kind: absolute, convention: utc-label, grid: labels}`.
+Valid Gregorian `YYYY-MM-DDTHH:MM:SS[.digits]Z` labels preserve exact fractions and
+civil ordering; seconds are 00–59. Leap seconds, local offsets and other clock
+conventions refuse. These labels provide no elapsed span, spacing or rate.
+Support is ordered, nonoverlapping, half-open, contains its coordinate, and keeps
+gaps as gaps. Coverage is its union, not its envelope.
+
+Any non-full selection requires a held implemented `selection_procedure`; a full
+selection refuses that field. Materialized `select` and `rebin` transformations
+name their source view, implemented procedure and exact row/group mapping.
+Select validates copied rows; rebin validates contiguous tiled support and
+coordinate compatibility without recomputing numerical means. Filtering,
+interpolation, clock mapping and missing-data repair are unsupported. A native
+elapsed declaration proves no instrument calibration; a synthetic declaration
+grants no empirical standing. Anchors on non-event forms refuse. Event series
+require the exact RuleAnchor rule/class set, matching elapsed origin/axis, and
+bounded half-open fixed-duration windows whose selected supports tile them.
+
+The estimand freezes `series_graph` (an empty array for no series). Each row is
+exactly `{ref, format, links, records, terms}`, keyed by the full reference and
+sorted by its canonical encoding; links, record ids and qualified terms are
+sorted and unique. Reachability from bindings covers every row, with no extra,
+dangling or cyclic edges. Rows carry no coordinate/value arrays. Each graph
+dataset contributes one terminal dependency `{id, terms: []}`, without a facet
+digest, validated against its dataset declaration. Cited rules and procedures
+retain ordinary transitive dependencies. `target_terms` includes the graph's
+consulted terms without fetching bytes. Unequal series refs or graphs prevent an
+equal-target comparison; unit conversion does not canonicalize their identity.
+
+Build referenced datasets in dependency order: origin first, then tables and
+anchors, then descriptors. A container cannot embed its own address. Every graph
+dataset appears explicitly in spec and run inputs. Metadata uses `reads` /
+`annotation`; synthetic tables use `reads` / `simulation`; native predecessors
+use `reads` / `derivation`. A measured native table can use `observes` /
+`observation` only with existing empirical standing, including a complete,
+undiverged inherited lineage basis. Otherwise it uses `reads` / `derivation`,
+retaining underlying observed inputs for an empirical route. Split containers
+whose files require incompatible modes. Metadata alone never confers standing.
+The complete run `(role,dataset)` set must equal the spec's, and each series
+input content commitment must match its full declared resource set under the
+existing file/resource-map folds.
+
+| Boundary | Local byte requirement |
+|---|---|
+| `build_estimand`, `freeze`, `revise` | Explicit evidence, fresh graph/geometry checks; absence refuses |
+| Stored decode, ordinary add/import, standing, evaluation, recursive eligibility | Copied graph and held records only; no store opening or fresh geometry verdict |
+| Assessment/verification audit | Explicit evidence can establish agreement or contradiction; absence/unreadability is unchecked |
+| Run preparation and replay | Check actual staged copies before both planning and execution, including manifests and predecessors |
+| New series verification | Check both frozen targets, input commitments and local bytes before report/verdict minting; missing evidence cannot produce passed, while an otherwise passing comparison becomes inconclusive; contradiction fails |
+
+A copied graph is a structural declaration, not a validation receipt. A
+consistently forged graph can pass structural decoding without representing
+unavailable bytes. Imported admitted verifications remain recorded evidence under
+the existing trust rules; eligibility without local payloads is not fresh local
+validation. URL observations establish recorded heldness, never this reader's
+byte access. No boundary searches ambient stores or acquires remote content.
+
+The reader parses the buffer it verified. Its bounds are 16 MiB per file,
+64 MiB cumulatively per graph (including manifests and repeated reads), 100,000
+rows per table, 256 distinct located objects and depth 32. Exceeding one refuses;
+there is no caller override or partial validation. Instrument formats such as
+CDF, FITS and CSV require a consumer-owned extraction procedure first. The reader
+does not establish extraction honesty, clock calibration, event truth,
+anti-aliasing, aggregate correctness or independence.
 
 ## Verifications
 

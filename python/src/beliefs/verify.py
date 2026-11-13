@@ -597,7 +597,7 @@ def _derive(
         # audit path `audit_corpus` names the record itself — `ref=node.id` and a
         # `{node.id}:` message on the `derivation-malformed` finding.
         raise MalformedRecord(f"equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
-    from beliefs.errors import DependencyNotHeld
+    from beliefs.errors import DependencyNotHeld, UnfreezableSpec
     from beliefs.estimand import check_series
 
     diagnostics = list(_job_diagnostics(original, replayed))
@@ -626,6 +626,9 @@ def _derive(
                 raise SeriesRefused("invalid-series", "series run inputs differ from the frozen spec")
         except DependencyNotHeld as error:
             series_unchecked = f"series dependency unavailable: {error}"
+        except UnfreezableSpec as error:
+            diagnostics.append(f"series contradiction: {error}")
+            verdict = "failed"
         except SeriesRefused as error:
             if error.code == "evidence-unavailable":
                 series_unchecked = f"series evidence unavailable: {error.detail}"

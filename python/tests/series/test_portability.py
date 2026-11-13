@@ -32,7 +32,7 @@ from beliefs.series.evidence import SeriesEvidence
 from beliefs.spec import SpecInput, freeze
 from beliefs.verification import Verification
 
-from .fixtures import raw_object
+from .fixtures import digest, raw_object
 from .test_authoring import author_case, input_roles
 
 
@@ -79,11 +79,15 @@ def portable(tmp_path, author_profile, request):
             bindings={**value.bindings, "response": replace(response, series=series_ref_from_projection(root))},
             series_evidence=case.evidence(),
         )
-    writer = writer_at(tmp_path / "corpus", author_profile)
+    return persist_case(case, value, author_profile, tmp_path, missing_path=missing_path)
+
+
+def persist_case(case, value, profile, root, *, missing_path=None, parameters=None):
+    writer = writer_at(root / "corpus", profile)
     proposition = writer.add(stored.proposition_node("p1", title="P", claim=project_claim(TESTING_CLAIM)))
     observed = stored.dataset_node(
         title="Observed source",
-        resources=({"name": "observed", "digest": "sha256:" + "1" * 64},),
+        resources=({"name": "observed", "digest": digest(b"fixture observation")},),
         empirical_observation={"locator": "instrument:fixture", "attested_by": ACTOR},
     )
     case.records.nodes[observed.id] = observed
@@ -92,17 +96,18 @@ def portable(tmp_path, author_profile, request):
             target=proposition.id,
             estimand=value,
             input_roles=(SpecInput("observes", observed.id, "observation"), *input_roles(value)),
+            **({"parameters": parameters} if parameters is not None else {}),
         ),
         held_rules=spec_rules(),
         rule_procedures={"median-difference/v1": ESTIMATOR_PROCEDURE},
-        profile=author_profile,
+        profile=profile,
         claim=TESTING_CLAIM,
         records=case.records,
         series_evidence=case.evidence(),
     )
     for node in case.records.nodes.values():
         writer.add(node)
-    for namespace, identity in author_profile.activated_contracts.items():
+    for namespace, identity in profile.activated_contracts.items():
         writer.add(stored.assumptions_register_node(AssumptionsRegister(f"{namespace}:{identity}", None, {})))
     writer.add(stored.analysis_spec_node(frozen))
     base = make_closure(shape="assessment", token="portable-series")
@@ -161,7 +166,7 @@ def portable(tmp_path, author_profile, request):
         assessment=assessment,
         verification=verification,
         proposition=proposition,
-        profile=author_profile,
+        profile=profile,
         missing_path=missing_path,
     )
 

@@ -302,7 +302,7 @@ def check_verification(
 
 @dataclass(frozen=True)
 class _AuditRecordReader:
-    """Structural dependency walks use only heldness and strict record reads."""
+    """Captured record reads and the existing dataset-standing check for audit."""
 
     view: ReadView | _ImportView | WorldReadView
 
@@ -311,6 +311,20 @@ class _AuditRecordReader:
 
     def read(self, id: str) -> Node:
         return self.view.get(id)
+
+    def empirical_standing(self, dataset: str, profile: ProfileSpec) -> bool:
+        from beliefs.series.types import SeriesRefused
+        from beliefs.world.view import WorldReadView
+
+        if not isinstance(self.view, WorldReadView):
+            return _dataset_standing_outcome(self.view, dataset, profile) is None
+        citing = self.view.corpus_of(dataset)
+        readable = {corpus: _CapturedCheckView(self.view.captured_records(corpus)) for corpus in self.view.captured()}
+        if citing is None or citing not in readable:
+            raise SeriesRefused("evidence-unavailable", "series dataset has no readable captured holder")
+        causes = {corpus: "absent" for corpus in self.view.absent()}
+        causes.update({report.corpus_id: f"damaged:{report.cause}" for report in self.view.damaged()})
+        return _CapturedCitations(self.view, citing, readable, causes, {}).empirical_standing(dataset, profile)
 
 
 def check_assessment(
@@ -330,8 +344,8 @@ def check_assessment(
     from beliefs.estimand import binding_roots, check_series
     from beliefs.series.types import SeriesRefused
 
-    # Eligibility is a separate check. This adapter supplies exactly the two
-    # operations used by structural freezing and the strict assessment callback.
+    # Eligibility is a separate check. This adapter supplies the
+    # record operations used by structural freezing and the strict assessment callback.
     records = cast(HeldRecords, _AuditRecordReader(view))
     spec = evidence.specs[derived.spec]
     roots = set(binding_roots(spec.estimand)) | set(spec.applicability.rule_ids()) | set(spec.registers)
@@ -985,6 +999,19 @@ class _CapturedCitations:
             return False
         self.unreadable[ref] = f"{self._citing} retractions-incomplete:{','.join(sorted(self._causes))}"
         return True
+
+    def empirical_standing(self, dataset: str, profile: ProfileSpec) -> bool:
+        from beliefs.series.types import SeriesRefused
+
+        self.unreadable = {}
+        self._incomplete_memo = {}
+        self._profile = profile
+        outcome = _dataset_standing_outcome(self, dataset, profile, judge=self, reports=self._holder)
+        if self.unreadable:
+            raise SeriesRefused(
+                "evidence-unavailable", f"series standing reaches unreadable captures: {self.unreadable}"
+            )
+        return outcome is None
 
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
         self.unreadable = {}

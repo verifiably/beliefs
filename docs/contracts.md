@@ -1,6 +1,6 @@
 # Contracts
 
-Type: standard, data model; document types 1. This is version 1 of the rules that
+Type: standard, data model; document types 1. This is version 2 of the rules that
 contract documents must satisfy. A contract is a YAML document that declares the
 vocabulary records may use. The Science base contract declares kinds, relations,
 facets and the closed grammars. A domain contract declares sorts, dimensions,
@@ -8,7 +8,7 @@ relation templates, instantiations, bridges, estimand declarations, measurement
 vocabulary and admissions, duration conventions and namespaced facets. The
 coordination contract declares view and coordination kinds. A compiled profile
 combines a base contract, a set of domain contracts and optionally a coordination
-contract. The shipped base is version 3, with claim and estimand grammars 2 and
+contract. The shipped base is version 4, with claim grammar 2, estimand grammar 3, and
 measurement and composite grammars 1. Domain contract versions are positive
 integers in a genesis or successor lineage. The code supports coordination
 contract versions 1 to 3 and corpus manifest version 2. The records these
@@ -67,9 +67,9 @@ project claims.
 
 The base contract has exactly these fields: `contract` (always `science`),
 `version`, `claim_grammar`, `estimand_grammar`, `measurement_grammar`,
-`composite_grammar`, `kinds`, `relations` and `facets`. The Python and TypeScript
-parsers require a positive integer for the base and composite versions. Claim
-and estimand grammars require version 2; measurement grammar requires version 1.
+`composite_grammar`, `time_roles`, `kinds`, `relations` and `facets`. The Python and TypeScript
+parsers require a positive integer for the base and composite versions. Claim grammar requires version 2; estimand grammar requires version 3 and
+measurement grammar requires version 1. The shipped base is version 4.
 
 - `claim_grammar` holds `version`, `tag_encoding` (`science.identity.v1`),
   `quantifiers`, `polarities`, `sign_inapt_tag`, `forms`, `layers`,
@@ -93,7 +93,7 @@ and estimand grammars require version 2; measurement grammar requires version 1.
 - Each `reserved_roles` entry has exactly one field, `world_kind`, which must name
   a world kind the contract declares. The shipped base reserves
   `within-model: { world_kind: procedure }`.
-- `estimand_grammar` requires version 2 and `science.identity.v1` tag encoding.
+- `estimand_grammar` requires version 3 and `science.identity.v1` tag encoding.
   Its closed sets are `forms`, `arities`, `response_transformations`, `reversals`,
   `response_reversals`, `exchanges`, `ties`, `outputs`, `parameter_typings`,
   `domains`, `nulls`, `increments`, `uncertainty_propagation`, `uncertainty_kinds`,
@@ -133,13 +133,27 @@ and estimand grammars require version 2; measurement grammar requires version 1.
 - A base facet is either `reader`-shaped, naming its reader, or `schema`-shaped,
   declaring `fields`.
 
-A writer requires the identity of the shipped base contract.
+- `time_roles` is the closed mapping `source`, `duration`, `frequency`, `second`,
+  `hertz`. The shipped assignments are `urn:beliefs:source:bipm-si-brochure` and
+  `si-brochure/{duration,frequency,second,hertz}`. Python and TypeScript compile
+  the same map into profile identity. The map names vocabulary; it supplies no
+  vocabulary declarations or source-admission receipt. Elapsed series and every
+  event lag require activated declarations at those identities and that defining
+  source: duration dimension `{T: 1}`, frequency `{T: -1}`, noncalendar second
+  and hertz, and a noncalendar duration unit from the same source. Conversion to
+  seconds uses identity or one explicitly licensed exact multiplicative
+  conversion; affine and approximate conversions refuse.
+
+A writer requires the identity of the shipped base contract. Base-v3 corpora
+refuse validated reads under v4. There is no compatibility reader or in-place
+migration tool; changing a manifest pin does not recreate a corpus's records.
 
 ## Kernel commitments (Layer 0 register)
 
-The kernel is domain-independent, but its representation is not assumption-free.
-This register describes the shipped base version 3 and the operations that use it:
-claim and estimand grammars 2, measurement and composite grammars 1. It records
+The kernel separates field vocabulary from structural grammar, with an explicit
+coupling to external time-role names at the series and lag boundaries.
+This register describes shipped base version 4 and its operations: claim grammar 2,
+estimand grammar 3, measurement and composite grammars 1. It records
 what those choices preserve, what they leave unestablished, and the identity cost
 of changing them. Update it when the corresponding behavior changes.
 
@@ -192,6 +206,7 @@ leaving the broader claim unchanged.
 | **Sorted referents and scoped questions.** A role referent carries both sort and term. Claim qualifiers remain a flat map with one quantified referent restriction per dimension. Numeric, interval, union, time and rule restrictions belong to typed applicability. | Distinct sorts preserve distinctions that a shared label could hide. A vocabulary binding does not equate a gene with a protein. Claim typing alone does not prove vocabulary membership; decoding reports resolution against an explicit snapshot. Applicability comparison does not infer undeclared containment. | Sort identifiers and claim-side restrictions enter claim identity; binding releases do not. Applicability enters the spec and assessed target. Moving a dimension between placements changes how the question is represented. |
 | **One observable per measure.** An observable has one quantity kind, a bearer sort and an optional aspect. A measure adds a unit or procedure-defined scale, level, value type, transformation and yielding procedure. | Measurement identity keeps the bearer and method explicit. Coordinate conversion is separate from semantic comparability; convertible numbers need not estimate the same thing. Mappings and proxies carry their own assumptions and validity. | Measures and frozen procedure, mapping and proxy dependencies enter the spec and assessed target. Changing these does not automatically change the claim's projected roles. |
 | **Six estimand forms and keyed assessment.** `contrast`, `quantity`, `law-parameters`, `event-locked`, `association` and `enrichment` have typed bindings, a functional, control, assumptions and output. | A claim names the shared question; the assessed target states what this analysis estimated. Evaluation is per claim and assessed-proposition key. Pairwise conversion and synthesis verdicts do not pool results. | Changing target content, applicability, standing or frozen dependencies changes the key as defined by its projection. A changed spec is a new spec; the broader claim may remain identical. |
+| **Finite series and external time names.** Measured bindings can identify an immutable selected channel and its complete frozen graph; the base fixes the source and four time-role terms above. | Explicit byte checks establish exact geometry, support, linkage and declared materialized provenance. They do not establish clock calibration, event truth, honest extraction, numerical aggregate correctness or anti-aliasing. Index and absolute labels infer no physical rate. The name map is not external vocabulary admission; source ownership and complete genesis mappings remain separate. | Changing a source, member, channel, selection, origin, anchor, coordinate assertion or cited procedure changes the relevant held object or target. Renaming the base roles needs a base successor and consumer target/activation review. A measuring-procedure-only change affects the target without reminting the table. |
 | **Three standing routes.** Empirical admission requires an observed input with empirical standing. Model admission binds the claim's model procedure. Calibrated-model admission requires eligible calibration dependencies. | Reproduction, current dependency eligibility and independence are separate checks. Model replication is not independent empirical corroboration. Empty dependency roots never certify independence. Source assertions have no direct counting route. | Standing and frozen dependency identities enter the assessed key. Later verification or retraction can change eligibility and belief provenance without changing that frozen key. |
 | **DAG-only composites.** Members are polar causal claims with declared edges whose endpoint roles each hold one referent; cycles are refused. | A composite records a directed acyclic structure, not arbitrary feedback, a joint probability model or a separately assessable hypothesis. An assessment cannot target a composite. | Grammar, shape, sorted nodes and member claim identities enter composite identity. Changing these creates a different composite; changing a member's claim can change the composite that names it. |
 | **Explicit aggregation policy.** `science.belief.v1` uses unit-weight directional assessments and certified dependency relationships, with an exact rule and implementation binding. | The result is a signed evidence balance, never a probability or odds. Counting does not validate a field label, a mechanism, a proxy interpretation or the appropriateness of an authored scientific assumption. | Changing the policy requires a different policy binding. It changes the derivation being requested, not the claim projection. |
@@ -211,7 +226,7 @@ integer), `lineage`, `sorts` and `dimensions`. It may add `description`,
 `identification_classes`, `designs`, `selection_mechanisms`, `measurements`, `aspects` and
 `facets`. Any other top-level field is refused, `kinds` and `relations` included,
 and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
-base v3. Its namespace may be neither `science` nor `coordination`. Each table is
+base v4. Its namespace may be neither `science` nor `coordination`. Each table is
 its own namespace, so a sort and a dimension, or an instantiation and a bridge, may
 share a local name; a bridge may not share a name with a template, since both are
 operators.
@@ -347,7 +362,11 @@ and a list of them may not repeat a value.
   must be fixed points of the declared reversal actions, and a reciprocal requires
   a positive domain. Editorial definition, description and external references
   stay outside the schema projection. Compilation retains the parsed declaration
-  and its namespace for the conversion-property adapter.
+  and its namespace for the conversion-property adapter. Optional `response_axis`
+  is `index`, `elapsed` or `regular-elapsed`, only for `contrast`, `quantity`,
+  `law-parameters` and `event-locked`. It requires a series on the measured
+  response; absence imposes no axis requirement. It enters the immutable
+  functional schema, so changing an existing requirement needs a new identifier.
 - **Identification classes.** A row requires a nonempty `licenses_layers` list
   selected from the base's layers. The compiled declaration carries those layers.
 - **Designs and selection mechanisms.** Rows declare names for identity comparisons
@@ -651,6 +670,8 @@ A practice carries procedure only. It never compiles into a profile.
 
 ## Versions
 
+- **2 — 2026-11-13:** Base v4, estimand grammar 3, explicit time-role names and
+  finite series boundaries; assessment identity tags stay v2.
 - **1 — 2026-11-02:** First public statement of the contract document rules, as
   the code at this revision implements them.
 

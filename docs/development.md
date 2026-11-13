@@ -192,6 +192,51 @@ names beliefs-6f039b, which owns the remaining legacy relations/composite/cuts.
 The five historical YAML wrappers remain SHA-pinned and unchanged. The new
 `mm30-phf19.yaml` is ordinary current grammar and participates in distribution checks.
 
+## Working with series evidence
+
+Series payloads are finite canonical JSON, supplied through exact local store
+locations. A caller selects and authorizes the stores and locations; neither a
+corpus reader nor a URL holdings observation discovers or acquires them.
+For example, with a compiled `profile`, explicit `records`, one authorized
+`store_root` / `store_id`, and a complete `selected_locations` map:
+
+```python
+from beliefs.root import open_series_store
+from beliefs.series.evidence import SeriesEvidence
+from beliefs.series.reader import read_series
+
+with open_series_store(store_root, store_id=store_id) as store_read:
+    evidence = SeriesEvidence(
+        stores={store_id: store_read}, locations=selected_locations
+    )
+    checked = read_series(
+        series_ref, profile=profile, records=records, evidence=evidence
+    )
+```
+
+Keep the store contexts open while using their readers. Locations cover every
+reachable descriptor, table, origin, anchor and predecessor; tree locations also
+require their manifest. Use the same explicit evidence argument at estimand
+build/freeze and supply `series_evidence`, `profile`, `records` to execution,
+replay and new verification. Every stage rechecks, rather than reusing `checked`.
+The [boundary table](records.md#series-bindings) documents records-only portability
+and the different unchecked/inconclusive/contradicted outcomes.
+
+Elapsed axes and event lags require the activated declarations at the exact
+[base time roles](contracts.md#base-contract), including defining-source identity
+and licensed exact units. The base map alone activates no SI vocabulary. The
+synthetic fixture in `fixtures/contracts/series-time.yaml` tests these interfaces;
+it has no production admission receipt and is never a source-inventory entry.
+TypeScript covers contract parsing/compilation parity; it has no series target
+reader.
+
+Base v4 uses estimand grammar `science.estimand.v3`. A v3-pinned corpus refuses
+validated reads; no compatibility reader or automatic migration is provided.
+Retain its bytes and select an explicit recreation/migration procedure before
+using v4 against it. A pin edit is not recreation. Assessment identity and facet
+tags remain `science.assessment.v2` and `science.assessment-facet.v2`; embedded
+target/spec bytes and keys change, while coarse claim identity can remain stable.
+
 ## The claim-identity parity fixture
 
 `fixtures/claim-identity-v2.json` is the cross-language oracle for `π_claim` and

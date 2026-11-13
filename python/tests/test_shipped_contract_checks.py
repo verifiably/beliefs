@@ -313,12 +313,15 @@ def test_shadow_general_duplicate_register_keys_and_reference_doc_base_version(t
     dup_errors = checker.check(dup_root)
     assert any("REGISTER.json" in err and "duplicate" in err.lower() for err in dup_errors), dup_errors
 
-    # Authoritative reference docs state base version 3 consistently.
+    # Reference documents name the actual shipped base, rather than a historical pin.
+    from beliefs.profile import shipped_base_contract
+
+    version = shipped_base_contract().version
     records_md = (REPO_ROOT / "docs/records.md").read_text(encoding="utf-8")
     contracts_md = (REPO_ROOT / "docs/contracts.md").read_text(encoding="utf-8")
-    assert "The shipped base contract is version 3," in records_md
+    assert f"The shipped base contract is version {version}," in records_md
     assert "The shipped base contract is version 2," not in records_md
-    assert "cannot parse under\nbase v3." in contracts_md
+    assert f"cannot parse under\nbase v{version}." in contracts_md
 
 
 def _inventory(root):

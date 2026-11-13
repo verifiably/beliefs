@@ -875,9 +875,12 @@ def _check_series_inputs(
             raise UnfreezableSpec(
                 "series datasets require exactly one compatible explicit input role/mode; split incompatible containers"
             )
-        if declared[0].role == "observes" and (
-            not isinstance(records, _EmpiricalSeriesRecords) or not records.empirical_standing(dataset, profile)
-        ):
-            raise UnfreezableSpec(
-                "observed series table requires existing empirical standing through the supplied records adapter"
-            )
+        if declared[0].role == "observes":
+            if not isinstance(records, _EmpiricalSeriesRecords):
+                raise SeriesRefused(
+                    "evidence-unavailable", "observed series table requires an empirical-standing adapter"
+                )
+            if not records.empirical_standing(dataset, profile):
+                raise UnfreezableSpec(
+                    "observed series table requires existing empirical standing through the supplied records adapter"
+                )

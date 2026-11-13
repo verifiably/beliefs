@@ -403,6 +403,27 @@ address is not minted again. Two different sets of identical bytes give one data
 two act reports, each naming its own log. No step scans the stored records once per
 member.
 
+### Series authoring and execution
+
+A series-bearing estimand requires explicit `series_evidence` at
+`build_estimand`, `freeze` and `revise`. Freezing rechecks the complete graph and
+input modes; an earlier CheckedSeries is not a receipt. Recorded heldness is not
+empirical standing. An `observes` table requires the supplied records adapter's
+existing empirical standing check, including complete undiverged lineage when
+inherited.
+
+Pass `series_evidence`, `profile` and `records` explicitly to
+`execute_assessment_run` and `replay`. These keywords remain optional for
+no-series calls; a series run without them refuses before launch. Each planning
+and execution copy is checked from its actual staged buffers, with explicit tree
+manifest evidence retained. Source bytes checked during authoring cannot bless a
+substituted staged member. All graph datasets and ordinary inputs remain
+explicit; the runner adds no hidden inputs or acquisition.
+
+Ordinary `add`, import, standing and evaluation use the frozen graph without
+opening stores. The [series boundary table](records.md#series-bindings) separates
+that portability from authoring and execution proof.
+
 ## Reading admission
 
 After publishing a verification, reopen the read view before evaluating its effect.
@@ -430,6 +451,15 @@ A verification compares two runs and is published through an ordinary `add`:
 3. `writer.add(record)`, or a scoped writer's `add`, decodes the record, checks
    that its id recomputes from its fields, and checks its `verifies` target; see
    [records.md](records.md#verifications).
+
+For a series-bearing assessment, also pass `series_evidence`, `profile` and
+`records` to `build_verification`. It checks both targets, frozen inputs and
+local bytes before minting its comparison report. Missing context cannot create
+a new passed verdict; an otherwise passing comparison is inconclusive. Supplied
+contradicting bytes or graphs fail. `DerivationEvidence.series_evidence` supplies
+the same explicit adapter to audit/import; absence leaves the derivation
+unchecked, not contradicted. Imported verification facts retain the ordinary
+trust limits and do not become fresh byte checks.
 
 ## Publication
 
