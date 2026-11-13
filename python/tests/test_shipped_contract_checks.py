@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -11,11 +13,19 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 from conftest import REPO_ROOT
 
 from beliefs.contract.domain import load_domain_contract
 from beliefs.profile import compile_profile, shipped_base_contract
-from beliefs.register import AssumptionsRegister, RegisterEntry, register_entry_keys, register_projection
+from beliefs.register import (
+    AssumptionsRegister,
+    RegisterEntry,
+    register_entry_keys,
+    register_from_projection,
+    register_identity,
+    register_projection,
+)
 
 _TOOL_PATH = Path(__file__).resolve().parents[1] / "tools" / "check_shipped_contracts.py"
 
@@ -33,24 +43,13 @@ def _load_checker():
 def _copy_fixture_root(tmp_path: Path) -> Path:
     root = tmp_path / "repo"
     for rel in (
-        "contracts/science/CONTRACT.yaml",
-        "python/src/beliefs/contracts/science/CONTRACT.yaml",
-        "domains/general/DOMAIN.yaml",
-        "domains/general/REGISTER.json",
-        "python/src/beliefs/domains/general/DOMAIN.yaml",
-        "python/src/beliefs/domains/general/REGISTER.json",
-        "python/tools/reproduction/analysis-inputs.yaml",
-        "python/tools/reproduction/mm30.yaml",
-        "python/tools/reproduction/mm30-reproduction.yaml",
-        "python/tools/reproduction/mm30-cut22.yaml",
-        "python/tools/reproduction/mm30-cut31.yaml",
-        "python/tools/reproduction/mm30-modal-sorted.yaml",
+        "contracts",
+        "domains",
+        "python/src/beliefs/contracts",
+        "python/src/beliefs/domains",
+        "python/tools/reproduction",
     ):
-        dst = root / rel
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(REPO_ROOT / rel, dst)
-    for prefix in ("domains/general", "python/src/beliefs/domains/general"):
-        shutil.copytree(REPO_ROOT / prefix / "history", root / prefix / "history")
+        shutil.copytree(REPO_ROOT / rel, root / rel)
     return root
 
 
@@ -77,7 +76,6 @@ def _write_shipped_pack(root: Path, namespace: str, yaml_text: str) -> None:
 
 def test_real_repository_passes_with_zero_findings_and_empty_exceptions(tmp_path: Path) -> None:
     checker = _load_checker()
-    assert dict(checker.REVIEWED_FIELD_SPECIFIC_EXCEPTIONS) == {}
     assert len(checker.HERITAGE_REPRODUCTION_EXCLUSIONS) == 5
     assert checker.check(REPO_ROOT) == []
     assert checker.main([str(REPO_ROOT)]) == 0
@@ -149,31 +147,14 @@ def test_current_replacement_at_formerly_excluded_path_enters_full_validation(tm
         if path != "python/tools/reproduction/mm30.yaml"
     }
 
-    # Valid consumer replacement passes when exclusion is removed.
-    valid_replacement = """contract: mm30
-version: 1
-lineage: genesis
-sorts:
-  gene:
-    binding: {kind: release, namespace: hgnc, release: "2026-01"}
-    identifier_class: {prefix: "HGNC:", pattern: "HGNC:[0-9]+"}
-dimensions: {}
-instantiations:
-  gene-covaries:
-    template: general/covaries-with
-    roles:
-      parties: [gene]
-"""
-    (root / "python/tools/reproduction/mm30.yaml").write_text(valid_replacement, encoding="utf-8")
+    text = "contract: consumer\nversion: 1\nlineage: genesis\nsorts: {}\ndimensions: {}\ndefining_source: {id: urn:test:consumer}\n"
+    target = root / "python/tools/reproduction/mm30.yaml"
+    target.write_text(text)
+    _admit(root, "consumer", target.relative_to(root).as_posix(), "python/tools/reproduction/consumer-register.json")
+    _repin(checker, root)
     assert checker.check(root, exclusions=reduced_exclusions) == []
-
-    # Invalid shared-table placement in replacement fails once exclusion is removed.
-    bad_replacement = valid_replacement + "\ndesigns:\n  local-design:\n    definition: Not allowed outside general.\n"
-    (root / "python/tools/reproduction/mm30.yaml").write_text(bad_replacement, encoding="utf-8")
-    errors = checker.check(root, exclusions=reduced_exclusions)
-    assert len(errors) == 1
-    assert "python/tools/reproduction/mm30.yaml" in errors[0]
-    assert "design" in errors[0] and "local-design" in errors[0]
+    target.write_text(text + "designs: {local-design: {definition: A design.}}\n")
+    assert any("mm30.yaml" in e for e in checker.check(root, exclusions=reduced_exclusions))
 
 
 @pytest.mark.parametrize(
@@ -215,27 +196,20 @@ instantiations:
         ("procedure_kinds:\n  pk:\n    fills_within_model: false\n", "procedure-kind"),
     ],
 )
-def test_non_general_shared_tables_are_rejected_and_reviewed_exceptions_are_bounded(
-    tmp_path: Path, snippet: str, expected_kind: str
-) -> None:
+def test_each_former_placement_family_requires_ownership(tmp_path: Path, snippet: str, expected_kind: str) -> None:
     checker = _load_checker()
     root = _copy_fixture_root(tmp_path)
-    yaml_text = f"contract: biology\nversion: 1\nlineage: genesis\nsorts: {{}}\ndimensions: {{}}\n{snippet}"
-    _write_shipped_pack(root, "biology", yaml_text)
-
+    text = f"contract: candidate\nversion: 1\nlineage: genesis\nsorts: {{}}\ndimensions: {{}}\ndefining_source: {{id: urn:test:candidate}}\n{snippet}"
+    _write_shipped_pack(root, "candidate", text)
+    _admit(root, "candidate")
+    _repin(checker, root)
+    assert checker.check(root) == []
+    inv = _inventory(root)
+    inv["lineages"]["candidate"]["source_id"] = inv["lineages"]["biology"]["source_id"]
+    _save_inventory(root, inv)
+    _repin(checker, root)
     errors = checker.check(root)
-    assert len(errors) == 1
-    assert "domains/biology/DOMAIN.yaml" in errors[0]
-    assert expected_kind in errors[0]
-
-    # Only `functional` and `procedure-kind` may be granted a reviewed source-path/kind/name exception.
-    decl_name = snippet.splitlines()[1].strip().rstrip(":")
-    exc_map = {("domains/biology/DOMAIN.yaml", expected_kind, decl_name): "Field-specific reviewed classification."}
-    with_exc = checker.check(root, placement_exceptions=exc_map)
-    if expected_kind in {"functional", "procedure-kind"}:
-        assert with_exc == []
-    else:
-        assert with_exc != []
+    assert any("owner" in e and "candidate" in e for e in errors), (expected_kind, errors)
 
 
 def test_register_and_package_copy_defects_fail(tmp_path: Path) -> None:
@@ -347,53 +321,472 @@ def test_shadow_general_duplicate_register_keys_and_reference_doc_base_version(t
     assert "cannot parse under\nbase v3." in contracts_md
 
 
-def _write_history(root, resources):
+def _inventory(root):
+    return json.loads((root / "contracts/source-ownership/INVENTORY.json").read_text())
+
+
+def _save_inventory(root, inventory):
+    (root / "contracts/source-ownership/INVENTORY.json").write_text(json.dumps(inventory, indent=2) + "\n")
+
+
+def _repin(checker, root):
+    checker.SOURCE_INVENTORY_SHA256 = hashlib.sha256(
+        (root / "contracts/source-ownership/INVENTORY.json").read_bytes()
+    ).hexdigest()
+
+
+def _admit(root, namespace, contract_path=None, register_path=None):
+    cp = contract_path or f"domains/{namespace}/DOMAIN.yaml"
+    rp = register_path or f"domains/{namespace}/REGISTER.json"
+    c = load_domain_contract(root / cp, base=shipped_base_contract(), predecessor=None)
+    if not (root / rp).exists():
+        entry = RegisterEntry("c", "l", "n", status="provisional")
+        reg = AssumptionsRegister(
+            describes=f"{namespace}:{c.content_identity}",
+            previous=None,
+            entries={k: entry for k in register_entry_keys(c)},
+        )
+        (root / rp).write_text(json.dumps(register_projection(reg)))
+    reg = register_from_projection(json.loads((root / rp).read_text()), source=rp)
+    assert c.defining_source is not None
+    sid = c.defining_source.id
+    inv = _inventory(root)
+    inv["sources"][sid] = {"aliases": [], "owner": {"namespace": namespace, "genesis": c.content_identity}}
+    inv["lineages"][namespace] = {
+        "genesis": c.content_identity,
+        "source_id": sid,
+        "revisions": [_row(root, cp, rp, c, reg)],
+    }
+    _save_inventory(root, inv)
+
+
+def _row(root, cp, rp, c, reg):
+    return {
+        "contract_path": cp,
+        "register_path": rp,
+        "contract_identity": c.content_identity,
+        "register_identity": register_identity(reg),
+        "contract_sha256": hashlib.sha256((root / cp).read_bytes()).hexdigest(),
+        "register_sha256": hashlib.sha256((root / rp).read_bytes()).hexdigest(),
+        "source_pin": {"kind": "authored_pair"},
+    }
+
+
+def _successor(root):
+    from beliefs.contract.shipped import load_domain_history
+
+    base = shipped_base_contract()
+    old = load_domain_history(
+        "general", base=base, read_text=lambda p, root=root: (root / "domains/general" / p).read_text()
+    )[-1]
+    doc = yaml.safe_load((root / "domains/general/DOMAIN.yaml").read_text())
+    doc.update(
+        version=doc["version"] + 1,
+        lineage={"successor": old.contract.content_identity},
+        defining_source={"id": "urn:beliefs:definitions:shared-scientific-commitments"},
+    )
+    from beliefs.contract.domain import parse_domain_contract
+
+    c = parse_domain_contract(doc, source="successor", base=base, predecessor=old.contract)
+    reg = AssumptionsRegister(
+        describes=f"general:{c.content_identity}",
+        previous=register_identity(old.register),
+        entries=old.register.entries,
+    )
+    inv = _inventory(root)
+    row = inv["lineages"]["general"]["revisions"][-1]
     for prefix in ("domains/general", "python/src/beliefs/domains/general"):
-        history = root / prefix / "history"
-        if history.exists():
-            shutil.rmtree(history)
-        for relative, text in resources.items():
-            path = root / prefix / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text, encoding="utf-8")
+        history = root / prefix / "history" / old.contract.content_identity
+        history.mkdir(parents=True)
+        for name in ("DOMAIN.yaml", "REGISTER.json"):
+            shutil.copyfile(root / prefix / name, history / name)
+        (root / prefix / "DOMAIN.yaml").write_text(yaml.safe_dump(doc))
+        (root / prefix / "REGISTER.json").write_text(json.dumps(register_projection(reg)))
+    for key, name in (("contract_path", "DOMAIN.yaml"), ("register_path", "REGISTER.json")):
+        row[key] = f"domains/general/history/{old.contract.content_identity}/{name}"
+    inv["lineages"]["general"]["revisions"].append(
+        _row(root, "domains/general/DOMAIN.yaml", "domains/general/REGISTER.json", c, reg)
+    )
+    _save_inventory(root, inv)
+    return old.contract.content_identity
 
 
-def test_additive_shipped_history_passes_and_archive_defects_refuse(tmp_path):
-    from shipped_domain_fixtures import history_resources
-
-    resources, contracts, _ = history_resources()
+def test_successor_moves_adopted_bytes_into_history(tmp_path):
     root = _copy_fixture_root(tmp_path)
-    _write_history(root, resources)
     checker = _load_checker()
+    old = _successor(root)
+    _repin(checker, root)
     assert checker.check(root) == []
-    ancestor = f"history/{contracts[0].content_identity}/DOMAIN.yaml"
-    package_ancestor = root / "python/src/beliefs/domains/general" / ancestor
-    package_ancestor.write_text(resources[ancestor] + "\n")
-    assert any(ancestor in error and "differs" in error for error in checker.check(root))
-    package_ancestor.unlink()
-    assert any(ancestor in error and "missing" in error for error in checker.check(root))
+    inv = _inventory(root)
+    inv["lineages"]["general"]["revisions"].reverse()
+    _save_inventory(root, inv)
+    _repin(checker, root)
+    assert any("order" in e for e in checker.check(root))
+    inv["lineages"]["general"]["revisions"].reverse()
+    _save_inventory(root, inv)
+    _repin(checker, root)
+    ancestor = f"history/{old}/DOMAIN.yaml"
+    path = root / "python/src/beliefs/domains/general" / ancestor
+    path.write_text(path.read_text() + "\n")
+    assert any(ancestor in e and "differs" in e for e in checker.check(root))
+    path.unlink()
+    assert any(ancestor in e and "missing" in e for e in checker.check(root))
 
 
 @pytest.mark.parametrize(
     "extra", ["history/invalid", "history/" + "0" * 64, ".hidden", "history/" + "a" * 64 + "/extra"]
 )
 def test_orphan_and_malformed_archive_entries_refuse(tmp_path, extra):
-    from shipped_domain_fixtures import history_resources
-
     root = _copy_fixture_root(tmp_path)
-    resources, _, _ = history_resources()
-    _write_history(root, resources)
     (root / "domains/general" / extra).mkdir(parents=True)
-    errors = _load_checker().check(root)
-    assert errors and any("unexpected" in error or "unreachable" in error or "invalid" in error for error in errors)
+    assert _load_checker().check(root)
 
 
 def test_bad_ancestor_refuses_even_when_current_copies_are_valid(tmp_path):
-    from shipped_domain_fixtures import history_resources
-
-    resources, contracts, _ = history_resources()
-    ancestor = f"history/{contracts[0].content_identity}/REGISTER.json"
-    resources[ancestor] = "{}"
     root = _copy_fixture_root(tmp_path)
-    _write_history(root, resources)
-    assert any(ancestor in error for error in _load_checker().check(root))
+    path = next((root / "domains/general/history").glob("*/REGISTER.json"))
+    path.write_text("{}")
+    assert any(path.relative_to(root).as_posix() in e for e in _load_checker().check(root))
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "missing",
+        "pin",
+        "duplicate",
+        "constant",
+        "version",
+        "extra",
+        "alias",
+        "owner",
+        "empty",
+        "digest",
+        "duplicate-row",
+        "path",
+        "external",
+        "external-malformed",
+        "lineage-source",
+        "source-extra",
+        "row-extra",
+        "owner-extra",
+        "alias-collision",
+    ],
+)
+def test_inventory_shape_and_paths_refuse(tmp_path, mutation):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    inv = _inventory(root)
+    path = root / "contracts/source-ownership/INVENTORY.json"
+    source = next(iter(inv["sources"]))
+    lineage = inv["lineages"]["biology"]
+    row = lineage["revisions"][0]
+    if mutation == "missing":
+        path.unlink()
+    elif mutation == "pin":
+        path.write_text(path.read_text() + " ")
+    elif mutation == "duplicate":
+        path.write_text('{"version":1,"version":1,"sources":{},"lineages":{}}')
+        _repin(checker, root)
+    elif mutation == "constant":
+        path.write_text('{"version":NaN,"sources":{},"lineages":{}}')
+        _repin(checker, root)
+    else:
+        if mutation == "version":
+            inv["version"] = True
+        elif mutation == "extra":
+            inv["extra"] = 1
+        elif mutation == "alias":
+            inv["sources"][source]["aliases"] = ["URN:bad"]
+        elif mutation == "owner":
+            inv["sources"][source]["owner"]["genesis"] = "a" * 64
+        elif mutation == "empty":
+            lineage["revisions"] = []
+        elif mutation == "digest":
+            row["contract_identity"] = "X" * 64
+        elif mutation == "duplicate-row":
+            lineage["revisions"].append(copy.deepcopy(row))
+        elif mutation == "path":
+            row["contract_path"] = "../outside.yaml"
+        elif mutation == "external":
+            row["source_pin"] = {
+                "kind": "external",
+                "documents": [
+                    {"revision": "1", "sha256": "a" * 64, "held_ref": "held:1", "locator": "https://example.org"}
+                ],
+            }
+        elif mutation == "external-malformed":
+            row["source_pin"] = {"kind": "external", "documents": None}
+        elif mutation == "lineage-source":
+            lineage["source_id"] = "urn:unknown:source"
+        elif mutation == "source-extra":
+            inv["sources"][source]["extra"] = 1
+        elif mutation == "row-extra":
+            row["extra"] = 1
+        elif mutation == "owner-extra":
+            inv["sources"][source]["owner"]["extra"] = 1
+        elif mutation == "alias-collision":
+            inv["sources"][source]["aliases"] = [next(reversed(inv["sources"]))]
+        _save_inventory(root, inv)
+        _repin(checker, root)
+    errors = checker.check(root)
+    assert errors, mutation
+    if mutation.startswith("external"):
+        assert any("unsupported" in e and "external" in e for e in errors)
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "domains",
+        "domains/biology/DOMAIN.yaml",
+        "python/src/beliefs/domains",
+        "contracts/source-ownership/INVENTORY.json",
+        "python/tools/reproduction",
+    ],
+)
+def test_symlink_members_refuse_and_symlink_root_passes(tmp_path, target):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    link = tmp_path / "root-link"
+    link.symlink_to(root, target_is_directory=True)
+    assert checker.check(link) == []
+    path = root / target
+    outside = tmp_path / "outside"
+    path.rename(outside)
+    path.symlink_to(outside, target_is_directory=outside.is_dir())
+    assert any("symlink" in e for e in checker.check(root))
+
+
+@pytest.mark.parametrize("target", ["contract", "register"])
+def test_adoption_is_not_extended_by_repinning_inventory(tmp_path, target):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    inv = _inventory(root)
+    row = inv["lineages"]["mm30"]["revisions"][0]
+    path = root / row[target + "_path"]
+    path.write_bytes(path.read_bytes() + b"\n")
+    row[target + "_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+    _save_inventory(root, inv)
+    _repin(checker, root)
+    assert any("adopt" in e for e in checker.check(root))
+
+
+@pytest.mark.parametrize(
+    "source", [None, "urn:unknown:source", "urn:biology:alias", "urn:beliefs:definitions:human-annotation-admissions"]
+)
+def test_one_owner_across_disjoint_profiles(tmp_path, source):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    text = "contract: candidate\nversion: 1\nlineage: genesis\nsorts: {}\ndimensions: {}\n"
+    if source:
+        text += f"defining_source: {{id: {source}}}\n"
+    _write_shipped_pack(root, "candidate", text)
+    if source:
+        _admit(root, "candidate")
+        inv = _inventory(root)
+        if source == "urn:biology:alias":
+            inv["sources"]["urn:beliefs:definitions:human-annotation-admissions"]["aliases"] = [source]
+        elif source == "urn:unknown:source":
+            del inv["sources"][source]
+        _save_inventory(root, inv)
+    _repin(checker, root)
+    assert checker.check(root)
+
+
+def test_complete_discovery_and_pair_coverage(tmp_path):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    shutil.copyfile(
+        root / "python/tools/reproduction/mm30-phf19.yaml", root / "python/tools/reproduction/unlisted.yaml"
+    )
+    assert any("unlisted.yaml" in e for e in checker.check(root))
+    for change in ("describes", "entries", "previous"):
+        sub = _copy_fixture_root(tmp_path / change)
+        p = sub / "python/tools/reproduction/mm30-phf19-register.json"
+        reg = json.loads(p.read_text())
+        if change == "describes":
+            reg[change] = "mm30:" + "f" * 64
+        elif change == "entries":
+            reg[change] = {}
+        else:
+            reg[change] = "assumptions-register:" + "f" * 64
+        p.write_text(json.dumps(reg))
+        assert any("register" in e.lower() for e in checker.check(sub))
+
+
+def test_reservation_pin_and_its_review_boundary(tmp_path):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    inv = _inventory(root)
+    sid = inv["lineages"]["biology"]["source_id"]
+    inv["sources"][sid]["aliases"] = ["urn:test:old-alias"]
+    _save_inventory(root, inv)
+    _repin(checker, root)
+    assert checker.check(root) == []
+    inv["sources"][sid]["aliases"] = []
+    _save_inventory(root, inv)
+    assert checker.check(root)
+    _repin(checker, root)
+    assert checker.check(root) == []  # Continuity across coordinated pin edits requires review.
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/absolute",
+        "C:/drive",
+        "domains//biology/DOMAIN.yaml",
+        "domains/./biology/DOMAIN.yaml",
+        "domains/../biology/DOMAIN.yaml",
+        "domains/biology/*.yaml",
+        "domains\\biology\\DOMAIN.yaml",
+    ],
+)
+def test_unsafe_inventory_paths_refuse(tmp_path, path):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    inv = _inventory(root)
+    inv["lineages"]["biology"]["revisions"][0]["contract_path"] = path
+    _save_inventory(root, inv)
+    _repin(checker, root)
+    assert checker.check(root)
+
+
+@pytest.mark.parametrize("level", ["sources", "owner", "lineage", "row", "pin"])
+def test_duplicate_json_keys_at_every_depth_refuse(tmp_path, level):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    p = root / "contracts/source-ownership/INVENTORY.json"
+    text = p.read_text()
+    key = {"sources": "aliases", "owner": "namespace", "lineage": "source_id", "row": "contract_path", "pin": "kind"}[
+        level
+    ]
+    import re
+
+    match = re.search(r'"' + key + r'": (\[\]|"[^"]*")', text)
+    assert match
+    text = text[: match.start()] + match.group(0) + ", " + match.group(0) + text[match.end() :]
+    p.write_text(text)
+    _repin(checker, root)
+    assert any("duplicate JSON key" in e for e in checker.check(root))
+
+
+def test_missing_field_is_refused_after_new_lineage_or_successor_repin(tmp_path):
+    checker = _load_checker()
+    for mode in ("lineage", "successor"):
+        root = _copy_fixture_root(tmp_path / mode)
+        if mode == "lineage":
+            _write_shipped_pack(
+                root, "candidate", "contract: candidate\nversion: 1\nlineage: genesis\nsorts: {}\ndimensions: {}\n"
+            )
+            # Build valid source evidence while keeping the contract metadata-free.
+            inv = _inventory(root)
+            cp = "domains/candidate/DOMAIN.yaml"
+            rp = "domains/candidate/REGISTER.json"
+            c = load_domain_contract(root / cp, base=shipped_base_contract(), predecessor=None)
+            reg = register_from_projection(json.loads((root / rp).read_text()), source=rp)
+            inv["sources"]["urn:test:candidate"] = {
+                "aliases": [],
+                "owner": {"namespace": "candidate", "genesis": c.content_identity},
+            }
+            inv["lineages"]["candidate"] = {
+                "genesis": c.content_identity,
+                "source_id": "urn:test:candidate",
+                "revisions": [_row(root, cp, rp, c, reg)],
+            }
+            _save_inventory(root, inv)
+        else:
+            old = _successor(root)
+            # A metadata-free adopted predecessor permits addition locally, but not omission in admission.
+            from beliefs.contract.domain import parse_domain_contract
+            from beliefs.contract.shipped import load_domain_history
+
+            cp = "domains/general/DOMAIN.yaml"
+            rp = "domains/general/REGISTER.json"
+            doc = yaml.safe_load((root / cp).read_text())
+            del doc["defining_source"]
+            predecessor = load_domain_history(
+                "general",
+                base=shipped_base_contract(),
+                read_text=lambda p, root=root: (root / "domains/general" / p).read_text(),
+            )[-2].contract
+            assert predecessor.content_identity == old
+            c = parse_domain_contract(doc, source=cp, base=shipped_base_contract(), predecessor=predecessor)
+            reg = register_from_projection(json.loads((root / rp).read_text()), source=rp)
+            reg = AssumptionsRegister(
+                describes=f"general:{c.content_identity}", previous=reg.previous, entries=reg.entries
+            )
+            for prefix in ("domains/general", "python/src/beliefs/domains/general"):
+                (root / prefix / "DOMAIN.yaml").write_text(yaml.safe_dump(doc))
+                (root / prefix / "REGISTER.json").write_text(json.dumps(register_projection(reg)))
+            inv = _inventory(root)
+            inv["lineages"]["general"]["revisions"][-1] = _row(root, cp, rp, c, reg)
+            _save_inventory(root, inv)
+        _repin(checker, root)
+        assert any("missing defining_source" in e for e in checker.check(root))
+
+
+@pytest.mark.parametrize(
+    "defect", ["missing-ancestor", "orphan-fork", "wrong-previous", "stale-describes", "fresh-genesis"]
+)
+def test_successor_chain_defects_refuse(tmp_path, defect):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    old = _successor(root)
+    if defect == "missing-ancestor":
+        (root / f"domains/general/history/{old}/DOMAIN.yaml").unlink()
+    elif defect == "orphan-fork":
+        shutil.copytree(root / f"domains/general/history/{old}", root / "domains/general/history" / ("f" * 64))
+    elif defect == "fresh-genesis":
+        for prefix in ("domains/general", "python/src/beliefs/domains/general"):
+            p = root / prefix / "DOMAIN.yaml"
+            doc = yaml.safe_load(p.read_text())
+            doc["lineage"] = "genesis"
+            p.write_text(yaml.safe_dump(doc))
+    else:
+        for prefix in ("domains/general", "python/src/beliefs/domains/general"):
+            p = root / prefix / "REGISTER.json"
+            doc = json.loads(p.read_text())
+            doc["previous" if defect == "wrong-previous" else "describes"] = (
+                "assumptions-register:" + "f" * 64 if defect == "wrong-previous" else "general:" + "f" * 64
+            )
+            p.write_text(json.dumps(doc))
+    _repin(checker, root)
+    assert checker.check(root)
+
+
+@pytest.mark.parametrize("external", [{"other": "x"}, {"ucum": ""}, {"qudt": 1}])
+def test_source_metadata_does_not_waive_unit_checks(external):
+    from beliefs.contract.domain import parse_domain_contract
+    from beliefs.errors import MalformedContract
+
+    doc = {
+        "contract": "candidate",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {"id": "urn:test:candidate"},
+        "units": {"u": {"symbol": "u", "quantity_kind": "general/relative-abundance", "external": external}},
+    }
+    with pytest.raises(MalformedContract, match="external"):
+        parse_domain_contract(doc, source="unit-source", base=shipped_base_contract(), predecessor=None)
+
+
+def test_plan_base_adoption_is_exact():
+    vector = json.loads((REPO_ROOT / "fixtures/defining-source.json").read_text())
+    checker = _load_checker()
+    for row in vector["production"]:
+        reg = register_from_projection(
+            json.loads((REPO_ROOT / row["register_path"]).read_text()), source=row["register_path"]
+        )
+        assert register_identity(reg) == row["register_identity"]
+        assert all(e.status == "provisional" for e in reg.entries.values())
+        for part in ("contract", "register"):
+            assert hashlib.sha256((REPO_ROOT / row[part + "_path"]).read_bytes()).hexdigest() == row[part + "_sha256"]
+        assert checker.ADOPTED_SOURCE_REVISIONS[(row["namespace"], row["contract_identity"])] == tuple(
+            row[k] for k in ("register_identity", "contract_sha256", "register_sha256", "source_id")
+        )
+    assert len(checker.ADOPTED_SOURCE_REVISIONS) == 4
+    assert checker.check(REPO_ROOT) == []

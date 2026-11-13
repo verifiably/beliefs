@@ -4,23 +4,26 @@ Checks offline and without corpus writes:
 1. `contracts/science/CONTRACT.yaml` and its packaged copy match byte-for-byte and parse cleanly.
 2. Every shipped pack under `domains/<namespace>/` matches its packaged copy under
    `python/src/beliefs/domains/<namespace>/` for both `DOMAIN.yaml` and `REGISTER.json`,
-   parses under the current base contract, satisfies the one-registry shared-table
-   placement rule, and carries a canonical assumptions register whose `describes`
+   parses under the current base contract and carries a canonical assumptions register whose `describes`
    digest and typed key coverage match `register_entry_keys(contract)` exactly.
 3. Every YAML file under `python/tools/reproduction/` whose top-level mapping carries
    `contract` either matches one of the five SHA-256-pinned pre-v2 heritage exclusions
-   unchanged or passes current contract parsing and shared-table placement. Changed,
+   unchanged or passes current parsing and pinned source ownership admission. Changed,
    missing or renamed listed heritage files fail naming their owning tasks.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
+import os
 import re
 import sys
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
+from typing import Any, cast
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 _SRC_ROOT = Path(__file__).resolve().parents[1] / "src"
@@ -31,9 +34,10 @@ import yaml
 
 from beliefs.contract.base import BaseContract, parse_base_contract
 from beliefs.contract.document import parse_document
-from beliefs.contract.domain import DomainContract, parse_domain_contract
-from beliefs.contract.shipped import load_domain_history
+from beliefs.contract.domain import DomainContract, _defining_source_id, _name, parse_domain_contract
+from beliefs.contract.shipped import _strict_json_object, load_domain_history
 from beliefs.errors import ScienceError
+from beliefs.register import AssumptionsRegister, register_entry_keys, register_from_projection, register_identity
 
 HERITAGE_REPRODUCTION_EXCLUSIONS: Mapping[str, tuple[str, str]] = MappingProxyType(
     {
@@ -61,81 +65,56 @@ HERITAGE_REPRODUCTION_EXCLUSIONS: Mapping[str, tuple[str, str]] = MappingProxyTy
 )
 """Closed `(relative_path -> (sha256_hex, owner_tasks))` exclusion map for pre-v2 heritage inputs."""
 
-REVIEWED_FIELD_SPECIFIC_EXCEPTIONS: Mapping[tuple[str, str, str], str] = MappingProxyType({})
-"""Reviewed `(source_rel_path, kind, local_name) -> reason` exceptions for field-specific
-`functional` or `procedure-kind` declarations outside `general`. Empty in genesis."""
+SOURCE_INVENTORY_SHA256 = "38aa7074482a2e685de39082da4b0abe4a2ae08b8c9acd86f0ca83a35de48288"
 
-_SHARED_ONLY_TABLES: tuple[tuple[str, str], ...] = (
-    ("quantity-kind", "quantity_kinds"),
-    ("unit", "units"),
-    ("constant", "constants"),
-    ("conversion", "conversions"),
-    ("transformation", "transformations"),
-    ("duration-convention", "duration_conventions"),
-    ("identification-class", "identification_classes"),
-    ("design", "designs"),
-    ("selection-mechanism", "selection_mechanisms"),
-    ("aggregation-rule", "aggregation_rules"),
-    ("assumption-kind", "assumption_kinds"),
+ADOPTED_SOURCE_REVISIONS = MappingProxyType(
+    {
+        ("biology", "05e6f4fd06de8112d8f13d235c0793b6767404208cbf4210b7b9b24fc1840aca"): (
+            "assumptions-register:f81b9ad496b745d850a872260f3f691020ab5ab9e3eb2b64758aeaf5dd1cfb67",
+            "11308699feb1d7f402b81b6ff1451806490b41ac71df9100658d74bbad85616c",
+            "bf8d07f7367b82fbbb037116111c1fdb6fcac88146ca7e4a0aab009a3b607f27",
+            "urn:beliefs:definitions:human-annotation-admissions",
+        ),
+        ("general", "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"): (
+            "assumptions-register:02642579cb0fe2330553586e4c22d56f76a227e14b0d2fe849c6917992c3dbf9",
+            "d5e7ec6c792d12d9afb08cdc58f7ce15f8512d09f525769e6ee75369841ac6a7",
+            "96946aaf8ee11ede7ecddbafd27348600dce9ecac35a236342389c1807d12c24",
+            "urn:beliefs:definitions:shared-scientific-commitments",
+        ),
+        ("general", "e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee"): (
+            "assumptions-register:6939b589ff96806160232b13cba8b32019c7fc80caba0b4b06b9e7d676c98095",
+            "53f9036e01080d007db4f20db9b81acecf78548512b849b81a5b340d8240b05d",
+            "dbf7a185d89d202304d8944971007c8b9dd3b82ed86393946b9fbab9bae46f79",
+            "urn:beliefs:definitions:shared-scientific-commitments",
+        ),
+        ("mm30", "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"): (
+            "assumptions-register:eaafc4716d8ec208903e191fcd258eb0b1a5ba796dacb44c611293c1f058ad23",
+            "0ea492b8fcd7681cbd6d2ac4e874dc00be4f50657694611728d0b55931e2bcaa",
+            "df474e157913a8ed0e0d12d666e1265a80d5bb16cd91d50df2fb8f32737b50cf",
+            "urn:beliefs:definitions:phf19-stage-contrast-admissions",
+        ),
+    }
 )
 
-_EXCEPTION_ELIGIBLE_TABLES: tuple[tuple[str, str], ...] = (
-    ("functional", "functionals"),
-    ("procedure-kind", "procedure_kinds"),
-)
+
+@dataclass(frozen=True)
+class _AdmissionRevision:
+    contract_path: str
+    register_path: str
+    contract: DomainContract
+    register: AssumptionsRegister
+    genesis: str
+    current: bool
 
 
-def _check_exception_inventory(
-    placement_exceptions: Mapping[tuple[str, str, str], str],
-) -> list[str]:
-    errors: list[str] = []
-    allowed_kinds = {kind for kind, _ in _EXCEPTION_ELIGIBLE_TABLES}
-    for key, reason in sorted(placement_exceptions.items()):
-        if len(key) != 3 or not all(isinstance(part, str) and part.strip() for part in key):
-            errors.append(f"placement_exceptions: invalid key {key!r}; expected (source_path, kind, name)")
-            continue
-        source_rel, kind, name = key
-        if "*" in source_rel or "*" in kind or "*" in name:
-            errors.append(f"placement_exceptions: wildcards are refused in {key!r}")
-        if kind not in allowed_kinds:
-            errors.append(
-                f"placement_exceptions: {source_rel} {kind}:{name} cannot be exempted; only "
-                f"{sorted(allowed_kinds)} admit reviewed field-specific exceptions"
-            )
-        if not isinstance(reason, str) or not reason.strip():
-            errors.append(f"placement_exceptions: {source_rel} {kind}:{name} requires a non-empty reviewed reason")
-    return errors
-
-
-def _check_placement(
-    contract: DomainContract,
-    *,
-    source_rel: str,
-    placement_exceptions: Mapping[tuple[str, str, str], str],
-) -> list[str]:
-    if contract.namespace == "general":
-        if (
-            source_rel != "domains/general/DOMAIN.yaml"
-            and re.fullmatch(r"domains/general/history/[0-9a-f]{64}/DOMAIN\.yaml", source_rel) is None
-        ):
-            return [f"{source_rel}: shadow contract 'general' is forbidden outside domains/general/DOMAIN.yaml"]
-        return []
-    errors: list[str] = []
-    for kind, attr in _SHARED_ONLY_TABLES:
-        for name in sorted(getattr(contract, attr)):
-            errors.append(
-                f"{source_rel}: non-general contract {contract.namespace!r} declares shared {kind} {name!r}; "
-                "shared numerical and methodological vocabulary belongs in `general`"
-            )
-    for kind, attr in _EXCEPTION_ELIGIBLE_TABLES:
-        for name in sorted(getattr(contract, attr)):
-            reason = placement_exceptions.get((source_rel, kind, name))
-            if reason is None or not reason.strip():
-                errors.append(
-                    f"{source_rel}: non-general contract {contract.namespace!r} declares {kind} {name!r} "
-                    "without a reviewed field-specific classification in REVIEWED_FIELD_SPECIFIC_EXCEPTIONS"
-                )
-    return errors
+def _check_shadow_general(contract: DomainContract, source_rel: str) -> list[str]:
+    if (
+        contract.namespace == "general"
+        and source_rel != "domains/general/DOMAIN.yaml"
+        and re.fullmatch(r"domains/general/history/[0-9a-f]{64}/DOMAIN\.yaml", source_rel) is None
+    ):
+        return [f"{source_rel}: shadow contract 'general' is forbidden outside domains/general/DOMAIN.yaml"]
+    return []
 
 
 def _load_base(root: Path, errors: list[str]) -> BaseContract | None:
@@ -184,19 +163,15 @@ def _domain_inventory(directory: Path, prefix: str) -> tuple[set[str], list[str]
     return present, errors
 
 
-def _check_shipped_domains(
-    root: Path,
-    base: BaseContract,
-    *,
-    placement_exceptions: Mapping[tuple[str, str, str], str],
-) -> list[str]:
+def _discover_shipped_domains(root: Path, base: BaseContract) -> tuple[tuple[_AdmissionRevision, ...], list[str]]:
     errors: list[str] = []
+    discovered: list[_AdmissionRevision] = []
     domains_dir = root / "domains"
     pkg_domains_dir = root / "python/src/beliefs/domains"
     if not domains_dir.is_dir():
-        return ["domains: missing directory"]
+        return (), ["domains: missing directory"]
     if not pkg_domains_dir.is_dir():
-        return ["python/src/beliefs/domains: missing directory"]
+        return (), ["python/src/beliefs/domains: missing directory"]
 
     for container, rel_label in ((domains_dir, "domains"), (pkg_domains_dir, "python/src/beliefs/domains")):
         for entry in sorted(container.iterdir()):
@@ -232,11 +207,17 @@ def _check_shipped_domains(
             prefix = f"{revision.directory}/" if revision.directory else ""
             if revision.directory:
                 expected.update({"history", revision.directory, prefix + "DOMAIN.yaml", prefix + "REGISTER.json"})
-            errors.extend(
-                _check_placement(
+            cp = f"domains/{namespace}/{prefix}DOMAIN.yaml"
+            rp = f"domains/{namespace}/{prefix}REGISTER.json"
+            errors.extend(_check_shadow_general(revision.contract, cp))
+            discovered.append(
+                _AdmissionRevision(
+                    cp,
+                    rp,
                     revision.contract,
-                    source_rel=f"domains/{namespace}/{prefix}DOMAIN.yaml",
-                    placement_exceptions=placement_exceptions,
+                    revision.register,
+                    revisions[0].contract.content_identity,
+                    not revision.directory,
                 )
             )
         for present, prefix in (
@@ -253,17 +234,18 @@ def _check_shipped_domains(
             ):
                 errors.append(f"domains/{namespace}/{relative}: differs from packaged copy")
 
-    return errors
+    return tuple(discovered), errors
 
 
-def _check_reproduction_sources(
+def _discover_reproduction_sources(
     root: Path,
     base: BaseContract,
     *,
     exclusions: Mapping[str, tuple[str, str]],
-    placement_exceptions: Mapping[tuple[str, str, str], str],
-) -> list[str]:
+    register_paths: Mapping[str, str],
+) -> tuple[tuple[_AdmissionRevision, ...], list[str]]:
     errors: list[str] = []
+    discovered: list[_AdmissionRevision] = []
     for rel_path, (expected_sha256, owner) in sorted(exclusions.items()):
         path = root / rel_path
         if not path.is_file():
@@ -282,7 +264,7 @@ def _check_reproduction_sources(
 
     repro_dir = root / "python/tools/reproduction"
     if not repro_dir.is_dir():
-        return errors
+        return (), errors
 
     yaml_paths = sorted({*repro_dir.rglob("*.yaml"), *repro_dir.rglob("*.yml")})
     for path in yaml_paths:
@@ -309,32 +291,249 @@ def _check_reproduction_sources(
         except ScienceError as exc:
             errors.append(str(exc))
             continue
-        errors.extend(_check_placement(contract, source_rel=rel_path, placement_exceptions=placement_exceptions))
+        errors.extend(_check_shadow_general(contract, rel_path))
+        register_path = register_paths.get(rel_path)
+        if register_path is None:
+            errors.append(f"{rel_path}: unlisted reproduction contract; missing inventory register mapping")
+            continue
+        try:
+            register = register_from_projection(_read_json(root / register_path), source=register_path)
+            if register.describes != f"{contract.namespace}:{contract.content_identity}":
+                raise ValueError("stale register describes")
+            if set(register.entries) != register_entry_keys(contract):
+                raise ValueError("register entry coverage mismatch")
+            if register.previous is not None:
+                raise ValueError("genesis register must have no previous")
+            discovered.append(
+                _AdmissionRevision(rel_path, register_path, contract, register, contract.content_identity, True)
+            )
+        except (OSError, ValueError, ScienceError) as exc:
+            errors.append(f"{register_path}: {exc}")
 
-    return errors
+    return tuple(discovered), errors
 
 
-def check(
-    root: Path,
-    *,
-    exclusions: Mapping[str, tuple[str, str]] = HERITAGE_REPRODUCTION_EXCLUSIONS,
-    placement_exceptions: Mapping[tuple[str, str, str], str] = REVIEWED_FIELD_SPECIFIC_EXCEPTIONS,
-) -> list[str]:
-    resolved_root = Path(root).resolve()
-    errors = _check_exception_inventory(placement_exceptions)
-    base = _load_base(resolved_root, errors)
-    if base is None:
-        return errors
-    errors.extend(_check_shipped_domains(resolved_root, base, placement_exceptions=placement_exceptions))
-    errors.extend(
-        _check_reproduction_sources(
-            resolved_root,
-            base,
-            exclusions=exclusions,
-            placement_exceptions=placement_exceptions,
-        )
+def _read_json(path: Path) -> Any:
+    def refuse_constant(value: str) -> None:
+        raise ValueError(f"non-JSON constant {value}")
+
+    return json.loads(
+        path.read_text(encoding="utf-8"), object_pairs_hook=_strict_json_object, parse_constant=refuse_constant
     )
+
+
+def _reject_symlinks(root: Path) -> None:
+    for relative in (
+        "contracts",
+        "domains",
+        "python/src/beliefs/contracts",
+        "python/src/beliefs/domains",
+        "python/tools/reproduction",
+    ):
+        directory = root / relative
+        for parent in (directory, *directory.parents):
+            if parent == root:
+                break
+            if parent.is_symlink():
+                raise ValueError(f"{parent.relative_to(root)}: symlink admission path refused")
+
+        def failed(error: OSError) -> None:
+            raise error
+
+        for current, dirs, files in os.walk(directory, followlinks=False, onerror=failed):
+            for name in dirs + files:
+                path = Path(current) / name
+                if path.is_symlink():
+                    raise ValueError(f"{path.relative_to(root)}: symlink admission member refused")
+
+
+def _fields(value: Any, expected: set[str], where: str) -> None:
+    if not isinstance(value, dict) or set(value) != expected:
+        raise ValueError(f"{where}: expected exactly {sorted(expected)}")
+
+
+def _hex(value: Any, where: str, prefix: str = "") -> None:
+    if not isinstance(value, str) or re.fullmatch(re.escape(prefix) + r"[0-9a-f]{64}", value) is None:
+        raise ValueError(f"{where}: expected {prefix}64 lowercase hex")
+
+
+def _canonical_path(value: Any) -> None:
+    if (
+        not isinstance(value, str)
+        or not value
+        or any(x in value for x in ("\\", ":", "*", "?", "[", "]"))
+        or any(p in ("", ".", "..") for p in value.split("/"))
+    ):
+        raise ValueError(f"inventory path {value!r}: expected normalized repository-relative path")
+
+
+def _validate_inventory(value: Any) -> dict[str, Any]:
+    _fields(value, {"version", "sources", "lineages"}, "inventory")
+    if type(value["version"]) is not int or value["version"] != 1:
+        raise ValueError("inventory version: expected integer 1")
+    sources, lineages = value["sources"], value["lineages"]
+    if not isinstance(sources, dict) or not isinstance(lineages, dict):
+        raise TypeError("inventory sources/lineages: expected mappings")
+    reserved: dict[str, str] = {}
+    for sid, source in sources.items():
+        _defining_source_id(sid, "inventory source id")
+        _fields(source, {"aliases", "owner"}, sid)
+        _fields(source["owner"], {"namespace", "genesis"}, f"{sid} owner")
+        _name(source["owner"]["namespace"], f"{sid} owner namespace")
+        _hex(source["owner"]["genesis"], f"{sid} owner genesis")
+        aliases = source["aliases"]
+        if not isinstance(aliases, list):
+            raise TypeError(f"{sid}: aliases must be a list")
+        for name in [sid, *aliases]:
+            _defining_source_id(name, f"{sid} alias")
+            if name in reserved:
+                raise ValueError(f"{sid}: duplicate source/alias {name}, reserved by {reserved[name]}")
+            reserved[name] = sid
+    paths: set[str] = set()
+    identities: set[tuple[str, str]] = set()
+    for namespace, lineage in lineages.items():
+        _name(namespace, "inventory namespace")
+        _fields(lineage, {"genesis", "source_id", "revisions"}, namespace)
+        _hex(lineage["genesis"], f"{namespace} genesis")
+        _defining_source_id(lineage["source_id"], f"{namespace} source_id")
+        if not isinstance(lineage["revisions"], list) or not lineage["revisions"]:
+            raise ValueError(f"{namespace}: revisions must be nonempty list")
+        for row in lineage["revisions"]:
+            _fields(
+                row,
+                {
+                    "contract_path",
+                    "register_path",
+                    "contract_identity",
+                    "register_identity",
+                    "contract_sha256",
+                    "register_sha256",
+                    "source_pin",
+                },
+                namespace,
+            )
+            pin = row["source_pin"]
+            if isinstance(pin, dict) and pin.get("kind") == "external":
+                raise ValueError(f"{namespace}: unsupported external admission")
+            _fields(pin, {"kind"}, f"{namespace} source_pin")
+            if pin["kind"] != "authored_pair":
+                raise ValueError(f"{namespace}: expected authored_pair source pin")
+            for key in ("contract_identity", "contract_sha256", "register_sha256"):
+                _hex(row[key], f"{namespace} {key}")
+            _hex(row["register_identity"], f"{namespace} register_identity", "assumptions-register:")
+            identity = (namespace, row["contract_identity"])
+            if identity in identities:
+                raise ValueError(f"{namespace}: duplicate revision identity")
+            identities.add(identity)
+            for key in ("contract_path", "register_path"):
+                _canonical_path(row[key])
+                if row[key] in paths:
+                    raise ValueError(f"{namespace}: duplicate revision path {row[key]}")
+                paths.add(row[key])
+    return value
+
+
+def _check_source_ownership(
+    root: Path, inventory: Mapping[str, object], revisions: tuple[_AdmissionRevision, ...]
+) -> list[str]:
+    inv = cast(dict[str, Any], inventory)
+    sources, lineages = inv["sources"], inv["lineages"]
+    errors: list[str] = []
+    by_path = {r.contract_path: r for r in revisions}
+    listed = {row["contract_path"] for lineage in lineages.values() for row in lineage["revisions"]}
+    for path in sorted(listed - by_path.keys()):
+        errors.append(f"{path}: inventory revision not discovered")
+    for path in sorted(by_path.keys() - listed):
+        errors.append(f"{path}: discovered revision missing inventory row")
+    for sid, source in sources.items():
+        owner = source["owner"]
+        lineage = lineages.get(owner["namespace"])
+        if lineage is None or lineage["source_id"] != sid or lineage["genesis"] != owner["genesis"]:
+            errors.append(
+                f"{sid}: reserved owner {owner} disagrees with lineage at domains/{owner['namespace']}/DOMAIN.yaml"
+            )
+    for namespace, lineage in lineages.items():
+        sid = lineage["source_id"]
+        source = sources.get(sid)
+        if source is None:
+            errors.append(f"{namespace}: unknown canonical source {sid}")
+            continue
+        expected_owner = {"namespace": namespace, "genesis": lineage["genesis"]}
+        if source["owner"] != expected_owner:
+            errors.append(
+                f"{sid}: claimant owner {expected_owner} at {lineage['revisions'][0]['contract_path']} conflicts with reserved owner {source['owner']}"
+            )
+        observed = [r for r in revisions if r.contract.namespace == namespace]
+        if sum(r.current for r in observed) != 1:
+            errors.append(f"{namespace}: expected exactly one current revision")
+        if [r.contract.content_identity for r in observed] != [
+            row["contract_identity"] for row in lineage["revisions"]
+        ]:
+            errors.append(f"{namespace}: revision order/coverage must match checked chain oldest-first")
+        for row in lineage["revisions"]:
+            cp = row["contract_path"]
+            revision = by_path.get(cp)
+            if revision is None:
+                continue
+            contract, register = revision.contract, revision.register
+            if contract.namespace != namespace or revision.genesis != lineage["genesis"]:
+                errors.append(f"{cp}: {sid} owner/genesis mismatch, expected {expected_owner}")
+            if row["register_path"] != revision.register_path:
+                errors.append(f"{cp}: register path is not discovered canonical pair")
+            actual = (
+                register_identity(register),
+                hashlib.sha256((root / cp).read_bytes()).hexdigest(),
+                hashlib.sha256((root / revision.register_path).read_bytes()).hexdigest(),
+                sid,
+            )
+            if (row["register_identity"], row["contract_sha256"], row["register_sha256"], sid) != actual or row[
+                "contract_identity"
+            ] != contract.content_identity:
+                errors.append(f"{cp}: authored pair identity/hash mismatch")
+            if contract.defining_source is None:
+                if ADOPTED_SOURCE_REVISIONS.get((namespace, contract.content_identity)) != actual:
+                    errors.append(f"{cp}: missing defining_source outside exact adopted source revisions")
+            elif contract.defining_source.id != sid:
+                claimed = contract.defining_source.id
+                canonical = next(
+                    (key for key, info in sources.items() if claimed == key or claimed in info["aliases"]), None
+                )
+                errors.append(
+                    f"{cp}: source {claimed} must use canonical {canonical or sid}; reserved owner {sources.get(canonical or sid, {}).get('owner')}, inventory owner {expected_owner}"
+                )
+    seen = {(r.contract.namespace, r.contract.content_identity) for r in revisions}
+    for key in ADOPTED_SOURCE_REVISIONS:
+        if key not in seen:
+            errors.append(f"{key}: required adopted revision missing; fresh genesis cannot replace reserved owner")
     return errors
+
+
+def check(root: Path, *, exclusions: Mapping[str, tuple[str, str]] = HERITAGE_REPRODUCTION_EXCLUSIONS) -> list[str]:
+    resolved_root = Path(root).resolve()
+    try:
+        _reject_symlinks(resolved_root)
+        inventory_path = resolved_root / "contracts/source-ownership/INVENTORY.json"
+        if hashlib.sha256(inventory_path.read_bytes()).hexdigest() != SOURCE_INVENTORY_SHA256:
+            raise ValueError("source inventory SHA-256 pin mismatch")
+        inventory = _validate_inventory(_read_json(inventory_path))
+        errors: list[str] = []
+        base = _load_base(resolved_root, errors)
+        if base is None:
+            return errors
+        shipped, shipped_errors = _discover_shipped_domains(resolved_root, base)
+        register_paths = {
+            r["contract_path"]: r["register_path"]
+            for lineage in inventory["lineages"].values()
+            for r in lineage["revisions"]
+        }
+        repro, repro_errors = _discover_reproduction_sources(
+            resolved_root, base, exclusions=exclusions, register_paths=register_paths
+        )
+        return (
+            errors + shipped_errors + repro_errors + _check_source_ownership(resolved_root, inventory, shipped + repro)
+        )
+    except (OSError, UnicodeDecodeError, ValueError, TypeError, ScienceError) as exc:
+        return [f"source admission: {exc}"]
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -84,3 +84,9 @@ def test_mm30_register_covers_its_six_declarations():
     )
     assert set(value.entries) == register_entry_keys(vocabulary.contract())
     assert len(value.entries) == 6
+
+
+def test_source_adoption_keeps_phf19_contract_and_profile_identity():
+    assert vocabulary.contract().defining_source is None
+    assert vocabulary.contract().content_identity == "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
+    assert vocabulary.profile().compiled_identity == "12b2b175baf874f1be1c6d48eb3f96faf6a458aa79c2da37614996fd7c067f9e"

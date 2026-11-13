@@ -297,7 +297,7 @@ change), and add the kind to `KIND_ACTS` as above.
 
 ## Adding a domain contract
 
-1. Write the document with `lineage: genesis`. Declare sorts with their bindings and
+1. Write the document with `lineage: genesis` and a canonical `defining_source.id`. Declare sorts with their bindings and
    identifier classes, templates with their roles, layers and forms (and an `edge`
    where composites need one), instantiations listing the sorts that fill each
    role, any bridges, and dimensions with their placement and `applies_to`; add
@@ -330,9 +330,21 @@ files remain byte-identical in both copies' content-identity `history/` director
 corresponding `domains/biology/` paths with identical packaged copies. Its generic
 loaders use the same checks; unknown namespaces refuse with `ProfileError`. Field packs keep sorts,
 instantiations and bridges in their own namespace and activate `general` explicitly;
-`python/tools/check_shipped_contracts.py` rejects non-`general` declarations in the
-shared numerical and methodological tables across shipped and current reproduction
-contract sources.
+`python/tools/check_shipped_contracts.py` verifies source ownership across all
+shipped histories and current reproduction contracts. Before admission, add the
+canonical pair and exact hashes to `contracts/source-ownership/INVENTORY.json` and
+update the checker's `SOURCE_INVENTORY_SHA256` in the same reviewed change. Compare
+all existing reservations and historical pins; a coordinated pin edit does not
+prove continuity. New lineages need a distinct justified source owner, and future
+successors retain the canonical id. The original four metadata-free revisions
+are exact byte-pinned exceptions, not a namespace-wide exemption.
+
+The contract/register pair supplies authored definitions and their justified-use
+limits; semantic consistency and known equivalent meanings require review. The
+inventory is repository-only and external defining-source admission is unsupported.
+Unshipped candidates retain joint ownership review outside this checker. The
+unchanged mm30 PHF19 pair is frozen until its loader gains checked succession;
+even formatting or register-prose edits require that support.
 
 ## When a check fails
 

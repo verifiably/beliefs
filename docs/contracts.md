@@ -380,8 +380,8 @@ the vocabulary tables and the two pack tables carry no `retired`. Templates
 require at least one role at parse time. Compiled instantiations, bridges and
 estimand declarations carry an explicit declaration kind.
 
-The five measurement tables may be declared by any domain namespace; shipped packs
-restrict them to `general` (see [Profiles](#profiles)). Their
+The five measurement tables may be declared by any domain namespace with checked
+source ownership for admission (see [Profiles](#profiles)). Their
 references are local names or terms from other activated contracts, resolved in
 dependency order at compile. Their optional `definition` is prose outside every
 schema projection; the full document content identity still covers it. Numerical
@@ -474,6 +474,7 @@ any of the following holds:
 - a genesis contract is given a predecessor, or a successor contract is given none;
 - the predecessor's identity or namespace differs from the one declared;
 - the predecessor was typed under a different base content identity;
+- a domain successor removes or changes a previously present defining source id;
 - the successor drops a claim-vocabulary declaration its predecessor declared;
 - the successor changes the schema projection of a claim-vocabulary declaration;
 - the successor un-retires a claim-vocabulary declaration.
@@ -569,9 +570,9 @@ A genesis register has no `previous`; a successor register names the immediate
 contract predecessor's register identity. Both helpers are namespace-generic and
 refuse absent packages with `ProfileError`. `shipped_base()` activates no domain contract: consumers
 activate `general` explicitly in `compile_profile`. Distribution validation
-(`python/tools/check_shipped_contracts.py`, run under `just check-hygiene`) rejects
-non-`general` declarations in the numerical tables and shared methodological tables
-except reviewed field-specific `functional` or `procedure-kind` classifications.
+(`python/tools/check_shipped_contracts.py`, run under `just check-hygiene`) checks
+the complete pinned source inventory independently of activated profiles. Numerical
+and methodological tables have the same ownership requirements as other declarations.
 
 The human biology genesis ships alongside `general`: [DOMAIN.yaml](../domains/biology/DOMAIN.yaml)
 and [REGISTER.json](../domains/biology/REGISTER.json), with identical packaged copies.
@@ -598,7 +599,7 @@ stay unchanged. Loading follows only declared 64-lowercase-hex predecessor ident
 checks each ancestor before its successor, and refuses missing or mismatched files,
 namespace mismatches, cycles and broken register links. The source checker also
 refuses malformed or unreachable archive entries, symlinks, extra files, differing
-package copies and misplaced shared vocabulary in ancestors. General's original
+package copies and missing source ownership evidence in ancestors. General's original
 v1 contract and register are preserved under
 `history/cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f/`.
 Version 2 preserves all ten original register entries and adds an eleventh,
@@ -675,3 +676,47 @@ must remain through succession; a metadata-free predecessor may acquire it.
 The field changes contract content identity, while claim declarations, register
 keys and compiled schema projections remain unchanged. Local parse and compile
 success provide no global source ownership verdict.
+
+
+### Source ownership admission
+
+[The canonical inventory](../contracts/source-ownership/INVENTORY.json) binds every
+admitted lineage to one canonical definitions source and checked genesis. Its
+revision rows follow the checked chain oldest first and pin contract/register
+identities and exact file hashes. The authored pair is the normative source:
+contract definitions govern declarations and typing; register prose constrains
+justified use. A contradiction requires semantic review and resolution, rather
+than silently preferring either text. Aliases reserve spellings and appear in
+collision diagnostics; contracts must use the canonical id.
+
+The checker covers canonical and packaged domain histories plus contract-bearing
+reproduction YAML, retaining five exact heritage exclusions. All sources and
+owners are checked together, including owners never activated in the same profile.
+Unknown sources, second owners, parallel genesis, unlisted revisions, missing
+ancestors, malformed evidence and stale registers refuse. Shadow `general`
+contracts remain forbidden outside the canonical general paths.
+
+The four original general v1/v2, biology v1 and mm30 v1 revisions retain their
+bytes and absent metadata through an independent immutable adoption map in the
+checker. This exception follows exact historical bytes; a changed file or a new
+metadata-free revision cannot qualify by updating the inventory. Their next
+substantive successor must add the source field and preserve checked history.
+The mm30 pair is frozen, including formatting and register prose, until checked
+succession support is delivered; its current reproduction loader accepts genesis.
+No immediate successor or corpus re-pin is required by this adoption.
+
+Every admission edit requires a coordinated inventory and checker
+`SOURCE_INVENTORY_SHA256` update. The checker verifies this exact-byte pin before
+interpreting inventory contents. Review compares old/new reservations, aliases,
+owners, adoption exceptions and historical pins; changing both editable files can
+pass mechanically and does not prove reservation continuity. The inventory is
+repository admission evidence, with no packaged mirror or runtime dependency.
+A corpus manifest authenticates contract pins, not an inventory verdict.
+
+Every external source row refuses as unsupported, even with malformed document
+pins; the checker accepts no external payload input. Existing unit parsing checks
+external mapping keys and nonempty strings. Held release membership and UCUM/QUDT
+mapping validation remain admission review obligations. Mechanical ownership
+cannot detect copied meanings under different ids or prove semantic equivalence.
+Unshipped candidates require joint review against the admitted inventory and
+other candidates; local parse/compile success makes no global ownership claim.

@@ -492,22 +492,46 @@
     {
       "namespace": "biology",
       "contract_path": "domains/biology/DOMAIN.yaml",
-      "contract_identity": "05e6f4fd06de8112d8f13d235c0793b6767404208cbf4210b7b9b24fc1840aca"
+      "contract_identity": "05e6f4fd06de8112d8f13d235c0793b6767404208cbf4210b7b9b24fc1840aca",
+      "register_path": "domains/biology/REGISTER.json",
+      "register_identity": "assumptions-register:f81b9ad496b745d850a872260f3f691020ab5ab9e3eb2b64758aeaf5dd1cfb67",
+      "contract_sha256": "11308699feb1d7f402b81b6ff1451806490b41ac71df9100658d74bbad85616c",
+      "register_sha256": "bf8d07f7367b82fbbb037116111c1fdb6fcac88146ca7e4a0aab009a3b607f27",
+      "source_id": "urn:beliefs:definitions:human-annotation-admissions",
+      "genesis": "05e6f4fd06de8112d8f13d235c0793b6767404208cbf4210b7b9b24fc1840aca"
     },
     {
       "namespace": "general",
       "contract_path": "domains/general/history/cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f/DOMAIN.yaml",
-      "contract_identity": "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
+      "contract_identity": "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f",
+      "register_path": "domains/general/history/cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f/REGISTER.json",
+      "register_identity": "assumptions-register:02642579cb0fe2330553586e4c22d56f76a227e14b0d2fe849c6917992c3dbf9",
+      "contract_sha256": "d5e7ec6c792d12d9afb08cdc58f7ce15f8512d09f525769e6ee75369841ac6a7",
+      "register_sha256": "96946aaf8ee11ede7ecddbafd27348600dce9ecac35a236342389c1807d12c24",
+      "source_id": "urn:beliefs:definitions:shared-scientific-commitments",
+      "genesis": "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
     },
     {
       "namespace": "general",
       "contract_path": "domains/general/DOMAIN.yaml",
-      "contract_identity": "e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee"
+      "contract_identity": "e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee",
+      "register_path": "domains/general/REGISTER.json",
+      "register_identity": "assumptions-register:6939b589ff96806160232b13cba8b32019c7fc80caba0b4b06b9e7d676c98095",
+      "contract_sha256": "53f9036e01080d007db4f20db9b81acecf78548512b849b81a5b340d8240b05d",
+      "register_sha256": "dbf7a185d89d202304d8944971007c8b9dd3b82ed86393946b9fbab9bae46f79",
+      "source_id": "urn:beliefs:definitions:shared-scientific-commitments",
+      "genesis": "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
     },
     {
       "namespace": "mm30",
       "contract_path": "python/tools/reproduction/mm30-phf19.yaml",
-      "contract_identity": "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
+      "contract_identity": "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d",
+      "register_path": "python/tools/reproduction/mm30-phf19-register.json",
+      "register_identity": "assumptions-register:eaafc4716d8ec208903e191fcd258eb0b1a5ba796dacb44c611293c1f058ad23",
+      "contract_sha256": "0ea492b8fcd7681cbd6d2ac4e874dc00be4f50657694611728d0b55931e2bcaa",
+      "register_sha256": "df474e157913a8ed0e0d12d666e1265a80d5bb16cd91d50df2fb8f32737b50cf",
+      "source_id": "urn:beliefs:definitions:phf19-stage-contrast-admissions",
+      "genesis": "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
     }
   ],
   "profiles": {

@@ -47,3 +47,9 @@ Two architecture rules are tested; carry both into every plan that touches the k
   `WRITE_ENTRY_POINTS` in `test_permit_boundary.py` and gains a `Case` in
   `test_permit_entry_points.py`'s `CASES`; the inventory is closed in both
   directions.
+
+- Source admission uses `contracts/source-ownership/INVENTORY.json` and the checker's
+  `SOURCE_INVENTORY_SHA256`. Review every coordinated update against its base for
+  reservation, alias, owner, adoption and historical-pin continuity. No runtime
+  inventory or external-source admission is implemented. Existing mm30 bytes are
+  frozen until checked succession support lands.

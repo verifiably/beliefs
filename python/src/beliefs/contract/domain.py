@@ -817,10 +817,9 @@ class DomainContract:
     defining_source: DefiningSource | None
 
     predecessor: str | None
-    """``None`` is ``genesis``. Genesis is an escape hatch: the
-    rules enforce immutability **within a declared lineage**, not across a
-    namespace, and closing the parallel-genesis case needs governance the
-    kernel does not supply (open; see the lineage rules in docs/contracts.md)."""
+    """``None`` is ``genesis``. Local parsing checks only the supplied lineage.
+    Repository admission rejects parallel genesis within admitted roots; unshipped
+    candidates still require joint source ownership review (docs/contracts.md)."""
 
     sorts: Mapping[str, SortDecl]
     dimensions: Mapping[str, DimensionDecl]

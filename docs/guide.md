@@ -251,3 +251,12 @@ successful demonstration certifies independence or biological interpretation.
 | Domain contracts and succession | [contracts.md](contracts.md#domain-contracts), [contracts.md](contracts.md#succession-and-retirement) |
 | Permits, ordinary writes and sessions | [writes.md](writes.md#authority-and-permits), [writes.md](writes.md#an-ordinary-write), [writes.md](writes.md#writer-sessions) |
 | Operations, publication and failures | [writes.md](writes.md#operations), [writes.md](writes.md#publication), [writes.md](writes.md#failure) |
+
+
+Domain source ownership is checked at repository admission over a pinned inventory,
+including histories and reproduction contracts. Each admitted definitions source
+has one owning lineage; aliases cannot supply a second owner. Contract/register
+pairs provide authored definitions and justified-use limits. Local compilation
+and a corpus manifest do not certify that admission verdict. Unshipped candidates
+and semantic equivalence require review; external defining sources remain
+unsupported. See [source ownership admission](contracts.md#source-ownership-admission).

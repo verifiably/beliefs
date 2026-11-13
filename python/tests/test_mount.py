@@ -138,3 +138,26 @@ def test_general_genesis_pin_requires_explicit_predecessor_despite_shipped_histo
         compile_mount_profile(root)
     assert caught.value.pin == "general:" + genesis.content_identity
     assert compile_mount_profile(root, available=(genesis,)).compiled_identity == expected.compiled_identity
+
+
+def test_current_source_adoption_preserves_shipped_and_mm30_mounts(tmp_path):
+    from reproduction import vocabulary
+
+    from beliefs.profile import shipped_domain_contract
+
+    base = shipped_base_contract()
+    general, biological = (shipped_domain_contract(n) for n in ("general", "biology"))
+    for name, domains, expected, available in (
+        ("general", [general], "2df4e0f432ae4bd41f91a7aa76f01a7985c42b9dbb4116997a56d4a431fe202a", ()),
+        ("biology", [general, biological], "f60236ec979a6292886bb3c0b61af3b1e057066e7cf5d6cb18031f1e2155b565", ()),
+        (
+            "mm30",
+            [general, biological, vocabulary.contract()],
+            "12b2b175baf874f1be1c6d48eb3f96faf6a458aa79c2da37614996fd7c067f9e",
+            (vocabulary.contract(),),
+        ),
+    ):
+        profile = compile_profile(base, domains)
+        assert profile.compiled_identity == expected
+        root = _root(tmp_path, name, pins_for(profile))
+        assert compile_mount_profile(root, available=available).compiled_identity == expected
