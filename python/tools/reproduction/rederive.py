@@ -24,7 +24,7 @@ from nodes.core.node import Node
 from beliefs import stored
 from beliefs.assess import AssessmentFinding, build_assessment
 from beliefs.audit import audit_corpus, check_verification
-from beliefs.corpus import ReadView
+from beliefs.corpus import ReadView, _StandingRecords
 from beliefs.errors import MalformedRecord, PreGrammarAssessment, PreGrammarSpec, RecordError
 from beliefs.evidence import DerivationEvidence
 from beliefs.replay import derive_scope
@@ -83,6 +83,9 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
             contract_identity="none-consulted",
             epoch="none-published",
             certification=certification,
+            series_evidence=evidence.series_evidence,
+            profile=profile(),
+            records=_StandingRecords(view),
         )
         if isinstance(rebuilt, AssessmentVerification):
             report["verdict_recomputed"], report["verdict_equal"] = (
@@ -94,7 +97,7 @@ def reconstruct(view, st: dict, evidence: DerivationEvidence) -> dict:
         if view.holds(st["spec_ref"]):
             restored = stored.analysis_spec_value(view.get(st["spec_ref"]), profile=profile())
             report["spec_restored_identity_matches_run"] = restored.identity == original.recipe.spec_identity
-    outcome = check_verification(view, node, evidence=evidence)
+    outcome = check_verification(view, node, evidence=evidence, profile=profile())
     report["audit_check"] = {
         "checked": outcome.checked,
         "reason": outcome.reason,

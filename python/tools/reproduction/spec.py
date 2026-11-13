@@ -122,7 +122,7 @@ def _context():
     return st, inputs, profile, claim, vocabulary.snapshot(), records
 
 
-def _draft(context) -> SpecDraft:
+def _draft(context, *, series_evidence=None) -> SpecDraft:
     from reproduction import type_target
 
     st, inputs, profile, claim, snapshot, records = context
@@ -139,6 +139,7 @@ def _draft(context) -> SpecDraft:
         grouping_rule_id=st["grouping_rule_ref"],
         parser_digest=parser,
         estimator_digest=estimator,
+        series_evidence=series_evidence,
     )
     return SpecDraft(
         target=st["proposition_ref"],
@@ -158,20 +159,21 @@ def _draft(context) -> SpecDraft:
     )
 
 
-def draft() -> SpecDraft:
-    return _draft(_context())
+def draft(*, series_evidence=None) -> SpecDraft:
+    return _draft(_context(), series_evidence=series_evidence)
 
 
-def frozen() -> FrozenSpec:
+def frozen(*, series_evidence=None) -> FrozenSpec:
     context = _context()
     st, _, profile, claim, _, records = context
     return freeze(
-        _draft(context),
+        _draft(context, series_evidence=series_evidence),
         held_rules=held_rules(),
         rule_procedures={INTERPRETATION_RULE: st["estimator_ref"]},
         profile=profile,
         claim=claim,
         records=records,
+        series_evidence=series_evidence,
     )
 
 

@@ -14,7 +14,7 @@ from beliefs import stored
 from beliefs.admission import Admitted, admit
 from beliefs.belief import Availability, Refused, SuppliedContext
 from beliefs.consulted import CorpusPins
-from beliefs.corpus import ReadView, lineage_snapshot
+from beliefs.corpus import ReadView, _StandingRecords, lineage_snapshot
 from beliefs.dataset import ByteObservation
 from beliefs.evaluation import evaluate_over, gather
 from beliefs.holdings.records import Found
@@ -106,13 +106,13 @@ def pins_negative(view: ReadView, key: str) -> None:
     findings.record(8, "defect", "the walk consulted biology through slot 1's sort without a pin for it")
 
 
-def main() -> int:
+def main(*, series_evidence=None) -> int:
     st = state.load()
     writer = world.open_writer()
     view = writer.read_view
     original = decode_run_closure(view.get(st["original_run_ref"]))
     replayed = decode_run_closure(view.get(st["replayed_run_ref"]))
-    frozen = spec.frozen()
+    frozen = spec.frozen(series_evidence=series_evidence)
     verification = build_verification(
         original,
         replayed,
@@ -120,6 +120,9 @@ def main() -> int:
         held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},
         contract_identity=writer.manifest_pins().science_contract,
         epoch="none-published",
+        series_evidence=series_evidence,
+        profile=vocabulary.profile(),
+        records=_StandingRecords(view),
     )
     assert isinstance(verification, AssessmentVerification)
     record = admission_record(verification)

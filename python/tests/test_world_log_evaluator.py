@@ -1511,3 +1511,20 @@ def test_genesis_form_malformation_and_world_id_mismatch_split(tmp_path: Path) -
     assert mismatch.outcome == "validated"
     assert [finding.ref for finding in mismatch.findings if finding.code == "subject-mismatch"] == ["genesis"]
     assert "genesis-form-invalid" not in codes(mismatch)
+
+
+def test_world_log_replay_does_not_launch_or_read_series_payloads(tmp_path, monkeypatch):
+    from beliefs import boundary
+    from beliefs import replay as analysis_replay
+    from beliefs import verify as analysis_verify
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("read-only world log replay reached analysis or series payloads")
+
+    monkeypatch.setattr(boundary, "execute_assessment_run", forbidden)
+    monkeypatch.setattr(analysis_replay, "replay", forbidden)
+    monkeypatch.setattr(analysis_verify, "build_verification", forbidden)
+    monkeypatch.setattr(science_root, "open_series_store", forbidden)
+    chain = populated_corpus(tmp_path)
+    report = judge(chain, carriers=(head_record(chain, chain.anchor),))
+    assert report.outcome == "validated"

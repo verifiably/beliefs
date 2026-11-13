@@ -63,6 +63,7 @@ from beliefs.confinement import (
     sandbox_environment,
 )
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+from beliefs.dependencies import HeldRecords
 from beliefs.errors import (
     CheckpointDeclarationUnmet,
     ConfinementRefusal,
@@ -75,9 +76,11 @@ from beliefs.errors import (
     TargetAmbiguous,
     TargetUnresolvable,
 )
+from beliefs.estimand import check_series
 from beliefs.identity import v1
 from beliefs.intents.publish import PublishIntent
 from beliefs.production import mint_dataset
+from beliefs.profile import ProfileSpec
 from beliefs.recipe import (
     CONFINED_POLICY,
     BoundaryPolicy,
@@ -118,7 +121,16 @@ from beliefs.report import (
 )
 from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
-from beliefs.spec import DATASET_EQUIVALENCE_RULE, SEED_DERIVATION_V1, FrozenSpec, NondeterminismContract, Seeded
+from beliefs.series.evidence import SeriesEvidence, check_series_input_content, staged_evidence
+from beliefs.series.types import SeriesGraph, SeriesRefused
+from beliefs.spec import (
+    DATASET_EQUIVALENCE_RULE,
+    SEED_DERIVATION_V1,
+    FrozenSpec,
+    NondeterminismContract,
+    Seeded,
+    _check_series_inputs,
+)
 from beliefs.tree import TREE_ALGORITHM, object_path, parse_tree_file
 
 if TYPE_CHECKING:
@@ -632,7 +644,7 @@ def _check_destinations(
         seen.add(name)
 
 
-def _stage_tree(address: str, name: str, held: HeldTree, staged: Path) -> str:
+def _stage_tree(address: str, name: str, held: HeldTree, staged: Path, *, series: bool = False) -> str:
     """Copy each member of a held tree to ``staged/<member path>``, one member at
     a time, after verifying the tree file against the tree's digest; every copy is
     re-hashed against its member's digest. Returns the tree's digest."""
@@ -640,7 +652,10 @@ def _stage_tree(address: str, name: str, held: HeldTree, staged: Path) -> str:
     tree_file = held.store_root / object_path(held.digest)
     if not tree_file.is_file() or tree_file.is_symlink():
         raise MalformedClosure(f"{label} tree file is not a readable file")
-    data = tree_file.read_bytes()
+    with tree_file.open("rb") as stream:
+        data = stream.read(16 * 1024 * 1024 + 1) if series else stream.read()
+    if series and len(data) > 16 * 1024 * 1024:
+        raise SeriesRefused("invalid-series", "staged series manifest exceeds per-file limit")
     if f"{TREE_ALGORITHM}:{sha256(data).hexdigest()}" != held.digest:
         raise MalformedClosure(f"{label} tree file does not match its digest {held.digest}")
     try:
@@ -667,6 +682,7 @@ def _stage_inputs(
     expected_inputs: Mapping[str, object] | None = None,
     *,
     staged_trees: list[Path],
+    series_graph: SeriesGraph = (),
 ) -> dict[str, str | dict[str, str]]:
     """Copy every held input into ``scratch/inputs`` and return the staged
     digests. A held tree is staged as the directory ``inputs/<name>``, which is
@@ -739,7 +755,15 @@ def _stage_inputs(
                 staged = _validate_relative_input_path(rel_name, inputs_dir)
                 if type(resource) is HeldTree:
                     staged_trees.append(staged)
-                    member_digest = _stage_tree(address, rel_name, resource, staged)
+                    member_digest = _stage_tree(
+                        address,
+                        rel_name,
+                        resource,
+                        staged,
+                        series=any(
+                            row.ref.dataset == address and row.ref.resource == resource.digest for row in series_graph
+                        ),
+                    )
                 else:
                     if not isinstance(resource, Path) or not resource.is_file() or resource.is_symlink():
                         raise MalformedClosure(f"held input {address!r} resource {rel_name!r} is not a readable file")
@@ -955,6 +979,33 @@ def _project(
     )
 
 
+def _check_staged_series(
+    spec: FrozenSpec | None,
+    profile: ProfileSpec | None,
+    records: HeldRecords | None,
+    evidence: SeriesEvidence | None,
+    root: Path,
+    held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
+    staged: Mapping[str, str | Mapping[str, str]],
+) -> None:
+    if spec is None or not spec.estimand.series_graph:
+        return
+    if profile is None or records is None or evidence is None:
+        raise SeriesRefused("evidence-unavailable", "series execution requires explicit evidence/profile/records")
+    bound = staged_evidence(
+        spec.estimand.series_graph,
+        evidence=evidence,
+        inputs_root=root / "inputs",
+        staged=staged,
+        single_names={id: source.name for id, source in held_inputs.items() if isinstance(source, Path)},
+    )
+    check_series_input_content(
+        spec.estimand.series_graph, records, {dataset: _content_identity(entry) for dataset, entry in staged.items()}
+    )
+    checked = check_series(spec.estimand, profile=profile, records=records, evidence=bound)
+    _check_series_inputs(checked, spec.input_roles, records, profile)
+
+
 def _execute_run(
     *,
     intent: AssessmentRunIntent | OperationIntent,
@@ -978,6 +1029,9 @@ def _execute_run(
     cores: int,
     boundary_policy: BoundaryPolicy,
     staged_trees: list[Path],
+    series_evidence: SeriesEvidence | None = None,
+    profile: ProfileSpec | None = None,
+    records: HeldRecords | None = None,
 ) -> RunMinted | RunRefused:
     try:
         scratch_base = _scratch_base(staging)
@@ -1025,8 +1079,19 @@ def _execute_run(
                 staging=run_staging,
                 cores=cores,
                 staged_trees=staged_trees,
+                series_evidence=series_evidence,
+                profile=profile,
+                records=records,
             )
-        staged = _stage_inputs(addresses, held_inputs, scratch, expected, staged_trees=staged_trees)
+        staged = _stage_inputs(
+            addresses,
+            held_inputs,
+            scratch,
+            expected,
+            staged_trees=staged_trees,
+            series_graph=spec.estimand.series_graph if spec else (),
+        )
+        _check_staged_series(spec, profile, records, series_evidence, scratch, held_inputs, staged)
         held = {address: _content_identity(entry) for address, entry in staged.items()}
         invocation = Invocation(
             entrypoint=entrypoint,
@@ -1055,7 +1120,15 @@ def _execute_run(
             planning_handler = planning_dir / "handler.py"
             planning_events = planning_dir / "events.jsonl"
             planning_handler.write_text(LOG_HANDLER_SCRIPT)
-            _stage_inputs(addresses, held_inputs, planning_dir, staged, staged_trees=staged_trees)
+            planning_staged = _stage_inputs(
+                addresses,
+                held_inputs,
+                planning_dir,
+                staged,
+                staged_trees=staged_trees,
+                series_graph=spec.estimand.series_graph if spec else (),
+            )
+            _check_staged_series(spec, profile, records, series_evidence, planning_dir, held_inputs, planning_staged)
             planning_argv = build_argv(
                 interpreter=sys.executable,
                 snakefile=str(captured_entrypoint),
@@ -1102,6 +1175,7 @@ def _execute_run(
         )
         env = {**os.environ, "SCIENCE_TRACE_FILE": str(events)}
         require_executing_environment(recipe.environment)
+        _check_staged_series(spec, profile, records, series_evidence, scratch, held_inputs, staged)
         returncode, _ = run_engine(argv, cwd=scratch, env=env)
         if returncode != 0:
             return _refused("execution-failed", subject, actor, observer, started_at, intent)
@@ -1163,6 +1237,9 @@ def _execute_confined(
     staging: tuple[RunStaging, str] | None,
     cores: int,
     staged_trees: list[Path],
+    series_evidence: SeriesEvidence | None = None,
+    profile: ProfileSpec | None = None,
+    records: HeldRecords | None = None,
 ) -> RunMinted | RunRefused:
     """The scratch root's ``out/`` is the host side of
     the output root; the closure is snapshotted, verified, bound and observed;
@@ -1179,7 +1256,15 @@ def _execute_confined(
     output_root.mkdir()
     (output_root / TRACE_DIR).mkdir()
     (output_root / HOME_DIR).mkdir()
-    staged = _stage_inputs(addresses, held_inputs, output_root, expected_inputs, staged_trees=staged_trees)
+    staged = _stage_inputs(
+        addresses,
+        held_inputs,
+        output_root,
+        expected_inputs,
+        staged_trees=staged_trees,
+        series_graph=spec.estimand.series_graph if spec else (),
+    )
+    _check_staged_series(spec, profile, records, series_evidence, output_root, held_inputs, staged)
     held = {address: _content_identity(entry) for address, entry in staged.items()}
     invocation = Invocation(
         entrypoint=entrypoint,
@@ -1213,7 +1298,15 @@ def _execute_confined(
     try:
         (planning_root / TRACE_DIR).mkdir()
         (planning_root / HOME_DIR).mkdir()
-        _stage_inputs(addresses, held_inputs, planning_root, staged, staged_trees=staged_trees)
+        planning_staged = _stage_inputs(
+            addresses,
+            held_inputs,
+            planning_root,
+            staged,
+            staged_trees=staged_trees,
+            series_graph=spec.estimand.series_graph if spec else (),
+        )
+        _check_staged_series(spec, profile, records, series_evidence, planning_root, held_inputs, planning_staged)
         (planning_root / TRACE_DIR / "handler.py").write_text(LOG_HANDLER_SCRIPT)
         planning_argv = build_argv(
             interpreter=f"{SANDBOX_VENV}/bin/python",
@@ -1287,6 +1380,7 @@ def _execute_confined(
     )
     if staging is not None:
         staging[0].check_binds(execution_plan, staging[1])
+    _check_staged_series(spec, profile, records, series_evidence, output_root, held_inputs, staged)
     launched = launch_confined(
         plan=execution_plan,
         environment=environment,
@@ -1352,6 +1446,9 @@ def execute_assessment_run(
     host_realization: str,
     scratch_base: Path | None = None,
     cores: int = 1,
+    series_evidence: SeriesEvidence | None = None,
+    profile: ProfileSpec | None = None,
+    records: HeldRecords | None = None,
 ) -> RunMinted | RunRefused:
     try:
         port.authority.require("run", ("run", "act-report"))
@@ -1400,6 +1497,9 @@ def execute_assessment_run(
             cores=cores,
             boundary_policy=supported_policy(boundary_policy),
             staged_trees=staged_trees,
+            series_evidence=series_evidence,
+            profile=profile,
+            records=records,
         )
     finally:
         _remove_staged_trees(staged_trees)

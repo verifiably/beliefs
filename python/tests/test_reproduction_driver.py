@@ -229,7 +229,25 @@ def test_10b_reads_the_report_from_the_corpus_with_no_in_process_spec(tmp_path, 
     monkeypatch.setattr(spec, "INTERPRETATION", interpretation)
     st = {"verification_ref": node.id, "spec_ref": spec_node.id}
     view = writer.read_view
-    report = rederive.reconstruct(view, st, close.evidence_for(view, TESTING_PROFILE))
+    from dataclasses import replace
+
+    from beliefs.series.evidence import SeriesEvidence
+
+    supplied = SeriesEvidence({}, {})
+    actual_verification = rederive.build_verification
+    forwarded = []
+
+    def verification(*args, **kwargs):
+        assert kwargs["profile"] is TESTING_PROFILE
+        assert kwargs["records"].holds(published.assessment.id)
+        forwarded.append(kwargs["series_evidence"])
+        return actual_verification(*args, **kwargs)
+
+    monkeypatch.setattr(rederive, "build_verification", verification)
+    report = rederive.reconstruct(
+        view, st, replace(close.evidence_for(view, TESTING_PROFILE), series_evidence=supplied)
+    )
+    assert forwarded == [supplied]
     assert report["comparison_report_stored"] is True
     assert report["scope_equal"] is True and report["verdict_equal"] is True and report["report_identity_equal"] is True
     assert report["inputs"]["in_process"] == ["interpretation and equivalence RuleImplementations"]
@@ -901,7 +919,24 @@ def test_step8_evaluates_after_mint_and_reopen_before_diagnostics(tmp_path, monk
     monkeypatch.setattr(driver.world, "open_writer", opened)
     monkeypatch.setattr(driver.state, "load", lambda: st)
     monkeypatch.setattr(driver.state, "save", lambda **values: saved.update(values))
-    monkeypatch.setattr(driver.spec, "frozen", lambda: published.frozen)
+    from beliefs.series.evidence import SeriesEvidence
+
+    supplied = SeriesEvidence({}, {})
+
+    def frozen(**kwargs):
+        assert kwargs["series_evidence"] is supplied
+        return published.frozen
+
+    monkeypatch.setattr(driver.spec, "frozen", frozen)
+    actual_verification = driver.build_verification
+
+    def verification(*args, **kwargs):
+        assert kwargs["series_evidence"] is supplied
+        assert kwargs["profile"] is TESTING_PROFILE
+        assert kwargs["records"].holds(published.assessment.id)
+        return actual_verification(*args, **kwargs)
+
+    monkeypatch.setattr(driver, "build_verification", verification)
     monkeypatch.setattr(driver.spec, "EQUIVALENCE", CONTENT_EQUALITY)
     monkeypatch.setattr(driver.vocabulary, "profile", lambda: TESTING_PROFILE)
     kwargs = evaluation_kwargs(writer.read_view)
@@ -928,7 +963,7 @@ def test_step8_evaluates_after_mint_and_reopen_before_diagnostics(tmp_path, monk
 
     monkeypatch.setattr(driver, "gather", diagnostic)
     monkeypatch.setattr(driver, "pins_negative", lambda view, key: events.append(("pins", key)))
-    code = driver.main()
+    code = driver.main(series_evidence=supplied)
     assert events.index("evaluate") > events.index("open")
     if multiple:
         assert code == 2
@@ -990,3 +1025,78 @@ def test_assoc_rejects_duplicate_features_and_unknown_label_tokens(tmp_path):
     matrix = _matrix(tmp_path, ["a_NDMM", "b_unknown"], [["g1", "1", "2"]])
     with pytest.raises(assoc.MalformedInput, match="unknown group token"):
         assoc.load(matrix, value_row="g1")
+
+
+def test_reproduction_callers_forward_series_context(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from fixtures_cut3 import MEMORY_PORT, TESTING_CLAIM, TESTING_PROFILE, spec_rules
+    from reproduction import run as driver
+    from test_stored import _testing_writer
+    from verification_fixtures import publish_corpus
+
+    from beliefs.projection import project_claim
+    from beliefs.replay import CONTENT_EQUALITY
+    from beliefs.series.evidence import SeriesEvidence
+
+    writer = _testing_writer(tmp_path / "corpus")
+    published = publish_corpus(writer, claim=project_claim(TESTING_CLAIM))
+    supplied = SeriesEvidence({}, {})
+    states = {
+        "dataset_address": published.frozen.input_roles[0].dataset,
+        "held_file": str(tmp_path / "held"),
+        "proposition_ref": published.proposition.id,
+    }
+    monkeypatch.setattr(driver.state, "load", lambda: states)
+    monkeypatch.setattr(driver.state, "save", lambda **kw: None)
+    monkeypatch.setattr(
+        driver.world,
+        "open_writer",
+        lambda: SimpleNamespace(
+            read_view=writer.read_view,
+            add=lambda node: published.assessment,
+            manifest_pins=writer.manifest_pins,
+        ),
+    )
+    monkeypatch.setattr(driver, "port", lambda: MEMORY_PORT)
+    monkeypatch.setattr(driver, "profile", lambda: TESTING_PROFILE)
+
+    def frozen(**kwargs):
+        assert kwargs["series_evidence"] is supplied
+        return published.frozen
+
+    monkeypatch.setattr(driver.spec, "frozen", frozen)
+    monkeypatch.setattr(driver.spec, "definition", lambda: None)
+    monkeypatch.setattr(driver.spec, "code_root", lambda: tmp_path)
+    monkeypatch.setattr(driver.spec, "EQUIVALENCE", CONTENT_EQUALITY)
+    monkeypatch.setattr(driver.spec, "INTERPRETATION", spec_rules()[published.frozen.interpretation_rule])
+    monkeypatch.setattr(driver.findings, "record", lambda *a, **kw: None)
+    calls = []
+
+    def context(kwargs):
+        assert kwargs["series_evidence"] is supplied
+        assert kwargs["profile"] is TESTING_PROFILE
+        assert kwargs["records"].holds(published.assessment.id)
+
+    def execute(**kwargs):
+        context(kwargs)
+        calls.append("execute")
+        return SimpleNamespace(run=published.original)
+
+    def replay(*args, **kwargs):
+        context(kwargs)
+        calls.append("replay")
+        return SimpleNamespace(run=published.replayed)
+
+    actual = driver.build_verification
+
+    def verify(*args, **kwargs):
+        context(kwargs)
+        calls.append("verify")
+        return actual(*args, **kwargs)
+
+    monkeypatch.setattr(driver, "execute_assessment_run", execute)
+    monkeypatch.setattr(driver, "replay", replay)
+    monkeypatch.setattr(driver, "build_verification", verify)
+    assert driver.main(series_evidence=supplied) == 0
+    assert calls == ["execute", "replay", "verify"]

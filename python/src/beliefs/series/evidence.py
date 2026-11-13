@@ -6,19 +6,27 @@ from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
+from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeAlias
 
 from beliefs.dataset import dataset_address, declaration_from_facet
 from beliefs.errors import DependencyNotHeld, ScienceError
 from beliefs.holdings.records import StoreLocator, StoreTreeLocator
-from beliefs.series.types import SeriesRef, SeriesRefused
+from beliefs.series.types import SeriesGraph, SeriesRef, SeriesRefused
 from beliefs.tree import object_path, parse_tree_file
 
 if TYPE_CHECKING:
     from beliefs.dependencies import HeldRecords
 
-__all__ = ["ReadBudget", "SeriesEvidence", "SeriesStoreRead", "load_series_object"]
+__all__ = [
+    "ReadBudget",
+    "SeriesEvidence",
+    "SeriesStoreRead",
+    "check_series_input_content",
+    "load_series_object",
+    "staged_evidence",
+]
 
 SeriesStoreRead: TypeAlias = Callable[[str, int], bytes]
 _FILE_BYTES = 16 * 1024 * 1024
@@ -129,3 +137,93 @@ def load_series_object(ref: SeriesRef, *, records: HeldRecords, evidence: Series
     data = budget._read(location.store_id, object_path(member.digest), read)
     _hash(data, member.digest, member.size)
     return data
+
+
+def staged_evidence(
+    graph: SeriesGraph,
+    *,
+    evidence: SeriesEvidence,
+    inputs_root: Path,
+    staged: Mapping[str, str | Mapping[str, str]],
+    single_names: Mapping[str, str],
+) -> SeriesEvidence:
+    """Bind the selected locations to immutable buffers from this staged copy.
+
+    Tree manifests remain explicitly supplied evidence. Their verified member
+    paths are read in the staged tree; no locator or store authority is invented.
+    """
+    buffers: dict[tuple[str, str], bytes] = {}
+    budget = ReadBudget()
+
+    def capture(store, path, read):
+        data = budget._read(store, path, read)
+        key = (store, path)
+        if key in buffers and buffers[key] != data:
+            raise SeriesRefused("invalid-series", "staged copies disagree at one selected location")
+        buffers[key] = data
+        return data
+
+    def local(path):
+        def read(_name, limit):
+            if path.is_symlink() or not path.is_file():
+                raise SeriesRefused("evidence-unavailable", "staged series resource is not a regular file")
+            with path.open("rb") as stream:
+                return stream.read(limit + 1)
+
+        return read
+
+    for row in graph:
+        ref = row.ref
+        location = evidence.locations.get(ref)
+        if location is None or location.store_id not in evidence.stores:
+            raise SeriesRefused("evidence-unavailable", "series staged binding lacks its explicit location")
+        entry = staged.get(ref.dataset)
+        if isinstance(entry, str):
+            names = [single_names[ref.dataset]] if entry == ref.resource else []
+        elif isinstance(entry, Mapping):
+            names = [name for name, digest in entry.items() if digest == ref.resource]
+        else:
+            names = []
+        if not names:
+            raise SeriesRefused("invalid-series", "series resource is not in the staged input digest map")
+        if isinstance(location, StoreTreeLocator):
+            manifest_path = object_path(ref.resource)
+            manifest = capture(location.store_id, manifest_path, evidence.stores[location.store_id])
+            _hash(manifest, ref.resource)
+            tree = parse_tree_file(manifest)
+            member = next((m for m in tree.members if m.path == ref.member), None)
+            if member is None:
+                raise SeriesRefused("invalid-series", "series member is absent from the explicit manifest")
+            for name in names:
+                capture(location.store_id, object_path(member.digest), local(inputs_root / name / member.path))
+        else:
+            for name in names:
+                capture(location.store_id, location.relative_path, local(inputs_root / name))
+
+    def store_reader(store):
+        return lambda path, limit: buffers[(store, path)]
+
+    return SeriesEvidence({store: store_reader(store) for store in evidence.stores}, evidence.locations)
+
+
+def check_series_input_content(graph: SeriesGraph, records: HeldRecords, contents: Mapping[str, str]) -> None:
+    """Match full content sets under the existing file and resource-map folds.
+
+    Dataset identity ignores resource names and repetition. A singleton set
+    can be staged as a file (raw digest) or a resource map (dataset fold).
+    """
+    for dataset in sorted({row.ref.dataset for row in graph}):
+        if not records.holds(dataset):
+            raise DependencyNotHeld(f"series dataset {dataset} is not recorded")
+        declaration = declaration_from_facet(records.read(dataset).facets["dataset"])
+        address = dataset_address(declaration)
+        if address is None or address != dataset:
+            raise SeriesRefused("invalid-series", "series input declaration/address disagrees")
+        digests = {resource.digest for resource in declaration.resources}
+        allowed = {address.removeprefix("dataset:")}
+        if len(digests) == 1:
+            digest = next(iter(digests))
+            assert digest is not None  # a content address above requires every digest
+            allowed.add(digest)
+        if contents.get(dataset) not in allowed:
+            raise SeriesRefused("invalid-series", "series input content differs from its dataset declaration")

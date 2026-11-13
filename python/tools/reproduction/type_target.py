@@ -172,6 +172,7 @@ def estimand(
     grouping_rule_id: str,
     parser_digest: str,
     estimator_digest: str,
+    series_evidence=None,
 ):
     expected_claim = typed(inputs, profile)
     if claim_identity(claim) != claim_identity(expected_claim):
@@ -214,6 +215,7 @@ def estimand(
         applicability=app,
         snapshot=snapshot,
         records=records,
+        series_evidence=series_evidence,
     )
     return value, app
 

@@ -225,3 +225,55 @@ def test_duplicate_canonical_gene_party_refuses_under_mm30_profile():
             polarity="positive",
             layer="statistical",
         )
+
+
+@pytest.mark.parametrize("entry", ["estimand", "frozen"])
+def test_reproduction_callers_forward_series_context(entry, monkeypatch, tmp_path):
+    from reproduction import spec
+
+    from beliefs.series.evidence import SeriesEvidence
+
+    inputs, args = context()
+    evidence = SeriesEvidence({}, {})
+    seen = []
+    actual_build = type_target.build_estimand
+
+    def build(*positional, **keywords):
+        assert keywords["series_evidence"] is evidence
+        assert keywords["records"] is args["records"]
+        seen.append("estimand")
+        return actual_build(*positional, **keywords)
+
+    monkeypatch.setattr(type_target, "build_estimand", build)
+    if entry == "estimand":
+        type_target.estimand(inputs, **args, series_evidence=evidence)
+    else:
+        estimator = next(
+            id for id, node in args["records"].nodes.items() if node.kind == "procedure" and id != args["assay_id"]
+        )
+        state = {
+            "proposition_ref": "proposition:fixture",
+            "assay_ref": args["assay_id"],
+            "grouping_rule_ref": args["grouping_rule_id"],
+            "estimator_ref": estimator,
+            "dataset_address": "dataset:sha256:" + "1" * 64,
+            "registers": (),
+        }
+        monkeypatch.setattr(
+            spec, "_context", lambda: (state, inputs, args["profile"], args["claim"], args["snapshot"], args["records"])
+        )
+        monkeypatch.setattr(spec, "code_root", lambda: tmp_path)
+        monkeypatch.setattr(
+            type_target, "implementation_digests", lambda *a: (args["parser_digest"], args["estimator_digest"])
+        )
+        actual_freeze = spec.freeze
+
+        def freeze(*positional, **keywords):
+            assert keywords["series_evidence"] is evidence
+            assert keywords["records"] is args["records"]
+            seen.append("freeze")
+            return actual_freeze(*positional, **keywords)
+
+        monkeypatch.setattr(spec, "freeze", freeze)
+        spec.frozen(series_evidence=evidence)
+    assert seen == (["estimand"] if entry == "estimand" else ["estimand", "freeze"])

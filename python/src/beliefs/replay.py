@@ -19,7 +19,9 @@ from beliefs.boundary import (
     execute_production_run,
     resolve_targets,
 )
+from beliefs.dependencies import HeldRecords
 from beliefs.errors import MalformedRecord, TargetAmbiguous, TargetUnresolvable
+from beliefs.profile import ProfileSpec
 from beliefs.recipe import (
     REQUIRED_FOR_CLEAN_ENVIRONMENT,
     BoundaryReceipt,
@@ -30,6 +32,7 @@ from beliefs.recipe import (
 )
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
+from beliefs.series.evidence import SeriesEvidence
 from beliefs.spec import (
     SEED_DERIVATION_V1,
     FrozenSpec,
@@ -142,6 +145,9 @@ def replay(
     host_realization: str,
     scratch_base: Path,
     cores: int = 1,
+    series_evidence: SeriesEvidence | None = None,
+    profile: ProfileSpec | None = None,
+    records: HeldRecords | None = None,
 ) -> RunMinted | RunRefused:
     closure = original.run if type(original) is RunMinted else original
     common = {
@@ -163,7 +169,9 @@ def replay(
     common["expected_recipe_identity"] = recipe.identity()
     common["expected_inputs"] = _bind_recipe_inputs(recipe.inputs, expected_inputs)
     if recipe.shape == "assessment":
-        outcome = execute_assessment_run(spec=spec, **common)
+        outcome = execute_assessment_run(
+            spec=spec, series_evidence=series_evidence, profile=profile, records=records, **common
+        )
     else:
         outcome = execute_production_run(
             inputs=recipe.inputs,

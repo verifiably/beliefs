@@ -4165,7 +4165,7 @@ class CorpusWriter:
         for record in records:
             try:
                 if record.kind == "verification":
-                    outcome = check_verification(union, record, evidence=evidence)
+                    outcome = check_verification(union, record, evidence=evidence, profile=self.profile)
                 elif record.kind == "assessment":
                     outcome = check_assessment(union, record, evidence=evidence, profile=self._profile)
                 else:

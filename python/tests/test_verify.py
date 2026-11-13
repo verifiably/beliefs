@@ -148,6 +148,9 @@ def test_the_constructor_list_is_closed(pair):
         "epoch",
         "certification",
         "citation",
+        "series_evidence",
+        "profile",
+        "records",
     ]
     for forbidden in (
         "report",

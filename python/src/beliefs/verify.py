@@ -16,8 +16,10 @@ from nodes.core.node import Node
 from nodes.core.relations import Relation
 
 from beliefs import record, stored
+from beliefs.dependencies import HeldRecords
 from beliefs.errors import MalformedClosure, MalformedRecord, MixedShapes, NotAnAssessmentVerification, RuleUnbound
 from beliefs.identity import v1
+from beliefs.profile import ProfileSpec
 from beliefs.recipe import RunClosure
 from beliefs.replay import (
     CodeLineageCertification,
@@ -27,6 +29,8 @@ from beliefs.replay import (
 )
 from beliefs.report import ActReport, _entry_facet, cite
 from beliefs.sealed import sealed
+from beliefs.series.evidence import SeriesEvidence, check_series_input_content
+from beliefs.series.types import SeriesRefused
 from beliefs.spec import DATASET_EQUIVALENCE_RULE, FrozenSpec
 from beliefs.verification import SCOPES, VERDICTS, Verification
 
@@ -568,6 +572,7 @@ class _Derived:
     scope: str
     verdict: str
     assessment: str | None
+    series_unchecked: str | None
 
 
 def _derive(
@@ -578,6 +583,9 @@ def _derive(
     held_rules: Mapping[str, EquivalenceImplementation],
     certification: CodeLineageCertification | None,
     citation: EmbeddedCitation | None,
+    series_evidence: SeriesEvidence | None = None,
+    profile: ProfileSpec | None = None,
+    records: HeldRecords | None = None,
 ) -> _Derived:
     """The one derivation, for the constructor and for the audit. Every scope-bearing fact is read from the runs; the
     certification and citation are the authored claims the caller embeds."""
@@ -589,6 +597,45 @@ def _derive(
         # audit path `audit_corpus` names the record itself — `ref=node.id` and a
         # `{node.id}:` message on the `derivation-malformed` finding.
         raise MalformedRecord(f"equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
+    from beliefs.errors import DependencyNotHeld
+    from beliefs.estimand import check_series
+
+    diagnostics = list(_job_diagnostics(original, replayed))
+    series_unchecked = None
+    for run in (original, replayed):
+        target_spec = specs.get(run.recipe.spec_identity or "")
+        if target_spec is None:
+            if spec is not None and spec.estimand.series_graph:
+                series_unchecked = "series replay frozen spec is not held"
+            continue
+        if not target_spec.estimand.series_graph:
+            continue
+        if series_evidence is None or profile is None or records is None:
+            series_unchecked = "series evidence/profile/records were not supplied"
+            continue
+        try:
+            checked = check_series(target_spec.estimand, profile=profile, records=records, evidence=series_evidence)
+            from beliefs.spec import _check_series_inputs
+
+            _check_series_inputs(checked, target_spec.input_roles, records, profile)
+            content = {i.dataset: i.content for i in run.recipe.inputs}
+            check_series_input_content(target_spec.estimand.series_graph, records, content)
+            if {(i.role, i.dataset) for i in run.recipe.inputs} != {
+                (i.role, i.dataset) for i in target_spec.input_roles
+            }:
+                raise SeriesRefused("invalid-series", "series run inputs differ from the frozen spec")
+        except DependencyNotHeld as error:
+            series_unchecked = f"series dependency unavailable: {error}"
+        except SeriesRefused as error:
+            if error.code == "evidence-unavailable":
+                series_unchecked = f"series evidence unavailable: {error.detail}"
+            else:
+                diagnostics.append(f"series contradiction: {error.detail}")
+                verdict = "failed"
+    if series_unchecked is not None:
+        diagnostics.append(series_unchecked)
+        if verdict != "failed":
+            verdict = "inconclusive"
     report = _mint_comparison_report(
         original_conformance=conformance(original),
         replay_conformance=conformance(replayed),
@@ -596,7 +643,7 @@ def _derive(
         rule_bindings=((rule, implementation_identity),),
         certification=certification,
         citation=citation,
-        diagnostics=_job_diagnostics(original, replayed),
+        diagnostics=tuple(diagnostics),
     )
     assessment = None
     if spec is not None:
@@ -605,7 +652,7 @@ def _derive(
             {"spec": spec.identity, "run": original.address(), "proposition": spec.target},
         )
     scope = derive_scope(original, replayed, certification=certification)
-    return _Derived(rule, implementation_identity, report, scope, verdict, assessment)
+    return _Derived(rule, implementation_identity, report, scope, verdict, assessment, series_unchecked)
 
 
 def build_verification(
@@ -618,6 +665,9 @@ def build_verification(
     epoch: str,
     certification: CodeLineageCertification | None = None,
     citation: tuple[ActReport, int] | None = None,
+    series_evidence: SeriesEvidence | None = None,
+    profile: ProfileSpec | None = None,
+    records: HeldRecords | None = None,
 ) -> RunVerification:
     """Derive a verification from the selected records available here.
 
@@ -638,7 +688,15 @@ def build_verification(
         entry = cite(published, index)
         embedded_citation = EmbeddedCitation(report_ref=published.identity(), index=index, content=_entry_facet(entry))
     derived = _derive(
-        original, replayed, specs=specs, held_rules=held_rules, certification=certification, citation=embedded_citation
+        original,
+        replayed,
+        specs=specs,
+        held_rules=held_rules,
+        certification=certification,
+        citation=embedded_citation,
+        series_evidence=series_evidence,
+        profile=profile,
+        records=records,
     )
     common = {
         "original": original.address(),

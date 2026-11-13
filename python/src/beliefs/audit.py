@@ -54,6 +54,7 @@ from beliefs.corpus import (
     corpus_check,
     eligibility_outcome,
 )
+from beliefs.dependencies import HeldRecords
 from beliefs.errors import (
     CorpusDamaged,
     IdentityError,
@@ -227,7 +228,11 @@ def _closure(view: ReadView | _ImportView | WorldReadView, ref: str) -> tuple[Ru
 
 
 def check_verification(
-    view: ReadView | _ImportView | WorldReadView, node: Node, *, evidence: DerivationEvidence
+    view: ReadView | _ImportView | WorldReadView,
+    node: Node,
+    *,
+    evidence: DerivationEvidence,
+    profile: ProfileSpec | None = None,
 ) -> DerivationOutcome:
     """Recompute a stored verification's derivation from the two runs it names —
     verdict and assessment identity always; rule, scope rule, scope and report
@@ -256,9 +261,14 @@ def check_verification(
             held_rules=evidence.held_rules,
             certification=certification,
             citation=citation,
+            series_evidence=evidence.series_evidence,
+            profile=profile,
+            records=cast("HeldRecords", _AuditRecordReader(view)),
         )
     except RuleUnbound as unbound:
         return _unchecked(str(unbound))
+    if derived.series_unchecked is not None:
+        return _unchecked(derived.series_unchecked)
     stored_value = stored.verification_value(node)
     disagreements: list[str] = []
     if derived.verdict != stored_value.verdict:
@@ -315,7 +325,7 @@ def check_assessment(
     if not isinstance(derived, AssessmentValue):
         return _unchecked(derived.reason)
     disagreements = _assessment_disagreements(stored_value, derived)
-    from beliefs.dependencies import HeldRecords, series_dependency_closure
+    from beliefs.dependencies import series_dependency_closure
     from beliefs.errors import DependencyNotHeld
     from beliefs.estimand import binding_roots, check_series
     from beliefs.series.types import SeriesRefused
@@ -778,7 +788,7 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
             if cross is not None:
                 findings.append(cross)
             if node.kind == "verification":
-                outcome = check_verification(view, node, evidence=evidence)
+                outcome = check_verification(view, node, evidence=evidence, profile=profile)
             elif node.kind == "assessment":
                 outcome = check_assessment(view, node, evidence=evidence, profile=profile)
             elif node.kind == "dataset":
@@ -836,7 +846,7 @@ def _recompute(
     view: WorldReadView, node: Node, evidence: DerivationEvidence, profile: ProfileSpec
 ) -> DerivationOutcome | None:
     if node.kind == "verification":
-        return check_verification(view, node, evidence=evidence)
+        return check_verification(view, node, evidence=evidence, profile=profile)
     if node.kind == "assessment":
         return check_assessment(view, node, evidence=evidence, profile=profile)
     if node.kind == "dataset":

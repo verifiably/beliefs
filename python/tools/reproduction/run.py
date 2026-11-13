@@ -21,6 +21,7 @@ from atoms.fs.platform import select_backend
 from beliefs import stored
 from beliefs.assess import AssessmentFinding, build_assessment
 from beliefs.boundary import RunRefused, execute_assessment_run
+from beliefs.corpus import _StandingRecords
 from beliefs.recipe import CONFINED_POLICY
 from beliefs.replay import CONFORMING, conformance, derive_scope, replay
 from beliefs.root import PRODUCTION_STORAGE, DurableOperationPort, metadata_root_for
@@ -64,9 +65,10 @@ def classify_scope(scope: str, *, conforming: tuple[bool, bool], recipes_agree: 
     return "defect"
 
 
-def main() -> int:
+def main(*, series_evidence=None) -> int:
     st = state.load()
-    frozen = spec.frozen()
+    frozen = spec.frozen(series_evidence=series_evidence)
+    writer = world.open_writer()
     held = {st["dataset_address"]: Path(st["held_file"])}
     common = {
         "port": port(),
@@ -79,6 +81,9 @@ def main() -> int:
         "observer": OBSERVER,
         "host_realization": socket.gethostname(),
         "cores": 1,
+        "series_evidence": series_evidence,
+        "profile": profile(),
+        "records": _StandingRecords(writer.read_view),
     }
     # Step 5
     original = execute_assessment_run(
@@ -105,7 +110,6 @@ def main() -> int:
         findings.record(6, "defect", f"AssessmentFinding: {derived.reason}")
         print(f"ASSESSMENT FINDING: {derived.reason}")
         return 2
-    writer = world.open_writer()
     minted = writer.add(
         stored.assessment_node(
             derived.identity()[:16],
@@ -158,6 +162,9 @@ def main() -> int:
         held_rules={spec.EQUIVALENCE.identity: spec.EQUIVALENCE},
         contract_identity=writer.manifest_pins().science_contract,
         epoch="none-published",
+        series_evidence=series_evidence,
+        profile=profile(),
+        records=_StandingRecords(writer.read_view),
     )
     assert isinstance(verification, AssessmentVerification), verification
     state.save(
