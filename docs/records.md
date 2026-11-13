@@ -489,9 +489,17 @@ existing file/resource-map folds.
 |---|---|
 | `build_estimand`, `freeze`, `revise` | Explicit evidence, fresh graph/geometry checks; absence refuses |
 | Stored decode, ordinary add/import, standing, evaluation, recursive eligibility | Copied graph and held records only; no store opening or fresh geometry verdict |
-| Assessment/verification audit | Explicit evidence can establish agreement or contradiction; absence/unreadability is unchecked |
+| Assessment/verification audit | Explicit evidence checks geometry; unavailable geometry is unchecked, while independently known contradictions remain findings |
 | Run preparation and replay | Check actual staged copies before both planning and execution, including manifests and predecessors |
 | New series verification | Check both frozen targets, input commitments and local bytes before report/verdict minting; missing evidence cannot produce passed, while an otherwise passing comparison becomes inconclusive; contradiction fails |
+
+Missing series bytes do not erase an independently established outcome, output,
+assessment-identity, rule or scope contradiction. An unavailable geometry check
+is not itself contradictory, and its new diagnostics do not invalidate an
+otherwise agreeing stored report. Native-table verification uses strict captured
+record reads for standing, including ancestors, producing runs and the route-
+retraction fold. Malformed neighbours leave that check unavailable; a valid
+retired or diverged lineage remains a known refusal.
 
 A copied graph is a structural declaration, not a validation receipt. A
 consistently forged graph can pass structural decoding without representing

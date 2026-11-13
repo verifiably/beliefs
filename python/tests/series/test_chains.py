@@ -276,16 +276,13 @@ def test_inherited_observation_is_preserved(chain_profile, tmp_path, lineage_sta
     assert not records.empirical_standing(metadata, chain_profile)
 
 
-@pytest.mark.parametrize("condition", ["agree", "no-standing-adapter", "diverged"])
-def test_native_observation_verification_and_audit(chain_profile, tmp_path, condition):
-    import lineage_fixtures as lineage
+def native_verification_case(chain_profile, tmp_path):
     from authority import ACTOR
     from closure_fixtures import make_closure
 
     from beliefs.evidence import DerivationEvidence
     from beliefs.recipe import RecipeInput
     from beliefs.spec import HeldImplementation, freeze
-    from beliefs.verify import publication_node
 
     case, _value, writer, records, draft, args, dataset = inherited_case(chain_profile, tmp_path, "complete")
     from fixtures_cut3 import spec_rules
@@ -312,17 +309,27 @@ def test_native_observation_verification_and_audit(chain_profile, tmp_path, cond
         ),
     )
     replayed = replace(original, occurrence=replace(original.occurrence, event_token="native-replay"))
-    if condition == "diverged":
-        other = writer.add(lineage.acquired("new-series-source"))
-        writer.add(lineage.production("new-series-producer", other.id, dataset))
-        assert not records.empirical_standing(dataset, chain_profile)
-    supplied_records = case.records if condition == "no-standing-adapter" else records
     evidence = DerivationEvidence(
         specs={spec.identity: spec},
         held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY},
         implementations={},
         series_evidence=case.evidence(),
     )
+    return case, writer, records, dataset, original, replayed, evidence
+
+
+@pytest.mark.parametrize("condition", ["agree", "no-standing-adapter", "diverged"])
+def test_native_observation_verification_and_audit(chain_profile, tmp_path, condition):
+    import lineage_fixtures as lineage
+
+    from beliefs.verify import publication_node
+
+    case, writer, records, dataset, original, replayed, evidence = native_verification_case(chain_profile, tmp_path)
+    if condition == "diverged":
+        other = writer.add(lineage.acquired("new-series-source"))
+        writer.add(lineage.production("new-series-producer", other.id, dataset))
+        assert not records.empirical_standing(dataset, chain_profile)
+    supplied_records = case.records if condition == "no-standing-adapter" else records
     derived = build_verification(
         original,
         replayed,

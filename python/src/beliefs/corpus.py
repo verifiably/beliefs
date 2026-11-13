@@ -841,9 +841,13 @@ class _CheckView:
 class _CapturedCheckView:
     """`_CheckView`'s shape over one corpus's captured records — mapped and
     drift alike — resolving live and deprecated ids over that set and nothing
-    else, so "does not resolve locally" means the capture."""
+    else, so "does not resolve locally" means the capture. Classification reads
+    raw records by default; strict consumers validate each fetched record."""
 
-    def __init__(self, records: Sequence[Node], *, addresses: Mapping[str, str] | None = None) -> None:
+    def __init__(
+        self, records: Sequence[Node], *, addresses: Mapping[str, str] | None = None, validate_records: bool = False
+    ) -> None:
+        self._validate_records = validate_records
         self._by_id = {node.id: node for node in records}
         if addresses is not None:
             self._live = dict(addresses)
@@ -862,7 +866,8 @@ class _CapturedCheckView:
 
     def get(self, ref: str) -> Node:
         resolved = self.resolve(ref)
-        return self._by_id[resolved if resolved is not None else ref]
+        node = self._by_id[resolved if resolved is not None else ref]
+        return validated_node(node) if self._validate_records else node
 
     def iter_stored(self) -> Iterator[Node]:
         yield from self._by_id.values()

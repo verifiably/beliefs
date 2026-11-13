@@ -27,7 +27,7 @@ one import serves a caller that only ever names the audit.
 
 from __future__ import annotations
 
-from collections.abc import Container, Mapping
+from collections.abc import Callable, Container, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
@@ -36,10 +36,12 @@ from nodes.core.errors import RefError
 from nodes.core.node import Node
 
 from beliefs import stored
+from beliefs.acquisition import ReportView
 from beliefs.assess import AssessmentValue, build_assessment
 from beliefs.corpus import (
     ELIGIBILITY_CODES,
     EligibilityOutcome,
+    EligibilityView,
     Finding,
     MismatchScope,
     ReadView,
@@ -267,11 +269,9 @@ def check_verification(
         )
     except RuleUnbound as unbound:
         return _unchecked(str(unbound))
-    if derived.series_unchecked is not None:
-        return _unchecked(derived.series_unchecked)
     stored_value = stored.verification_value(node)
     disagreements: list[str] = []
-    if derived.verdict != stored_value.verdict:
+    if (derived.series_unchecked is None or derived.verdict == "failed") and derived.verdict != stored_value.verdict:
         disagreements.append(f"verdict stored={stored_value.verdict!r} recomputed={derived.verdict!r}")
     if derived.assessment is not None and derived.assessment != stored_value.assessment:
         disagreements.append("assessment identity differs from the original run's derivation")
@@ -283,13 +283,26 @@ def check_verification(
             disagreements.append(f"scope_rule stored={decoded.scope_rule!r} recomputed={scope_rule!r}")
         if decoded.scope != derived.scope:
             disagreements.append(f"scope stored={decoded.scope!r} recomputed={derived.scope!r}")
-        if decoded.report.identity() != derived.report.identity():
-            disagreements.append("report identity differs from the recomputed report")
+        if derived.series_unchecked is None:
+            if decoded.report.identity() != derived.report.identity():
+                disagreements.append("report identity differs from the recomputed report")
+        else:
+            # Geometry diagnostics depend on unavailable bytes; the other report
+            # members and any independently established diagnostics do not.
+            stated = decoded.report.projection()
+            actual = derived.report.projection()
+            stated.pop("diagnostics")
+            actual.pop("diagnostics")
+            known = set(derived.report.diagnostics) - {derived.series_unchecked}
+            if stated != actual or not known <= set(decoded.report.diagnostics):
+                disagreements.append("report contradicts independently recomputed members")
     if not disagreements:
+        if derived.series_unchecked is not None:
+            return _unchecked(derived.series_unchecked)
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(
         checked=True,
-        reason="",
+        reason=derived.series_unchecked or "",
         contradiction=Finding(
             severity="error",
             code="verification-derivation-contradicted",
@@ -298,6 +311,24 @@ def check_verification(
             message=f"{node.id}: the stored verification contradicts its recomputed derivation",
         ),
     )
+
+
+def _checked_series_standing(
+    view: EligibilityView,
+    dataset: str,
+    profile: ProfileSpec,
+    *,
+    reports: Callable[[str], ReportView | None] | None = None,
+) -> bool:
+    from beliefs.series.types import SeriesRefused
+
+    try:
+        outcome = _dataset_standing_outcome(view, dataset, profile, reports=reports)
+    except _UNREADABLE_NEIGHBOUR as error:
+        raise SeriesRefused("evidence-unavailable", str(error)) from error
+    if outcome is not None and outcome.reason.startswith(f"{dataset}: retraction-unreadable:"):
+        raise SeriesRefused("evidence-unavailable", outcome.reason)
+    return outcome is None
 
 
 @dataclass(frozen=True)
@@ -317,9 +348,12 @@ class _AuditRecordReader:
         from beliefs.world.view import WorldReadView
 
         if not isinstance(self.view, WorldReadView):
-            return _dataset_standing_outcome(self.view, dataset, profile) is None
+            return _checked_series_standing(self.view, dataset, profile)
         citing = self.view.corpus_of(dataset)
-        readable = {corpus: _CapturedCheckView(self.view.captured_records(corpus)) for corpus in self.view.captured()}
+        readable = {
+            corpus: _CapturedCheckView(self.view.captured_records(corpus), validate_records=True)
+            for corpus in self.view.captured()
+        }
         if citing is None or citing not in readable:
             raise SeriesRefused("evidence-unavailable", "series dataset has no readable captured holder")
         causes = {corpus: "absent" for corpus in self.view.absent()}
@@ -356,6 +390,7 @@ def check_assessment(
     def assessment_dependency(id: str):
         return stored.frozen_assessment_dependency(id, records=records, profile=profile)
 
+    unchecked_reason = None
     try:
         actual = series_dependency_closure(
             roots, spec.estimand.series_graph, records, profile, assessment_dependency=assessment_dependency
@@ -368,27 +403,32 @@ def check_assessment(
             assessment_dependency=assessment_dependency,
         )
     except DependencyNotHeld as error:
-        return _unchecked(str(error))
-    if actual != spec.assessed_target.dependencies and "dependencies" not in disagreements:
-        disagreements.append("dependencies")
-    if own != spec.estimand.dependencies and "estimand" not in disagreements:
-        disagreements.append("estimand")
+        unchecked_reason = str(error)
+    else:
+        if actual != spec.assessed_target.dependencies and "dependencies" not in disagreements:
+            disagreements.append("dependencies")
+        if own != spec.estimand.dependencies and "estimand" not in disagreements:
+            disagreements.append("estimand")
     if spec.estimand.series_graph:
         if evidence.series_evidence is None:
-            return _unchecked("series evidence was not supplied; frozen graph is structural only")
-        try:
-            check_series(spec.estimand, profile=profile, records=records, evidence=evidence.series_evidence)
-        except DependencyNotHeld as error:
-            return _unchecked(str(error))
-        except SeriesRefused as error:
-            if error.code == "evidence-unavailable":
-                return _unchecked(f"series evidence unavailable: {error.detail}")
-            disagreements.append(f"series: {error.detail}")
+            unchecked_reason = "series evidence was not supplied; frozen graph is structural only"
+        else:
+            try:
+                check_series(spec.estimand, profile=profile, records=records, evidence=evidence.series_evidence)
+            except DependencyNotHeld as error:
+                unchecked_reason = str(error)
+            except SeriesRefused as error:
+                if error.code == "evidence-unavailable":
+                    unchecked_reason = f"series evidence unavailable: {error.detail}"
+                else:
+                    disagreements.append(f"series: {error.detail}")
     if not disagreements:
+        if unchecked_reason is not None:
+            return _unchecked(unchecked_reason)
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(
         checked=True,
-        reason="",
+        reason=unchecked_reason or "",
         contradiction=Finding(
             severity="error",
             code="assessment-derivation-contradicted",
@@ -1006,12 +1046,17 @@ class _CapturedCitations:
         self.unreadable = {}
         self._incomplete_memo = {}
         self._profile = profile
-        outcome = _dataset_standing_outcome(self, dataset, profile, judge=self, reports=self._holder)
+        # Series recomputation uses strict reads; ordinary audit classification
+        # keeps the raw capture. The fold must retain the same strict boundary.
+        self._fold_view = _CapturedCheckView(
+            tuple(_merged_capture(self._readable)[0].iter_stored()), validate_records=True
+        )
+        answer = _checked_series_standing(self, dataset, profile, reports=self._holder)
         if self.unreadable:
             raise SeriesRefused(
                 "evidence-unavailable", f"series standing reaches unreadable captures: {self.unreadable}"
             )
-        return outcome is None
+        return answer
 
     def eligibility(self, node: Node, profile: ProfileSpec) -> EligibilityOutcome | None:
         self.unreadable = {}
