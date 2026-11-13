@@ -315,9 +315,10 @@ def check_assessment(
     if not isinstance(derived, AssessmentValue):
         return _unchecked(derived.reason)
     disagreements = _assessment_disagreements(stored_value, derived)
-    from beliefs.dependencies import HeldRecords, dependency_closure
+    from beliefs.dependencies import HeldRecords, series_dependency_closure
     from beliefs.errors import DependencyNotHeld
-    from beliefs.estimand import binding_roots
+    from beliefs.estimand import binding_roots, check_series
+    from beliefs.series.types import SeriesRefused
 
     # Eligibility is a separate check. This adapter supplies exactly the two
     # operations used by structural freezing and the strict assessment callback.
@@ -332,9 +333,15 @@ def check_assessment(
         return stored.frozen_assessment_dependency(id, records=records, profile=profile)
 
     try:
-        actual = dependency_closure(roots, records, profile, assessment_dependency=assessment_dependency)
-        own = dependency_closure(
-            binding_roots(spec.estimand), records, profile, assessment_dependency=assessment_dependency
+        actual = series_dependency_closure(
+            roots, spec.estimand.series_graph, records, profile, assessment_dependency=assessment_dependency
+        )
+        own = series_dependency_closure(
+            binding_roots(spec.estimand),
+            spec.estimand.series_graph,
+            records,
+            profile,
+            assessment_dependency=assessment_dependency,
         )
     except DependencyNotHeld as error:
         return _unchecked(str(error))
@@ -342,6 +349,17 @@ def check_assessment(
         disagreements.append("dependencies")
     if own != spec.estimand.dependencies and "estimand" not in disagreements:
         disagreements.append("estimand")
+    if spec.estimand.series_graph:
+        if evidence.series_evidence is None:
+            return _unchecked("series evidence was not supplied; frozen graph is structural only")
+        try:
+            check_series(spec.estimand, profile=profile, records=records, evidence=evidence.series_evidence)
+        except DependencyNotHeld as error:
+            return _unchecked(str(error))
+        except SeriesRefused as error:
+            if error.code == "evidence-unavailable":
+                return _unchecked(f"series evidence unavailable: {error.detail}")
+            disagreements.append(f"series: {error.detail}")
     if not disagreements:
         return DerivationOutcome(checked=True, reason="", contradiction=None)
     return DerivationOutcome(

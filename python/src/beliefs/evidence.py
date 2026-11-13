@@ -24,6 +24,7 @@ from beliefs.eligibility import ClosureEligibility
 from beliefs.record import AssessmentValue, RunValue
 from beliefs.replay import EquivalenceImplementation
 from beliefs.sealed import sealed
+from beliefs.series.evidence import SeriesEvidence
 from beliefs.spec import FrozenSpec, RuleImplementation
 
 if TYPE_CHECKING:
@@ -43,6 +44,7 @@ class DerivationEvidence:
     specs: Mapping[str, FrozenSpec]
     held_rules: Mapping[str, EquivalenceImplementation]
     implementations: Mapping[str, RuleImplementation]
+    series_evidence: SeriesEvidence | None = None
 
 
 NO_EVIDENCE = DerivationEvidence(specs={}, held_rules={}, implementations={})

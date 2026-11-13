@@ -15,11 +15,14 @@ from beliefs.dependencies import (
     dependency_closure,
     read_record,
     record_references,
+    series_dependency_closure,
 )
-from beliefs.errors import DependencyCycle, DependencyNotHeld
+from beliefs.errors import DependencyCycle, DependencyNotHeld, MalformedRecord
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
 from beliefs.proxy_model import Calibration, ProxyModel
+from beliefs.series.graph import graph_roots
+from beliefs.series.types import SeriesGraph
 
 if TYPE_CHECKING:
     from beliefs.record import RunValue
@@ -73,6 +76,7 @@ def dependency_eligibility(
     visited: set[str] = set()
     path: list[str] = []
     cycles: set[str] = set()
+    malformed_datasets: set[str] = set()
 
     def follow(id: str) -> None:
         if id in path:
@@ -83,6 +87,12 @@ def dependency_eligibility(
         visited.add(id)
         if id.startswith("assessment:"):
             record.address(id, "assessment")
+            return
+        if id.startswith("dataset:"):
+            try:
+                dependency_closure((id,), records, profile)
+            except MalformedRecord:
+                malformed_datasets.add(id)
             return
         value = read_record(records, id)
         values[id] = value
@@ -97,6 +107,8 @@ def dependency_eligibility(
     def judge(id: str) -> Eligible | Ineligible:
         if not records.holds(id):
             return Ineligible("not-held")
+        if id.startswith("dataset:"):
+            return Ineligible("malformed-record") if id in malformed_datasets else Eligible()
         if records.retraction_in_force(id):
             return Ineligible("retracted")
         if id in cycles:
@@ -155,11 +167,12 @@ def closure_eligibility(
     *,
     assessments: AssessmentEligibility = _not_supplied,
     assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
+    graph: SeriesGraph = (),
 ) -> ClosureEligibility:
     """Judge each full closure and return all observed ids, including failed reads."""
     observed = _ObservedRecords(records)
     verdicts: dict[str, Eligible | Ineligible] = {}
-    for id in sorted(set(ids)):
+    for id in sorted(set(ids) | graph_roots(graph)):
         try:
             entries = dependency_closure((id,), observed, profile, assessment_dependency=assessment_dependency)
         except DependencyCycle:
@@ -167,6 +180,11 @@ def closure_eligibility(
             continue
         except DependencyNotHeld:
             verdicts[id] = Ineligible("not-held")
+            continue
+        except MalformedRecord:
+            if not id.startswith("dataset:"):
+                raise
+            verdicts[id] = Ineligible("malformed-record")
             continue
         members = dependency_eligibility((entry.id for entry in entries), observed, profile, assessments=assessments)
         first = next((member for member in sorted(members) if isinstance(members[member], Ineligible)), None)
@@ -203,8 +221,9 @@ class AssessmentEligibilityReader:
         self._active.add(id)
         try:
             value = stored.assessment_value(self.records.read(id), profile=self.profile)
-            frozen = dependency_closure(
+            frozen = series_dependency_closure(
                 (d.id for d in value.dependencies),
+                value.target.estimand.series_graph,
                 self.records,
                 self.profile,
                 assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
@@ -233,6 +252,7 @@ class AssessmentEligibilityReader:
                     self.records,
                     self.profile,
                     assessments=self,
+                    graph=value.target.estimand.series_graph,
                     assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
                         ref, records=self.records, profile=self.profile
                     ),

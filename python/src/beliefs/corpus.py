@@ -2070,6 +2070,9 @@ class _StandingRecords:
             for n in self.view.retraction_fold_view().iter_stored()
         )
 
+    def empirical_standing(self, dataset: str, profile: ProfileSpec) -> bool:
+        return _dataset_standing_outcome(self.view, dataset, profile) is None
+
     def crosswalks(self, a: str, b: str) -> tuple[str, ...]:
         return ()
 
@@ -2089,7 +2092,7 @@ def standing_outcome(
     judge: EligibilityView | None = None,
     reports: Callable[[str], ReportView | None] | None = None,
 ) -> EligibilityOutcome | None:
-    from beliefs.dependencies import dependency_closure
+    from beliefs.dependencies import series_dependency_closure
     from beliefs.eligibility import AssessmentEligibilityReader, Eligible
     from beliefs.errors import DependencyNotHeld
     from beliefs.spec import SPEC_INPUT_ROLES
@@ -2140,8 +2143,9 @@ def standing_outcome(
 
         eligibility = AssessmentEligibilityReader(records, profile, run_of, verifications_of)
         # Recompute the frozen closure, binding every calibration's actual facet.
-        frozen = dependency_closure(
+        frozen = series_dependency_closure(
             (d.id for d in value.dependencies),
+            value.target.estimand.series_graph,
             records,
             profile,
             assessment_dependency=lambda id: stored.frozen_assessment_dependency(id, records=records, profile=profile),

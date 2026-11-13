@@ -64,7 +64,7 @@ from beliefs.consulted import consulted_contracts
 from beliefs.corpus import ReadView, _absence_of, retraction_standing, run_value
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.decode import claim_from_stored
-from beliefs.dependencies import Record, dependency_closure, read_record
+from beliefs.dependencies import Record, read_record, series_dependency_closure
 from beliefs.eligibility import AssessmentEligibilityReader, ClosureEligibility, Ineligible, closure_eligibility
 from beliefs.errors import (
     AmbiguousCrosswalk,
@@ -1029,8 +1029,9 @@ class _CapturedComparisonRecords:
         verdicts = {d.id: self.eligibility(d.id).verdicts[d.id] for d in frozen}
         for assessment in assessments:
             try:
-                actual = dependency_closure(
+                actual = series_dependency_closure(
                     (d.id for d in assessment.dependencies),
+                    assessment.target.estimand.series_graph,
                     self,
                     self.profile,
                     assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
