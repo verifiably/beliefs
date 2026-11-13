@@ -39,6 +39,7 @@ export {
   type MeasurementsDecl,
   type AspectsDecl,
   type DimensionDecl,
+  type DefiningSource,
   type DomainContract,
   type DurationConventionDecl,
   type EstimandDecl,

@@ -1,0 +1,518 @@
+{
+  "cases": [
+    {
+      "name": "absent",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {}
+      },
+      "content_identity": "55c634b264e0be166a6a346acc543522c5054fa21c8af4dd94459e96a3c7e768",
+      "outcome": "accept",
+      "previous": null
+    },
+    {
+      "name": "urn",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:beliefs:definitions:shared-scientific-commitments"
+        }
+      },
+      "content_identity": "bcc9e1d6e2a4942e06f5de6f2ae85b6e4ec0bcb9e11ab86d3a162629755e5950",
+      "outcome": "accept",
+      "previous": null
+    },
+    {
+      "name": "https",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "https://example.org/definitions/units"
+        }
+      },
+      "content_identity": "e01601ffe1fca6eb5fed8a55dad36efceb953b64a2e2f8c97f0873b49e591602",
+      "outcome": "accept",
+      "previous": null
+    },
+    {
+      "name": "null",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": null
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source: expected mapping"
+    },
+    {
+      "name": "string",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": "x"
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source: expected mapping"
+    },
+    {
+      "name": "list",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": []
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source: expected mapping"
+    },
+    {
+      "name": "number",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": 1
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source: expected mapping"
+    },
+    {
+      "name": "empty",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {}
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source: expected exactly id"
+    },
+    {
+      "name": "extra",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:x:y",
+          "extra": 1
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source: expected exactly id"
+    },
+    {
+      "name": "missing",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "other": "x"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source: expected exactly id"
+    },
+    {
+      "name": "invalid-id-0",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": ""
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-1",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": null
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-2",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": 1
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-3",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": false
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-4",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": []
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-5",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": {}
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-6",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "URN:x:y"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-7",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "relative/id"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-8",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:x:y?q"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-9",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:x:y#v1"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-10",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:x:%ab"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-11",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:x: y"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-12",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:x:y\n"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "invalid-id-13",
+      "document": {
+        "contract": "source-test",
+        "version": 1,
+        "lineage": "genesis",
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:x:\u00e9"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": null,
+      "error": "MalformedContract",
+      "diagnostic": "defining_source.id: expected canonical source id"
+    },
+    {
+      "name": "addition",
+      "document": {
+        "contract": "source-test",
+        "version": 2,
+        "lineage": {
+          "successor": "55c634b264e0be166a6a346acc543522c5054fa21c8af4dd94459e96a3c7e768"
+        },
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:beliefs:definitions:shared-scientific-commitments"
+        }
+      },
+      "content_identity": "ddc173d539a8ea35529d1cc2cfc088e59d64889fd8a34582e931d4b3948a5bdc",
+      "outcome": "accept",
+      "previous": "absent"
+    },
+    {
+      "name": "retention",
+      "document": {
+        "contract": "source-test",
+        "version": 2,
+        "lineage": {
+          "successor": "bcc9e1d6e2a4942e06f5de6f2ae85b6e4ec0bcb9e11ab86d3a162629755e5950"
+        },
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:beliefs:definitions:shared-scientific-commitments"
+        }
+      },
+      "content_identity": "cb5922402ccdd2145a9c7281b89dd7941595373c6f208dd4c9c4cd729e26b8f5",
+      "outcome": "accept",
+      "previous": "urn"
+    },
+    {
+      "name": "removal",
+      "document": {
+        "contract": "source-test",
+        "version": 2,
+        "lineage": {
+          "successor": "bcc9e1d6e2a4942e06f5de6f2ae85b6e4ec0bcb9e11ab86d3a162629755e5950"
+        },
+        "sorts": {},
+        "dimensions": {}
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": "urn",
+      "error": "SuccessionViolation",
+      "diagnostic": "defining_source.id: must retain predecessor source"
+    },
+    {
+      "name": "change",
+      "document": {
+        "contract": "source-test",
+        "version": 2,
+        "lineage": {
+          "successor": "bcc9e1d6e2a4942e06f5de6f2ae85b6e4ec0bcb9e11ab86d3a162629755e5950"
+        },
+        "sorts": {},
+        "dimensions": {},
+        "defining_source": {
+          "id": "urn:other:source"
+        }
+      },
+      "content_identity": null,
+      "outcome": "refuse",
+      "previous": "urn",
+      "error": "SuccessionViolation",
+      "diagnostic": "defining_source.id: must retain predecessor source"
+    }
+  ],
+  "production": [
+    {
+      "namespace": "biology",
+      "contract_path": "domains/biology/DOMAIN.yaml",
+      "contract_identity": "05e6f4fd06de8112d8f13d235c0793b6767404208cbf4210b7b9b24fc1840aca"
+    },
+    {
+      "namespace": "general",
+      "contract_path": "domains/general/history/cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f/DOMAIN.yaml",
+      "contract_identity": "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f"
+    },
+    {
+      "namespace": "general",
+      "contract_path": "domains/general/DOMAIN.yaml",
+      "contract_identity": "e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee"
+    },
+    {
+      "namespace": "mm30",
+      "contract_path": "python/tools/reproduction/mm30-phf19.yaml",
+      "contract_identity": "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
+    }
+  ],
+  "profiles": {
+    "general": "2df4e0f432ae4bd41f91a7aa76f01a7985c42b9dbb4116997a56d4a431fe202a",
+    "general+biology": "f60236ec979a6292886bb3c0b61af3b1e057066e7cf5d6cb18031f1e2155b565",
+    "general+biology+mm30": "12b2b175baf874f1be1c6d48eb3f96faf6a458aa79c2da37614996fd7c067f9e"
+  }
+}

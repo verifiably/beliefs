@@ -664,3 +664,14 @@ terms all count; a calendar convention also reads its conversion and endpoint
 units. Authority validation scope and procedure kinds enter through the frozen
 record terms. This traversal takes no world reader; `consulted_contracts` accepts
 `targets=` and applies pin agreement to the resulting namespaces.
+
+### Defining source metadata
+
+A domain may declare `defining_source: {id: "urn:example:definitions"}`. The id
+must match `^[a-z][a-z0-9+.-]*:[a-z0-9._~:/-]+$` over the entire string.
+Both readers preserve an immutable value or explicit absence. Present null,
+unknown members and noncanonical spellings refuse. Once present, the source id
+must remain through succession; a metadata-free predecessor may acquire it.
+The field changes contract content identity, while claim declarations, register
+keys and compiled schema projections remain unchanged. Local parse and compile
+success provide no global source ownership verdict.

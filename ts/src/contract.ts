@@ -618,12 +618,15 @@ export interface SelectionMechanismDecl {
   readonly name: string;
 }
 
+export type DefiningSource = Readonly<{ id: string }>;
+
 export class DomainContract {
   #minted = true;
   readonly namespace: string;
   readonly version: number;
   readonly contentIdentity: string;
   readonly predecessor: string | null;
+  readonly definingSource: DefiningSource | null;
   readonly sorts: DeclarationTable<SortDecl>;
   readonly dimensions: DeclarationTable<DimensionDecl>;
   readonly templates: DeclarationTable<TemplateDecl>;
@@ -675,6 +678,7 @@ export class DomainContract {
       version: number;
       contentIdentity: string;
       predecessor: string | null;
+      definingSource: DefiningSource | null;
       sorts: DeclarationTable<SortDecl>;
       dimensions: DeclarationTable<DimensionDecl>;
       templates: DeclarationTable<TemplateDecl>;
@@ -713,6 +717,7 @@ export class DomainContract {
     this.version = parts.version;
     this.contentIdentity = parts.contentIdentity;
     this.predecessor = parts.predecessor;
+    this.definingSource = parts.definingSource;
     this.sorts = parts.sorts;
     this.dimensions = parts.dimensions;
     this.templates = parts.templates;
@@ -2008,6 +2013,18 @@ function parseRestriction(
   }
 }
 
+function parseDefiningSource(value: unknown, where: string): DefiningSource {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new MalformedContract(`${where}: expected mapping`);
+  if (Object.keys(value).length !== 1 || !Object.hasOwn(value, "id"))
+    throw new MalformedContract(`${where}: expected exactly id`);
+  const id = (value as Record<string, unknown>).id;
+  const match = typeof id === "string" ? /^[a-z][a-z0-9+.-]*:[a-z0-9._~:/-]+$/.exec(id) : null;
+  if (match === null || match[0].length !== (id as string).length)
+    throw new MalformedContract(`${where}.id: expected canonical source id`);
+  return Object.freeze({ id: id as string });
+}
+
 export function parseDomainContract(
   text: string,
   source: string,
@@ -2035,6 +2052,7 @@ export function parseDomainContract(
     document,
     ["contract", "version", "lineage", "sorts", "dimensions"],
     [
+      "defining_source",
       "templates",
       "instantiations",
       "bridges",
@@ -2364,11 +2382,15 @@ export function parseDomainContract(
     ),
   );
 
+  const definingSource = Object.hasOwn(document, "defining_source")
+    ? parseDefiningSource(document.defining_source, `${source}: defining_source`)
+    : null;
   const contract = new DomainContract(MINT, {
     namespace,
     version,
     contentIdentity: digest("science.contract.v1", identityDocument(document)),
     predecessor: predecessorIdentity,
+    definingSource,
     sorts,
     dimensions,
     templates,
@@ -2411,6 +2433,8 @@ function checkSuccession(contract: DomainContract, predecessor?: DomainContract)
     throw new SuccessionViolation(`${contract.namespace}: predecessor was typed against a different base contract`);
   }
   const current = claimVocabulary(contract);
+  if (predecessor.definingSource !== null && contract.definingSource?.id !== predecessor.definingSource.id)
+    throw new SuccessionViolation(`${contract.namespace}: defining_source.id: must retain predecessor source`);
   for (const [key, previous] of claimVocabulary(predecessor)) {
     const value = current.get(key);
     if (value === undefined) throw new SuccessionViolation(`${contract.namespace}: drops declaration ${key}`);

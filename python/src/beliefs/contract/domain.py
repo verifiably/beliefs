@@ -58,6 +58,7 @@ __all__ = [
     "ConstantDecl",
     "ConversionDecl",
     "DatasetBinding",
+    "DefiningSource",
     "DesignDecl",
     "DimensionDecl",
     "DomainContract",
@@ -101,6 +102,7 @@ _HEX64 = "[0-9a-f]{64}"
 _CONTRACT_FIELDS = frozenset({"contract", "version", "lineage", "sorts", "dimensions"})
 _CONTRACT_OPTIONAL = frozenset(
     {
+        "defining_source",
         "description",
         "templates",
         "instantiations",
@@ -142,6 +144,27 @@ _NULL_FORM = "null"
 inapt tag and asserts an effect absent, which only a signed relation has."""
 _BRIDGE_REFUSED_MAPPINGS = ("exact", "broader")
 _ESTIMAND_TARGET_KINDS = ("instantiation", "bridge")
+
+
+@dataclass(frozen=True)
+class DefiningSource:
+    """The stable name of a definitions source; admission supplies ownership."""
+
+    id: str
+
+
+def _defining_source_id(value: object, where: str) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"^[a-z][a-z0-9+.-]*:[a-z0-9._~:/-]+$", value) is None:
+        raise MalformedContract(f"{where}: expected canonical source id")
+    return value
+
+
+def _parse_defining_source(value: object, where: str) -> DefiningSource:
+    if not isinstance(value, Mapping):
+        raise MalformedContract(f"{where}: expected mapping")
+    if set(value) != {"id"}:
+        raise MalformedContract(f"{where}: expected exactly id")
+    return DefiningSource(_defining_source_id(value["id"], f"{where}.id"))
 
 
 # --- bindings -------------------------------------------------------------------
@@ -791,6 +814,7 @@ class DomainContract:
 
     namespace: str
     version: int
+    defining_source: DefiningSource | None
 
     predecessor: str | None
     """``None`` is ``genesis``. Genesis is an escape hatch: the
@@ -856,6 +880,7 @@ class DomainContract:
         namespace: str,
         version: int,
         predecessor: str | None,
+        defining_source: DefiningSource | None,
         sorts: dict[str, SortDecl],
         dimensions: dict[str, DimensionDecl],
         templates: dict[str, TemplateDecl],
@@ -892,6 +917,7 @@ class DomainContract:
             ("namespace", namespace),
             ("version", version),
             ("predecessor", predecessor),
+            ("defining_source", defining_source),
             ("sorts", MappingProxyType(dict(sorts))),
             ("dimensions", MappingProxyType(dict(dimensions))),
             ("templates", MappingProxyType(dict(templates))),
@@ -1780,6 +1806,11 @@ def parse_domain_contract(
         namespace=namespace,
         version=version,
         predecessor=_parse_lineage(root["lineage"], f"{source}: lineage"),
+        defining_source=(
+            _parse_defining_source(root["defining_source"], f"{source}: defining_source")
+            if "defining_source" in root
+            else None
+        ),
         sorts=sorts,
         dimensions=dimensions,
         templates=templates,
@@ -1842,6 +1873,9 @@ def check_succession(contract: DomainContract, predecessor: DomainContract | Non
 
     if predecessor.base_identity != contract.base_identity:
         raise SuccessionViolation(f"{contract.namespace}: predecessor was typed against a different base contract")
+
+    if predecessor.defining_source is not None and contract.defining_source != predecessor.defining_source:
+        raise SuccessionViolation(f"{contract.namespace}: defining_source.id: must retain predecessor source")
 
     current, prior = contract.claim_vocabulary(), predecessor.claim_vocabulary()
 
