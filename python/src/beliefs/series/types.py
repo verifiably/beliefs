@@ -25,6 +25,8 @@ __all__ = [
     "IndexAxis",
     "Origin",
     "Origins",
+    "SeriesGraph",
+    "SeriesGraphEntry",
     "SeriesObject",
     "SeriesRef",
     "SeriesRefused",
@@ -155,3 +157,15 @@ class Anchors:
 
 
 SeriesObject: TypeAlias = Descriptor | Table | Origins | Anchors
+
+
+@dataclass(frozen=True)
+class SeriesGraphEntry:
+    ref: SeriesRef
+    format: str
+    links: tuple[SeriesRef, ...]
+    records: tuple[str, ...]
+    terms: tuple[str, ...]
+
+
+SeriesGraph: TypeAlias = tuple[SeriesGraphEntry, ...]

@@ -82,6 +82,7 @@ __all__ = [
     "MeasurementGrammar",
     "RelationDecl",
     "ReservedRole",
+    "TimeRoles",
     "load_base_contract",
     "parse_base_contract",
 ]
@@ -819,3 +820,14 @@ def load_base_contract(path: Path) -> BaseContract:
     from beliefs.contract.document import load_document
 
     return parse_base_contract(load_document(path, source=str(path)), source=str(path))
+
+
+@dataclass(frozen=True)
+class TimeRoles:
+    """The base's explicit semantic time names, never inferred from suffixes."""
+
+    source: str
+    duration: str
+    frequency: str
+    second: str
+    hertz: str
