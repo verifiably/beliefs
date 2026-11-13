@@ -1115,6 +1115,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 namespace="forged",
                 version=1,
                 predecessor=None,
+                defining_source=None,
                 sorts={},
                 dimensions={},
                 templates={},
