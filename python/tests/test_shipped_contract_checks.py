@@ -790,3 +790,32 @@ def test_plan_base_adoption_is_exact():
         )
     assert len(checker.ADOPTED_SOURCE_REVISIONS) == 4
     assert checker.check(REPO_ROOT) == []
+
+
+@pytest.mark.parametrize("symlink_parent", [False, True], ids=["leaf", "parent"])
+def test_inventory_selected_register_refuses_symlinks_before_outside_read(tmp_path, monkeypatch, symlink_parent):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    inventory = _inventory(root)
+    row = inventory["lineages"]["mm30"]["revisions"][0]
+    outside = tmp_path / "outside-registers"
+    outside.mkdir()
+    target = outside / "mm30.json"
+    target.write_bytes((root / row["register_path"]).read_bytes())
+    if symlink_parent:
+        (root / "linked-registers").symlink_to(outside, target_is_directory=True)
+        row["register_path"] = "linked-registers/mm30.json"
+    else:
+        (root / "register-link.json").symlink_to(target)
+        row["register_path"] = "register-link.json"
+    _save_inventory(root, inventory)
+    _repin(checker, root)
+    original_open = Path.open
+
+    def guarded_open(path, *args, **kwargs):
+        assert path.resolve() != target, "outside register was opened before containment refusal"
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", guarded_open)
+    errors = checker.check(root)
+    assert any("symlink" in e and row["register_path"].split("/")[0] in e for e in errors), errors

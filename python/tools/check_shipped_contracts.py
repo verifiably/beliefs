@@ -297,7 +297,7 @@ def _discover_reproduction_sources(
             errors.append(f"{rel_path}: unlisted reproduction contract; missing inventory register mapping")
             continue
         try:
-            register = register_from_projection(_read_json(root / register_path), source=register_path)
+            register = register_from_projection(_read_json(_admission_path(root, register_path)), source=register_path)
             if register.describes != f"{contract.namespace}:{contract.content_identity}":
                 raise ValueError("stale register describes")
             if set(register.entries) != register_entry_keys(contract):
@@ -365,6 +365,19 @@ def _canonical_path(value: Any) -> None:
         or any(p in ("", ".", "..") for p in value.split("/"))
     ):
         raise ValueError(f"inventory path {value!r}: expected normalized repository-relative path")
+
+
+def _admission_path(root: Path, relative: str) -> Path:
+    """Validate inventory-selected paths too, including those outside scanned trees."""
+    _canonical_path(relative)
+    candidate = root
+    for component in relative.split("/"):
+        candidate = candidate / component
+        if candidate.is_symlink():
+            raise ValueError(f"{relative}: symlink admission path refused at {candidate.relative_to(root)}")
+    if not candidate.resolve().is_relative_to(root):
+        raise ValueError(f"{relative}: admission path escapes repository root")
+    return candidate
 
 
 def _validate_inventory(value: Any) -> dict[str, Any]:
@@ -516,6 +529,10 @@ def check(root: Path, *, exclusions: Mapping[str, tuple[str, str]] = HERITAGE_RE
         if hashlib.sha256(inventory_path.read_bytes()).hexdigest() != SOURCE_INVENTORY_SHA256:
             raise ValueError("source inventory SHA-256 pin mismatch")
         inventory = _validate_inventory(_read_json(inventory_path))
+        for lineage in inventory["lineages"].values():
+            for row in lineage["revisions"]:
+                _admission_path(resolved_root, row["contract_path"])
+                _admission_path(resolved_root, row["register_path"])
         errors: list[str] = []
         base = _load_base(resolved_root, errors)
         if base is None:
