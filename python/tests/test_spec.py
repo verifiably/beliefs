@@ -443,6 +443,7 @@ def test_revise_is_the_only_edit_path_and_freeze_takes_drafts_only():
         "records",
         "assessment_dependency",
         "supersedes",
+        "series_evidence",
     ]
     assert list(inspect.signature(revise).parameters) == [
         "original",
@@ -454,6 +455,7 @@ def test_revise_is_the_only_edit_path_and_freeze_takes_drafts_only():
         "claim",
         "records",
         "assessment_dependency",
+        "series_evidence",
     ]
 
 

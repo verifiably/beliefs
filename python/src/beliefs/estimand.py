@@ -22,8 +22,8 @@ from beliefs.dependencies import (
     HeldRecords,
     dependencies_from_projection,
     dependencies_projection,
-    dependency_closure,
     read_record,
+    series_dependency_closure,
 )
 from beliefs.errors import (
     ContrastRefused,
@@ -46,8 +46,11 @@ from beliefs.resolution import BindingCheckReceipt, ResolutionSnapshot, TermOutc
 from beliefs.restriction import IntervalRestriction, restriction_from_projection, restriction_projection
 from beliefs.sealed import sealed
 from beliefs.series.codec import series_ref_from_projection, series_ref_projection
-from beliefs.series.graph import graph_from_projection, graph_projection
-from beliefs.series.types import SeriesGraph, SeriesRef
+from beliefs.series.evidence import SeriesEvidence
+from beliefs.series.geometry import elapsed_factor, window_memberships
+from beliefs.series.graph import graph_from_projection, graph_projection, graph_roots
+from beliefs.series.reader import CheckedSeries, _read_series_roots
+from beliefs.series.types import ElapsedAxis, IndexAxis, SeriesGraph, SeriesRef, SeriesRefused
 
 
 @dataclass(frozen=True)
@@ -441,9 +444,10 @@ def _check_shape(profile: ProfileSpec, value: Estimand, *, claim: Claim | None, 
         anchor, lag = bindings["anchor"], bindings["lag"]
         if not isinstance(anchor, (RuleAnchor, RoleAnchor)) or not isinstance(lag, LagBinding):
             raise EstimandError("event-locked requires an anchor and lag")
-        unit = profile.units.get(lag.unit)
-        if unit is None or not unit.quantity_kind.endswith("/duration"):
-            raise EstimandError("lag must use a duration unit")
+        try:
+            elapsed_factor(profile, profile.time_roles, lag.unit)
+        except SeriesRefused as exc:
+            raise EstimandError(f"lag must use the licensed fixed duration unit: {exc}") from exc
         if lag.windows and (len(lag.windows) < 2 or (functional.arity == "two" and len(lag.windows) != 2)):
             raise EstimandError("event window arity mismatch")
         for interval in lag.windows:
@@ -499,7 +503,16 @@ def _check_shape(profile: ProfileSpec, value: Estimand, *, claim: Claim | None, 
                 raise ContrastRefused("rule classes are distinct referents of one sort")
     for label, referent in estimand_referents(value).items():
         check_referent(profile, referent, label, world_kind=None, authoring=authoring)
+    response = value.bindings.get("response")
+    if functional.response_axis is not None and (not isinstance(response, MeasuredBinding) or response.series is None):
+        raise SeriesRefused("invalid-series", "functional requires a series on its measured response")
     for binding in measured_bindings(value):
+        if (
+            isinstance(binding, MeasuredBinding)
+            and binding.series is not None
+            and type(binding.series) is not SeriesRef
+        ):
+            raise SeriesRefused("invalid-series", "measured series must be a SeriesRef")
         check_measure(profile, binding.measure)
     control = value.control
     identification = profile.identification_classes.get(control.identification)
@@ -598,6 +611,7 @@ def build_estimand(
     snapshot: ResolutionSnapshot,
     records: HeldRecords,
     assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
+    series_evidence: SeriesEvidence | None = None,
 ) -> tuple[Estimand, BindingCheckReceipt]:
     applicability = check_applicability(profile, claim.operator, applicability.values, authoring=True)
     value = _mint(
@@ -668,11 +682,17 @@ def build_estimand(
         ):
             raise EstimandError("calibration requires its named transfer assumption")
     unique = {v1.encode(instance_projection(a)): a for a in gathered}
-    deps = dependency_closure(binding_roots(value), records, profile, assessment_dependency=assessment_dependency)
+    checked = _build_series(value, profile=profile, records=records, evidence=series_evidence)
+    graph = checked[0].graph if checked else ()
+    deps = series_dependency_closure(
+        binding_roots(value), graph, records, profile, assessment_dependency=assessment_dependency
+    )
     value = _mint(
         **{
             f.name: deps
             if f.name == "dependencies"
+            else graph
+            if f.name == "series_graph"
             else tuple(unique[k] for k in sorted(unique))
             if f.name == "assumptions"
             else getattr(value, f.name)
@@ -952,9 +972,89 @@ def estimand_from_stored(value: object, *, profile: ProfileSpec) -> Estimand:
     result = _check_shape(profile, result, claim=None, authoring=False)
     if not set(binding_roots(result)) <= {e.id for e in result.dependencies}:
         raise MalformedRecord("estimand dropped a cited dependency")
+    datasets = {row.ref.dataset for row in result.series_graph}
+    entries = {entry.id for entry in result.dependencies}
+    if {id for id in entries if id.startswith("dataset:")} != datasets or not graph_roots(
+        result.series_graph
+    ) <= entries:
+        raise MalformedRecord("frozen graph-derived dataset/record dependencies disagree with the estimand")
     if estimand_projection(result) != value:
         raise MalformedRecord("stored estimand is not its canonical projection")
     return result
 
 
 ESTIMAND_ERRORS = (EstimandError, UnboundReferent)
+
+
+def _build_series(
+    value: Estimand, *, profile: ProfileSpec, records: HeldRecords, evidence: SeriesEvidence | None
+) -> tuple[CheckedSeries, ...]:
+    bindings = tuple(
+        binding
+        for binding in measured_bindings(value)
+        if isinstance(binding, MeasuredBinding) and binding.series is not None
+    )
+    if not bindings:
+        return ()
+    if evidence is None:
+        raise SeriesRefused("evidence-unavailable", "authoring a series target requires explicit local bytes")
+    checked = _read_series_roots(
+        tuple(cast(SeriesRef, binding.series) for binding in bindings),
+        profile=profile,
+        records=records,
+        evidence=evidence,
+        time_roles=profile.time_roles,
+    )
+    response = value.bindings.get("response")
+    requirement = profile.functionals[value.functional].declaration.response_axis
+    for binding, series in zip(bindings, checked, strict=True):
+        if series.channel_coordinates != binding.measure.coordinates:
+            raise SeriesRefused("invalid-series", "selected channel coordinates disagree with the bound Measure")
+        if (
+            binding is response
+            and requirement is not None
+            and (
+                (requirement == "index" and not isinstance(series.axis, IndexAxis))
+                or (requirement in {"elapsed", "regular-elapsed"} and not isinstance(series.axis, ElapsedAxis))
+                or (requirement == "regular-elapsed" and (series.count < 2 or series.spacing_seconds is None))
+            )
+        ):
+            raise SeriesRefused("invalid-series", "series does not satisfy the functional response_axis")
+        if series.anchors and value.form != "event-locked":
+            raise SeriesRefused("invalid-series", "anchors are allowed only on event-locked series")
+        if value.form == "event-locked":
+            anchor, lag = value.bindings["anchor"], value.bindings["lag"]
+            if not isinstance(anchor, RuleAnchor) or not isinstance(lag, LagBinding) or not series.anchors:
+                raise SeriesRefused("invalid-series", "event series requires RuleAnchor and an anchor table")
+            if anchor.rule != series.anchor_rule or {(row.sort, row.term) for row in series.anchors} != {
+                (ref.sort, ref.term) for ref in anchor.classes
+            }:
+                raise SeriesRefused("invalid-series", "RuleAnchor rule/classes disagree with the anchor table")
+            if not isinstance(series.axis, ElapsedAxis) or not lag.windows:
+                raise SeriesRefused("invalid-series", "event series requires fixed elapsed windows")
+            lag_seconds, _ = elapsed_factor(profile, profile.time_roles, lag.unit)
+            axis_seconds, _ = elapsed_factor(profile, profile.time_roles, series.axis.unit)
+            windows = []
+            for interval in lag.windows:
+                if (
+                    interval.low is None
+                    or interval.high is None
+                    or not interval.low_closed
+                    or interval.high_closed
+                    or interval.convention is not None
+                ):
+                    raise SeriesRefused("invalid-series", "event series windows are bounded half-open fixed durations")
+                factor = lag_seconds / axis_seconds
+                windows.append((interval.low * factor, interval.high * factor))
+            window_memberships(series, tuple(windows))
+    return checked
+
+
+def check_series(
+    estimand: Estimand, *, profile: ProfileSpec, records: HeldRecords, evidence: SeriesEvidence
+) -> tuple[CheckedSeries, ...]:
+    checked = _build_series(estimand, profile=profile, records=records, evidence=evidence)
+    graph = checked[0].graph if checked else ()
+    if graph != estimand.series_graph:
+        raise SeriesRefused("invalid-series", "verified series graph differs from the frozen target graph")
+    return checked

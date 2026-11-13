@@ -32,3 +32,18 @@ def time_roles():
         "si-brochure/second",
         "si-brochure/hertz",
     )
+
+
+@pytest.fixture
+def author_profile(base_contract, testing_document):
+    from time_roles_fixture import time_contract
+
+    row = testing_document["functionals"]["difference-of-means"]
+    testing_document["functionals"]["series-contrast"] = {**row, "response_axis": "regular-elapsed"}
+    return compile_profile(
+        base_contract,
+        [
+            parse_domain_contract(testing_document, source="<series authoring>", base=base_contract, predecessor=None),
+            time_contract(base_contract),
+        ],
+    )

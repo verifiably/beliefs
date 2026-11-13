@@ -1,11 +1,17 @@
 """Held synthetic buffers and explicit records, with no ambient storage."""
 
 from hashlib import sha256
+from typing import Any, cast
 
 from beliefs import stored
 from beliefs.identity import v1
 
 STORE = "a" * 32
+
+
+def raw_object(data: bytes) -> dict[str, Any]:
+    """Mutable JSON for deliberate fixture corruption; production decoding stays typed."""
+    return cast(dict[str, Any], v1.decode(data))
 
 
 def digest(data):
@@ -114,7 +120,7 @@ class SeriesCase:
         self.buffers = {}
         self.locations = {}
 
-    def hold(self, value):
+    def hold(self, value) -> dict[str, Any]:
         from beliefs.holdings.records import StoreLocator
         from beliefs.series.codec import series_ref_projection
         from beliefs.series.types import SeriesRef
@@ -124,7 +130,7 @@ class SeriesCase:
         path = digest(data).split(":")[1]
         self.buffers[path] = data
         self.locations[ref] = StoreLocator(STORE, path)
-        return series_ref_projection(ref)
+        return cast(dict[str, Any], series_ref_projection(ref))
 
     def evidence(self):
         from beliefs.series.evidence import SeriesEvidence
@@ -187,6 +193,25 @@ class SeriesCase:
 
     def rewrite(self, ref, change):
         data = self.buffers[ref["resource"].split(":")[1]]
-        value = v1.decode(data)
+        value = raw_object(data)
         change(value)
         return self.hold(value)
+
+    def hold_tree(self, values):
+        from beliefs.holdings.records import StoreTreeLocator
+        from beliefs.series.codec import series_ref_projection
+        from beliefs.series.types import SeriesRef
+        from beliefs.tree import TreeMember, make_tree, object_path, tree_digest, tree_file_bytes
+
+        buffers = {path: v1.encode(value) for path, value in values.items()}
+        tree = make_tree(TreeMember(path, digest(data), len(data)) for path, data in buffers.items())
+        tree_ref = tree_digest(tree)
+        dataset = self.records.dataset(tree_ref)
+        self.buffers[object_path(tree_ref)] = tree_file_bytes(tree)
+        result = {}
+        for path, data in buffers.items():
+            ref = SeriesRef(dataset, tree_ref, path)
+            self.buffers[object_path(digest(data))] = data
+            self.locations[ref] = StoreTreeLocator(STORE, tree_ref.split(":")[1])
+            result[path] = series_ref_projection(ref)
+        return result

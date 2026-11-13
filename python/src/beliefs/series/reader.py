@@ -11,7 +11,7 @@ from typing import cast, final
 from beliefs.classification_rule import ClassificationRule
 from beliefs.contract.base import TimeRoles
 from beliefs.dependencies import HeldRecords, read_record
-from beliefs.errors import ScienceError
+from beliefs.errors import DependencyCycle, DependencyNotHeld, ScienceError
 from beliefs.identity import v1
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
@@ -60,6 +60,7 @@ class CheckedSeries:
     spacing_seconds: Fraction | None
     rate_hz: Fraction | None
     graph: SeriesGraph
+    predecessors: tuple[CheckedSeries, ...]
 
     def __init__(self, **kwargs: object) -> None:
         if kwargs.pop("_mint", None) is not _MINT:
@@ -242,12 +243,14 @@ class _Reader:
                 spacing_seconds=spacing,
                 rate_hz=rate,
                 graph=(),
+                predecessors=(),
             )
             if obj.transform is not None:
                 transform = obj.transform
                 self.procedure(transform.procedure, implementation=True)
                 source = self.descriptor(transform.source)
                 self.check_transform(checked, source)
+                checked = replace(checked, _mint=_MINT, predecessors=(source,))
                 links.append(transform.source)
                 refs.append(transform.procedure)
             self.row(ref, obj, tuple(links), tuple(refs))
@@ -313,7 +316,7 @@ def _read_series_roots(
         graph = tuple(sorted(reader.rows.values(), key=lambda row: _key(row.ref)))
         graph = graph_from_projection(graph_projection(graph), roots=refs)
         return tuple(replace(value, _mint=_MINT, graph=graph) for value in checked)
-    except SeriesRefused:
+    except (SeriesRefused, DependencyNotHeld, DependencyCycle):
         raise
     except ScienceError as exc:
         raise SeriesRefused("invalid-series", str(exc)) from exc

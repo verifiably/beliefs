@@ -99,7 +99,7 @@ def test_direct_rule_bindings_are_in_both_frozen_sets_and_cannot_be_dropped(bind
     bindings = {"response": RESPONSE, binding_kind: binding}
     overrides: dict[str, Any] = {}
     if binding_kind == "anchor":
-        bindings["lag"] = LagBinding("testing/hour", ())
+        bindings["lag"] = LagBinding("si-brochure/hour", ())
         overrides = {"form": "event-locked", "functional": "testing/window-difference-against-control"}
     e = build(context, bindings=bindings, records=records, **overrides)
     spec = freeze(

@@ -106,7 +106,11 @@ def test_row_limit_and_all_channel_shapes():
     table = deepcopy(objects()[1])
     table["coordinates"] = list(range(100_000))
     table["channels"]["signal"]["values"] = ["1"] * 100_000
-    assert len(decode_series_object(v1.encode(table)).coordinates) == 100_000
+    from beliefs.series.types import Table
+
+    decoded = decode_series_object(v1.encode(table))
+    assert isinstance(decoded, Table)
+    assert len(decoded.coordinates) == 100_000
     table["coordinates"].append(100_000)
     table["channels"]["signal"]["values"].append("1")
     with pytest.raises(SeriesRefused):

@@ -19,6 +19,7 @@ from beliefs.estimand import (
     measured_bindings,
 )
 from beliefs.profile import ProfileSpec
+from beliefs.series.graph import graph_roots, graph_terms
 
 Standing: TypeAlias = Literal["empirical", "model", "calibrated-model"]
 
@@ -40,7 +41,11 @@ class AssessedTarget:
         entries = {e.id: e for e in self.dependencies}
         if tuple(entries) != tuple(sorted(entries)) or len(entries) != len(self.dependencies):
             raise MalformedRecord("target dependencies must be unique and sorted")
-        roots = set(binding_roots(self.estimand)) | set(self.applicability.rule_ids())
+        roots = (
+            set(binding_roots(self.estimand))
+            | set(self.applicability.rule_ids())
+            | graph_roots(self.estimand.series_graph)
+        )
         if self.model is not None:
             wire.address(self.model, "procedure")
             roots.add(self.model)
@@ -109,6 +114,7 @@ def target_terms(value: AssessedTarget, profile: ProfileSpec) -> frozenset[str]:
             unit(output.unit)
     terms.update(walk(value.applicability.restrictions(), profile).terms)
     terms.update(profile.dimensions[dim].restriction_sort for dim in value.applicability.values)
+    terms.update(graph_terms(e.series_graph))
     terms.update(a.kind for a in e.assumptions)
     for entry in value.dependencies:
         terms.update(entry.terms)

@@ -83,7 +83,7 @@ describe("additive contract succession", () => {
     expect(parseDomainContract(stringify(vector.added), "added", sameBase, prior).contentIdentity).toBe(
       vector.added_identity,
     );
-    const differentBase = parseBaseContract(baseText.replace("version: 3", "version: 4"), "other-base");
+    const differentBase = parseBaseContract(baseText.replace("version: 4", "version: 5"), "other-base");
     expect(() => parseDomainContract(stringify(vector.added), "added", differentBase, prior)).toThrow(/base/);
   });
 

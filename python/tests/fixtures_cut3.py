@@ -9,7 +9,6 @@ from typing import cast
 from authority import FULL
 from dataset_fixtures import dataset_ref
 from profiles import BASE
-from time_roles_fixture import time_contract
 
 from beliefs.applicability import Applicability, build_applicability
 from beliefs.assess import run_record
@@ -77,7 +76,6 @@ TESTING_PROFILE = compile_profile(
             base=shipped_base_contract(),
             predecessor=None,
         ),
-        time_contract(shipped_base_contract()),
     ],
 )
 TESTING_CLAIM = build_claim(

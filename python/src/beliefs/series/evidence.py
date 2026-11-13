@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeAlias
 
 from beliefs.dataset import dataset_address, declaration_from_facet
-from beliefs.errors import ScienceError
+from beliefs.errors import DependencyNotHeld, ScienceError
 from beliefs.holdings.records import StoreLocator, StoreTreeLocator
 from beliefs.series.types import SeriesRef, SeriesRefused
 from beliefs.tree import object_path, parse_tree_file
@@ -92,7 +92,7 @@ def load_series_object(ref: SeriesRef, *, records: HeldRecords, evidence: Series
     if type(ref) is not SeriesRef:
         raise SeriesRefused("invalid-series", "expected a SeriesRef")
     if not records.holds(ref.dataset):
-        raise SeriesRefused("invalid-series", f"series dataset {ref.dataset} is not recorded")
+        raise DependencyNotHeld(f"series dataset {ref.dataset} is not recorded")
     node = records.read(ref.dataset)
     try:
         facet = node.facets.get("dataset")

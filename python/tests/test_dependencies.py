@@ -434,3 +434,17 @@ def test_unknown_validation_closure_keeps_procedure_dependencies(profile):
     del records.nodes[procedure_identity(authority)]
     with pytest.raises(errors.DependencyNotHeld):
         dependency_closure((procedure_identity(follower),), records, profile)
+
+
+def test_series_dataset_dependencies_are_validated_terminals(profile):
+    from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+
+    declaration = DatasetDeclaration((ResourceDeclaration("x", "sha256:" + "d" * 64),))
+    id = dataset_address(declaration)
+    assert id is not None
+    node = stored.dataset_node(title="Terminal", resources=[{"name": "x", "digest": "sha256:" + "d" * 64}])
+    records = Records()
+    records.nodes[node.id] = node
+    assert dependency_closure([id], records, profile) == (dependencies.DependencyEntry(id, ()),)
+    with pytest.raises(errors.MalformedRecord):
+        dependencies.DependencyEntry(id, ("testing/count",))

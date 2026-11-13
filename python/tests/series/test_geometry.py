@@ -5,7 +5,7 @@ from fractions import Fraction
 
 import pytest
 
-from .fixtures import SeriesCase
+from .fixtures import SeriesCase, raw_object
 
 
 def test_exact_geometry(series_profile, time_roles):
@@ -213,15 +213,13 @@ def test_partial_bins_and_missing_support_refuse_event_coverage(series_profile, 
         lambda obj: obj["rows"][0]["class"].update(sort="testing/event"),
         lambda obj: obj["rows"][0]["class"].update(term="NOT-A-MEMBER"),
         lambda obj: obj["axis"].update(basis="native-elapsed"),
-        lambda obj: obj.update(rule="classification-rule:" + "f" * 64),
     ],
 )
 def test_anchor_origin_rule_class_and_row_mismatches_refuse(change, series_profile, time_roles):
-    from beliefs.identity import v1
     from beliefs.series.types import SeriesRefused
 
     case, ref = h_case()
-    descriptor = v1.decode(case.buffers[ref["resource"].split(":")[1]])
+    descriptor = raw_object(case.buffers[ref["resource"].split(":")[1]])
     anchors = case.rewrite(descriptor["anchors"], change)
     ref = case.rewrite(ref, lambda obj: obj.update(anchors=anchors))
     with pytest.raises(SeriesRefused):
@@ -230,12 +228,11 @@ def test_anchor_origin_rule_class_and_row_mismatches_refuse(change, series_profi
 
 @pytest.mark.parametrize("missing", ["anchors", "support", "gap"])
 def test_event_windows_require_anchors_and_exact_support(missing, series_profile, time_roles):
-    from beliefs.identity import v1
     from beliefs.series.geometry import window_memberships
     from beliefs.series.types import SeriesRefused
 
     case, ref = h_case()
-    descriptor = v1.decode(case.buffers[ref["resource"].split(":")[1]])
+    descriptor = raw_object(case.buffers[ref["resource"].split(":")[1]])
     if missing == "anchors":
         ref = case.rewrite(ref, lambda obj: obj.pop("anchors"))
     else:
@@ -311,3 +308,14 @@ def test_public_reader_requires_compiled_profile_and_explicit_evidence(series_pr
     assert caught.value.code == "evidence-unavailable"
     with pytest.raises(SeriesRefused, match="compiled"):
         read_series(ref, profile=SimpleNamespace(), records=case.records, evidence=case.evidence())  # pyright: ignore[reportArgumentType]
+
+
+def test_missing_anchor_rule_preserves_dependency_not_held(series_profile, time_roles):
+    from beliefs.errors import DependencyNotHeld
+
+    case, ref = h_case()
+    descriptor = raw_object(case.buffers[ref["resource"].split(":")[1]])
+    anchors = case.rewrite(descriptor["anchors"], lambda obj: obj.update(rule="classification-rule:" + "f" * 64))
+    ref = case.rewrite(ref, lambda obj: obj.update(anchors=anchors))
+    with pytest.raises(DependencyNotHeld):
+        case.read(ref, series_profile, time_roles)

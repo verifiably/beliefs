@@ -32,7 +32,7 @@ def test_explicit_location_and_same_buffer():
         load_series_object(ref, records=records, evidence=SeriesEvidence({}, evidence.locations), budget=ReadBudget())
     assert caught.value.code == "evidence-unavailable"
     with pytest.raises(SeriesRefused):
-        SeriesEvidence({}, {ref: url_locator("https://example.org/data")})
+        SeriesEvidence({}, {ref: url_locator("https://example.org/data")})  # pyright: ignore[reportArgumentType]
     with pytest.raises(SeriesRefused) as caught:
         load_series_object(
             ref,
@@ -42,7 +42,9 @@ def test_explicit_location_and_same_buffer():
         )
     assert caught.value.code == "invalid-series"
     records.nodes.clear()
-    with pytest.raises(SeriesRefused):
+    from beliefs.errors import DependencyNotHeld
+
+    with pytest.raises(DependencyNotHeld):
         load_series_object(ref, records=records, evidence=evidence, budget=ReadBudget())
 
 

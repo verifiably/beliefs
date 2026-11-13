@@ -163,6 +163,8 @@ def _intervals(a: tuple[IntervalRestriction, ...], b: tuple[IntervalRestriction,
 
 def _correspondence(a: AssessedProposition, b: AssessedProposition, profile: ProfileSpec) -> _Correspondence | str:
     left, right = a.target.estimand, b.target.estimand
+    if left.series_graph != right.series_graph:
+        return "target"
     if (left.form, left.functional) != (right.form, right.functional):
         return "functional"
     if left.bindings.keys() != right.bindings.keys() or left.outputs.keys() != right.outputs.keys():
@@ -175,6 +177,8 @@ def _correspondence(a: AssessedProposition, b: AssessedProposition, profile: Pro
     increment = Fraction(1)
 
     def measured(label: str, x: MeasuredBinding | IncrementBinding, y: MeasuredBinding | IncrementBinding) -> bool:
+        if isinstance(x, MeasuredBinding) and isinstance(y, MeasuredBinding) and x.series != y.series:
+            return False
         if _source(x, a.claim) != _source(y, b.claim):
             return False
         pairs.append((label, x, y))

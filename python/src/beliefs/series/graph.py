@@ -79,7 +79,7 @@ def graph_from_projection(value: object, *, roots: tuple[SeriesRef, ...]) -> Ser
             height = 1 + max((visit(link) for link in rows[ref].links), default=0)
             if height > 32:
                 raise SeriesRefused("invalid-series", "graph exceeds depth 32")
-            active.remove(ref)
+            active.discard(ref)
             heights[ref] = height
             return height
 

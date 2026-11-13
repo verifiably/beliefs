@@ -10,6 +10,7 @@ from nodes.core.node import Node
 from beliefs import _measurement_record as record
 from beliefs.assumptions import AssumptionInstance
 from beliefs.classification_rule import ClassificationRule, rule_from_stored
+from beliefs.dataset import dataset_address, declaration_from_facet
 from beliefs.errors import DependencyCycle, DependencyNotHeld, IdentityError, MalformedRecord
 from beliefs.identity import v1
 from beliefs.measurement import Observable
@@ -28,6 +29,8 @@ from beliefs.restriction import (
     UnionRestriction,
     check_held_rule_scope,
 )
+from beliefs.series.graph import graph_roots
+from beliefs.series.types import SeriesGraph
 
 __all__ = [
     "DependencyEntry",
@@ -42,6 +45,7 @@ __all__ = [
     "read_record",
     "record_references",
     "record_terms",
+    "series_dependency_closure",
     "walk",
 ]
 
@@ -84,7 +88,15 @@ class DependencyEntry:
 
     def __post_init__(self) -> None:
         kind = self.id.partition(":")[0]
-        record.address(self.id, kind)
+        if kind == "dataset":
+            if (
+                re.fullmatch(r"dataset:sha256:[0-9a-f]{64}", self.id) is None
+                or self.terms
+                or self.facet_digest is not None
+            ):
+                raise MalformedRecord("dataset dependencies require the exact address, empty terms and no facet digest")
+        else:
+            record.address(self.id, kind)
         if self.terms != tuple(sorted(set(self.terms))):
             raise MalformedRecord("dependency terms must be sorted and unique")
         for term in self.terms:
@@ -247,6 +259,21 @@ def dependency_closure(
             raise DependencyCycle(f"dependency cycle at {id!r}")
         if id in entries:
             return
+        if id.startswith("dataset:"):
+            entry = DependencyEntry(id, ())
+            if not records.holds(id):
+                raise DependencyNotHeld(f"dataset dependency {id!r} is not recorded")
+            node = records.read(id)
+            facet = node.facets.get("dataset")
+            if (
+                node.id != id
+                or node.kind != "dataset"
+                or not isinstance(facet, Mapping)
+                or dataset_address(declaration_from_facet(facet)) != id
+            ):
+                raise MalformedRecord("dataset dependency record/address disagrees")
+            entries[id] = entry
+            return
         if id.startswith("assessment:"):
             record.address(id, "assessment")
             if not records.holds(id):
@@ -309,3 +336,16 @@ def dependency_closure(
     for id in sorted(set(ids)):
         follow(id)
     return tuple(entries[id] for id in sorted(entries))
+
+
+def series_dependency_closure(
+    ids: Iterable[str],
+    graph: SeriesGraph,
+    records: HeldRecords,
+    profile: ProfileSpec,
+    *,
+    assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
+) -> tuple[DependencyEntry, ...]:
+    return dependency_closure(
+        set(ids) | graph_roots(graph), records, profile, assessment_dependency=assessment_dependency
+    )

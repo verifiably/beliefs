@@ -25,7 +25,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, fields
 from hashlib import sha256
 from types import MappingProxyType
-from typing import Literal, Protocol, TypeAlias, cast, final
+from typing import Literal, Protocol, TypeAlias, cast, final, runtime_checkable
 
 from beliefs.applicability import Applicability, applicability_projection
 from beliefs.applicability import checked as checked_applicability
@@ -36,8 +36,8 @@ from beliefs.dependencies import (
     FrozenAssessmentDependency,
     HeldRecords,
     dependencies_projection,
-    dependency_closure,
     read_record,
+    series_dependency_closure,
 )
 from beliefs.errors import (
     CanonicalTextRefused,
@@ -48,12 +48,15 @@ from beliefs.errors import (
     ScienceError,
     UnfreezableSpec,
 )
-from beliefs.estimand import Estimand, admit_estimand, binding_roots, estimand_projection
+from beliefs.estimand import Estimand, admit_estimand, binding_roots, check_series, estimand_projection
 from beliefs.identity import v1
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
 from beliefs.restriction import check_held_rule_scope
 from beliefs.sealed import sealed
+from beliefs.series.evidence import SeriesEvidence
+from beliefs.series.reader import CheckedSeries
+from beliefs.series.types import ElapsedAxis, SeriesRefused
 from beliefs.target import AssessedTarget, Standing, target_from_projection
 
 __all__ = [
@@ -508,6 +511,7 @@ def freeze(
     records: HeldRecords,
     assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
     supersedes: str | None = None,
+    series_evidence: SeriesEvidence | None = None,
 ) -> FrozenSpec:
     if type(draft) is not SpecDraft:
         raise TypeError("freeze requires a SpecDraft")
@@ -518,6 +522,11 @@ def freeze(
     _check_route(draft.standing, draft.model, draft.estimand)
     _require_register_ids(draft.registers, MalformedSpec, "registers")
     admit_estimand(profile, draft.estimand, claim, authoring=True)
+    if draft.estimand.series_graph and series_evidence is None:
+        raise SeriesRefused("evidence-unavailable", "freezing a series spec requires explicit local bytes")
+    if series_evidence is not None:
+        checked_series = check_series(draft.estimand, profile=profile, records=records, evidence=series_evidence)
+        _check_series_inputs(checked_series, draft.input_roles, records, profile)
     applicability = checked_applicability(profile, claim.operator, draft.applicability.values, authoring=True)
     pairs = bind_rules((draft.interpretation_rule, draft.equivalence_rule), held_rules)
     if not set(rule_procedures) <= {name for name, _ in pairs} or draft.interpretation_rule not in rule_procedures:
@@ -534,12 +543,18 @@ def freeze(
     )
     if draft.model is not None:
         roots.add(draft.model)
-    own = dependency_closure(
-        binding_roots(draft.estimand), records, profile, assessment_dependency=assessment_dependency
+    own = series_dependency_closure(
+        binding_roots(draft.estimand),
+        draft.estimand.series_graph,
+        records,
+        profile,
+        assessment_dependency=assessment_dependency,
     )
     if own != draft.estimand.dependencies:
         raise UnfreezableSpec("estimand frozen dependency set is incomplete or disagrees with held records")
-    dependencies = dependency_closure(roots, records, profile, assessment_dependency=assessment_dependency)
+    dependencies = series_dependency_closure(
+        roots, draft.estimand.series_graph, records, profile, assessment_dependency=assessment_dependency
+    )
     actual = {entry.id: entry for entry in dependencies}
     if any(actual.get(entry.id) != entry for entry in draft.estimand.dependencies):
         raise UnfreezableSpec("estimand frozen dependencies disagree with held records")
@@ -784,6 +799,7 @@ def revise(
     claim: Claim,
     records: HeldRecords,
     assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
+    series_evidence: SeriesEvidence | None = None,
 ) -> FrozenSpec:
     """The only edit path. Always mints with `supersedes=original.identity`,
     so the successor to a recorded failed replay carries its reference by
@@ -814,4 +830,54 @@ def revise(
         claim=claim,
         records=records,
         assessment_dependency=assessment_dependency,
+        series_evidence=series_evidence,
     )
+
+
+@runtime_checkable
+class _EmpiricalSeriesRecords(Protocol):
+    def empirical_standing(self, dataset: str, profile: ProfileSpec) -> bool: ...
+
+
+def _check_series_inputs(
+    checked: tuple[CheckedSeries, ...], inputs: tuple[SpecInput, ...], records: HeldRecords, profile: ProfileSpec
+) -> None:
+    if not checked:
+        return
+    by_dataset: dict[str, list[SpecInput]] = {}
+    for entry in inputs:
+        by_dataset.setdefault(entry.dataset, []).append(entry)
+    requirements: dict[str, set[tuple[str, str]]] = {}
+
+    def require(dataset: str, allowed: set[tuple[str, str]]) -> None:
+        requirements[dataset] = requirements.get(dataset, allowed) & allowed
+
+    for row in checked[0].graph:
+        if row.format != "science.series-table.v1":
+            require(row.ref.dataset, {("reads", "annotation")})
+
+    def table(series: CheckedSeries, measured: bool) -> None:
+        if isinstance(series.axis, ElapsedAxis) and series.axis.basis == "synthetic":
+            modes = {("reads", "simulation")}
+        elif measured:
+            modes = {("reads", "derivation"), ("observes", "observation")}
+        else:
+            modes = {("reads", "derivation")}
+        require(series.descriptor.table.dataset, modes)
+        for predecessor in series.predecessors:
+            table(predecessor, False)
+
+    for series in checked:
+        table(series, True)
+    for dataset, modes in requirements.items():
+        declared = by_dataset.get(dataset, [])
+        if len(declared) != 1 or (declared[0].role, declared[0].mode) not in modes:
+            raise UnfreezableSpec(
+                "series datasets require exactly one compatible explicit input role/mode; split incompatible containers"
+            )
+        if declared[0].role == "observes" and (
+            not isinstance(records, _EmpiricalSeriesRecords) or not records.empirical_standing(dataset, profile)
+        ):
+            raise UnfreezableSpec(
+                "observed series table requires existing empirical standing through the supplied records adapter"
+            )
