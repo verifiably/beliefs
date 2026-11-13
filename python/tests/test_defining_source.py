@@ -47,8 +47,9 @@ def test_source_is_immutable_and_outside_projections(base_contract):
         compile_profile(base_contract, [absent]).compiled_identity
         == compile_profile(base_contract, [present]).compiled_identity
     )
+    assert present.defining_source is not None
     with pytest.raises(FrozenInstanceError):
-        present.defining_source.id = "urn:changed:id"
+        present.defining_source.id = "urn:changed:id"  # pyright: ignore[reportAttributeAccessIssue]
     other = copy.deepcopy(CASES["urn"]["document"])
     other["contract"] = "other-source-test"
     duplicate = parse_domain_contract(other, source="other", base=base_contract, predecessor=None)
