@@ -49,6 +49,7 @@ import {
   type RelationDecl,
   type RestrictionForm,
   type SortBinding,
+  type TimeRoles,
   type TransformationDecl,
   type UnitDecl,
 } from "./contract.js";
@@ -212,6 +213,7 @@ export class ProfileSpec {
   readonly relations: DeclarationTable<RelationDecl>;
   readonly claimGrammar: ClaimGrammar;
   readonly estimandGrammar: EstimandGrammar;
+  readonly timeRoles: TimeRoles;
   readonly compositeGrammar: CompositeGrammar;
   readonly sorts: ResolutionTable<CompiledSort>;
   readonly dimensions: ResolutionTable<CompiledDimension>;
@@ -252,6 +254,7 @@ export class ProfileSpec {
       relations: DeclarationTable<RelationDecl>;
       claimGrammar: ClaimGrammar;
       estimandGrammar: EstimandGrammar;
+      timeRoles: TimeRoles;
       compositeGrammar: CompositeGrammar;
       sorts: ResolutionTable<CompiledSort>;
       dimensions: ResolutionTable<CompiledDimension>;
@@ -299,6 +302,7 @@ export class ProfileSpec {
     this.relations = frozenTable(Object.entries(parts.relations));
     this.claimGrammar = parts.claimGrammar;
     this.estimandGrammar = parts.estimandGrammar;
+    this.timeRoles = parts.timeRoles;
     this.compositeGrammar = parts.compositeGrammar;
     this.sorts = frozenTable(Object.entries(parts.sorts));
     this.dimensions = frozenTable(Object.entries(parts.dimensions));
@@ -863,6 +867,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     facets,
     claimGrammar: base.claimGrammar,
     estimandGrammar: base.estimandGrammar,
+    timeRoles: base.timeRoles,
     compositeGrammar: base.compositeGrammar,
     sorts,
     dimensions,

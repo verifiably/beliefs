@@ -45,6 +45,9 @@ from beliefs.proxy_model import Calibration, ProxyModel
 from beliefs.resolution import BindingCheckReceipt, ResolutionSnapshot, TermOutcome, _emit_receipt
 from beliefs.restriction import IntervalRestriction, restriction_from_projection, restriction_projection
 from beliefs.sealed import sealed
+from beliefs.series.codec import series_ref_from_projection, series_ref_projection
+from beliefs.series.graph import graph_from_projection, graph_projection
+from beliefs.series.types import SeriesGraph, SeriesRef
 
 
 @dataclass(frozen=True)
@@ -60,6 +63,7 @@ class MeasuredBinding:
     measure: Measure
     mapping: str | None
     proxy: str | None
+    series: SeriesRef | None = None
 
 
 @dataclass(frozen=True)
@@ -199,6 +203,7 @@ class Estimand:
     assumptions: tuple[AssumptionInstance, ...]
     calibration: str | None
     dependencies: tuple[DependencyEntry, ...]
+    series_graph: SeriesGraph
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise UntypedEstimandMember("Estimand values are built by build_estimand or restored by estimand_from_stored")
@@ -608,6 +613,7 @@ def build_estimand(
         assumptions=assumptions,
         calibration=calibration,
         dependencies=(),
+        series_graph=(),
     )
     value = _check_shape(profile, value, claim=claim, authoring=True)
     admit_estimand(profile, value, claim, authoring=True)
@@ -701,6 +707,7 @@ def _binding_projection(binding: Binding) -> object:
             "measure": measure_projection(binding.measure),
             **({"mapping": binding.mapping} if binding.mapping is not None else {}),
             **({"proxy": binding.proxy} if binding.proxy is not None else {}),
+            **({"series": series_ref_projection(binding.series)} if binding.series is not None else {}),
         }
     if isinstance(binding, IncrementBinding):
         return {
@@ -761,6 +768,7 @@ def estimand_projection(value: Estimand) -> dict[str, object]:
         "uncertainty": value.uncertainty,
         "assumptions": [instance_projection(x) for x in value.assumptions],
         "dependencies": dependencies_projection(value.dependencies),
+        "series_graph": graph_projection(value.series_graph),
         **({"calibration": value.calibration} if value.calibration is not None else {}),
     }
 
@@ -813,7 +821,7 @@ def _read_binding(value: object, variable: str) -> Binding:
     optional = {"member"}
     if variable == "response":
         required.add("measure")
-        optional.update({"mapping", "proxy"})
+        optional.update({"mapping", "proxy", "series"})
     elif variable == "grouping":
         required.add("increment" if "increment" in value else "levels")
         if "increment" in value:
@@ -830,6 +838,7 @@ def _read_binding(value: object, variable: str) -> Binding:
             measure_from_projection(body["measure"]),
             wire.address(body["mapping"], "referent-mapping") if "mapping" in body else None,
             wire.address(body["proxy"], "proxy-model") if "proxy" in body else None,
+            series_ref_from_projection(body["series"]) if "series" in body else None,
         )
     if variable == "grouping":
         if "increment" in body:
@@ -882,6 +891,7 @@ def estimand_from_stored(value: object, *, profile: ProfileSpec) -> Estimand:
             "uncertainty",
             "assumptions",
             "dependencies",
+            "series_graph",
         },
         {"calibration"},
     )
@@ -920,6 +930,21 @@ def estimand_from_stored(value: object, *, profile: ProfileSpec) -> Estimand:
         assumptions=wire.sequence(body["assumptions"], instance_from_projection),
         calibration=wire.address(body["calibration"], "proxy-model") if "calibration" in body else None,
         dependencies=dependencies_from_projection(body["dependencies"]),
+        series_graph=(),
+    )
+    graph = graph_from_projection(
+        body["series_graph"],
+        roots=tuple(
+            binding.series
+            for binding in measured_bindings(result)
+            if isinstance(binding, MeasuredBinding) and binding.series is not None
+        ),
+    )
+    result = _mint(
+        **{
+            field.name: graph if field.name == "series_graph" else getattr(result, field.name)
+            for field in fields(Estimand)
+        }
     )
     encoded_assumptions = [v1.encode(instance_projection(a)) for a in result.assumptions]
     if encoded_assumptions != sorted(set(encoded_assumptions)):

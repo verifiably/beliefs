@@ -318,3 +318,24 @@ describe("the components go through the constructor", () => {
     expect(() => build(tampered)).toThrow(/sign/);
   });
 });
+
+it("series time roles and synthetic vocabulary compile from the shared fixture", () => {
+  const document = parseBaseContract(read("contracts/science/CONTRACT.yaml"), "<series base>");
+  const domain = parseDomainContract(read("fixtures/contracts/series-time.yaml"), "<synthetic series time>", document);
+  const profile = compileProfile(document, [domain]);
+  expect(document.version).toBe(4);
+  expect(document.estimandGrammar.version).toBe(3);
+  expect(profile.timeRoles).toEqual(JSON.parse(read("fixtures/series-contract-v1.json")).time_roles);
+});
+
+it("series role-map fields are closed and canonical", () => {
+  const fixture = JSON.parse(read("fixtures/series-contract-v1.json"));
+  const text = read("contracts/science/CONTRACT.yaml");
+  for (const field of Object.keys(fixture.time_roles)) {
+    const line = `  ${field}: ${fixture.time_roles[field]}\n`;
+    expect(() => parseBaseContract(text.replace(line, ""), "<series missing role>")).toThrow();
+  }
+  expect(() =>
+    parseBaseContract(text.replace("time_roles:\n", "time_roles:\n  extra: si-brochure/hour\n"), "<series extra role>"),
+  ).toThrow();
+});

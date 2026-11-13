@@ -37,7 +37,7 @@ from beliefs.series.types import (
     Table,
 )
 
-__all__ = ["CheckedSeries"]
+__all__ = ["CheckedSeries", "read_series"]
 
 _MINT = object()
 
@@ -303,6 +303,10 @@ def _read_series_roots(
     evidence: SeriesEvidence,
     time_roles: TimeRoles,
 ) -> tuple[CheckedSeries, ...]:
+    if type(profile) is not ProfileSpec:
+        raise SeriesRefused("invalid-series", "series reader requires a compiled ProfileSpec")
+    if type(evidence) is not SeriesEvidence:
+        raise SeriesRefused("evidence-unavailable", "series reader requires explicit local evidence")
     reader = _Reader(profile, records, evidence, time_roles)
     try:
         checked = tuple(reader.descriptor(ref) for ref in refs)
@@ -313,3 +317,13 @@ def _read_series_roots(
         raise
     except ScienceError as exc:
         raise SeriesRefused("invalid-series", str(exc)) from exc
+
+
+def read_series(
+    ref: SeriesRef, *, profile: ProfileSpec, records: HeldRecords, evidence: SeriesEvidence
+) -> CheckedSeries:
+    if type(profile) is not ProfileSpec:
+        raise SeriesRefused("invalid-series", "series reader requires a compiled ProfileSpec")
+    return _read_series_roots(
+        (ref,), profile=profile, records=records, evidence=evidence, time_roles=profile.time_roles
+    )[0]

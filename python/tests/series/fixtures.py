@@ -94,33 +94,9 @@ def held_file(data=None):
 
 
 def time_document():
-    return {
-        "contract": "si-brochure",
-        "version": 1,
-        "lineage": "genesis",
-        "sorts": {},
-        "dimensions": {},
-        "defining_source": {"id": "urn:beliefs:source:bipm-si-brochure"},
-        "quantity_kinds": {
-            "duration": {"dimension": {"T": 1}, "definition": "Synthetic duration."},
-            "frequency": {"dimension": {"T": -1}, "definition": "Synthetic frequency."},
-        },
-        "units": {
-            "second": {"symbol": "s", "quantity_kind": "duration", "definition": "Synthetic second."},
-            "hour": {"symbol": "h", "quantity_kind": "duration", "definition": "Synthetic hour."},
-            "hertz": {"symbol": "Hz", "quantity_kind": "frequency", "definition": "Synthetic hertz."},
-        },
-        "conversions": {
-            "hour-to-second": {
-                "from": "hour",
-                "to": "second",
-                "kind": "multiplicative",
-                "factor": "3600",
-                "exact": True,
-                "definition": "Synthetic hour conversion.",
-            }
-        },
-    }
+    from time_roles_fixture import time_document as load_time
+
+    return load_time()
 
 
 def channel_coordinates():

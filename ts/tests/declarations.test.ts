@@ -125,8 +125,8 @@ describe("the base contract's declarations", () => {
     expect(base.kinds.discussion.role).toBe("prose");
     expect(Object.keys(base.kinds.discussion.facets)).toEqual(["display"]);
   });
-  it("declares the v2 estimand grammar", () => {
-    expect(base.estimandGrammar.version).toBe(2);
+  it("declares the v3 estimand grammar", () => {
+    expect(base.estimandGrammar.version).toBe(3);
     expect(base.estimandGrammar.forms).toEqual([
       "contrast",
       "quantity",
@@ -184,7 +184,7 @@ describe("the base contract's declarations", () => {
   });
   it("declares the v2 claim grammar's closed sets", () => {
     const grammar = base.claimGrammar;
-    expect(base.version).toBe(3);
+    expect(base.version).toBe(4);
     expect(grammar.version).toBe(2);
     expect(grammar.forms).toEqual(["polar", "null"]);
     expect(grammar.roleCategories).toEqual(["set", "temporal", "class", "pattern"]);

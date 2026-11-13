@@ -47,6 +47,11 @@ def label_coordinate(value: str) -> Fraction:
 
 
 def elapsed_factor(profile: ProfileSpec, roles: TimeRoles, unit: str) -> tuple[Fraction, frozenset[str]]:
+    for term in (roles.duration, roles.frequency, roles.second, roles.hertz, unit):
+        if profile.defining_sources.get(term.partition("/")[0]) != roles.source:
+            raise SeriesRefused(
+                "invalid-series", "time quantity/unit defining source disagrees with the base time roles"
+            )
     duration = profile.quantity_kinds.get(roles.duration)
     frequency = profile.quantity_kinds.get(roles.frequency)
     second = profile.units.get(roles.second)

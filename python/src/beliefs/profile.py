@@ -49,6 +49,7 @@ from beliefs.contract.base import (
     FacetUse,
     MeasurementGrammar,
     RelationDecl,
+    TimeRoles,
 )
 from beliefs.contract.coordination import CoordinationContract
 from beliefs.contract.domain import (
@@ -636,6 +637,8 @@ class ProfileSpec:
     claim_grammar: ClaimGrammar
     composite_grammar: CompositeGrammar
     estimand_grammar: EstimandGrammar
+    time_roles: TimeRoles
+    defining_sources: Mapping[str, str]
     measurement_grammar: MeasurementGrammar
     sorts: Mapping[str, CompiledSort]
     dimensions: Mapping[str, CompiledDimension]
@@ -766,6 +769,7 @@ class ProfileSpec:
             kinds=self.kinds,
             facets=self.facets,
             relations=self.relations,
+            time_roles=self.time_roles,
             coordination=coordination,
         )
 
@@ -1437,6 +1441,10 @@ def compile_profile(
         _registry=registry,
         claim_grammar=base.claim_grammar,
         estimand_grammar=base.estimand_grammar,
+        time_roles=base.time_roles,
+        defining_sources=MappingProxyType(
+            {ns: contract.defining_source.id for ns, contract in seen.items() if contract.defining_source is not None}
+        ),
         measurement_grammar=base.measurement_grammar,
         composite_grammar=base.composite_grammar,
         sorts=tables.sorts,
@@ -1481,6 +1489,7 @@ def compile_profile(
                 kinds=kinds,
                 facets=facets,
                 relations=base.relations,
+                time_roles=base.time_roles,
                 coordination=coordination_projection,
             ),
         ),
@@ -1526,6 +1535,7 @@ def _projection(
     composite_grammar: CompositeGrammar,
     tables: _ClaimTables,
     *,
+    time_roles: TimeRoles,
     kinds: Mapping[str, CompiledKind],
     facets: Mapping[str, CompiledFacet],
     relations: Mapping[str, RelationDecl],
@@ -1552,6 +1562,7 @@ def _projection(
             "layers": sorted(claim_grammar.layers),
         },
         "estimand_grammar": estimand_grammar.projection(),
+        "time_roles": time_roles.projection(),
         "measurement_grammar": measurement_grammar.projection(),
         "composite_grammar": composite_grammar.projection(),
         "kinds": {name: kind.projection() for name, kind in kinds.items()},

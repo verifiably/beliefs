@@ -14,6 +14,7 @@ from fixtures_cut3 import (
     UNCONSULTED,
     FixtureRecords,
 )
+from time_roles_fixture import time_contract
 
 from beliefs.applicability import Applicability
 from beliefs.claim import Member, Referent, build_claim
@@ -76,7 +77,10 @@ def context(base_contract, testing_document):
     testing_document["functionals"]["k-level"] = {**row, "arity": "k"}
     return compile_profile(
         base_contract,
-        [parse_domain_contract(testing_document, source="<v2 forms>", base=base_contract, predecessor=None)],
+        [
+            parse_domain_contract(testing_document, source="<v2 forms>", base=base_contract, predecessor=None),
+            time_contract(base_contract),
+        ],
     )
 
 
@@ -152,10 +156,10 @@ def test_all_worked_forms_and_functional_rows_roundtrip(context, name):
         bindings.update(
             anchor=RoleAnchor("cause", None, Referent("testing/entity", "EX:a")),
             lag=LagBinding(
-                "testing/hour",
+                "si-brochure/hour",
                 (
-                    IntervalRestriction("testing/hour", Fraction(0), Fraction(1), True, False),
-                    IntervalRestriction("testing/hour", Fraction(1), Fraction(2), True, False),
+                    IntervalRestriction("si-brochure/hour", Fraction(0), Fraction(1), True, False),
+                    IntervalRestriction("si-brochure/hour", Fraction(1), Fraction(2), True, False),
                 ),
             ),
         )
@@ -345,7 +349,7 @@ def test_event_anchor_requires_a_class_category_role(context):
             bindings={
                 "response": RESPONSE,
                 "anchor": RoleAnchor("effect", None, Referent("testing/outcome", "EX:y")),
-                "lag": LagBinding("testing/hour", ()),
+                "lag": LagBinding("si-brochure/hour", ()),
             },
         )
 

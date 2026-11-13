@@ -375,6 +375,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
       () =>
         new ProfileSpec(Symbol("forged"), {
           ...forgedProfile,
+          timeRoles: base.timeRoles,
           kinds: profile.kinds,
           facets: profile.facets,
           relations: profile.relations,
@@ -451,6 +452,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           claimGrammar: FORGED_GRAMMAR,
           estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+          timeRoles: base.timeRoles,
           measurementGrammar: base.measurementGrammar,
           compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
         }),
@@ -499,6 +501,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           version: 1,
           claimGrammar: FORGED_GRAMMAR,
           estimandGrammar: FORGED_ESTIMAND_GRAMMAR,
+          timeRoles: base.timeRoles,
           measurementGrammar: base.measurementGrammar,
           compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
         }),

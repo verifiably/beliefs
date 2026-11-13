@@ -6,6 +6,8 @@ well-formed, which is not the property anyone needs.
 """
 
 import copy
+import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -30,7 +32,7 @@ class TestTheShippedContract:
         assert request.node.get_closest_marker("xdist_group") is None
         contract = base.load_base_contract(base_contract_path)
         assert contract.name == "science"
-        assert contract.version == 3
+        assert contract.version == 4
 
     def test_it_declares_the_closed_sets_7_1_names(self, base_contract_path):
         grammar = base.load_base_contract(base_contract_path).claim_grammar
@@ -330,7 +332,7 @@ class TestClaimGrammarV2:
 class TestEstimandGrammar:
     def test_the_shipped_base_declares_the_three_closed_sets(self, base_contract):
         grammar = base_contract.estimand_grammar
-        assert grammar.version == 2
+        assert grammar.version == 3
         assert grammar.forms == base.SUPPORTED_ESTIMAND_FORMS
         assert grammar.uncertainty_kinds == ("interval", "standard-error", "covariance")
 
@@ -393,7 +395,7 @@ class TestEstimandGrammar:
             parse(document)
 
     def test_another_estimand_grammar_version_is_refused(self, document):
-        document["estimand_grammar"]["version"] = 3
+        document["estimand_grammar"]["version"] = 4
         with pytest.raises(MalformedContract):
             parse(document)
 
@@ -566,3 +568,33 @@ class TestCompositeGrammarAndKind:
         assert before.content_identity != after.content_identity
         assert compile_profile(before, []).compiled_identity != compile_profile(after, []).compiled_identity
         assert compile_profile(before, []).composite_grammar == before.composite_grammar
+
+
+def test_series_time_roles_are_closed_and_identity_bearing(document):
+    roles = json.loads((Path(__file__).resolve().parents[2] / "fixtures/series-contract-v1.json").read_text())[
+        "time_roles"
+    ]
+    document["time_roles"] = roles
+    parsed = parse(document)
+    assert parsed.time_roles.duration == "si-brochure/duration"
+    assert parsed.time_roles.source == roles["source"]
+    for key in roles:
+        malformed = copy.deepcopy(document)
+        del malformed["time_roles"][key]
+        with pytest.raises(MalformedContract):
+            parse(malformed)
+    malformed = copy.deepcopy(document)
+    malformed["time_roles"]["extra"] = "si-brochure/hour"
+    with pytest.raises(MalformedContract):
+        parse(malformed)
+
+
+def test_series_grammar_cutover(base_contract):
+    from beliefs.dependencies import ASSESSMENT_FACET_DOMAIN
+    from beliefs.record import ASSESSMENT_DOMAIN
+
+    assert base_contract.version == 4
+    assert base_contract.estimand_grammar.version == 3
+    assert base.ESTIMAND_GRAMMAR == "science.estimand.v3"
+    assert ASSESSMENT_DOMAIN == "science.assessment.v2"
+    assert ASSESSMENT_FACET_DOMAIN == "science.assessment-facet.v2"

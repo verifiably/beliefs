@@ -10,7 +10,15 @@
 # change, because the identities *are* the bytes.
 
 contract: science
-version: 3
+version: 4
+
+# Candidate time-role coupling; external vocabulary admission is separate.
+time_roles:
+  source: urn:beliefs:source:bipm-si-brochure
+  duration: si-brochure/duration
+  frequency: si-brochure/frequency
+  second: si-brochure/second
+  hertz: si-brochure/hertz
 
 claim_grammar:
   version: 2
@@ -58,7 +66,7 @@ claim_grammar:
 # level. Identification classes and measured quantities are vocabulary and are
 # declared by domain contracts, never here.
 estimand_grammar:
-  version: 2
+  version: 3
   tag_encoding: science.identity.v1
   forms: [contrast, quantity, law-parameters, event-locked, association, enrichment]
   arities: [one, two, k, n, not-applicable]

@@ -219,3 +219,22 @@ describe("functional declarations", () => {
     expect(() => contract(value)).toThrow(MalformedContract);
   });
 });
+
+it("series response_axis enters a functional's immutable schema", () => {
+  const document = parse(read("fixtures/contracts/testing.yaml"));
+  document.functionals["difference-of-means"].response_axis = "regular-elapsed";
+  const domain = parseDomainContract(stringify(document), "<series>", base);
+  const profile = compileProfile(base, [domain]);
+  expect(profile.functionals["testing/difference-of-means"].declaration.response_axis).toBe("regular-elapsed");
+  document.functionals["difference-of-means"].response_axis = "physical";
+  expect(() => parseDomainContract(stringify(document), "<series bad>", base)).toThrow(MalformedContract);
+});
+
+it("series response_axis redefinition requires a new functional id", () => {
+  const document = parse(read("fixtures/contracts/testing.yaml"));
+  const previous = parseDomainContract(stringify(document), "<series predecessor>", base);
+  document.version = 2;
+  document.lineage = { successor: previous.contentIdentity };
+  document.functionals["difference-of-means"].response_axis = "elapsed";
+  expect(() => parseDomainContract(stringify(document), "<series successor>", base, previous)).toThrow();
+});

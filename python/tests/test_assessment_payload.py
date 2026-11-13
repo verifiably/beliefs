@@ -133,7 +133,7 @@ def test_event_curves_validate_every_point_and_window_payloads_stay_scalar(conte
         bindings={
             "response": RESPONSE,
             "anchor": RoleAnchor("cause", None, Referent("testing/entity", "EX:a")),
-            "lag": LagBinding("testing/hour", ()),
+            "lag": LagBinding("si-brochure/hour", ()),
         },
     )
     curves = {"estimate": (CurvePoint(D(0), D(1), Interval(D(0), D(2), D(".95"))), CurvePoint(D(1), D(2), None))}

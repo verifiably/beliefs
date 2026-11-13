@@ -226,12 +226,21 @@ const SEMANTIC_DOMAIN = /^science\.[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*\.v[1-9][0
 const FIELD_TYPES: readonly FieldType[] = ["string", "integer", "boolean", "ref", "locator", "actor"];
 const FIELD_NAME = /^[a-z][a-z0-9_]*$/;
 
+export interface TimeRoles {
+  readonly source: string;
+  readonly duration: string;
+  readonly frequency: string;
+  readonly second: string;
+  readonly hertz: string;
+}
+
 export class BaseContract {
   #minted = true;
   readonly name: string;
   readonly version: number;
   readonly claimGrammar: ClaimGrammar;
   readonly estimandGrammar: EstimandGrammar;
+  readonly timeRoles: TimeRoles;
   readonly measurementGrammar: MeasurementGrammar;
   readonly compositeGrammar: CompositeGrammar;
   readonly kinds: DeclarationTable<KindDecl>;
@@ -244,6 +253,7 @@ export class BaseContract {
       version: number;
       claimGrammar: ClaimGrammar;
       estimandGrammar: EstimandGrammar;
+      timeRoles: TimeRoles;
       measurementGrammar: MeasurementGrammar;
       compositeGrammar: CompositeGrammar;
       kinds?: DeclarationTable<KindDecl>;
@@ -265,6 +275,7 @@ export class BaseContract {
     }
     this.name = "science";
     this.version = parts.version;
+    this.timeRoles = Object.freeze({ ...parts.timeRoles });
     this.claimGrammar = Object.freeze({
       version: parts.claimGrammar.version,
       quantifiers: Object.freeze([...parts.claimGrammar.quantifiers]),
@@ -606,6 +617,7 @@ export interface FunctionalDecl {
   readonly increment: string;
   readonly uncertainty: string;
   readonly parameters: DeclarationTable<ParameterDecl> | "not-applicable";
+  readonly response_axis?: string;
 }
 export interface IdentificationClassDecl {
   readonly name: string;
@@ -892,6 +904,13 @@ export function parseFacetDeclarations(
   return frozenTable(entries);
 }
 
+function timeRoleTerm(value: unknown, source: string): string {
+  if (typeof value !== "string" || !/^[a-z][a-z0-9-]*\/[a-z][a-z0-9-]*$/.test(value) || value.endsWith("\n")) {
+    throw new MalformedContract(`${source}.time_roles: expected a qualified term`);
+  }
+  return value;
+}
+
 export function parseBaseContract(text: string, source: string): BaseContract {
   const document = mapping(readDocument(text, source), source);
   exactFields(
@@ -900,6 +919,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       "contract",
       "version",
       "claim_grammar",
+      "time_roles",
       "estimand_grammar",
       "measurement_grammar",
       "composite_grammar",
@@ -1006,11 +1026,11 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     [],
     `${source}.estimand_grammar`,
   );
-  if (estimandDocument.tag_encoding !== TAG_ENCODING || estimandDocument.version !== 2) {
-    throw new MalformedContract(`${source}.estimand_grammar: requires version 2 and ${TAG_ENCODING}`);
+  if (estimandDocument.tag_encoding !== TAG_ENCODING || estimandDocument.version !== 3) {
+    throw new MalformedContract(`${source}.estimand_grammar: requires version 3 and ${TAG_ENCODING}`);
   }
   const estimandGrammar: EstimandGrammar = {
-    version: 2,
+    version: 3,
     forms: closedSet(estimandDocument.forms, `${source}.estimand_grammar.forms`),
     arities: closedSet(estimandDocument.arities, `${source}.estimand_grammar.arities`),
     responseTransformations: closedSet(
@@ -1197,6 +1217,15 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     relationEntries.push([name, Object.freeze({ name, group: body.group, sources, targets, sameKind })]);
   }
   const relations = frozenTable(relationEntries);
+  const rawTimeRoles = mapping(document.time_roles, `${source}.time_roles`);
+  exactFields(rawTimeRoles, ["source", "duration", "frequency", "second", "hertz"], [], `${source}.time_roles`);
+  const timeRoles: TimeRoles = Object.freeze({
+    source: parseDefiningSource({ id: rawTimeRoles.source }, `${source}.time_roles.source`).id,
+    duration: timeRoleTerm(rawTimeRoles.duration, source),
+    frequency: timeRoleTerm(rawTimeRoles.frequency, source),
+    second: timeRoleTerm(rawTimeRoles.second, source),
+    hertz: timeRoleTerm(rawTimeRoles.hertz, source),
+  });
   const contract = new BaseContract(MINT, {
     version: positiveInt(document.version, `${source}.version`),
     claimGrammar: {
@@ -1213,6 +1242,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       reservedRoles: reservedRoles(grammarDocument.reserved_roles, kinds, `${source}.claim_grammar.reserved_roles`),
     },
     estimandGrammar,
+    timeRoles,
     measurementGrammar,
     compositeGrammar,
     kinds,
@@ -1707,7 +1737,12 @@ function functionalTag(value: unknown, choices: readonly string[], where: string
   return value;
 }
 function parseFunctional(value: unknown, where: string): FunctionalDecl {
-  const body = measurementFields(value, [...Object.keys(FUNCTIONAL_VOCABULARIES), "parameters"], ["external"], where);
+  const body = measurementFields(
+    value,
+    [...Object.keys(FUNCTIONAL_VOCABULARIES), "parameters"],
+    ["external", "response_axis"],
+    where,
+  );
   if ("description" in body) canonicalText(body.description, where);
   if ("external" in body) {
     const external = mapping(body.external, where);
@@ -1776,7 +1811,15 @@ function parseFunctional(value: unknown, where: string): FunctionalDecl {
     if (values.null !== "none" && Object.hasOwn(fixedNull, action) && values.null !== fixedNull[action])
       throw new MalformedContract(`${where}: null is not a fixed point`);
   }
+  let responseAxis: string | undefined;
+  if (Object.hasOwn(body, "response_axis")) {
+    responseAxis = functionalTag(body.response_axis, ["index", "elapsed", "regular-elapsed"], `${where}.response_axis`);
+    if (!["contrast", "quantity", "law-parameters", "event-locked"].includes(values.form)) {
+      throw new MalformedContract(`${where}: response_axis requires a measured response`);
+    }
+  }
   return Object.freeze({
+    ...(responseAxis === undefined ? {} : { response_axis: responseAxis }),
     form: values.form,
     arity: values.arity,
     response_transformation: values.response_transformation,

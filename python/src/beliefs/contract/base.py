@@ -116,6 +116,7 @@ _CONTRACT_FIELDS = frozenset(
     {
         "contract",
         "version",
+        "time_roles",
         "claim_grammar",
         "estimand_grammar",
         "measurement_grammar",
@@ -265,7 +266,7 @@ existing operation, while narrowing would declare less than the kernel does."""
 _RELATION_FIELDS = frozenset({"group", "sources", "targets"})
 _RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
-ESTIMAND_GRAMMAR = "science.estimand.v2"
+ESTIMAND_GRAMMAR = "science.estimand.v3"
 COMPOSITE_GRAMMAR = "science.composite.v1"
 """The tag a stored composite facet carries under `grammar`."""
 COMPOSES_SIGNATURE = (("composite",), ("proposition",))
@@ -468,6 +469,7 @@ class BaseContract:
 
     name: str
     version: int
+    time_roles: TimeRoles
     claim_grammar: ClaimGrammar
     estimand_grammar: EstimandGrammar
     measurement_grammar: MeasurementGrammar
@@ -669,10 +671,10 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             f"{estimand_where}: tag_encoding is {estimand['tag_encoding']!r}; this implementation encodes tags only "
             f"under {TAG_ENCODING!r}."
         )
-    if _positive_int(estimand["version"], f"{estimand_where}: version") != 2:
-        raise MalformedContract(f"{estimand_where}: expected version 2")
+    if _positive_int(estimand["version"], f"{estimand_where}: version") != 3:
+        raise MalformedContract(f"{estimand_where}: expected version 3")
     estimand_grammar = EstimandGrammar(
-        version=2, **{name: _closed_set(estimand[name], f"{estimand_where}: {name}") for name in _ESTIMAND_TAGS}
+        version=3, **{name: _closed_set(estimand[name], f"{estimand_where}: {name}") for name in _ESTIMAND_TAGS}
     )
     for tag_name, supported in _ESTIMAND_TAGS.items():
         _require_operated(getattr(estimand_grammar, tag_name), supported, f"{estimand_where}: {tag_name}")
@@ -803,6 +805,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
     return BaseContract._parsed(
         _MINT,
         name=name,
+        time_roles=_parse_time_roles(root["time_roles"], source),
         version=_positive_int(root["version"], f"{source}: version"),
         claim_grammar=claim_grammar,
         estimand_grammar=estimand_grammar,
@@ -831,3 +834,24 @@ class TimeRoles:
     frequency: str
     second: str
     hertz: str
+
+    def projection(self) -> dict[str, str]:
+        return {
+            "source": self.source,
+            "duration": self.duration,
+            "frequency": self.frequency,
+            "second": self.second,
+            "hertz": self.hertz,
+        }
+
+
+def _parse_time_roles(value: object, source: str) -> TimeRoles:
+    fields = _mapping(value, f"{source}: time_roles")
+    _exact_fields(fields, frozenset({"source", "duration", "frequency", "second", "hertz"}), f"{source}: time_roles")
+    parsed: dict[str, str] = {}
+    for key, item in fields.items():
+        pattern = r"[a-z][a-z0-9+.-]*:[a-z0-9._~:/-]+" if key == "source" else r"[a-z][a-z0-9-]*/[a-z][a-z0-9-]*"
+        if not isinstance(item, str) or re.fullmatch(pattern, item) is None:
+            raise MalformedContract(f"{source}: time_roles.{key} is not a canonical source/term")
+        parsed[key] = item
+    return TimeRoles(**parsed)

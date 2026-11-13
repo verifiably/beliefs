@@ -353,10 +353,10 @@ def test_rule_citation_survives_round_trip_and_retraction_changes_eligibility(tm
                 "response": RESPONSE,
                 "anchor": RuleAnchor(rule.id, (Referent(sort, "EX:a"),)),
                 "lag": LagBinding(
-                    "testing/hour",
+                    "si-brochure/hour",
                     (
-                        IntervalRestriction("testing/hour", Fraction(0), Fraction(1), True, False),
-                        IntervalRestriction("testing/hour", Fraction(1), Fraction(2), True, False),
+                        IntervalRestriction("si-brochure/hour", Fraction(0), Fraction(1), True, False),
+                        IntervalRestriction("si-brochure/hour", Fraction(1), Fraction(2), True, False),
                     ),
                 ),
             },

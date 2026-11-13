@@ -334,3 +334,48 @@ def test_functional_tables_are_independent_of_activation_order(base_contract, te
     assert a.estimand_declarations("testing/promotes", ("bridge:testing/promotes",)) == b.estimand_declarations(
         "testing/promotes", ("bridge:testing/promotes",)
     )
+
+
+@pytest.mark.parametrize("axis", ["index", "elapsed", "regular-elapsed"])
+def test_series_functional_response_axis_is_optional_and_identity_bearing(axis):
+    from beliefs.contract.functional import parse_functional
+
+    row = dict(zip(PROPERTIES, ROWS["difference-of-means"], strict=True)) | {"parameters": "not-applicable"}
+    before = parse_functional(row)
+    assert "response_axis" not in before.schema_projection()
+    after = parse_functional(row | {"response_axis": axis})
+    assert after.response_axis == axis
+    assert after.schema_projection()["response_axis"] == axis
+    assert before.schema_projection() != after.schema_projection()
+    for bad in (None, "physical", True):
+        with pytest.raises(MalformedContract):
+            parse_functional(row | {"response_axis": bad})
+
+
+def test_series_axis_requirement_refuses_unmeasured_form():
+    from beliefs.contract.functional import parse_functional
+
+    row = dict(zip(PROPERTIES, ROWS["difference-of-means"], strict=True)) | {
+        "parameters": "not-applicable",
+        "form": "enrichment",
+        "arity": "not-applicable",
+        "reversal": "not-applicable",
+        "increment": "not-applicable",
+        "response_transformation": "fixed",
+        "response_reversal": "not-applicable",
+        "response_axis": "elapsed",
+    }
+    with pytest.raises(MalformedContract, match="response_axis"):
+        parse_functional(row)
+
+
+def test_series_response_axis_redefinition_needs_new_identifier(base_contract, testing_document):
+    previous = parse_domain_contract(
+        testing_document, source="<series predecessor>", base=base_contract, predecessor=None
+    )
+    successor = copy.deepcopy(testing_document)
+    successor["version"] = 2
+    successor["lineage"] = {"successor": previous.content_identity}
+    successor["functionals"]["difference-of-means"]["response_axis"] = "elapsed"
+    with pytest.raises(SuccessionViolation):
+        parse_domain_contract(successor, source="<series incompatible>", base=base_contract, predecessor=previous)

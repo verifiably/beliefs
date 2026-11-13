@@ -274,3 +274,40 @@ def test_timestamp_origins_and_undeclared_clock_basis_refuse(change, series_prof
     change(axis)
     with pytest.raises(SeriesRefused):
         case.read(case.view(case.table(["0", "1"], axis=axis), [0, 1]), series_profile, time_roles)
+
+
+def test_same_time_names_with_another_defining_source_refuse(base_contract, testing_document, time_roles):
+    from time_roles_fixture import time_document
+
+    from beliefs.contract.domain import parse_domain_contract
+    from beliefs.profile import compile_profile
+    from beliefs.series.types import SeriesRefused
+
+    document = time_document()
+    document["defining_source"]["id"] = "urn:other:source"
+    profile = compile_profile(
+        base_contract,
+        [
+            parse_domain_contract(testing_document, source="<testing>", base=base_contract, predecessor=None),
+            parse_domain_contract(document, source="<wrong source>", base=base_contract, predecessor=None),
+        ],
+    )
+    case = SeriesCase()
+    with pytest.raises(SeriesRefused, match="defining source"):
+        case.read(case.view(case.table(["0", "0.01"]), [0, 1]), profile, time_roles)
+
+
+def test_public_reader_requires_compiled_profile_and_explicit_evidence(series_profile):
+    from types import SimpleNamespace
+
+    from beliefs.series.codec import series_ref_from_projection
+    from beliefs.series.reader import read_series
+    from beliefs.series.types import SeriesRefused
+
+    case = SeriesCase()
+    ref = series_ref_from_projection(case.view(case.table(["0", "0.01"]), [0, 1]))
+    with pytest.raises(SeriesRefused) as caught:
+        read_series(ref, profile=series_profile, records=case.records, evidence=None)  # pyright: ignore[reportArgumentType]
+    assert caught.value.code == "evidence-unavailable"
+    with pytest.raises(SeriesRefused, match="compiled"):
+        read_series(ref, profile=SimpleNamespace(), records=case.records, evidence=case.evidence())  # pyright: ignore[reportArgumentType]

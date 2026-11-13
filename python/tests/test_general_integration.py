@@ -32,7 +32,7 @@ from beliefs.claim import Member, Qualifier, Referent, build_claim
 from beliefs.contract import load_domain_contract, parse_base_contract, parse_domain_contract
 from beliefs.contract.document import parse_document
 from beliefs.corpus import corpus_check
-from beliefs.errors import DuplicateMember, EstimandError, MalformedRecord, ProfileError
+from beliefs.errors import DuplicateMember, EstimandError, MalformedContract, MalformedRecord, ProfileError
 from beliefs.estimand import (
     Control,
     MeasuredBinding,
@@ -607,8 +607,8 @@ def test_empirical_general_write_door_round_trip(certified_work: Path, unknown_v
         shutil.rmtree(metadata_root_for(root), ignore_errors=True)
 
 
-def test_base_v2_to_v3_two_field_transition_preserves_claim_identity():
-    base_path = REPO_ROOT / "contracts" / "science" / "CONTRACT.yaml"
+def test_historical_base_bytes_refuse_under_v4_and_claim_projection_stays_same():
+    base_path = REPO_ROOT / "python/tests/fixtures/science-v3.yaml"
     v3_doc = parse_document(base_path.read_text(encoding="utf-8"), source=str(base_path))
     assert isinstance(v3_doc, dict)
 
@@ -622,9 +622,12 @@ def test_base_v2_to_v3_two_field_transition_preserves_claim_identity():
     assert reg_kind["domain"] == "science.assumptions-register.v2"
     reg_kind["domain"] = "science.assumptions-register.v1"
 
-    old_base = parse_base_contract(v2_doc, source="<derived-base-v2>")
+    # Preserve exact historical identities without an old-base reader.
+    assert v1.digest("science.contract.v1", v2_doc) == HISTORICAL_BASE_V2_IDENTITY
+    for historical in (v2_doc, v3_doc):
+        with pytest.raises(MalformedContract):
+            parse_base_contract(historical, source="<historical base>")
     new_base = shipped_base_contract()
-    assert old_base.content_identity == HISTORICAL_BASE_V2_IDENTITY
     assert new_base.content_identity != HISTORICAL_BASE_V2_IDENTITY
 
     # This isolates the historical base-v2-to-v3 transition using the original general genesis.
@@ -639,12 +642,6 @@ def test_base_v2_to_v3_two_field_transition_preserves_claim_identity():
         CONSUMER_CONTRACT_PATH.read_text(encoding="utf-8"), source=str(CONSUMER_CONTRACT_PATH)
     )
 
-    general_under_old = parse_domain_contract(
-        general_doc, source=str(GENERAL_CONTRACT_PATH), base=old_base, predecessor=None
-    )
-    consumer_under_old = parse_domain_contract(
-        consumer_doc, source=str(CONSUMER_CONTRACT_PATH), base=old_base, predecessor=None
-    )
     general_under_new = parse_domain_contract(
         general_doc, source=str(GENERAL_CONTRACT_PATH), base=new_base, predecessor=None
     )
@@ -652,12 +649,8 @@ def test_base_v2_to_v3_two_field_transition_preserves_claim_identity():
         consumer_doc, source=str(CONSUMER_CONTRACT_PATH), base=new_base, predecessor=None
     )
 
-    old_profile = compile_profile(old_base, [general_under_old, consumer_under_old])
     new_profile = compile_profile(new_base, [general_under_new, consumer_under_new])
-    assert old_profile.base_contract_identity == HISTORICAL_BASE_V2_IDENTITY
     assert new_profile.base_contract_identity == new_base.content_identity
-    assert old_profile.base_contract_identity != new_profile.base_contract_identity
-    assert old_profile.compiled_identity != new_profile.compiled_identity
 
     _raw, fixture = _load_parity_fixture()
     vector = fixture["vector"]
@@ -666,17 +659,14 @@ def test_base_v2_to_v3_two_field_transition_preserves_claim_identity():
         assert isinstance(row, dict)
         claim_spec = row["claim"]
         assert isinstance(claim_spec, dict)
-        old_claim = _build_from_row(old_profile, claim_spec)
         new_claim = _build_from_row(new_profile, claim_spec)
-        assert project_claim(old_claim) == project_claim(new_claim)
-        assert v1.encode(project_claim(old_claim)) == v1.encode(project_claim(new_claim))
-        assert claim_identity(old_claim) == claim_identity(new_claim)
+        assert claim_identity(new_claim) == row["digest"]
 
     # New v2 register IDs and dependent frozen-spec IDs differ from v1; shipped caches stay untouched.
     v1_like_reg_id = "assumptions-register:" + v1.digest(
         "science.assumptions-register.v1",
         {
-            "describes": f"general-consumer:{consumer_under_old.content_identity}",
+            "describes": f"general-consumer:{consumer_under_new.content_identity}",
             "entries": {
                 "sort:general-consumer/analyte": {
                     "collapses": "c",
@@ -797,4 +787,4 @@ def test_base_v2_to_v3_two_field_transition_preserves_claim_identity():
         rule_procedures={"probability-of-superiority/v1": estimator_id},
     )
     assert spec_provisional.identity != spec_established.identity
-    assert shipped_base_contract().version == 3
+    assert shipped_base_contract().version == 4

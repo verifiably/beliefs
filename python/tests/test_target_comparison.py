@@ -8,17 +8,19 @@ from typing import Any, cast
 
 import pytest
 from fixtures_cut3 import MEASUREMENT_RECORDS, RESPONSE, TESTING_CLAIM, typed_estimand
-from test_convert import compile_testing, snapshot
+from test_convert import snapshot
 from test_dependencies import Records
 from test_estimand import build
 from test_estimand import context as context  # noqa: PLC0414
 from test_procedure import procedure
 from test_standing import calibrated_prediction
+from time_roles_fixture import time_contract
 
 from beliefs import comparability as c
 from beliefs import stored
 from beliefs.applicability import Applicability, ScopedRestriction
 from beliefs.claim import Member, Referent, build_claim
+from beliefs.contract.domain import parse_domain_contract
 from beliefs.estimand import (
     Control,
     DatasetBinding,
@@ -33,6 +35,7 @@ from beliefs.estimand import (
     ValueReference,
 )
 from beliefs.measurement import Measure, Observable
+from beliefs.profile import compile_profile
 from beliefs.restriction import IntervalRestriction
 from beliefs.target import AssessedTarget, target_projection
 
@@ -63,7 +66,17 @@ def lab(context, base_contract, testing_document, monkeypatch):
         "calendar": True,
         "definition": "A civil year of age.",
     }
-    lab = Lab(compile_testing(base_contract, testing_document))
+    lab = Lab(
+        compile_profile(
+            base_contract,
+            [
+                parse_domain_contract(
+                    testing_document, source="<target comparisons>", base=base_contract, predecessor=None
+                ),
+                time_contract(base_contract),
+            ],
+        )
+    )
     monkeypatch.setattr(lab.records, "observation_held", lambda digest: True)
     return lab
 
@@ -486,18 +499,18 @@ def test_increment_scaling_and_event_anchor_lag_and_universe(lab):
     assert mapped(convertibility(a, b, **lab.conversion_ctx()), "2") == D(20)
     anchor = RoleAnchor("cause", None, Referent("testing/entity", "EX:a"))
     windows = (
-        IntervalRestriction("testing/hour", F(0), F(1), True, False),
-        IntervalRestriction("testing/hour", F(1), F(2), True, False),
+        IntervalRestriction("si-brochure/hour", F(0), F(1), True, False),
+        IntervalRestriction("si-brochure/hour", F(1), F(2), True, False),
     )
     kwargs = {"form": "event-locked", "functional": "window-difference-against-control"}
     a = lab.target(
-        bindings={"response": RESPONSE, "anchor": anchor, "lag": LagBinding("testing/hour", windows)}, **kwargs
+        bindings={"response": RESPONSE, "anchor": anchor, "lag": LagBinding("si-brochure/hour", windows)}, **kwargs
     )
     b = lab.target(
         bindings={
             "response": RESPONSE,
             "anchor": replace(anchor, category=Referent("testing/entity", "EX:b")),
-            "lag": LagBinding("testing/hour", windows),
+            "lag": LagBinding("si-brochure/hour", windows),
         },
         **kwargs,
     )
@@ -655,19 +668,19 @@ def test_many_member_rule_classes_and_lag_correspond(lab):
     b = lab.target(bindings={"response": RESPONSE, "grouping": RuleClassLevels(another.id, classes)})
     assert only_refusal(convertibility(a, b, **lab.conversion_ctx())).reason == "target"
     windows = (
-        IntervalRestriction("testing/hour", F(0), F(1), True, False),
-        IntervalRestriction("testing/hour", F(1), F(2), True, False),
+        IntervalRestriction("si-brochure/hour", F(0), F(1), True, False),
+        IntervalRestriction("si-brochure/hour", F(1), F(2), True, False),
     )
     seconds = (
-        IntervalRestriction("testing/second", F(0), F(3600), True, False),
-        IntervalRestriction("testing/second", F(3600), F(7200), True, False),
+        IntervalRestriction("si-brochure/second", F(0), F(3600), True, False),
+        IntervalRestriction("si-brochure/second", F(3600), F(7200), True, False),
     )
     kwargs = {"form": "event-locked", "functional": "window-difference-against-control"}
     a = lab.target(
         bindings={
             "response": RESPONSE,
             "anchor": RuleAnchor(rule.id, classes),
-            "lag": LagBinding("testing/hour", windows),
+            "lag": LagBinding("si-brochure/hour", windows),
         },
         **kwargs,
     )
@@ -675,7 +688,7 @@ def test_many_member_rule_classes_and_lag_correspond(lab):
         bindings={
             "response": RESPONSE,
             "anchor": RuleAnchor(rule.id, classes),
-            "lag": LagBinding("testing/second", seconds),
+            "lag": LagBinding("si-brochure/second", seconds),
         },
         **kwargs,
     )
@@ -684,7 +697,7 @@ def test_many_member_rule_classes_and_lag_correspond(lab):
         bindings={
             "response": RESPONSE,
             "anchor": RuleAnchor(another.id, classes),
-            "lag": LagBinding("testing/hour", windows),
+            "lag": LagBinding("si-brochure/hour", windows),
         },
         **kwargs,
     )

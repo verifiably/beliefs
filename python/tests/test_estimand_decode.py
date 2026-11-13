@@ -115,3 +115,11 @@ def test_duplicate_assumptions_are_not_a_canonical_stored_set():
     assumptions.append(assumptions[0])
     with pytest.raises(ScienceError):
         estimand_from_stored(body, profile=TESTING_PROFILE)
+
+
+def test_series_no_series_projection_requires_explicit_empty_graph():
+    body = estimand_projection(typed_estimand())
+    assert body["series_graph"] == []
+    body.pop("series_graph")
+    with pytest.raises(ScienceError):
+        estimand_from_stored(body, profile=TESTING_PROFILE)

@@ -35,6 +35,7 @@ class FunctionalDecl:
     increment: str
     uncertainty: str
     parameters: Mapping[str, ParameterDecl] | None
+    response_axis: str | None = None
     retired: ClassVar[bool] = False
 
     def __post_init__(self) -> None:
@@ -43,6 +44,7 @@ class FunctionalDecl:
 
     def schema_projection(self) -> dict[str, object]:
         return {
+            **({"response_axis": self.response_axis} if self.response_axis is not None else {}),
             **{name: getattr(self, name) for name in _VOCABULARIES},
             "parameters": (
                 {name: parameter.schema_projection() for name, parameter in sorted(self.parameters.items())}
@@ -99,7 +101,9 @@ def _tag(raw: object, choices: tuple[str, ...], where: str) -> str:
 
 
 def parse_functional(raw: object) -> FunctionalDecl:
-    body = _mapping(raw, {*_VOCABULARIES, "parameters"}, {"definition", "description", "external"}, "functional")
+    body = _mapping(
+        raw, {*_VOCABULARIES, "parameters"}, {"definition", "description", "external", "response_axis"}, "functional"
+    )
     for name in ("definition", "description"):
         if name in body:
             text = body[name]
@@ -161,4 +165,9 @@ def parse_functional(raw: object) -> FunctionalDecl:
         fixed_null = {"negate": "zero", "complement": "half", "reciprocal": "one"}.get(action)
         if values["null"] != "none" and fixed_null is not None and values["null"] != fixed_null:
             raise MalformedContract(f"functional null is not a fixed point of {action}")
-    return FunctionalDecl(**values, parameters=parameters)
+    response_axis = None
+    if "response_axis" in body:
+        response_axis = _tag(body["response_axis"], ("index", "elapsed", "regular-elapsed"), "functional response_axis")
+        if form not in {"contrast", "quantity", "law-parameters", "event-locked"}:
+            raise MalformedContract("functional response_axis requires a measured response")
+    return FunctionalDecl(**values, parameters=parameters, response_axis=response_axis)
