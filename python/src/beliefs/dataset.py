@@ -16,6 +16,7 @@ reading it.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from hashlib import sha256
 from typing import final
@@ -34,6 +35,7 @@ __all__ = [
     "ResourceFinding",
     "admission_state",
     "dataset_address",
+    "declaration_from_facet",
 ]
 
 # Which digest algorithms pin bytes is owed to the profile and not
@@ -192,3 +194,21 @@ def admission_state(
         # produced and hashed, and the digest differs from every recorded one.
         findings.append(ResourceFinding(declared="", outcome="mismatch", observed=stray))
     return Declared(findings=tuple(findings))
+
+
+def declaration_from_facet(facet: Mapping[str, object]) -> DatasetDeclaration:
+    resources = facet.get("resources")
+    if not isinstance(resources, list):
+        return DatasetDeclaration(resources=())
+    declared: list[ResourceDeclaration] = []
+    for entry in resources:
+        if not isinstance(entry, dict):
+            raise MalformedRecord("a declared resource is not an object")
+        digest = entry.get("digest")
+        declared.append(
+            ResourceDeclaration(
+                name=str(entry.get("name", "")),
+                digest=digest if isinstance(digest, str) else None,
+            )
+        )
+    return DatasetDeclaration(resources=tuple(declared))

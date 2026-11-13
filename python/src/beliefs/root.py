@@ -26,6 +26,7 @@ here and nowhere else.
 from __future__ import annotations
 
 import io
+import os
 import secrets
 import stat as stat_module
 from collections.abc import Callable, Iterator, Mapping
@@ -138,6 +139,7 @@ from beliefs.corpus import (
     require_pins_agree,
 )
 from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, StoreWriteRefused, WorldIdMismatch, WorldUninitialized
+from beliefs.holdings.records import require_store_relative_path
 from beliefs.holdings.seam import (
     AbsentStateView,
     FileStateView,
@@ -155,6 +157,8 @@ from beliefs.identity import v1
 from beliefs.permit import READ_ONLY, Authority
 from beliefs.profile import ProfileSpec
 from beliefs.runrecord import GuardedCommit
+from beliefs.series.evidence import SeriesStoreRead
+from beliefs.series.types import SeriesRefused
 from beliefs.world import (
     AdmissionRecord,
     CorpusSubject,
@@ -252,6 +256,7 @@ __all__ = [
     "migrate_root_to_lifecycle_v3",
     "moment_seam",
     "open_corpus",
+    "open_series_store",
     "open_world",
     "open_world_read",
     "plan_preflight",
@@ -2157,3 +2162,103 @@ def open_world_read(config: WorldConfig) -> World:
     do is write.
     """
     return open_world(config, authority=READ_ONLY)
+
+
+@contextmanager
+def open_series_store(store_root: Path, *, store_id: str) -> Iterator[SeriesStoreRead]:
+    """Pin only the caller-authorized store, retaining no write capability."""
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+
+    def open_directory(path: Path) -> int:
+        absolute = path.absolute()
+        fd = os.open(absolute.anchor, flags)
+        try:
+            for part in absolute.parts[1:]:
+                next_fd = os.open(part, flags, dir_fd=fd)
+                os.close(fd)
+                fd = next_fd
+            return fd
+        except BaseException:
+            os.close(fd)
+            raise
+
+    root_fd = -1
+    active = False
+    try:
+        root_fd = open_directory(store_root)
+        pinned = os.fstat(root_fd)
+        if parse_store_genesis(_store_genesis(store_root))[0] != store_id:
+            raise SeriesRefused("invalid-series", "authorized store identity does not match its genesis")
+        active = True
+
+        def read(path: str, limit: int) -> bytes:
+            if not active:
+                raise SeriesRefused("evidence-unavailable", "series store reader context is closed")
+            try:
+                require_store_relative_path(path)
+                if type(limit) is not int or limit < 0:
+                    raise SeriesRefused("invalid-series", "invalid bounded-read length")
+                check_fd = open_directory(store_root)
+                try:
+                    current = os.fstat(check_fd)
+                    if (current.st_dev, current.st_ino) != (pinned.st_dev, pinned.st_ino):
+                        raise SeriesRefused("evidence-unavailable", "series store root was replaced")
+                finally:
+                    os.close(check_fd)
+                parent = os.dup(root_fd)
+                try:
+                    parts = path.split("/")
+                    for part in parts[:-1]:
+                        child = os.open(part, flags, dir_fd=parent)
+                        os.close(parent)
+                        parent = child
+                    fd = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=parent)
+                finally:
+                    os.close(parent)
+                with os.fdopen(fd, "rb") as stream:
+                    state = os.fstat(stream.fileno())
+                    if not stat_module.S_ISREG(state.st_mode):
+                        raise SeriesRefused("evidence-unavailable", "series source is not a regular file")
+                    if state.st_size > limit:
+                        raise SeriesRefused("invalid-series", "series file exceeds bounded-read length")
+                    view = _store_read_path(store_root, path)
+                    if not isinstance(view, PathObservedView) or not isinstance(view.state, FileStateView):
+                        raise SeriesRefused("evidence-unavailable", "store read serviceability is not established")
+                    data = stream.read(limit + 1)
+                    if len(data) > limit:
+                        raise SeriesRefused("invalid-series", "series file grew beyond bounded-read length")
+                    if (
+                        len(data) != view.state.byte_len
+                        or "sha256:" + sha256(data).hexdigest() != view.state.content_hash
+                    ):
+                        raise SeriesRefused("invalid-series", "series buffer changed during the registered read")
+                    return data
+            except SeriesRefused:
+                raise
+            except (
+                OSError,
+                PreconditionRefused,
+                PendingUnresolved,
+                ChainStateInvalid,
+                MetadataStoreInvalid,
+                TransactionHalted,
+            ) as exc:
+                raise SeriesRefused("evidence-unavailable", "authorized store cannot provide series bytes") from exc
+
+        yield read
+    except SeriesRefused:
+        raise
+    except (
+        OSError,
+        LogEvidenceRefused,
+        PreconditionRefused,
+        PendingUnresolved,
+        ChainStateInvalid,
+        MetadataStoreInvalid,
+        TransactionHalted,
+    ) as exc:
+        raise SeriesRefused("evidence-unavailable", "authorized series store is unavailable") from exc
+    finally:
+        active = False
+        if root_fd >= 0:
+            os.close(root_fd)

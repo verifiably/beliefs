@@ -62,7 +62,7 @@ from beliefs import report as report_values
 from beliefs import source as source_basis_projection
 from beliefs.assessment_payload import CurvePoint, Uncertainty, payload_from_projection
 from beliefs.classification_rule import ClassificationRule, rule_identity, rule_projection
-from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
+from beliefs.dataset import DatasetDeclaration, dataset_address, declaration_from_facet
 from beliefs.dependencies import FrozenAssessmentDependency, HeldRecords
 from beliefs.errors import (
     BasisMissing,
@@ -630,31 +630,13 @@ def reconcile_correction_histories(
     ]
 
 
-def _declaration_of(facet: Mapping[str, Any]) -> DatasetDeclaration:
-    resources = facet.get("resources")
-    if not isinstance(resources, list):
-        return DatasetDeclaration(resources=())
-    declared: list[ResourceDeclaration] = []
-    for entry in resources:
-        if not isinstance(entry, dict):
-            raise MalformedRecord("a declared resource is not an object")
-        digest = entry.get("digest")
-        declared.append(
-            ResourceDeclaration(
-                name=str(entry.get("name", "")),
-                digest=digest if isinstance(digest, str) else None,
-            )
-        )
-    return DatasetDeclaration(resources=tuple(declared))
-
-
 def dataset_declaration(node: Node) -> DatasetDeclaration:
     """The stored declaration as a value. A resource with no digest stays
     unpinned rather than being dropped: `dataset_address` is all-or-nothing, and
     silently discarding the unpinned resource would manufacture an address the
     record does not have."""
     try:
-        return _declaration_of(_facet(node, DATASET_FACET) or {})
+        return declaration_from_facet(_facet(node, DATASET_FACET) or {})
     except MalformedRecord as caught:
         raise MalformedRecord(f"{node.id}: {caught}") from caught
 
@@ -1312,7 +1294,7 @@ def dataset_node(
                 "facet has its own parameter"
             )
         facets[key] = dict(payload)
-    address = dataset_address(_declaration_of(facets[DATASET_FACET]))
+    address = dataset_address(declaration_from_facet(facets[DATASET_FACET]))
     if address is None:
         raise BasisMissing(
             "a dataset carries a content identity — every declared resource pinned by an accepted digest; "
