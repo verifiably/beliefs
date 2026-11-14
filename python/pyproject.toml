@@ -28,6 +28,7 @@ dependencies = [
 [tool.uv.sources]
 verifiably-atoms = { path = "../../atoms/python", editable = true }
 verifiably-nodes = { path = "../../nodes/python", editable = true }
+verifiably-refs = { path = "../../refs/python", editable = true }
 
 [build-system]
 requires = ["hatchling>=1.30"]
@@ -59,6 +60,8 @@ extraPaths = ["tools"]
 
 [dependency-groups]
 dev = [
+    "verifiably-refs",
+    "rdflib>=7,<8",
     "pytest>=9.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.15.7",

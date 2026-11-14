@@ -58,11 +58,20 @@ jobs:
         with:
           repository: verifiably/nodes
           path: nodes
+      # Admission records bind this reviewed refs revision and its registry.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: verifiably/refs
+          path: refs
+          ref: c098faf964b097ef0016fc9e8aa69f3292c655f3
       - uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
         with:
           version: "0.11.29"
           python-version: ${{ matrix.python-version }}
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - name: Hydrate refs registry
+        working-directory: refs
+        run: just registry-sync
       # The revisions under test and the eligible modules, beside the JUnit, so a
       # hosted result can be attributed to beliefs or to sibling drift later.
       - name: Prepare coverage evidence
@@ -73,10 +82,12 @@ jobs:
           beliefs=$(git rev-parse HEAD)
           atoms=$(git -C ../../atoms rev-parse HEAD)
           nodes=$(git -C ../../nodes rev-parse HEAD)
+          refs=$(git -C ../../refs rev-parse HEAD)
           {
             echo "beliefs $beliefs"
             echo "atoms $atoms"
             echo "nodes $nodes"
+            echo "refs $refs"
             git ls-files -- tests | grep -E '(^|/)(test_[^/]*|[^/]*_test)[.]py$' | grep -v '^tests/acceptance/'
             cat pyproject.toml
           } > "$evidence_dir/module-inventory.txt"

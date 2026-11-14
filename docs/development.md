@@ -10,17 +10,32 @@ explains the model, and `AGENTS.md` carries the same gates in the form agents fo
 
 ## Setting up
 
-Clone `atoms`, `nodes` and `beliefs` side by side, as the README's Install section
-shows: `python/pyproject.toml` takes both siblings from their checkouts. Then, from
-the repository root:
+Clone `atoms`, `nodes`, `refs` and `beliefs` side by side. The Python dev group
+includes `verifiably-refs` and RDFLib; refs is an editable sibling source, so every
+Python development environment (including hygiene) needs it. Run `just registry-sync`
+in refs to hydrate its generated registry before running beliefs commands. Then,
+from the repository root:
 
 ```sh
-just setup                            # npm ci for ts/; uv builds the Python env on first use
+just setup                            # checks refs hydration; installs ts/ dependencies
 git config core.hooksPath .githooks   # once per clone
 ```
 
 The Python side needs no install step: every Python command in the justfile runs
-`uv run --frozen`, which builds the locked environment.
+`uv run --frozen`, which builds the locked environment. In a worktree, setup links
+the main checkout's refs sibling beside the physical worktree if the sibling is
+absent. It never replaces an existing sibling or modifies its registry. A missing
+or stale registry is an explicit error; inspect the selected refs checkout before
+hydrating it. Use separate clean sibling checkouts when reproducible admission
+requires revisions different from the shared development checkouts.
+
+Python CI checks out refs at `c098faf964b097ef0016fc9e8aa69f3292c655f3`, hydrates
+its registry and records its revision alongside atoms and nodes. The beliefs
+maintainer or assigned implementer changes that SHA only in a reviewed change
+requiring a refs API, fix or registry update: verify publication, record the old
+and new revisions and registry fingerprints, and run affected tests and CI.
+Atoms and nodes retain their default-branch CI policy. The uv lockfile pins package
+versions; editable sibling revisions are established separately by Git.
 
 ## Layout
 

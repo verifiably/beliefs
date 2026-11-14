@@ -137,7 +137,7 @@ def test_triggers_concurrency_and_jobs() -> None:
     run = next(s for s in python["steps"] if s.get("run") == "just ci-python")
     assert run["env"] == {"VERIFIABLY_UNCERTIFIED_HOST": "1"}
     checkouts = [s["with"] for s in python["steps"] if str(s.get("uses", "")).startswith("actions/checkout@")]
-    assert {c.get("repository") for c in checkouts} == {None, "verifiably/atoms", "verifiably/nodes"}
+    assert {c.get("repository") for c in checkouts} == {None, "verifiably/atoms", "verifiably/nodes", "verifiably/refs"}
     assert next(c for c in checkouts if "repository" not in c)["fetch-depth"] == 0
 
 
@@ -180,7 +180,7 @@ def test_inventory_lists_eligible_modules_and_siblings(tmp_path: Path, job: str)
     assert checkout.run("git", "add", ".").returncode == 0
     assert checkout.run("git", "commit", "-qm", "fixture").returncode == 0
     heads = {}
-    for sibling in ("atoms", "nodes") if job == "python" else ():
+    for sibling in ("atoms", "nodes", "refs") if job == "python" else ():
         repo = tmp_path / sibling
         repo.mkdir()
         init_repo(repo, checkout.env)
@@ -246,3 +246,64 @@ def test_ci_suites_are_the_local_suites(tmp_path: Path) -> None:
     assert re.sub(junit, "", evaluate("ci_py_test_cmd")) == evaluate("py_test_cmd")
     reporters = ' -- --reporter=default --reporter=junit --outputFile.junit="$BELIEFS_CI_EVIDENCE_DIR/vitest.xml"'
     assert evaluate("ci_ts_test_cmd").replace(reporters, "") == evaluate("ts_test_cmd")
+
+
+def test_refs_checkout_and_hydration_precede_python_sync() -> None:
+    jobs = workflow()["jobs"]
+    steps = jobs["python"]["steps"]
+    index = next((i for i, s in enumerate(steps) if s.get("with", {}).get("repository") == "verifiably/refs"), None)
+    assert index is not None, "Python environment needs its refs sibling"
+    assert steps[index]["with"] == {
+        "repository": "verifiably/refs",
+        "path": "refs",
+        "ref": "c098faf964b097ef0016fc9e8aa69f3292c655f3",
+    }
+    hydrate = next(i for i, s in enumerate(steps) if s.get("name") == "Hydrate refs registry")
+    sync = next(i for i, s in enumerate(steps) if s.get("run") == "uv sync --frozen")
+    assert index < hydrate < sync
+    assert steps[hydrate]["working-directory"] == "refs"
+    assert steps[hydrate]["run"] == "just registry-sync"
+    assert not any(s.get("with", {}).get("repository") == "verifiably/refs" for s in jobs["typescript"]["steps"])
+
+
+def test_refs_setup_refuses_missing_or_unhydrated_sibling(tmp_path: Path) -> None:
+    tool = ROOT / "python/tools/setup_admission.py"
+    assert tool.is_file(), "missing admission dependency setup"
+    checkout = Checkout(tmp_path)
+    result = checkout.run(sys.executable, str(tool), str(checkout.root))
+    assert result.returncode != 0
+    assert "refs" in result.stderr and "sibling" in result.stderr
+    refs = tmp_path / "refs"
+    (refs / "python").mkdir(parents=True)
+    (refs / "python/pyproject.toml").write_text("")
+    (refs / "registry").mkdir()
+    (refs / "registry/grammars.toml").write_text("held registry")
+    result = checkout.run(sys.executable, str(tool), str(checkout.root))
+    assert result.returncode != 0
+    assert "registry-sync" in result.stderr
+    data = refs / "python/src/refs/data"
+    data.mkdir(parents=True)
+    (data / "grammars.toml").write_text("held registry")
+    assert checkout.run(sys.executable, str(tool), str(checkout.root)).returncode == 0
+    (data / "grammars.toml").write_text("stale registry")
+    assert checkout.run(sys.executable, str(tool), str(checkout.root)).returncode != 0
+
+
+def test_refs_setup_links_main_sibling_for_physical_worktree(tmp_path: Path) -> None:
+    checkout = Checkout(tmp_path)
+    tool = ROOT / "python/tools/setup_admission.py"
+    assert tool.is_file()
+    assert checkout.run("git", "add", ".").returncode == 0
+    assert checkout.run("git", "commit", "-qm", "fixture").returncode == 0
+    worktree = tmp_path / "storage/task"
+    assert checkout.run("git", "worktree", "add", str(worktree), "-b", "task").returncode == 0
+    refs = tmp_path / "refs"
+    (refs / "python/src/refs/data").mkdir(parents=True)
+    (refs / "python/pyproject.toml").write_text("")
+    (refs / "registry").mkdir()
+    (refs / "registry/grammars.toml").write_text("fixture")
+    (refs / "python/src/refs/data/grammars.toml").write_text("fixture")
+    result = checkout.run(sys.executable, str(tool), str(worktree))
+    assert result.returncode == 0, result.stderr
+    assert (worktree.parent / "refs").is_symlink()
+    assert (worktree.parent / "refs").resolve() == refs

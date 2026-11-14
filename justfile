@@ -69,9 +69,9 @@ push_fast_cmd := py_fast_cmd + " && " + ts_test_cmd
 # What a fresh checkout or worktree needs before the gates can run. ts/ has no
 # node_modules of its own until `npm ci`; the python side needs nothing, because `uv run
 # --frozen` creates the venv and installs the locked dependencies (pyright included) on
-# first use. No gitignored inputs: the suite reads only tracked fixtures. Idempotent.
+# first use. The dev refs sibling must have its registry hydrated. Idempotent.
 # npm ci replaces node_modules; restore its local Dropbox ignore attribute afterward.
-setup_cmd := "(cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)"
+setup_cmd := "python3 python/tools/setup_admission.py . && (cd ts && npm ci && attr -s com.dropbox.ignored -V 1 node_modules)"
 
 # beliefs-92e6fe measured the parallel fast loop at 164s against the serial gate's
 # 868s and pinned pytest-xdist rather than adopting coverage-based selection.
