@@ -51,5 +51,6 @@ Two architecture rules are tested; carry both into every plan that touches the k
 - Source admission uses `contracts/source-ownership/INVENTORY.json` and the checker's
   `SOURCE_INVENTORY_SHA256`. Review every coordinated update against its base for
   reservation, alias, owner, adoption and historical-pin continuity. No runtime
-  inventory or external-source admission is implemented. Existing mm30 bytes are
+  inventory or production external source is installed. Root-only external receipt
+  validation checks repository metadata without held payloads. Existing mm30 bytes are
   frozen until checked succession support lands.

@@ -734,10 +734,32 @@ pass mechanically and does not prove reservation continuity. The inventory is
 repository admission evidence, with no packaged mirror or runtime dependency.
 A corpus manifest authenticates contract pins, not an inventory verdict.
 
-Every external source row refuses as unsupported, even with malformed document
-pins; the checker accepts no external payload input. Existing unit parsing checks
-external mapping keys and nonempty strings. Held release membership and UCUM/QUDT
-mapping validation remain admission review obligations. Mechanical ownership
+External rows use `source_pin: {kind: external, documents: [...]}`. Each ordered
+normative document pin has exactly `revision`, `sha256`, `held_ref` and `locator`:
+a nonempty revision, a lowercase SHA-256 digest, its `sha256:` content address and
+an absolute HTTP(S) publisher URL without credentials. Duplicate held references
+within a row and equal normative digests across distinct source ids refuse; reuse
+across revisions of the same source is allowed. Alias and owner checks still run
+on the entire inventory.
+
+Every external revision also requires a success receipt under
+`contracts/source-ownership/receipts/<sha256>.json`, independently pinned by the
+checker's `RECEIPT_SHA256`. Receipts and their embedded historical inventories are
+repository-only metadata, outside the wheel. Hygiene checks strict receipt schema,
+exact hashes, historical reservation continuity, source/owner/genesis, contract and
+register identities/hashes, source pins and agreement with parsed unit mappings.
+Unchanged predecessor bytes can move to history paths without replacing the
+receipt. An unrelated authored successor needs no external payload or new receipt;
+a new external revision does. Receipt coverage is per revision, while its complete
+admission-time inventory remains embedded for audit.
+
+Hygiene opens repository metadata only; it neither imports refs/RDFLib nor checks
+held UCUM/QUDT membership or current custody. Portable receipts carry public
+locators, content addresses and code provenance, never local evidence paths or
+private review text. Coordinated pin edits remain reviewable assertions, not proof
+of honest execution. The shipped inventory currently contains no external source.
+Existing unit parsing checks external mapping keys and nonempty strings; complete
+release validation and human semantic review precede external genesis. Mechanical ownership
 cannot detect copied meanings under different ids or prove semantic equivalence.
 Unshipped candidates require joint review against the admitted inventory and
 other candidates; local parse/compile success makes no global ownership claim.

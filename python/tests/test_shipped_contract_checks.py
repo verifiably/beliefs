@@ -535,7 +535,7 @@ def test_inventory_shape_and_paths_refuse(tmp_path, mutation):
     errors = checker.check(root)
     assert errors, mutation
     if mutation.startswith("external"):
-        assert any("unsupported" in e and "external" in e for e in errors)
+        assert any("external" in e for e in errors)
 
 
 @pytest.mark.parametrize(

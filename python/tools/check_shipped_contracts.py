@@ -31,6 +31,7 @@ if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
 import yaml
+from source_admission import metadata
 
 from beliefs.contract.base import BaseContract, parse_base_contract
 from beliefs.contract.document import parse_document
@@ -66,6 +67,8 @@ HERITAGE_REPRODUCTION_EXCLUSIONS: Mapping[str, tuple[str, str]] = MappingProxyTy
 """Closed `(relative_path -> (sha256_hex, owner_tasks))` exclusion map for pre-v2 heritage inputs."""
 
 SOURCE_INVENTORY_SHA256 = "38aa7074482a2e685de39082da4b0abe4a2ae08b8c9acd86f0ca83a35de48288"
+
+RECEIPT_SHA256: dict[str, str] = {}
 
 ADOPTED_SOURCE_REVISIONS = MappingProxyType(
     {
@@ -347,24 +350,9 @@ def _reject_symlinks(root: Path) -> None:
                     raise ValueError(f"{path.relative_to(root)}: symlink admission member refused")
 
 
-def _fields(value: Any, expected: set[str], where: str) -> None:
-    if not isinstance(value, dict) or set(value) != expected:
-        raise ValueError(f"{where}: expected exactly {sorted(expected)}")
-
-
-def _hex(value: Any, where: str, prefix: str = "") -> None:
-    if not isinstance(value, str) or re.fullmatch(re.escape(prefix) + r"[0-9a-f]{64}", value) is None:
-        raise ValueError(f"{where}: expected {prefix}64 lowercase hex")
-
-
-def _canonical_path(value: Any) -> None:
-    if (
-        not isinstance(value, str)
-        or not value
-        or any(x in value for x in ("\\", ":", "*", "?", "[", "]"))
-        or any(p in ("", ".", "..") for p in value.split("/"))
-    ):
-        raise ValueError(f"inventory path {value!r}: expected normalized repository-relative path")
+_fields = metadata.fields
+_hex = metadata.hex_digest
+_canonical_path = metadata.canonical_path
 
 
 def _admission_path(root: Path, relative: str) -> Path:
@@ -402,6 +390,7 @@ def _validate_inventory(value: Any) -> dict[str, Any]:
             if name in reserved:
                 raise ValueError(f"{sid}: duplicate source/alias {name}, reserved by {reserved[name]}")
             reserved[name] = sid
+    document_owners: dict[str, str] = {}
     paths: set[str] = set()
     identities: set[tuple[str, str]] = set()
     for namespace, lineage in lineages.items():
@@ -427,10 +416,17 @@ def _validate_inventory(value: Any) -> dict[str, Any]:
             )
             pin = row["source_pin"]
             if isinstance(pin, dict) and pin.get("kind") == "external":
-                raise ValueError(f"{namespace}: unsupported external admission")
-            _fields(pin, {"kind"}, f"{namespace} source_pin")
-            if pin["kind"] != "authored_pair":
-                raise ValueError(f"{namespace}: expected authored_pair source pin")
+                _fields(pin, {"kind", "documents"}, f"{namespace} external source_pin")
+                metadata.validate_documents(pin["documents"])
+                for document in pin["documents"]:
+                    sid = lineage["source_id"]
+                    previous = document_owners.setdefault(document["sha256"], sid)
+                    if previous != sid:
+                        raise ValueError(f"external normative digest shared by distinct sources: {previous}, {sid}")
+            else:
+                _fields(pin, {"kind"}, f"{namespace} source_pin")
+                if pin["kind"] != "authored_pair":
+                    raise ValueError(f"{namespace}: expected authored_pair or external source pin")
             for key in ("contract_identity", "contract_sha256", "register_sha256"):
                 _hex(row[key], f"{namespace} {key}")
             _hex(row["register_identity"], f"{namespace} register_identity", "assumptions-register:")
@@ -521,34 +517,114 @@ def _check_source_ownership(
     return errors
 
 
-def check(root: Path, *, exclusions: Mapping[str, tuple[str, str]] = HERITAGE_REPRODUCTION_EXCLUSIONS) -> list[str]:
-    resolved_root = Path(root).resolve()
+def _inspect(
+    root: Path, inventory: dict, exclusions: Mapping[str, tuple[str, str]]
+) -> tuple[list[str], tuple[_AdmissionRevision, ...]]:
+    _reject_symlinks(root)
+    for lineage in inventory["lineages"].values():
+        for row in lineage["revisions"]:
+            _admission_path(root, row["contract_path"])
+            _admission_path(root, row["register_path"])
+    errors: list[str] = []
+    base = _load_base(root, errors)
+    if base is None:
+        return errors, ()
+    shipped, shipped_errors = _discover_shipped_domains(root, base)
+    register_paths = {
+        r["contract_path"]: r["register_path"]
+        for lineage in inventory["lineages"].values()
+        for r in lineage["revisions"]
+    }
+    repro, repro_errors = _discover_reproduction_sources(
+        root, base, exclusions=exclusions, register_paths=register_paths
+    )
+    revisions = shipped + repro
+    return errors + shipped_errors + repro_errors + _check_source_ownership(root, inventory, revisions), revisions
+
+
+def inspect_candidate(root: Path, inventory_bytes: bytes) -> list[str]:
+    """Inspect structure only; never grants standing admission or executes candidate code."""
     try:
-        _reject_symlinks(resolved_root)
-        inventory_path = resolved_root / "contracts/source-ownership/INVENTORY.json"
-        if hashlib.sha256(inventory_path.read_bytes()).hexdigest() != SOURCE_INVENTORY_SHA256:
-            raise ValueError("source inventory SHA-256 pin mismatch")
-        inventory = _validate_inventory(_read_json(inventory_path))
-        for lineage in inventory["lineages"].values():
-            for row in lineage["revisions"]:
-                _admission_path(resolved_root, row["contract_path"])
-                _admission_path(resolved_root, row["register_path"])
-        errors: list[str] = []
-        base = _load_base(resolved_root, errors)
-        if base is None:
-            return errors
-        shipped, shipped_errors = _discover_shipped_domains(resolved_root, base)
-        register_paths = {
-            r["contract_path"]: r["register_path"]
-            for lineage in inventory["lineages"].values()
-            for r in lineage["revisions"]
+        inventory = _validate_inventory(metadata.decode(inventory_bytes))
+        return _inspect(Path(root).resolve(), inventory, HERITAGE_REPRODUCTION_EXCLUSIONS)[0]
+    except (OSError, UnicodeDecodeError, ValueError, TypeError, ScienceError) as exc:
+        return [f"source admission: {exc}"]
+
+
+def _check_receipts(root: Path, inventory: dict, revisions: tuple[_AdmissionRevision, ...]) -> None:
+    directory = root / "contracts/source-ownership/receipts"
+    actual = {p.relative_to(root).as_posix() for p in directory.rglob("*")} if directory.exists() else set()
+    if actual != set(RECEIPT_SHA256):
+        raise ValueError("receipt directory differs from pinned receipt inventory")
+    covered: dict[tuple[str, str], dict] = {}
+    contracts = {(r.contract.namespace, r.contract.content_identity): r.contract for r in revisions}
+    for relative, expected in RECEIPT_SHA256.items():
+        _hex(expected, "receipt pin")
+        if relative != f"contracts/source-ownership/receipts/{expected}.json":
+            raise ValueError("receipt path must use its exact digest filename")
+        data = _admission_path(root, relative).read_bytes()
+        if hashlib.sha256(data).hexdigest() != expected:
+            raise ValueError("receipt SHA-256 pin mismatch")
+        receipt = metadata.parse_receipt(data)
+        snapshots = {
+            key: _validate_inventory(metadata.decode(receipt[key]["inventory_utf8"].encode()))
+            for key in ("baseline", "candidate")
         }
-        repro, repro_errors = _discover_reproduction_sources(
-            resolved_root, base, exclusions=exclusions, register_paths=register_paths
-        )
-        return (
-            errors + shipped_errors + repro_errors + _check_source_ownership(resolved_root, inventory, shipped + repro)
-        )
+        metadata.check_continuity(snapshots["baseline"], snapshots["candidate"])
+        coverage = receipt["coverage"]
+        sid, ns, row = coverage["source_id"], coverage["namespace"], coverage["row"]
+        historical = snapshots["candidate"]
+        if (
+            historical["sources"].get(sid, {}).get("owner") != coverage["owner"]
+            or historical["lineages"].get(ns, {}).get("source_id") != sid
+            or row not in historical["lineages"].get(ns, {}).get("revisions", [])
+        ):
+            raise ValueError("receipt coverage absent from historical inventory")
+        metadata.check_continuity(historical, inventory)
+        identity = (ns, row["contract_identity"])
+        previous = covered.setdefault(identity, receipt)
+        if previous != receipt:
+            raise ValueError("disagreeing receipts for one covered identity")
+        contract = contracts.get(identity)
+        if contract is None:
+            raise ValueError("receipt covered contract missing from current history")
+        fields = {
+            key: {
+                "ucum": result["ucum"]["code"],
+                **({"qudt": result["qudt"]["iri"]} if result["qudt"] else {}),
+            }
+            for key, result in receipt["mappings"].items()
+        }
+        actual_mappings = {f"{ns}/{name}": dict(unit.external or {}) for name, unit in contract.units.items()}
+        if fields != actual_mappings:
+            raise ValueError("receipt mappings disagree with parsed unit fields")
+    for ns, lineage in inventory["lineages"].items():
+        for row in lineage["revisions"]:
+            if row["source_pin"]["kind"] != "external":
+                continue
+            receipt = covered.get((ns, row["contract_identity"]))
+            if receipt is None:
+                raise ValueError(f"{ns}: external revision missing receipt")
+            c = receipt["coverage"]
+            sid = lineage["source_id"]
+            if metadata.coverage_projection(
+                sid, inventory["sources"][sid]["owner"], row
+            ) != metadata.coverage_projection(c["source_id"], c["owner"], c["row"]):
+                raise ValueError("external receipt coverage projection mismatch")
+
+
+def check(root: Path, *, exclusions: Mapping[str, tuple[str, str]] = HERITAGE_REPRODUCTION_EXCLUSIONS) -> list[str]:
+    root = Path(root).resolve()
+    try:
+        _reject_symlinks(root)
+        data = (root / "contracts/source-ownership/INVENTORY.json").read_bytes()
+        if hashlib.sha256(data).hexdigest() != SOURCE_INVENTORY_SHA256:
+            raise ValueError("source inventory SHA-256 pin mismatch")
+        inventory = _validate_inventory(metadata.decode(data))
+        errors, revisions = _inspect(root, inventory, exclusions)
+        if not errors:
+            _check_receipts(root, inventory, revisions)
+        return errors
     except (OSError, UnicodeDecodeError, ValueError, TypeError, ScienceError) as exc:
         return [f"source admission: {exc}"]
 
