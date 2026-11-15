@@ -576,7 +576,8 @@ def _in_class(sort: CompiledSort, term: str) -> bool:
     if not isinstance(binding, WorldKindBinding):
         raise ProfileError(f"sort {sort.term!r} declares no identifier class and is not bound to a world kind")
     # A sort bound to a world kind has the kernel's record-id grammar as its class.
-    return re.fullmatch(f"{re.escape(binding.world_kind)}:{_HEX64}", unicodedata.normalize("NFC", term)) is not None
+    prefix = "dataset:sha256:" if binding.world_kind == "dataset" else f"{binding.world_kind}:"
+    return re.fullmatch(f"{re.escape(prefix)}{_HEX64}", unicodedata.normalize("NFC", term)) is not None
 
 
 def _class_text(sort: CompiledSort) -> str:
@@ -584,7 +585,8 @@ def _class_text(sort: CompiledSort) -> str:
         return f"pattern {sort.identifier_class.pattern!r}"
     binding = sort.binding
     assert isinstance(binding, WorldKindBinding)
-    return f"`{binding.world_kind}:` followed by 64 lowercase hex characters"
+    prefix = "dataset:sha256:" if binding.world_kind == "dataset" else f"{binding.world_kind}:"
+    return f"`{prefix}` followed by 64 lowercase hex characters"
 
 
 def _referents_of(value: Referent | tuple[Member, ...]) -> tuple[Referent, ...]:

@@ -718,3 +718,16 @@ describe("event-series contract semantics", () => {
     ).toThrow(/event_anchor/);
   });
 });
+
+describe("world-kind class diagnostics", () => {
+  it.each([
+    ["dataset", "dataset:sha256:"],
+    ["procedure", "procedure:"],
+  ])("explains the %s class when identifier_class is refused", (kind, prefix) => {
+    const text = mutated((document) => {
+      document.sorts.entity.binding = { kind: "world-kind", world_kind: kind };
+    });
+    expect(() => parseTesting(text)).toThrow(MalformedContract);
+    expect(() => parseTesting(text)).toThrow(`\`${prefix}\``);
+  });
+});

@@ -248,8 +248,7 @@ function requireIdentifier(value: unknown, where: string): void {
 const ONE = "one";
 const CLAIM_SIDE = "claim";
 const NULL_FORM = "null";
-/** The kernel's record-id grammar: a world kind's class. The kind is then compared with the binding's. */
-const RECORD_ID = /^([a-z][a-z0-9-]*):[0-9a-f]{64}$/;
+const HEX64 = /^[0-9a-f]{64}$/;
 
 /**
  * The validated constructor: §5.6 steps 1–8, all but membership, in the order
@@ -503,16 +502,21 @@ function inClass(sort: CompiledSort, term: string): boolean {
     throw new ProfileError(`sort ${sort.term} declares no identifier class and is not bound to a world kind`);
   }
   // A sort bound to a world kind has the kernel's record-id grammar as its class.
-  const match = RECORD_ID.exec(term.normalize("NFC"));
-  return match !== null && match[1] === binding.worldKind;
+  const prefix = binding.worldKind === "dataset" ? "dataset:sha256:" : `${binding.worldKind}:`;
+  const normalized = term.normalize("NFC");
+  return (
+    normalized.startsWith(prefix) &&
+    normalized.length === prefix.length + 64 &&
+    HEX64.test(normalized.slice(prefix.length))
+  );
 }
 
 function classText(sort: CompiledSort): string {
   if (sort.identifierClass !== null) return `pattern ${JSON.stringify(sort.identifierClass.pattern)}`;
   const binding = sort.binding;
-  return binding.kind === "world-kind"
-    ? `\`${binding.worldKind}:\` followed by 64 lowercase hex characters`
-    : "no identifier class";
+  if (binding.kind !== "world-kind") return "no identifier class";
+  const prefix = binding.worldKind === "dataset" ? "dataset:sha256:" : `${binding.worldKind}:`;
+  return `\`${prefix}\` followed by 64 lowercase hex characters`;
 }
 
 function referentsOf(value: RoleFilling): readonly Referent[] {

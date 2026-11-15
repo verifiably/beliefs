@@ -1333,9 +1333,10 @@ def _parse_sort(name: str, value: object, where: str, base: BaseContract) -> Sor
     identifier_class: IdentifierClass | None = None
     if isinstance(binding, WorldKindBinding):
         if "identifier_class" in body:
+            prefix = "dataset:sha256:" if binding.world_kind == "dataset" else f"{binding.world_kind}:"
             raise MalformedContract(
                 f"{where}: identifier_class is refused on a world-kind sort; its class is the kernel's record-id "
-                "grammar, `<kind>:` followed by 64 lowercase hex"
+                f"grammar, `{prefix}` followed by 64 lowercase hex"
             )
     else:
         if "identifier_class" not in body:

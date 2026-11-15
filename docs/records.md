@@ -220,9 +220,10 @@ order, each refused with its own error:
 4. every referent, in a role or a qualifier's restriction, has a sort the profile
    declares (`UndeclaredSort`) and a term matching that sort's identifier class
    after NFC normalization (`IdentifierClassMismatch`); for a sort bound to a world
-   kind the class is that kind's record id, `<kind>:` followed by 64 lowercase hex
-   characters. The `within-model` referent is a record of a model-specification
-   procedure: its sort must be bound by `world-kind` to `procedure`
+   kind the class is that kind's record id: `dataset:sha256:` for datasets,
+   `<kind>:` for every other kind, followed by 64 lowercase hex characters.
+   The short `dataset:<64 hex>` spelling is refused. The `within-model` referent
+   is a record of a model-specification procedure: its sort must be bound by `world-kind` to `procedure`
    (`WithinModelRefused`);
 5. some declaration admits the claim's role-to-sort assignment: for a template, an
    instantiation listing, for every role, each sort the claim puts in it (several
