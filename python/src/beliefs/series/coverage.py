@@ -154,7 +154,7 @@ def compute_coverage(series: CheckedSeries, windows: tuple[tuple[Fraction, Fract
         if all(status == "complete" for status in statuses):
             retained.append(anchor.key)
             memberships.append(
-                tuple(WindowMembership(low, high, tuple(range(left, right))) for low, high, left, right in ranges)
+                tuple(WindowMembership(low, high, range(left, right)) for low, high, left, right in ranges)
             )
     coverage = EventCoverage("complete-windows", tuple(report))
     _byte_bound(coverage)

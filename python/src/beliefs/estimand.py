@@ -1132,11 +1132,13 @@ def _event_coverage(
         raise SeriesRefused("invalid-series", "selected channel coordinates disagree with the bound Measure")
     if not series.anchors:
         raise SeriesRefused("invalid-series", "event series requires RuleAnchor and an anchor table")
-    if anchor.rule != series.anchor_rule or {(row.sort, row.term) for row in series.anchors} != {
-        (ref.sort, ref.term) for ref in anchor.classes
-    }:
+    classes = {member_key(ref) for ref in anchor.classes}
+    if (
+        anchor.rule != series.anchor_rule
+        or {member_key(Referent(row.sort, row.term)) for row in series.anchors} != classes
+    ):
         raise SeriesRefused("invalid-series", "RuleAnchor rule/classes disagree with the anchor table")
-    if len(set(anchor.classes)) != len(anchor.classes):
+    if len(classes) != len(anchor.classes):
         raise SeriesRefused("invalid-series", "RuleAnchor classes must be distinct")
     if not isinstance(series.axis, ElapsedAxis) or not lag.windows:
         raise SeriesRefused("invalid-series", "event series requires fixed elapsed windows")

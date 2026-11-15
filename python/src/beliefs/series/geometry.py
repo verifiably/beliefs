@@ -125,7 +125,7 @@ def check_table_geometry(table: Table) -> None:
 class WindowMembership:
     low: Fraction
     high: Fraction
-    positions: tuple[int, ...]
+    positions: tuple[int, ...] | range
 
 
 def window_memberships(

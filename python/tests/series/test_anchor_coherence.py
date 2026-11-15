@@ -37,9 +37,11 @@ B = Referent("testing/entity", "EX:gene-z")
 
 @pytest.fixture
 def profiles(base_contract, testing_document):
-    def make(*, linked=True, many=False, admit=True):
+    def make(*, linked=True, many=False, admit=True, unicode_classes=False):
         doc = deepcopy(testing_document)
         doc["sorts"]["entity"]["categories"].append("class")
+        if unicode_classes:
+            doc["sorts"]["entity"]["identifier_class"]["pattern"] = "EX:.+"
         template = doc["templates"]["affects"]
         template["event_anchor"] = {"role": "cause"} if linked else {"independent": True}
         template["roles"]["cause"] = (
@@ -284,3 +286,34 @@ def test_anchor_coherence_across_claim_boundaries(linked_portable, route):
             assessed_target_contracts(forged.assessed_target, p.profile, claim)
         else:
             p.writer.add(stored.analysis_spec_node(forged))
+
+
+@pytest.mark.parametrize("route", ["diagnostic", "build"])
+def test_catalogue_classes_compare_canonical_referents(profiles, route):
+    from .test_coverage import diagnose
+
+    profile = profiles(unicode_classes=True)
+    canonical = Referent(A.sort, "EX:é")
+    decomposed = Referent(A.sort, "EX:e\u0301")
+    case, bindings = linked_case(profile, classes=(canonical,))
+    anchor = bindings["anchor"]
+    bindings["anchor"] = RuleAnchor(anchor.rule, (decomposed,))
+    if route == "diagnostic":
+        result = diagnose(case, bindings, profile)
+        assert result.retained_keys == ("0", "1")
+    else:
+        expected = build(case, {**bindings, "anchor": anchor}, profile, claim_for(profile, classes=(canonical,)))
+        actual = build(case, bindings, profile, claim_for(profile, classes=(decomposed,)))
+        assert v1.encode(estimand_projection(actual)) == v1.encode(estimand_projection(expected))
+
+
+def test_diagnostic_refuses_canonical_duplicate_classes(profiles):
+    from .test_coverage import diagnose
+
+    profile = profiles(unicode_classes=True)
+    canonical = Referent(A.sort, "EX:é")
+    case, bindings = linked_case(profile, classes=(canonical,))
+    anchor = bindings["anchor"]
+    bindings["anchor"] = RuleAnchor(anchor.rule, (canonical, Referent(A.sort, "EX:e\u0301")))
+    with pytest.raises(SeriesRefused, match="classes must be distinct"):
+        diagnose(case, bindings, profile)

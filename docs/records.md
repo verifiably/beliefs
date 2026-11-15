@@ -487,6 +487,8 @@ with every window complete are retained; overlapping windows keep separate
 memberships and shared samples. A frozen target needs at least one retained
 candidate. `diagnose_event_coverage` returns the full report, retained keys and
 memberships without minting a target or receipt, including all-excluded input.
+Its per-window positions are compact immutable ranges; materialize them only when
+a consumer needs a tuple. Windows remain separate and may share samples.
 
 For a series-bearing event spec, the author supplies the ordinary string parameter
 `event_retained_keys`. `series.transport.event_retained_keys(estimand.event_coverage)`

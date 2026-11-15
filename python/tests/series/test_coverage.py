@@ -73,7 +73,7 @@ def test_coverage_priority_and_memberships(series_profile, time_roles):
     assert result.retained_keys == () and result.memberships == ()
     complete = compute_coverage(checked, ((F(4), F(6)), (F(5), F(6))))
     assert complete.retained_keys == ("0",)
-    assert tuple(row.positions for row in complete.memberships[0]) == ((3, 4), (4,))
+    assert tuple(tuple(row.positions) for row in complete.memberships[0]) == ((3, 4), (4,))
     assert complete.graph == checked.graph
 
 
@@ -267,3 +267,38 @@ def test_materialized_select_forbidden_for_event_response(context):
     bindings["response"] = replace(bindings["response"], series=series_ref_from_projection(ref))
     with pytest.raises(SeriesRefused, match="select/rebin"):
         diagnose(case, bindings, context)
+
+
+def test_wide_overlapping_memberships_keep_bounded_storage(series_profile, time_roles):
+    from sys import getsizeof
+
+    from beliefs.series.coverage import compute_coverage
+
+    case, ref = h_case()
+    view = raw_object(case.buffers[ref["resource"].split(":")[1]])
+
+    def table_rows(obj):
+        obj["coordinates"] = [str(i) for i in range(5000)]
+        obj["support"] = [[str(i), str(i + 1)] for i in range(5000)]
+        obj["channels"]["signal"]["values"] = ["1"] * 5000
+        obj["axis"]["grid"] = {"kind": "regular", "spacing": "1"}
+
+    def anchor_rows(obj):
+        row = obj["rows"][0]
+        obj["rows"] = [{**row, "key": str(i), "coordinate": str(i)} for i in range(100)]
+
+    table = case.rewrite(view["table"], table_rows)
+    anchors = case.rewrite(view["anchors"], anchor_rows)
+    ref = case.rewrite(ref, lambda obj: obj.update(table=table, anchors=anchors, selection=list(range(5000))))
+    checked = case.read(ref, series_profile, time_roles)
+    result = compute_coverage(checked, ((F(0), F(2000)), (F(1000), F(4000))))
+    assert len(result.retained_keys) == 100
+    assert all(row.windows == ("complete", "complete") for row in result.coverage.report)
+    first, second = result.memberships[0]
+    assert (len(first.positions), first.positions[0], first.positions[-1]) == (2000, 0, 1999)
+    assert (len(second.positions), second.positions[0], second.positions[-1]) == (3000, 1000, 3999)
+    assert tuple(first.positions[1000:]) == tuple(second.positions[:1000])
+    assert result.memberships[-1][1].positions[-1] == 4098
+    # A modest valid input must not copy half a million positions merely to
+    # report 200 complete cells. The bound counts containers, not shared ints.
+    assert sum(getsizeof(row.positions) for rows in result.memberships for row in rows) < 100_000
