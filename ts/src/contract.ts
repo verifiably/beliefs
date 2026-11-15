@@ -347,7 +347,8 @@ export class BaseContract {
  * `kind`, each carrying exactly its own fields. The arms are the base contract's
  * `binding_kinds`; a binding carrying another arm's field is refused, never read
  * as one of them. Every field is canonical (NFC) text, and the record-id fields
- * are `<kind>:` followed by 64 lowercase hex characters (ruling P4).
+ * use `dataset:sha256:` for datasets and `<kind>:` otherwise, followed by
+ * 64 lowercase hex characters.
  */
 export type SortBinding =
   | { readonly kind: "release"; readonly namespace: string; readonly release: string }
@@ -1487,8 +1488,9 @@ function parseSort(name: string, value: unknown, where: string, base: BaseContra
   let identifierClass: IdentifierClass | null = null;
   if (binding.kind === "world-kind") {
     if ("identifier_class" in body) {
+      const prefix = binding.worldKind === "dataset" ? "dataset:sha256:" : `${binding.worldKind}:`;
       throw new MalformedContract(
-        `${where}: identifier_class is refused on a world-kind sort; its class is the kernel's record-id grammar, \`<kind>:\` followed by 64 lowercase hex`,
+        `${where}: identifier_class is refused on a world-kind sort; its class is the kernel's record-id grammar, \`${prefix}\` followed by 64 lowercase hex`,
       );
     }
   } else {

@@ -16,6 +16,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parse, stringify } from "yaml";
 import { Claim, type ClaimParts, Member, Qualifier, Referent, buildClaim } from "../src/claim.js";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
 import {
@@ -523,5 +524,44 @@ describe("the constructor is the only route", () => {
   it("refuses a forged mint token", () => {
     const parts = { ...toParts({}), polarity: "positive" };
     expect(() => new Claim(Symbol("forged"), parts)).toThrow(ClaimError);
+  });
+});
+
+describe("dataset world-kind identity", () => {
+  const document = parse(read("fixtures/contracts/testing.yaml"));
+  document.sorts.entity.binding = { kind: "world-kind", world_kind: "dataset" };
+  Reflect.deleteProperty(document.sorts.entity, "identifier_class");
+  const datasetProfile = compileProfile(base, [parseDomainContract(stringify(document), "<dataset-test>", base)]);
+  const vector = JSON.parse(read("fixtures/dataset-binding-ids.json")) as { dataset_id: string };
+  const refusals = JSON.parse(read("fixtures/dataset-world-kind-refusals.json")) as Record<string, string>;
+  const datasetClaim = (term: string) =>
+    buildClaim(
+      datasetProfile,
+      toParts({
+        roles: { cause: new Referent("testing/entity", term), effect: outcome },
+      }),
+    );
+
+  it.each([vector.dataset_id, `dataset:sha256:${"0".repeat(64)}`, `dataset:sha256:${"f".repeat(64)}`])(
+    "accepts canonical dataset %s",
+    (term) => {
+      expect(projectClaim(datasetClaim(term)).roles.cause).toEqual({ sort: "testing/entity", term });
+    },
+  );
+  it.each(Object.entries(refusals))("refuses noncanonical dataset: %s", (_name, term) => {
+    expect(() => datasetClaim(term)).toThrow(IdentifierClassMismatch);
+    expect(() => datasetClaim(term)).toThrow("`dataset:sha256:`");
+  });
+  it("preserves procedure grammar", () => {
+    expect(() => build({ roles: { cause: gene, effect: outcome, "within-model": MODEL } })).not.toThrow();
+    expect(() =>
+      build({
+        roles: {
+          cause: gene,
+          effect: outcome,
+          "within-model": new Referent("testing/procedure-spec", `procedure:sha256:${"a".repeat(64)}`),
+        },
+      }),
+    ).toThrow(IdentifierClassMismatch);
   });
 });

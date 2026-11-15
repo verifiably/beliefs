@@ -397,9 +397,10 @@ def _require_record_id(record: object, kind: str) -> str:
     member no claim can name — `_require_term`'s defect, arriving by inventory."""
     _require_term(record, f"kind {kind!r}")
     assert isinstance(record, str)
-    if not re.fullmatch(f"{re.escape(kind)}:{_HEX64}", record):
+    prefix = "dataset:sha256:" if kind == "dataset" else f"{kind}:"
+    if not re.fullmatch(f"{re.escape(prefix)}{_HEX64}", record):
         raise ResolutionError(
-            f"kind {kind!r}: {record!r} is not a {kind} record id, `{kind}:` followed by 64 lowercase hex characters"
+            f"kind {kind!r}: {record!r} is not a {kind} record id, `{prefix}` followed by 64 lowercase hex characters"
         )
     return record
 

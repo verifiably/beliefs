@@ -255,8 +255,10 @@ and a list of them may not repeat a value.
   The short `dataset:<64 hex>` spelling is refused. Grammar validation does not
   establish that a dataset is held or that a term is a member of it.
   `world_kind` names a world kind the base contract declares. A `world-kind` sort
-  declares no `identifier_class` (the kernel's record-id grammar is its class);
-  every other sort must declare one. A sort's schema projection is its binding
+  declares no `identifier_class`: its class is `dataset:sha256:` followed by
+  64 lowercase hex characters for datasets, and `<kind>:` followed by 64 lowercase
+  hex characters for every other world kind. Every other sort must declare an
+  `identifier_class`. A sort's schema projection is its binding
   (with `kind`), its identifier class when it has one, and its categories as a
   sorted list.
 - **Identifier classes.** An identifier class is a literal `prefix` and a `pattern`

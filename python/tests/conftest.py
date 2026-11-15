@@ -7,6 +7,7 @@ checkout, and a contract loader that guessed its own path would have the same
 defect one layer down.
 """
 
+import json
 import os
 import shutil
 import tempfile
@@ -257,3 +258,29 @@ def acquisition_report():
     from fixtures_cut3 import report
 
     return report(operation="acquisition")
+
+
+@pytest.fixture()
+def dataset_world_profile(base_contract, testing_document):
+    from beliefs.contract.domain import parse_domain_contract
+    from beliefs.profile import compile_profile
+
+    testing_document["sorts"]["entity"]["binding"] = {"kind": "world-kind", "world_kind": "dataset"}
+    del testing_document["sorts"]["entity"]["identifier_class"]
+    domain = parse_domain_contract(
+        testing_document, source="<dataset-world-test>", base=base_contract, predecessor=None
+    )
+    return compile_profile(base_contract, [domain])
+
+
+@pytest.fixture()
+def dataset_id_vector(fixtures_dir):
+    return json.loads((fixtures_dir / "dataset-binding-ids.json").read_text())
+
+
+@pytest.fixture(
+    params=list(json.loads((REPO_ROOT / "fixtures/dataset-world-kind-refusals.json").read_text()).items()),
+    ids=lambda row: row[0],
+)
+def noncanonical_dataset_id(request):
+    return request.param[1]

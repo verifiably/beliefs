@@ -1188,3 +1188,10 @@ class TestParallelGenesis:
 
         assert first.namespace == second.namespace
         assert first.claim_vocabulary() != second.claim_vocabulary()
+
+
+@pytest.mark.parametrize(("kind", "prefix"), [("dataset", "dataset:sha256:"), ("procedure", "procedure:")])
+def test_world_kind_class_diagnostic(base_contract, testing_document, kind, prefix):
+    testing_document["sorts"]["entity"]["binding"] = {"kind": "world-kind", "world_kind": kind}
+    with pytest.raises(MalformedContract, match=f"`{prefix}`"):
+        domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)

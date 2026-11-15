@@ -233,3 +233,56 @@ def test_the_snapshot_identity_is_taken_under_its_v2_domain():
     assert SNAPSHOT_DOMAIN == "science.snapshot.v2"
     for snapshot in (build_snapshot(), build_snapshot(readable={EX: []}), build_snapshot(kinds={"procedure": []})):
         assert snapshot.identity == v1.digest("science.snapshot.v2", snapshot.projection())
+
+
+def test_dataset_world_kind_inventory_and_decode(dataset_world_profile, dataset_id_vector):
+    from beliefs.errors import UnboundReferent
+    from beliefs.projection import project_claim
+
+    term = dataset_id_vector["dataset_id"]
+    sort = dataset_world_profile.sorts["testing/entity"]
+    outcome = "EX:outcome-y"
+    readable = {dataset_world_profile.sorts["testing/outcome"].binding: [outcome]}
+    wire = WireClaim(
+        operator="testing/affects",
+        roles={
+            "cause": {"sort": "testing/entity", "term": term},
+            "effect": {"sort": "testing/outcome", "term": outcome},
+        },
+        qualifiers={},
+        form="polar",
+        polarity="positive",
+        layer="causal",
+    )
+    held = build_snapshot(readable=readable, kinds={"dataset": [term]})
+    assert held.resolve(sort, term) is TermOutcome.MEMBER
+    claim, receipt = decode_claim(wire, profile=dataset_world_profile, snapshot=held)
+    assert project_claim(claim) == {
+        "operator": "testing/affects",
+        "roles": dict(wire.roles),
+        "qualifiers": {},
+        "form": "polar",
+        "polarity": "positive",
+        "layer": "causal",
+    }
+    assert receipt.outcomes["role:cause"] is TermOutcome.MEMBER
+    empty = build_snapshot(readable=readable, kinds={"dataset": []})
+    assert empty.resolve(sort, term) is TermOutcome.NOT_MEMBER
+    with pytest.raises(UnboundReferent):
+        decode_claim(wire, profile=dataset_world_profile, snapshot=empty)
+    absent = build_snapshot(readable=readable)
+    assert absent.resolve(sort, term) is TermOutcome.NOT_CONSULTED
+    _, receipt = decode_claim(wire, profile=dataset_world_profile, snapshot=absent)
+    assert receipt.outcomes["role:cause"] is TermOutcome.NOT_CONSULTED
+
+
+def test_dataset_world_kind_inventory_refuses_noncanonical_id(noncanonical_dataset_id):
+    with pytest.raises(ResolutionError, match="`dataset:sha256:`"):
+        build_snapshot(kinds={"dataset": [noncanonical_dataset_id]})
+
+
+@pytest.mark.parametrize("kind", ["procedure", "run"])
+def test_other_world_kind_inventory_preserves_grammar(kind):
+    build_snapshot(kinds={kind: [kind + ":" + "a" * 64]})
+    with pytest.raises(ResolutionError, match=f"`{kind}:`"):
+        build_snapshot(kinds={kind: [kind + ":sha256:" + "a" * 64]})

@@ -821,3 +821,62 @@ class TestTheAuthoringBoundaryRefusesRetiredVocabulary:
             layer="causal",
         )
         assert claim.qualifiers[POPULATION].restriction == adults
+
+
+def test_dataset_world_kind_accepts_minted_id(dataset_world_profile, dataset_id_vector, outcome):
+    from beliefs import stored
+    from beliefs.series.types import SeriesRef
+
+    node = stored.dataset_node(
+        title="terms", resources=[{"name": "terms", "digest": dataset_id_vector["resource_digest"]}]
+    )
+    assert node.id == dataset_id_vector["dataset_id"]
+    series = SeriesRef(node.id, dataset_id_vector["resource_digest"])
+    claim = build_claim(
+        dataset_world_profile,
+        operator=AFFECTS,
+        roles={"cause": Referent("testing/entity", node.id), "effect": outcome},
+        polarity="positive",
+        layer="causal",
+    )
+    assert series.dataset == dataset_id_vector["dataset_id"]
+    assert claim.roles["cause"] == Referent("testing/entity", series.dataset)
+
+
+@pytest.mark.parametrize("digit", ["0", "f"])
+def test_dataset_world_kind_accepts_digest_extremes(dataset_world_profile, outcome, digit):
+    term = "dataset:sha256:" + digit * 64
+    claim = build_claim(
+        dataset_world_profile,
+        operator=AFFECTS,
+        roles={"cause": Referent("testing/entity", term), "effect": outcome},
+        polarity="positive",
+        layer="causal",
+    )
+    assert claim.roles["cause"] == Referent("testing/entity", term)
+
+
+def test_dataset_world_kind_refuses_noncanonical_id(dataset_world_profile, outcome, noncanonical_dataset_id):
+    with pytest.raises(IdentifierClassMismatch, match="`dataset:sha256:`"):
+        build_claim(
+            dataset_world_profile,
+            operator=AFFECTS,
+            roles={"cause": Referent("testing/entity", noncanonical_dataset_id), "effect": outcome},
+            polarity="positive",
+            layer="causal",
+        )
+
+
+def test_procedure_world_kind_preserves_its_grammar(profile, cause_effect):
+    claim = build_claim(
+        profile, operator=AFFECTS, roles={**cause_effect, "within-model": MODEL}, polarity="positive", layer="causal"
+    )
+    assert claim.roles["within-model"] == MODEL
+    with pytest.raises(IdentifierClassMismatch, match="`procedure:`"):
+        build_claim(
+            profile,
+            operator=AFFECTS,
+            roles={**cause_effect, "within-model": Referent("testing/procedure-spec", "procedure:sha256:" + "a" * 64)},
+            polarity="positive",
+            layer="causal",
+        )
