@@ -57,6 +57,7 @@ from beliefs.contract.domain import (
     DimensionDecl,
     DomainContract,
     EstimandDecl,
+    EventAnchorDecl,
     InstantiationDecl,
     QuantityDimension,
     RestrictionForm,
@@ -334,7 +335,7 @@ CompiledRestrictionForm = RestrictionForm
 @dataclass(frozen=True)
 class CompiledDimension:
     term: str
-    restriction_sort: str
+    restriction_sort: str | None
     restriction: CompiledRestrictionForm | None
     placement: str
     applies_to: frozenset[str]
@@ -345,14 +346,19 @@ class CompiledDimension:
 
     def schema_projection(self) -> dict[str, object]:
         projection: dict[str, object] = {
-            "restriction_sort": self.restriction_sort,
             "placement": self.placement,
             "applies_to": sorted(self.applies_to),
             "retired": self.retired,
         }
+        if self.restriction_sort is not None:
+            projection["restriction_sort"] = self.restriction_sort
         if self.restriction is not None:
             projection["restriction"] = self.restriction.schema_projection()
         return projection
+
+    def claim_restriction_sort(self) -> str:
+        assert self.placement == "claim" and self.restriction_sort is not None
+        return self.restriction_sort
 
 
 @dataclass(frozen=True)
@@ -390,6 +396,7 @@ class CompiledTemplate:
     """``(cause role, effect role)``, read by composites; ``None`` forms no edge."""
     retired: bool
     contract: str
+    event_anchor: EventAnchorDecl | None = None
 
     def schema_projection(self) -> dict[str, object]:
         projection: dict[str, object] = {
@@ -401,6 +408,8 @@ class CompiledTemplate:
         }
         if self.edge is not None:
             projection["edge"] = {"cause": self.edge[0], "effect": self.edge[1]}
+        if self.event_anchor is not None:
+            projection["event_anchor"] = self.event_anchor.projection()
         return projection
 
 
@@ -1004,7 +1013,7 @@ class ProfileSpec:
             dimension
             for dimension in self.claim_dimensions(term)
             if not self.dimensions[dimension].retired
-            and not self.sorts[self.dimensions[dimension].restriction_sort].retired
+            and not self.sorts[self.dimensions[dimension].claim_restriction_sort()].retired
         )
 
     def _withdrawal_reason(self, operator: CompiledOperator) -> str:
@@ -1663,6 +1672,7 @@ def _compile_template(contract: DomainContract, decl: TemplateDecl) -> CompiledT
         layers=decl.layers,
         forms=decl.forms,
         edge=decl.edge,
+        event_anchor=decl.event_anchor,
         retired=decl.retired,
         contract=contract.namespace,
     )
@@ -1785,7 +1795,11 @@ def _compile_dimension(
     bridges: Mapping[str, CompiledBridge],
 ) -> CompiledDimension:
     where = f"dimensions.{decl.name}"
-    restriction_sort = _resolve_sort(contract, decl.restriction_sort, sorts, where=f"{where}: restriction_sort")
+    restriction_sort = (
+        _resolve_sort(contract, decl.restriction_sort, sorts, where=f"{where}: restriction_sort")
+        if decl.restriction_sort is not None
+        else None
+    )
     applies_to: set[str] = set()
     for reference in decl.applies_to:
         # A local name resolves against this contract only, even when another
@@ -1822,7 +1836,9 @@ def _compile_estimand(
     kind, _, name = decl.target.partition(":")
     term = contract.term(name)
     # The parser admits only a target this contract declares, so both lookups hold.
-    instantiations[term] if kind == "instantiation" else bridges[term]
+    target = instantiations[term] if kind == "instantiation" else bridges[term]
+    if "event-locked" in decl.forms and templates[target.template].event_anchor is None:
+        raise ProfileError(f"{where}: event-locked requires template event_anchor")
     return CompiledEstimandDecl(
         kind=cast(Literal["instantiation", "bridge"], kind),
         target=f"{kind}:{term}",

@@ -129,9 +129,9 @@ _CONTRACT_OPTIONAL = frozenset(
 _V1_FIELDS = ("operators", "edges")
 _SORT_FIELDS = frozenset({"binding"})
 _SORT_OPTIONAL = frozenset({"identifier_class", "categories", "description", "retired"})
-_DIMENSION_FIELDS = frozenset({"restriction_sort", "placement", "applies_to"})
+_DIMENSION_FIELDS = frozenset({"placement", "applies_to"})
 _TEMPLATE_FIELDS = frozenset({"roles", "sign_apt", "layers", "forms"})
-_TEMPLATE_OPTIONAL = frozenset({"edge", "definition", "external", "description", "retired"})
+_TEMPLATE_OPTIONAL = frozenset({"event_anchor", "edge", "definition", "external", "description", "retired"})
 _ROLE_OPTIONAL = frozenset({"min", "max", "coefficients", "constraint"})
 _INSTANTIATION_FIELDS = frozenset({"template", "roles"})
 _BRIDGE_FIELDS = frozenset({"template", "mapping", "roles"})
@@ -482,7 +482,7 @@ class DimensionDecl:
     ``<namespace>/<name>``) a claim over which may carry it, resolved at compile."""
 
     name: str
-    restriction_sort: str
+    restriction_sort: str | None
     placement: str
     applies_to: tuple[str, ...]
     restriction: RestrictionForm | None
@@ -490,10 +490,11 @@ class DimensionDecl:
 
     def schema_projection(self) -> dict[str, object]:
         projection: dict[str, object] = {
-            "restriction_sort": self.restriction_sort,
             "placement": self.placement,
             "applies_to": sorted(self.applies_to),
         }
+        if self.restriction_sort is not None:
+            projection["restriction_sort"] = self.restriction_sort
         if self.restriction is not None:
             projection["restriction"] = self.restriction.schema_projection()
         return projection
@@ -539,6 +540,16 @@ class ExternalRef:
 
 
 @dataclass(frozen=True)
+class EventAnchorDecl:
+    """A template's association meaning; None denotes explicitly independent events."""
+
+    role: str | None
+
+    def projection(self) -> dict[str, object]:
+        return {"independent": True} if self.role is None else {"role": self.role}
+
+
+@dataclass(frozen=True)
 class TemplateDecl:
     """A relation template: its roles, sign aptness, layers, forms and, for a
     causal template, the edge its composites read."""
@@ -552,6 +563,7 @@ class TemplateDecl:
     """``(cause role, effect role)``, or ``None`` for a template forming no edge."""
     definition: str | None
     external: ExternalRef | None
+    event_anchor: EventAnchorDecl | None = None
     retired: bool = False
 
     def schema_projection(self) -> dict[str, object]:
@@ -568,6 +580,8 @@ class TemplateDecl:
             projection["edge"] = {"cause": self.edge[0], "effect": self.edge[1]}
         if self.external is not None:
             projection["external"] = self.external.projection()
+        if self.event_anchor is not None:
+            projection["event_anchor"] = self.event_anchor.projection()
         return projection
 
 
@@ -1440,6 +1454,20 @@ def _parse_template(name: str, value: object, where: str, base: BaseContract) ->
             reference=_require_text(reference["reference"], f"{external_where}: reference"), mapping=mapping
         )
 
+    event_anchor = None
+    if "event_anchor" in body:
+        anchor_where = f"{where}: event_anchor"
+        anchor = _mapping(body["event_anchor"], anchor_where)
+        if set(anchor) == {"independent"} and anchor["independent"] is True:
+            event_anchor = EventAnchorDecl(None)
+        elif set(anchor) == {"role"} and isinstance(anchor["role"], str):
+            role = roles.get(anchor["role"])
+            if role is None or "class" not in role.constraint or role.coefficients:
+                raise MalformedContract(f"{anchor_where}: role requires class constraint and no coefficients")
+            event_anchor = EventAnchorDecl(role.name)
+        else:
+            raise MalformedContract(f"{anchor_where}: expected role or independent: true")
+
     return TemplateDecl(
         name=name,
         roles=MappingProxyType(roles),
@@ -1449,6 +1477,7 @@ def _parse_template(name: str, value: object, where: str, base: BaseContract) ->
         edge=edge,
         definition=definition,
         external=external,
+        event_anchor=event_anchor,
         retired=_bool(body.get("retired", False), f"{where}: retired"),
     )
 
@@ -1592,7 +1621,7 @@ def parse_domain_contract(
     for name, body in _declarations(root["dimensions"], f"{source}: dimensions").items():
         where = f"{source}: dimensions.{name}"
         decl = _mapping(body, where)
-        _fields(decl, _DIMENSION_FIELDS, _EDITORIAL | {"restriction"}, where)
+        _fields(decl, _DIMENSION_FIELDS, _EDITORIAL | {"restriction", "restriction_sort"}, where)
         placement = decl["placement"]
         if not isinstance(placement, str) or placement not in grammar.placements:
             raise MalformedContract(
@@ -1605,18 +1634,24 @@ def parse_domain_contract(
         applies_to = tuple(operator(item, f"{where}: applies_to[{i}]") for i, item in enumerate(raw_applies))
         _no_duplicates(applies_to, f"{where}: applies_to")
         restriction = None
+        time_interval = False
         if placement == "applicability":
             if "restriction" not in decl:
                 raise MalformedContract(f"{where}: applicability dimension requires restriction")
             restriction = _parse_restriction(decl["restriction"], f"{where}: restriction", operator)
             leaf = restriction.of if restriction.form == "union" else restriction
-            if leaf is not None and leaf.form == "term" and leaf.sort != decl["restriction_sort"]:
+            time_interval = leaf is not None and leaf.form == "time-interval"
+            if leaf is not None and leaf.form == "term" and leaf.sort != decl.get("restriction_sort"):
                 raise MalformedContract(f"{where}: term restriction sort must match restriction_sort")
         elif "restriction" in decl:
             raise MalformedContract(f"{where}: claim dimension refuses restriction")
+        if time_interval and "restriction_sort" in decl:
+            raise MalformedContract(f"{where}: time-interval forbids restriction_sort")
+        if not time_interval and "restriction_sort" not in decl:
+            raise MalformedContract(f"{where}: missing field restriction_sort")
         dimensions[name] = DimensionDecl(
             name=name,
-            restriction_sort=resolve(decl["restriction_sort"], f"{where}: restriction_sort"),
+            restriction_sort=None if time_interval else resolve(decl["restriction_sort"], f"{where}: restriction_sort"),
             restriction=restriction,
             placement=placement,
             applies_to=applies_to,

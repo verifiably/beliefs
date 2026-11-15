@@ -53,10 +53,10 @@ export function claimVocabulary(contract: DomainContract): ReadonlyMap<string, I
   });
   add("dimension", contract.dimensions, (d) => {
     const p: Projection = {
-      restriction_sort: d.restrictionSort,
       placement: d.placement,
       applies_to: sorted(d.appliesTo),
     };
+    if (d.restrictionSort !== undefined) p.restriction_sort = d.restrictionSort;
     if (d.restriction !== null) p.restriction = restriction(d.restriction);
     return p;
   });
@@ -69,6 +69,7 @@ export function claimVocabulary(contract: DomainContract): ReadonlyMap<string, I
     };
     if (d.edge !== null) p.edge = { ...d.edge };
     if (d.external !== null) p.external = { ...d.external };
+    if (d.eventAnchor !== undefined) p.event_anchor = { ...d.eventAnchor };
     return p;
   });
   add("instantiation", contract.instantiations, (d) => ({ template: d.template, roles: roles(d.roles) }));

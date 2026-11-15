@@ -323,8 +323,8 @@ it("series time roles and synthetic vocabulary compile from the shared fixture",
   const document = parseBaseContract(read("contracts/science/CONTRACT.yaml"), "<series base>");
   const domain = parseDomainContract(read("fixtures/contracts/series-time.yaml"), "<synthetic series time>", document);
   const profile = compileProfile(document, [domain]);
-  expect(document.version).toBe(4);
-  expect(document.estimandGrammar.version).toBe(3);
+  expect(document.version).toBe(5);
+  expect(document.estimandGrammar.version).toBe(4);
   expect(profile.timeRoles).toEqual(JSON.parse(read("fixtures/series-contract-v1.json")).time_roles);
 });
 

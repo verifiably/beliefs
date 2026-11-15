@@ -113,7 +113,9 @@ def target_terms(value: AssessedTarget, profile: ProfileSpec) -> frozenset[str]:
         if output.unit is not None:
             unit(output.unit)
     terms.update(walk(value.applicability.restrictions(), profile).terms)
-    terms.update(profile.dimensions[dim].restriction_sort for dim in value.applicability.values)
+    terms.update(
+        sort for dim in value.applicability.values if (sort := profile.dimensions[dim].restriction_sort) is not None
+    )
     terms.update(graph_terms(e.series_graph))
     terms.update(a.kind for a in e.assumptions)
     for entry in value.dependencies:

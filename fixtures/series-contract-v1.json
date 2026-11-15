@@ -9,6 +9,6 @@
     "hertz": "si-brochure/hertz"
   },
   "response_axes": ["index", "elapsed", "regular-elapsed"],
-  "base_version": 4,
-  "estimand_grammar_version": 3
+  "base_version": 5,
+  "estimand_grammar_version": 4
 }

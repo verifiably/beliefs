@@ -420,7 +420,7 @@ class Claim:
                     f"quantifier {qualifier.quantifier!r} on {dimension!r} is outside the kernel's closed "
                     f"set {list(grammar.quantifiers)}."
                 )
-            restriction_sort = dimension_decl.restriction_sort
+            restriction_sort = dimension_decl.claim_restriction_sort()
             if qualifier.restriction.sort != restriction_sort:
                 raise RestrictionSortMismatch(
                     f"{dimension!r} restricts to sort {restriction_sort!r}; "

@@ -405,7 +405,7 @@
         "sorts": {},
         "dimensions": {},
         "defining_source": {
-          "id": "urn:x:\u00e9"
+          "id": "urn:x:é"
         }
       },
       "content_identity": null,
@@ -535,8 +535,8 @@
     }
   ],
   "profiles": {
-    "general": "53acb1ad28b826a07eca25a541595ad3bbd4fd42c15f74a78112c51756c2d6cc",
-    "general+biology": "c2006d8ee430b307b7e543c05350cca349077dc8db1854efc66a4e969eb12c04",
-    "general+biology+mm30": "83fc0a54710a751a7fe733b0634a476216e8e57b38a3658784dd863b626aa7e6"
+    "general": "8c48c2d948aba020d31a5749d0436994d7f20457d53cda0a40be5ea688ac09fe",
+    "general+biology": "7860977ddafa785cd698bbaf7d45895d505bcd4d763a0223ee789253ab60a582",
+    "general+biology+mm30": "e1c9a2e9bb9ad11c21e18412f756a3a8ad30a445f6c1baac512a22585b9a4c7d"
   }
 }

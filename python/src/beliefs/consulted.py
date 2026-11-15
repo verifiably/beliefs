@@ -93,7 +93,7 @@ def claim_contracts(artefact: object, profile: ProfileSpec, claim: Claim | None)
     }
     for dimension in artefact.qualifiers:
         declared = profile.dimensions[dimension]
-        read |= {declared.contract, profile.sorts[declared.restriction_sort].contract}
+        read |= {declared.contract, profile.sorts[declared.claim_restriction_sort()].contract}
     return frozenset(read)
 
 

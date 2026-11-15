@@ -73,9 +73,10 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     and again when the four measurement kinds gained their governed facets,
     when functional and control declarations entered the schema,
     and when assumptions-register moved to science.assumptions-register.v2,
-    and when estimand v3 and the explicit time-role coupling entered the projection."""
+    when estimand v3 and the explicit time-role coupling entered the projection,
+    and when estimand v4 established the event-series generation."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "69b377c9bb331267ac8ebe2c05b53edd69eab1eb99214796611cb2801537526a"
+    assert before.compiled_identity == "5c5377d662647d3bc613ef2bb266b407c52c7f09e539b52109cda2bd66ac9c6e"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 

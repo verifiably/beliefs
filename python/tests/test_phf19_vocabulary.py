@@ -89,4 +89,4 @@ def test_mm30_register_covers_its_six_declarations():
 def test_source_adoption_keeps_phf19_contract_and_profile_identity():
     assert vocabulary.contract().defining_source is None
     assert vocabulary.contract().content_identity == "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
-    assert vocabulary.profile().compiled_identity == "83fc0a54710a751a7fe733b0634a476216e8e57b38a3658784dd863b626aa7e6"
+    assert vocabulary.profile().compiled_identity == "e1c9a2e9bb9ad11c21e18412f756a3a8ad30a445f6c1baac512a22585b9a4c7d"

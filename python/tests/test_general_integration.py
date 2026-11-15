@@ -607,7 +607,7 @@ def test_empirical_general_write_door_round_trip(certified_work: Path, unknown_v
         shutil.rmtree(metadata_root_for(root), ignore_errors=True)
 
 
-def test_historical_base_bytes_refuse_under_v4_and_claim_projection_stays_same():
+def test_historical_base_bytes_refuse_under_v5_and_claim_projection_stays_same():
     base_path = REPO_ROOT / "python/tests/fixtures/science-v3.yaml"
     v3_doc = parse_document(base_path.read_text(encoding="utf-8"), source=str(base_path))
     assert isinstance(v3_doc, dict)
@@ -787,4 +787,4 @@ def test_historical_base_bytes_refuse_under_v4_and_claim_projection_stays_same()
         rule_procedures={"probability-of-superiority/v1": estimator_id},
     )
     assert spec_provisional.identity != spec_established.identity
-    assert shipped_base_contract().version == 4
+    assert shipped_base_contract().version == 5

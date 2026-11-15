@@ -212,7 +212,6 @@
         ]
       },
       "epoch": {
-        "restriction_sort": "level",
         "restriction": {
           "form": "time-interval"
         },
@@ -256,7 +255,10 @@
           "cause": "cause",
           "effect": "effect"
         },
-        "description": "An editorial field. Changing it must move contract identity and nothing else."
+        "description": "An editorial field. Changing it must move contract identity and nothing else.",
+        "event_anchor": {
+          "independent": true
+        }
       },
       "correlates-with": {
         "roles": {
@@ -273,7 +275,10 @@
         "forms": [
           "polar",
           "null"
-        ]
+        ],
+        "event_anchor": {
+          "independent": true
+        }
       },
       "transforms": {
         "roles": {
@@ -1051,7 +1056,7 @@
       "cohort-enrolment": {}
     }
   },
-  "genesis_identity": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c",
+  "genesis_identity": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0",
   "genesis_schema": {
     "sort:entity": {
       "binding": {
@@ -1208,47 +1213,46 @@
       }
     },
     "dimension:population": {
-      "restriction_sort": "cohort",
       "placement": "claim",
       "applies_to": [
         "affects",
         "correlates-with",
         "promotes"
-      ]
+      ],
+      "restriction_sort": "cohort"
     },
     "dimension:setting": {
-      "restriction_sort": "entity",
       "placement": "claim",
       "applies_to": [
         "affects"
-      ]
+      ],
+      "restriction_sort": "entity"
     },
     "dimension:follow-up": {
-      "restriction_sort": "level",
       "placement": "applicability",
       "applies_to": [
         "affects",
         "correlates-with"
       ],
+      "restriction_sort": "level",
       "restriction": {
         "form": "interval",
         "quantity_kind": "duration"
       }
     },
     "dimension:stage": {
-      "restriction_sort": "stage",
       "placement": "applicability",
       "applies_to": [
         "affects",
         "correlates-with"
       ],
+      "restriction_sort": "stage",
       "restriction": {
         "form": "term",
         "sort": "stage"
       }
     },
     "dimension:epoch": {
-      "restriction_sort": "level",
       "placement": "applicability",
       "applies_to": [
         "affects"
@@ -1258,11 +1262,11 @@
       }
     },
     "dimension:case-status": {
-      "restriction_sort": "level",
       "placement": "applicability",
       "applies_to": [
         "affects"
       ],
+      "restriction_sort": "level",
       "restriction": {
         "form": "rule",
         "classes": "level"
@@ -1293,6 +1297,9 @@
       "edge": {
         "cause": "cause",
         "effect": "effect"
+      },
+      "event_anchor": {
+        "independent": true
       }
     },
     "template:correlates-with": {
@@ -1312,7 +1319,10 @@
       "forms": [
         "null",
         "polar"
-      ]
+      ],
+      "event_anchor": {
+        "independent": true
+      }
     },
     "template:transforms": {
       "roles": {
@@ -2013,7 +2023,7 @@
     "contract": "testing",
     "version": 2,
     "lineage": {
-      "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+      "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
     },
     "sorts": {
       "entity": {
@@ -2201,7 +2211,6 @@
         ]
       },
       "epoch": {
-        "restriction_sort": "level",
         "restriction": {
           "form": "time-interval"
         },
@@ -2245,7 +2254,10 @@
           "cause": "cause",
           "effect": "effect"
         },
-        "description": "An editorial field. Changing it must move contract identity and nothing else."
+        "description": "An editorial field. Changing it must move contract identity and nothing else.",
+        "event_anchor": {
+          "independent": true
+        }
       },
       "correlates-with": {
         "roles": {
@@ -2262,7 +2274,10 @@
         "forms": [
           "polar",
           "null"
-        ]
+        ],
+        "event_anchor": {
+          "independent": true
+        }
       },
       "transforms": {
         "roles": {
@@ -3041,13 +3056,13 @@
       "cohort-enrolment": {}
     }
   },
-  "added_identity": "1dc89a8075b2fa0b6ee121d940c02eb74cf6413f78210ba25056d2e4b11cb74c",
+  "added_identity": "4fb447662be3ccb8e2d6c59457375a5edd26d034b08b4f688fac87e5cdde11f0",
   "cases": [
     {
       "name": "addition",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3059,13 +3074,13 @@
         }
       ],
       "outcome": "accept",
-      "identity": "1dc89a8075b2fa0b6ee121d940c02eb74cf6413f78210ba25056d2e4b11cb74c"
+      "identity": "4fb447662be3ccb8e2d6c59457375a5edd26d034b08b4f688fac87e5cdde11f0"
     },
     {
       "name": "second-addition",
       "previous": "added",
       "lineage": {
-        "successor": "1dc89a8075b2fa0b6ee121d940c02eb74cf6413f78210ba25056d2e4b11cb74c"
+        "successor": "4fb447662be3ccb8e2d6c59457375a5edd26d034b08b4f688fac87e5cdde11f0"
       },
       "changes": [
         {
@@ -3077,17 +3092,17 @@
         }
       ],
       "outcome": "accept",
-      "identity": "b13012a7ee213c740f93242a1f7819fae8123c69e67ca9550961d5abee7d15f9"
+      "identity": "cda60e7f7f6d4d4d29d3983c9a9c392cf6469834bd6e36224660d630685b7c11"
     },
     {
       "name": "missing-predecessor",
       "previous": null,
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [],
       "outcome": "SuccessionViolation",
-      "identity": "c37f3a823d4f45ab7820effa33883f0a100574f59fd075fb0385cc3f09ff5d9e"
+      "identity": "a11b6eec9c0de1858e6dcda9b837b719c332305a2b96084aa038c18943ddd672"
     },
     {
       "name": "wrong-predecessor",
@@ -3097,7 +3112,7 @@
       },
       "changes": [],
       "outcome": "SuccessionViolation",
-      "identity": "64df223df52f1cd5068daf450eb12e95b31d5cc30a20ae699930231c5cb44d30"
+      "identity": "a0a01db5ceeae38ed6b47d4163c74f4ecbf54ef8ca5022b73e711040601e7885"
     },
     {
       "name": "genesis-with-predecessor",
@@ -3105,13 +3120,13 @@
       "lineage": "genesis",
       "changes": [],
       "outcome": "SuccessionViolation",
-      "identity": "c2fca4f8c5aab0a427e0a7a4e22f1cb3e2c94ce8dc1f67b410db7cccc8eb1428"
+      "identity": "babca948d87b84b4ea3d12802ee2a2633259da1e6d36260871768bb6f33057f4"
     },
     {
       "name": "different-namespace",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3122,13 +3137,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "fd1731d0fa7495d094993e198a25cbb82ef107a1533a5a846a4a215c843f21a2"
+      "identity": "877c614cee75c70bfe6b63105d6c4fa2e79d81ef7d75463134e35c889c59e621"
     },
     {
       "name": "drop-sort",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3140,13 +3155,13 @@
         }
       ],
       "outcome": "MalformedContract",
-      "identity": "94d215463aec530294551c01ac028173b2d7e46c0dd517e7ce01f3aca7a10aba"
+      "identity": "53ee8253164853ff073eb9a835f15557881a5424f7b2cf38c1d1d2d310511e5d"
     },
     {
       "name": "drop-dimension",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3158,13 +3173,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "be6b396813dabc421c4f096034a261a52639284b772021a037e1d68b6afbb81c"
+      "identity": "2fad6a32558483e8e600a9e1954cc20e3655bf19d65986e33ee3d03303cf65ac"
     },
     {
       "name": "drop-template",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3176,13 +3191,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "ab569b9527148a9a8c053780b93c992b1e6ffffcf83e89deb5e17c19678bd46c"
+      "identity": "2ea1c684f0853ef6ccc90d17269007f8ab2dd364e5a9245c004c4ee67659de10"
     },
     {
       "name": "drop-instantiation",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3194,13 +3209,13 @@
         }
       ],
       "outcome": "MalformedContract",
-      "identity": "931635a46295894f655175fded840c9c7734354a656e99fc6d489809dbffdbea"
+      "identity": "03bcc9fb01e78c7efa8624c8a40d41ca32269df5212c9a70bf92b9e7120409af"
     },
     {
       "name": "drop-bridge",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3212,13 +3227,13 @@
         }
       ],
       "outcome": "MalformedContract",
-      "identity": "84c7dbb32b67a385b380cc1527b4b4de6d286986de6ef8576d896ec970ee2b9e"
+      "identity": "2b4cc895330c97acdef603f3bd16b2d527546892b5a366077dd6ac3535286fc8"
     },
     {
       "name": "drop-estimand",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3230,13 +3245,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "49b9aa6b27a78878b3d18ae3108bca98ffae406457fa781cd549f267155345b4"
+      "identity": "416cd40ea0525ffdc4e3d3e304aa63c71a7c573efc9a279b1236eeed1de8bfb5"
     },
     {
       "name": "drop-duration-convention",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3248,13 +3263,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "2fba49981e7a5a308f7f3eea83663f653755c20ef5fbc4b80b94420c73f057cc"
+      "identity": "3c7bb224348ac4eecb49bcc8fd6f385a56ef2dd78924db663dbf7d9e2fa6dfa4"
     },
     {
       "name": "drop-functional",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3266,13 +3281,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "bc9707247df3da4dd879a247a7f3223412541cb62875db854dcc4758aa915141"
+      "identity": "89aac74961f43df461a6950be47a392d32ee5d065d29916779471897a164f453"
     },
     {
       "name": "drop-identification-class",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3284,13 +3299,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "b670e837f56b5a49d11b6153c28d97dfb25ecff96d02f47e1c1caeb41e617383"
+      "identity": "345db50692e47b8fac55ed915cce35bedba22892f125f0d8448fbd53b2039063"
     },
     {
       "name": "drop-design",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3302,13 +3317,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "b3adef79c6ccb07497f13b99de86f6da4721d840c6438dc1eb3d2bc787824797"
+      "identity": "fb2f109d2f7831c516b66d2611a690f99ecd40d80adf6ca8eb62255c990359c8"
     },
     {
       "name": "drop-selection-mechanism",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3320,13 +3335,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "569741fee7b137213914e79a1b0392bed6a60388628fff717bdf20a24a5fb3b1"
+      "identity": "b68f305c56ec5a907b99ac04703dcef5e4d752218564d8077e582be3e83a47a2"
     },
     {
       "name": "drop-procedure-kind",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3338,13 +3353,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "78c095cceed30c98cbabb3492be98378d0c840aee4803d8c305e8bdabd643366"
+      "identity": "c97bfe333f4245641a8e2871f4c4ee804341a5108b73b4bbdec14cf774b9f47d"
     },
     {
       "name": "drop-aggregation-rule",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3356,13 +3371,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "50c2407f50c5a8610078e1880e1e77a3355c78cb584e6e2ee620b6692476a056"
+      "identity": "300ffd8929c34cf5a4903128672d49ec574f3d1a15a6729993b9ab1d408a4ded"
     },
     {
       "name": "drop-assumption-kind",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3374,13 +3389,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "d9bfc634a8fc5f4328257cffb70166ee883d5e278bee2f35c99b61ced9571ee0"
+      "identity": "399dc9425cbc11de5323ead68585330e627f09bd99608fb730d0cf5cd54d9d0c"
     },
     {
       "name": "drop-measurement",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3392,13 +3407,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "50674129272c48be02e9d1ad3564a2a768cc49d86ffca57f06cb3d835f44732a"
+      "identity": "3fc02145f30e2cbd1842f188e29fb39cde85d1325c10ad62f1ff9109bd30a4cb"
     },
     {
       "name": "drop-aspect",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3410,13 +3425,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "651eadd6b3ddb568579395b82a2ec67c0432eb22c46f454787cf17d871d3a593"
+      "identity": "12dcf66ef047969cc8df7e398aaf3c13634c766fc5fba5a48841a32a10e372e3"
     },
     {
       "name": "drop-quantity-kind",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3428,13 +3443,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "ef2e203f69fd1fd0953ee78544887ad58177bfda0443e276c1b292438e873bf7"
+      "identity": "a7c9c233e026d095a3510c0b5e8f164b3fe757f2fa324b0d03eb9023608f8feb"
     },
     {
       "name": "drop-unit",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3446,13 +3461,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "c29d0e9d20bca54f937a3fab4bc1530f318b7607f6fe2ed7630037f950ccea82"
+      "identity": "6da41fc00eb0c1ce01b5211a6111c1d33e185105f8865e02f9ec70417dde9034"
     },
     {
       "name": "drop-constant",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3464,13 +3479,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "06e4c9918950cf880c4564ebd40e22a31cf74f25dc9e75458be244d20ea7b04b"
+      "identity": "f202f82d341a93b1d73e2014fcba10a68a7c8940f043d016d3ca8966f2be8989"
     },
     {
       "name": "drop-conversion",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3482,13 +3497,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "fb965b5e328b9250b8da3db11d0549adc698e7a84080b4600a66ae8c03a085cd"
+      "identity": "59a68d1945b6aad8ee5b9ff4cd0548e8676f524093dfff00efbf364197db93b6"
     },
     {
       "name": "drop-transformation",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3500,13 +3515,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "00d39a4aa307f438824441060ff743fb844a554a4d4aa10b936d043419d27314"
+      "identity": "c79439ef5ec97300f1c429a7e9d676527d365dd184a6d972fa4fbcb913481239"
     },
     {
       "name": "change-sort",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3520,13 +3535,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "970fe4a1bc25f64022b7b888de8412261f8d6ef3c45e459d14a059917e6881d1"
+      "identity": "d11e0bfc471856fade6a4dcb2b7ae07d9307d9194dcccd1e5c035eda7dbd0af8"
     },
     {
       "name": "change-dimension",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3541,13 +3556,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "6e1ce9452c77f9e80c7c9dbea36e9631a60862f4dd67295514b3cb8b8e624bf4"
+      "identity": "e4c8c9ff1db209694323a6f08da2e7e555790dc1a5d3152699bc28f5f0c0ac9a"
     },
     {
       "name": "change-template",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3562,13 +3577,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "f6a0fb0291988cfdc8a0b80104b7857b7eebb7668b6e45d8cc5047aed85e763c"
+      "identity": "866f7bfb1f6409a28adcf35ada3f990d1f7c16396e61cc7073da7de374c1dc0f"
     },
     {
       "name": "change-instantiation",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3585,13 +3600,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "7bf13779e27e6c675e3ae13afa2ee9f2e5fed31b49bb3c0bb3a62f727b8eadb4"
+      "identity": "e6020387079e5d53b4e2c209423de9af448b9919fe82b3c35efefe1d2ebb38a1"
     },
     {
       "name": "change-bridge",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3604,13 +3619,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "3bff8487e3178a10f734dd59a5c4f27e1e2dc7d24d84a6f26737ae204d7bed63"
+      "identity": "5699add4ccbda36ea045d7c9f77d46a30a241ba03e434aaa690d4b62935d20c1"
     },
     {
       "name": "change-estimand",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3623,13 +3638,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "9bd598ea7d5ebbf1b594d890f00b86941de0674818db3654d81f8454c122192d"
+      "identity": "0c71b1cb7f572972977839382db6d8988e2de934ba7e31e1562aa06168ab71a9"
     },
     {
       "name": "change-duration-convention",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3642,13 +3657,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "b81f6ec645f2b413ebf4d6e49e26a8f9f5f45f2c3abc9a7cf3e4e1dcf78decf8"
+      "identity": "6e91c955ba813cfec37bc562dce4afbfb3a51623f9a1793bba3f1ee9bc694daf"
     },
     {
       "name": "change-functional",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3661,13 +3676,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "f634b24c6b218c6035254d43e62f1df8b82b5d324f753067dce1b6840b5332de"
+      "identity": "b870789bed39e761261d3e9574ba08de0d45047ca7f767fdb0fa653837ce2a07"
     },
     {
       "name": "change-identification-class",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3682,13 +3697,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "2377864ccdbb3d1315297cdd09941e80684dd0b5335cf11b680206ea73e73e0a"
+      "identity": "8fb0904eab2d880a3969a31580c6293d3eef55eb9403ac3572412d4b9cd41eb6"
     },
     {
       "name": "change-procedure-kind",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3701,13 +3716,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "bbadbbb647b7446cd61d20cb7fdda7c88f64752b35d41e49aad2b0b4ed99908b"
+      "identity": "628c7bdebc9e6b4040f3e2a37e474772fd253c5819127eb290b2b4679e62752d"
     },
     {
       "name": "change-assumption-kind",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3722,13 +3737,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "10e38ce6871abdbe18aab2ae0ffa9f6b663cfc917df58fe7a774b8a95c81948a"
+      "identity": "b4b9e9fd31f7d2cee460db32e96aeedd9c4140f84f3c187d8fddc4124d5fc406"
     },
     {
       "name": "change-measurement",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3742,13 +3757,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "2f1897e7a3e97b4373f10dea452672b96ad3d34b03ea4aa50d0fc2d4dbfc9844"
+      "identity": "dfe348e9bb89e134d213a51517669047827fbb6adab12f045e9792adeac18f15"
     },
     {
       "name": "change-aspect",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3762,13 +3777,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "d6b8b96f1267ca9ec756e7025ad03f2aed949be6efc121b07df21db6c81be0e3"
+      "identity": "a4b49cfed3068b64218d17af8ffba64f326187660e52fb8191a16d8bb6e2d8af"
     },
     {
       "name": "change-quantity-kind",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3783,13 +3798,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "0c250129aca94dd7fb644655b96bec00ac2f770a339a17d543f01fd1fdcb0dc6"
+      "identity": "4926b080fb9bebe2ae2897e41699cd5da3c430614ae6115ef8cdc559ad3e2b17"
     },
     {
       "name": "change-unit",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3802,13 +3817,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "79d0c505e1e292c507e923099d09a784f306665cdd2b63d136e101a93b470bb4"
+      "identity": "3b0f8664b74dd2088adc8e5097c4476757b2116dcf9dd4acfc8359ddc78d649b"
     },
     {
       "name": "change-constant",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3821,13 +3836,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "c2530d7f011cafff0aedde7656ca069ccb855014b76ffa4e1a7a6b56df0f0075"
+      "identity": "3a03a8d4da352d1a3cc5c1afaf790f9fecc207ee15586703ae28ae651a628f5d"
     },
     {
       "name": "change-conversion",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3840,13 +3855,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "b26855689551d087f1ad19d3a3be3bf4d157ea2946dbca96a7a727c387d6e698"
+      "identity": "edc247e6204289f56ae5b1c87a3c3084f384bff727c342a1f4d7ce4f61146c24"
     },
     {
       "name": "change-transformation",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3859,13 +3874,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "772ab1f25ee5c0694065c7daf5dc13da4e08cd1e2f38fedeae2469fe5527b03b"
+      "identity": "f239b2552d2f8e4c09c40bddee927728beb5abf358eaa01bf18f2fb1e1520082"
     },
     {
       "name": "editorial",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3910,13 +3925,13 @@
         }
       ],
       "outcome": "accept",
-      "identity": "9e47db2ab33ae2618bcb531b8190ece38f74069ce755df7acc88b14306eb5a33"
+      "identity": "2840202ff961da313fc2f7b1c8a72458de2df65d782052395733440d805ad7e0"
     },
     {
       "name": "set-order",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3964,13 +3979,13 @@
         }
       ],
       "outcome": "accept",
-      "identity": "344e02bf38bce0e629f59b3a2717c93ee298b065258b74e1f5505509cb513c93"
+      "identity": "4878148dfe9333a35dcc1abbdc9a0bf49d9bc637947ff33259dcc74c4457daaa"
     },
     {
       "name": "external-reference",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -3986,13 +4001,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "3f879dc79df5b868c68ace76a3be9fd15d3f86737220b5dd028e8ecd53ccac18"
+      "identity": "4145e0b5ae0e389ea6d339d5f33d52c21181d17ff0118778e54e935391e9c5da"
     },
     {
       "name": "nested-role",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -4007,13 +4022,13 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "57ac3e3fbff9a77f9cbdc12734f932399813326922602a1213f186b1466aa03f"
+      "identity": "f38d896bb9f2346ea107977510de16da6f705ebfcb3886a5a15dc17ea83be585"
     },
     {
       "name": "explicit-bridge-layers",
       "previous": "genesis",
       "lineage": {
-        "successor": "9e9f8180facade8a4e1ddba369539be55cbcb3610df3f70c65203ac0a5efa16c"
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
       },
       "changes": [
         {
@@ -4029,7 +4044,26 @@
         }
       ],
       "outcome": "SuccessionViolation",
-      "identity": "540e6a1e7c561e6716bc96b8f7e3280eaa075f16783afdc1eeb865ae4ca65725"
+      "identity": "e8c8ec52f94e84a928f2bec848f1f8c90ef6dc72b51fd6ed076e03a8bb0a5f8c"
+    },
+    {
+      "name": "change-event-association",
+      "previous": "genesis",
+      "lineage": {
+        "successor": "c7b1edf87238636685aea10852029a0320e373a1ca8b5de7388d34d50b6008e0"
+      },
+      "changes": [
+        {
+          "path": [
+            "templates",
+            "affects",
+            "event_anchor"
+          ],
+          "delete": true
+        }
+      ],
+      "outcome": "SuccessionViolation",
+      "identity": "4599fe869fccf3e6a8618d5cb305d7e20c2ad3eb466b3125917809da9b7ffe17"
     }
   ]
 }

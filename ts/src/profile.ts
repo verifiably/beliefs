@@ -49,6 +49,7 @@ import {
   type RelationDecl,
   type RestrictionForm,
   type SortBinding,
+  type TemplateDecl,
   type TimeRoles,
   type TransformationDecl,
   type UnitDecl,
@@ -111,7 +112,7 @@ export interface CompiledAspects {
 
 export interface CompiledDimension {
   readonly term: string;
-  readonly restrictionSort: string;
+  readonly restrictionSort?: string;
   readonly restriction: CompiledRestrictionForm | null;
   readonly placement: string;
   /** The operator terms (templates and bridges) a claim over which may carry this dimension, sorted. */
@@ -130,6 +131,7 @@ export interface CompiledRole {
 
 /** A template, under its operator term `<namespace>/<name>`. Its external reference activates nothing and is not compiled. */
 export interface CompiledTemplate {
+  readonly eventAnchor?: TemplateDecl["eventAnchor"];
   readonly kind: "template";
   readonly term: string;
   readonly roles: ResolutionTable<CompiledRole>;
@@ -472,6 +474,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
         layers: decl.layers,
         forms: decl.forms,
         edge: decl.edge,
+        ...(decl.eventAnchor ? { eventAnchor: decl.eventAnchor } : {}),
       });
     }
   }
@@ -773,7 +776,10 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
   for (const contract of contracts) {
     for (const [name, decl] of Object.entries(contract.dimensions)) {
       const where = `dimensions.${name}`;
-      const restrictionSort = resolveSort(contract, decl.restrictionSort, `${where}: restriction_sort`);
+      const restrictionSort =
+        decl.restrictionSort === undefined
+          ? undefined
+          : resolveSort(contract, decl.restrictionSort, `${where}: restriction_sort`);
       const appliesTo = decl.appliesTo.map((reference) => {
         // A local name resolves against this contract only, even when another
         // activated contract declares the same local name.
@@ -787,7 +793,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       });
       dimensions[term(contract.namespace, name)] = Object.freeze({
         term: term(contract.namespace, name),
-        restrictionSort,
+        ...(restrictionSort === undefined ? {} : { restrictionSort }),
         restriction: decl.restriction ? compileRestriction(contract, decl.restriction) : null,
         placement: decl.placement,
         appliesTo: sorted(new Set(appliesTo)),
@@ -812,6 +818,9 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       const kind = decl.target.slice(0, separator);
       const targetTerm = term(contract.namespace, decl.target.slice(separator + 1));
       const address = `${kind}:${targetTerm}`;
+      const target = kind === "instantiation" ? instantiations[targetTerm] : bridges[targetTerm];
+      if (decl.forms.includes("event-locked") && !templates[target.template].eventAnchor)
+        throw new ProfileError(`${where}: event-locked requires template event_anchor`);
       estimands[address] = Object.freeze({
         kind: kind as "instantiation" | "bridge",
         target: address,

@@ -683,3 +683,38 @@ describe("content-addressed dataset binding ids", () => {
     });
   }
 });
+
+describe("event-series contract semantics", () => {
+  it.each([false, true])("omits time-interval sort (union %s)", (union) => {
+    const text = mutated((doc) => {
+      Reflect.deleteProperty(doc.dimensions.epoch, "restriction_sort");
+      if (union) doc.dimensions.epoch.restriction = { form: "union", of: { form: "time-interval" } };
+    });
+    expect(parseTesting(text).dimensions.epoch.restrictionSort).toBeUndefined();
+    expect(() =>
+      parseTesting(
+        mutated((doc) => {
+          doc.dimensions.epoch.restriction_sort = "level";
+        }, text),
+      ),
+    ).toThrow(/restriction_sort/);
+  });
+  it("requires association for every event-admitting row", () => {
+    const text = mutated((doc) => {
+      Reflect.deleteProperty(doc.dimensions.epoch, "restriction_sort");
+      for (const template of Object.values(doc.templates) as Document[]) template.event_anchor = { independent: true };
+    });
+    expect(compileProfile(base, [parseTesting(text)]).templates["testing/affects"].eventAnchor).toEqual({
+      independent: true,
+    });
+    expect(() =>
+      compileProfile(base, [
+        parseTesting(
+          mutated((doc) => {
+            Reflect.deleteProperty(doc.templates.affects, "event_anchor");
+          }, text),
+        ),
+      ]),
+    ).toThrow(/event_anchor/);
+  });
+});

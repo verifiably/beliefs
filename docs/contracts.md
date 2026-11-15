@@ -8,7 +8,7 @@ relation templates, instantiations, bridges, estimand declarations, measurement
 vocabulary and admissions, duration conventions and namespaced facets. The
 coordination contract declares view and coordination kinds. A compiled profile
 combines a base contract, a set of domain contracts and optionally a coordination
-contract. The shipped base is version 4, with claim grammar 2, estimand grammar 3, and
+contract. The shipped base is version 5, with claim grammar 2, estimand grammar 4, and
 measurement and composite grammars 1. Domain contract versions are positive
 integers in a genesis or successor lineage. The code supports coordination
 contract versions 1 to 3 and corpus manifest version 2. The records these
@@ -68,8 +68,8 @@ project claims.
 The base contract has exactly these fields: `contract` (always `science`),
 `version`, `claim_grammar`, `estimand_grammar`, `measurement_grammar`,
 `composite_grammar`, `time_roles`, `kinds`, `relations` and `facets`. The Python and TypeScript
-parsers require a positive integer for the base and composite versions. Claim grammar requires version 2; estimand grammar requires version 3 and
-measurement grammar requires version 1. The shipped base is version 4.
+parsers require a positive integer for the base and composite versions. Claim grammar requires version 2; estimand grammar requires version 4 and
+measurement grammar requires version 1. The shipped base is version 5.
 
 - `claim_grammar` holds `version`, `tag_encoding` (`science.identity.v1`),
   `quantifiers`, `polarities`, `sign_inapt_tag`, `forms`, `layers`,
@@ -93,7 +93,7 @@ measurement grammar requires version 1. The shipped base is version 4.
 - Each `reserved_roles` entry has exactly one field, `world_kind`, which must name
   a world kind the contract declares. The shipped base reserves
   `within-model: { world_kind: procedure }`.
-- `estimand_grammar` requires version 3 and `science.identity.v1` tag encoding.
+- `estimand_grammar` requires version 4 and `science.identity.v1` tag encoding.
   Its closed sets are `forms`, `arities`, `response_transformations`, `reversals`,
   `response_reversals`, `exchanges`, `ties`, `outputs`, `parameter_typings`,
   `domains`, `nulls`, `increments`, `uncertainty_propagation`, `uncertainty_kinds`,
@@ -152,8 +152,8 @@ migration tool; changing a manifest pin does not recreate a corpus's records.
 
 The kernel separates field vocabulary from structural grammar, with an explicit
 coupling to external time-role names at the series and lag boundaries.
-This register describes shipped base version 4 and its operations: claim grammar 2,
-estimand grammar 3, measurement and composite grammars 1. It records
+This register describes shipped base version 5 and its operations: claim grammar 2,
+estimand grammar 4, measurement and composite grammars 1. It records
 what those choices preserve, what they leave unestablished, and the identity cost
 of changing them. Update it when the corresponding behavior changes.
 
@@ -226,7 +226,7 @@ integer), `lineage`, `sorts` and `dimensions`. It may add `description`,
 `identification_classes`, `designs`, `selection_mechanisms`, `measurements`, `aspects` and
 `facets`. Any other top-level field is refused, `kinds` and `relations` included,
 and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
-base v4. Its namespace may be neither `science` nor `coordination`. Each table is
+base v5. Its namespace may be neither `science` nor `coordination`. Each table is
 its own namespace, so a sort and a dimension, or an instantiation and a bridge, may
 share a local name; a bridge may not share a name with a template, since both are
 operators.
@@ -272,17 +272,21 @@ and a list of them may not repeat a value.
   `fixtures/identifier-patterns-v1.json` is the oracle both implementations are tested
   against. Write a pattern as a single-quoted YAML scalar: a double-quoted scalar
   reads `\-` as an escape YAML does not define, and the document is refused.
-- **Dimensions.** A dimension requires `restriction_sort`, `placement` (`claim` or
+- **Dimensions.** A dimension requires `placement` (`claim` or
   `applicability`) and `applies_to`, a list of operators (templates or bridges) a
   claim over which may carry it. An applicability-side dimension also requires
   `restriction`; a claim-side dimension refuses that field. Its closed forms are
   `{form: term, sort: <sort>}`, `{form: interval, quantity_kind: <quantity-kind>}`,
   `{form: time-interval}`, `{form: rule, classes: <sort>}`, and
   `{form: union, of: <one non-union restriction>}`. References resolve at compile.
-  A `term` restriction's sort must match `restriction_sort`, which remains required
-  for claim qualifiers and dimension metadata. Every form refuses fields belonging to another.
+  A `term` restriction's sort must match `restriction_sort`, which is required except for an applicability `time-interval` leaf (directly
+  or within one union), where `restriction_sort` is forbidden. Claim qualifiers
+  always require a sort. Every form refuses fields belonging to another.
 - **Templates.** A template requires `roles`, `sign_apt`, `layers` and `forms`, and
-  may add `edge`, `definition`, `external`, `description` and `retired`.
+  may add `edge`, `definition`, `external`, `description`, `retired` and `event_anchor`.
+  The optional `event_anchor` is exactly `{role: <role-name>}` or `{independent: true}`.
+  A linked role must exist, require category `class`, and refuse coefficients.
+  This association declares meaning, not estimand admission.
   - Each role requires `arity`, `one` or `many`, and may add `constraint` (role
     categories a filling sort must declare). A `many` role may add `coefficients`
     (a boolean, default false), `min` (default 1, at least 0) and `max` (at least
@@ -314,6 +318,8 @@ and a list of them may not repeat a value.
   References resolve at compile. Admission requires one whole row to admit both
   the form and every conditioning sort. The old level, measure and identification
   sort fields are refused. Compiled declarations retain their explicit `kind`.
+  Every row admitting `event-locked` must resolve an instantiation or bridge whose
+  template declares `event_anchor`; bridges inherit the template association.
 - **Duration conventions.** A duration convention requires exactly `conversion`,
   a local or foreign-qualified conversion reference, plus optional editorial
   `definition` and `description`. Compilation resolves the reference and requires

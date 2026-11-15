@@ -117,3 +117,16 @@ def test_base_cutover_refuses_v3_corpus(tmp_path):
     from beliefs.dependencies import ASSESSMENT_FACET_DOMAIN
 
     assert ASSESSMENT_FACET_DOMAIN == "science.assessment-facet.v2"
+
+
+def test_previous_base_generation_refused_by_name():
+    from pathlib import Path
+
+    import pytest
+
+    from beliefs.contract import load_base_contract
+    from beliefs.errors import MalformedContract
+
+    previous = Path(__file__).parent / "fixtures/science-v4.yaml"
+    with pytest.raises(MalformedContract, match="estimand_grammar: expected version 4"):
+        load_base_contract(previous)

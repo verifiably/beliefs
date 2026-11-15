@@ -32,7 +32,7 @@ class TestTheShippedContract:
         assert request.node.get_closest_marker("xdist_group") is None
         contract = base.load_base_contract(base_contract_path)
         assert contract.name == "science"
-        assert contract.version == 4
+        assert contract.version == 5
 
     def test_it_declares_the_closed_sets_7_1_names(self, base_contract_path):
         grammar = base.load_base_contract(base_contract_path).claim_grammar
@@ -332,7 +332,7 @@ class TestClaimGrammarV2:
 class TestEstimandGrammar:
     def test_the_shipped_base_declares_the_three_closed_sets(self, base_contract):
         grammar = base_contract.estimand_grammar
-        assert grammar.version == 3
+        assert grammar.version == 4
         assert grammar.forms == base.SUPPORTED_ESTIMAND_FORMS
         assert grammar.uncertainty_kinds == ("interval", "standard-error", "covariance")
 
@@ -395,7 +395,7 @@ class TestEstimandGrammar:
             parse(document)
 
     def test_another_estimand_grammar_version_is_refused(self, document):
-        document["estimand_grammar"]["version"] = 4
+        document["estimand_grammar"]["version"] = 5
         with pytest.raises(MalformedContract):
             parse(document)
 
@@ -593,8 +593,8 @@ def test_series_grammar_cutover(base_contract):
     from beliefs.dependencies import ASSESSMENT_FACET_DOMAIN
     from beliefs.record import ASSESSMENT_DOMAIN
 
-    assert base_contract.version == 4
-    assert base_contract.estimand_grammar.version == 3
-    assert base.ESTIMAND_GRAMMAR == "science.estimand.v3"
+    assert base_contract.version == 5
+    assert base_contract.estimand_grammar.version == 4
+    assert base.ESTIMAND_GRAMMAR == "science.estimand.v4"
     assert ASSESSMENT_DOMAIN == "science.assessment.v2"
     assert ASSESSMENT_FACET_DOMAIN == "science.assessment-facet.v2"

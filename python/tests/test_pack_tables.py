@@ -73,6 +73,8 @@ def test_pack_table_references_resolve_at_compile(parse, testing_document, base_
 )
 def test_dimension_restriction_forms(parse, testing_document, base_contract, restriction):
     testing_document["dimensions"]["follow-up"]["restriction"] = restriction
+    if restriction["form"] == "time-interval":
+        del testing_document["dimensions"]["follow-up"]["restriction_sort"]
     profile = compile_profile(base_contract, [parse(testing_document)])
     compiled = profile.dimensions["testing/follow-up"].restriction
     assert compiled is not None
@@ -82,7 +84,9 @@ def test_dimension_restriction_forms(parse, testing_document, base_contract, res
     if compiled.form == "union":
         assert compiled.of is not None
         assert compiled.of.quantity_kind == "testing/duration"
-    assert profile.dimensions["testing/follow-up"].restriction_sort == "testing/level"
+    assert profile.dimensions["testing/follow-up"].restriction_sort == (
+        None if restriction["form"] == "time-interval" else "testing/level"
+    )
 
 
 @pytest.mark.parametrize(

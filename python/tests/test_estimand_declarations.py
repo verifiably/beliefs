@@ -174,3 +174,60 @@ class TestCompile:
         local = profile.estimands["instantiation:testing/affects-entity-outcome"]
         assert foreign.contract == "crossing"
         assert foreign.schema_projection() == local.schema_projection()
+
+
+@pytest.mark.parametrize("target", ["instantiation:affects-entity-outcome", "bridge:promotes"])
+def test_event_association_compile_contract(base_contract, testing_document, target):
+    from beliefs.errors import ProfileError
+    from beliefs.profile import compile_profile
+
+    testing_document["dimensions"]["epoch"].pop("restriction_sort", None)
+    for template in testing_document["templates"].values():
+        template["event_anchor"] = {"independent": True}
+    testing_document["estimands"][target]["forms"] = ["event-locked"]
+    parsed = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
+    compiled = compile_profile(base_contract, [parsed])
+    association = compiled.templates["testing/affects"].event_anchor
+    assert association is not None and association.role is None
+    assert "restriction_sort" not in compiled.dimensions["testing/epoch"].schema_projection()
+    testing_document["templates"]["affects"].pop("event_anchor")
+    parsed = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
+    with pytest.raises(ProfileError, match="event_anchor"):
+        compile_profile(base_contract, [parsed])
+
+
+def test_event_association_alone_grants_no_admission(base_contract, testing_document):
+    from beliefs.profile import compile_profile
+
+    for row in testing_document["estimands"].values():
+        row["forms"] = ["quantity"]
+    parsed = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
+    compiled = compile_profile(base_contract, [parsed])
+    assert compiled.templates["testing/affects"].event_anchor is not None
+    assert all("event-locked" not in row.forms for row in compiled.estimands.values())
+
+
+def test_time_dimension_has_no_unrelated_sort_dependency(base_contract, testing_document):
+    from fixtures_cut3 import typed_target
+
+    from beliefs.applicability import ScopedRestriction, checked
+    from beliefs.profile import compile_profile
+    from beliefs.restriction import TimeIntervalRestriction
+    from beliefs.target import target_terms
+
+    testing_document["sorts"]["level"]["retired"] = True
+    parsed = domain.parse_domain_contract(testing_document, source="<test>", base=base_contract, predecessor=None)
+    profile = compile_profile(base_contract, [parsed])
+    scope = checked(
+        profile,
+        "testing/affects",
+        {
+            "testing/epoch": ScopedRestriction(
+                "universal", TimeIntervalRestriction("2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z")
+            ),
+        },
+        authoring=True,
+    )
+    terms = target_terms(typed_target(applicability=scope), profile)
+    assert "testing/epoch" in terms
+    assert "testing/level" not in terms

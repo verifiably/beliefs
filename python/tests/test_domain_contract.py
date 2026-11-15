@@ -1188,3 +1188,49 @@ class TestParallelGenesis:
 
         assert first.namespace == second.namespace
         assert first.claim_vocabulary() != second.claim_vocabulary()
+
+
+@pytest.mark.parametrize("union", [False, True])
+def test_time_interval_dimension_omits_sort(parse, testing_document, union):
+    epoch = testing_document["dimensions"]["epoch"]
+    epoch.pop("restriction_sort", None)
+    if union:
+        epoch["restriction"] = {"form": "union", "of": {"form": "time-interval"}}
+    parsed = parse(testing_document)
+    assert parsed.dimensions["epoch"].restriction_sort is None
+    assert "restriction_sort" not in parsed.dimensions["epoch"].schema_projection()
+    epoch["restriction_sort"] = "level"
+    with pytest.raises(MalformedContract, match="restriction_sort"):
+        parse(testing_document)
+
+
+@pytest.mark.parametrize(
+    "association",
+    [{}, {"independent": False}, {"independent": True, "role": "cause"}, {"role": "absent"}, {"role": "cause"}, None],
+)
+def test_malformed_event_association_refuses(parse, testing_document, association):
+    testing_document["templates"]["affects"]["event_anchor"] = association
+    with pytest.raises(MalformedContract, match="event_anchor"):
+        parse(testing_document)
+
+
+def test_event_association_role_and_succession(parse, testing_document):
+    template = testing_document["templates"]["affects"]
+    template["roles"]["cause"]["constraint"] = ["class"]
+    template["event_anchor"] = {"role": "cause"}
+    prior = parse(testing_document)
+    assert prior.templates["affects"].event_anchor.role == "cause"
+    assert prior.templates["affects"].schema_projection()["event_anchor"] == {"role": "cause"}
+    testing_document["lineage"] = {"successor": prior.content_identity}
+    testing_document["version"] += 1
+    template["event_anchor"] = {"independent": True}
+    with pytest.raises(SuccessionViolation, match="template:affects"):
+        parse(testing_document, predecessor=prior)
+
+
+def test_event_anchor_refuses_coefficient_role(parse, testing_document):
+    template = testing_document["templates"]["affects"]
+    template["roles"]["cause"] = {"arity": "many", "coefficients": True, "constraint": ["class"]}
+    template["event_anchor"] = {"role": "cause"}
+    with pytest.raises(MalformedContract, match="event_anchor"):
+        parse(testing_document)

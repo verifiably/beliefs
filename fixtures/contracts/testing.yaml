@@ -103,7 +103,6 @@ dimensions:
     placement: applicability
     applies_to: [affects, correlates-with]
   epoch:
-    restriction_sort: level
     restriction: { form: time-interval }
     placement: applicability
     applies_to: [affects]
@@ -115,6 +114,7 @@ dimensions:
 
 templates:
   affects:
+    event_anchor: { independent: true }
     roles:
       cause: { arity: one }
       effect: { arity: one }
@@ -124,6 +124,7 @@ templates:
     edge: { cause: cause, effect: effect }
     description: An editorial field. Changing it must move contract identity and nothing else.
   correlates-with:
+    event_anchor: { independent: true }
     roles:
       parties: { arity: many, min: 2, max: 2 }
     sign_apt: true

@@ -3,6 +3,7 @@ extends: general
 rows:
   templates:
     event-locked-change:
+      event_anchor: {role: anchor}
       definition: "Over occurrences assigned to the anchor class by an attributed classification rule, a measured quantity of the response bearer differs between two windows at fixed offsets from each occurrence's anchor coordinate. Positive means the comparison window exceeds the reference window."
       roles:
         anchor: {arity: one, constraint: [class]}

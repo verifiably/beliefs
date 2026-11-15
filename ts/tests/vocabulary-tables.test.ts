@@ -51,6 +51,7 @@ it.each([
 ])("refuses malformed restriction %#", (restriction) => {
   const doc = document();
   doc.dimensions["follow-up"].restriction = restriction;
+  if (restriction.form === "time-interval") Reflect.deleteProperty(doc.dimensions["follow-up"], "restriction_sort");
   expect(() => contract(doc)).toThrow(MalformedContract);
 });
 it.each([
@@ -62,6 +63,7 @@ it.each([
 ])("compiles restriction %#", (restriction) => {
   const doc = document();
   doc.dimensions["follow-up"].restriction = restriction;
+  if (restriction.form === "time-interval") Reflect.deleteProperty(doc.dimensions["follow-up"], "restriction_sort");
   expect(compileProfile(base, [contract(doc)]).dimensions["testing/follow-up"].restriction?.form).toBe(
     restriction.form,
   );

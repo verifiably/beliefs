@@ -404,7 +404,7 @@ export interface AspectsDecl {
 
 export interface DimensionDecl {
   readonly name: string;
-  readonly restrictionSort: string;
+  readonly restrictionSort?: string;
   readonly restriction: RestrictionForm | null;
   readonly placement: string;
   readonly appliesTo: readonly string[];
@@ -424,8 +424,11 @@ export interface RoleDecl {
   readonly constraint: readonly string[];
 }
 
+export type EventAnchorDecl = { readonly role: string } | { readonly independent: true };
+
 /** A relation template: an operator issued as `<namespace>/<name>`. */
 export interface TemplateDecl {
+  readonly eventAnchor?: EventAnchorDecl;
   readonly name: string;
   readonly roles: DeclarationTable<RoleDecl>;
   readonly signApt: boolean;
@@ -1026,11 +1029,11 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     [],
     `${source}.estimand_grammar`,
   );
-  if (estimandDocument.tag_encoding !== TAG_ENCODING || estimandDocument.version !== 3) {
-    throw new MalformedContract(`${source}.estimand_grammar: requires version 3 and ${TAG_ENCODING}`);
+  if (estimandDocument.tag_encoding !== TAG_ENCODING || estimandDocument.version !== 4) {
+    throw new MalformedContract(`${source}.estimand_grammar: requires version 4 and ${TAG_ENCODING}`);
   }
   const estimandGrammar: EstimandGrammar = {
-    version: 3,
+    version: 4,
     forms: closedSet(estimandDocument.forms, `${source}.estimand_grammar.forms`),
     arities: closedSet(estimandDocument.arities, `${source}.estimand_grammar.arities`),
     responseTransformations: closedSet(
@@ -1577,7 +1580,7 @@ function parseTemplate(name: string, value: unknown, where: string, base: BaseCo
   exactFields(
     body,
     ["roles", "sign_apt", "layers", "forms"],
-    ["edge", "definition", "external", "description", "retired"],
+    ["event_anchor", "edge", "definition", "external", "description", "retired"],
     where,
   );
   refuseRetired(body, where);
@@ -1633,7 +1636,30 @@ function parseTemplate(name: string, value: unknown, where: string, base: BaseCo
     });
   }
 
-  return Object.freeze({ name, roles, signApt, layers, forms, edge, definition, external });
+  let eventAnchor: EventAnchorDecl | undefined;
+  if ("event_anchor" in body) {
+    const anchorWhere = `${where}.event_anchor`;
+    const anchor = mapping(body.event_anchor, anchorWhere);
+    if (Object.keys(anchor).length === 1 && anchor.independent === true) {
+      eventAnchor = Object.freeze({ independent: true });
+    } else if (Object.keys(anchor).length === 1 && typeof anchor.role === "string") {
+      const role = roles[anchor.role];
+      if (!role || !role.constraint.includes("class") || role.coefficients)
+        throw new MalformedContract(`${anchorWhere}: role requires class constraint and no coefficients`);
+      eventAnchor = Object.freeze({ role: anchor.role });
+    } else throw new MalformedContract(`${anchorWhere}: expected role or independent: true`);
+  }
+  return Object.freeze({
+    name,
+    roles,
+    signApt,
+    layers,
+    forms,
+    edge,
+    definition,
+    external,
+    ...(eventAnchor ? { eventAnchor } : {}),
+  });
 }
 
 function parseRoleSorts(
@@ -2161,7 +2187,7 @@ export function parseDomainContract(
   for (const [name, body] of Object.entries(declarations(document.dimensions, `${source}.dimensions`))) {
     const where = `${source}.dimensions.${name}`;
     const decl = mapping(body, where);
-    exactFields(decl, ["restriction_sort", "placement", "applies_to"], ["retired", "restriction"], where);
+    exactFields(decl, ["placement", "applies_to"], ["restriction_sort", "retired", "restriction"], where);
     refuseRetired(decl, where);
     const placement = decl.placement;
     if (typeof placement !== "string" || !grammar.placements.includes(placement)) {
@@ -2177,6 +2203,7 @@ export function parseDomainContract(
     );
     noDuplicates(appliesTo, `${where}.applies_to`);
     let restriction: RestrictionForm | null = null;
+    let timeInterval = false;
     if (placement === "applicability") {
       if (!("restriction" in decl))
         throw new MalformedContract(`${where}: applicability dimension requires restriction`);
@@ -2184,14 +2211,19 @@ export function parseDomainContract(
         reference(value, at, namespace, base.name, "restriction reference"),
       );
       const leaf = restriction.form === "union" ? restriction.of : restriction;
+      timeInterval = leaf.form === "time-interval";
       if (leaf.form === "term" && leaf.sort !== decl.restriction_sort)
         throw new MalformedContract(`${where}: term restriction sort must match restriction_sort`);
     } else if ("restriction" in decl) throw new MalformedContract(`${where}: claim dimension refuses restriction`);
+    if (timeInterval && "restriction_sort" in decl)
+      throw new MalformedContract(`${where}: time-interval forbids restriction_sort`);
+    if (!timeInterval && !("restriction_sort" in decl))
+      throw new MalformedContract(`${where}: missing field restriction_sort`);
     dimensionEntries.push([
       name,
       Object.freeze({
         name,
-        restrictionSort: resolve(decl.restriction_sort, `${where}.restriction_sort`),
+        ...(timeInterval ? {} : { restrictionSort: resolve(decl.restriction_sort, `${where}.restriction_sort`) }),
         restriction,
         placement,
         appliesTo: Object.freeze(appliesTo),

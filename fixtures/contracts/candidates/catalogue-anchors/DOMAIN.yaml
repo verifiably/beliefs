@@ -11,7 +11,6 @@ sorts:
     categories: [class]
 dimensions:
   anchor-epoch:
-    restriction_sort: cdaw-halo-cme
     restriction: {form: time-interval}
     placement: applicability
     applies_to: [general/event-locked-change]

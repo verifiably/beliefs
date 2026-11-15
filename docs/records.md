@@ -3,8 +3,8 @@
 Type: data model; document types 1. This document describes the records a beliefs
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
-encoding, `science.identity.v1`. The shipped base contract is version 4, with
-claim grammar 2, estimand grammar 3, and measurement and composite grammar 1. The other
+encoding, `science.identity.v1`. The shipped base contract is version 5, with
+claim grammar 2, estimand grammar 4, and measurement and composite grammar 1. The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
@@ -405,7 +405,7 @@ run, producer or ancestor the corpus does not hold as `eligibility-unresolved`.
 
 ## Series bindings
 
-Stored estimands use `science.estimand.v3`. A measured binding's optional
+Stored estimands use `science.estimand.v4`. A measured binding's optional
 `series` is `{dataset, resource, member?}`: a `dataset:sha256:<64hex>` address,
 a declared `sha256:<64hex>` or `sha256-tree:<64hex>` resource, and a canonical
 relative member path exactly for a tree. Resource names are not selectors.

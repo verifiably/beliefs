@@ -1,5 +1,5 @@
 {
-  "describes": "catalogue-anchors:f8cd83d30a660b48c12cd1ac635a5ebb55ef29f6e79669405b877b575e9bc544",
+  "describes": "catalogue-anchors:153fcedae48cbc60995d84f18b09d731507df0bfdc01dc3ea71469976f49f2f6",
   "entries": {
     "dimension:catalogue-anchors/anchor-epoch": {
       "collapses": "Per-occurrence anchor times are summarized by one half-open whole-second UTC interval.",

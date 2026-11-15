@@ -266,7 +266,7 @@ existing operation, while narrowing would declare less than the kernel does."""
 _RELATION_FIELDS = frozenset({"group", "sources", "targets"})
 _RELATION_OPTIONAL = frozenset({"same_kind"})
 _RELATION_GROUPS = ("world", "lifecycle")
-ESTIMAND_GRAMMAR = "science.estimand.v3"
+ESTIMAND_GRAMMAR = "science.estimand.v4"
 COMPOSITE_GRAMMAR = "science.composite.v1"
 """The tag a stored composite facet carries under `grammar`."""
 COMPOSES_SIGNATURE = (("composite",), ("proposition",))
@@ -671,10 +671,10 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             f"{estimand_where}: tag_encoding is {estimand['tag_encoding']!r}; this implementation encodes tags only "
             f"under {TAG_ENCODING!r}."
         )
-    if _positive_int(estimand["version"], f"{estimand_where}: version") != 3:
-        raise MalformedContract(f"{estimand_where}: expected version 3")
+    if _positive_int(estimand["version"], f"{estimand_where}: version") != 4:
+        raise MalformedContract(f"{estimand_where}: expected version 4")
     estimand_grammar = EstimandGrammar(
-        version=3, **{name: _closed_set(estimand[name], f"{estimand_where}: {name}") for name in _ESTIMAND_TAGS}
+        version=4, **{name: _closed_set(estimand[name], f"{estimand_where}: {name}") for name in _ESTIMAND_TAGS}
     )
     for tag_name, supported in _ESTIMAND_TAGS.items():
         _require_operated(getattr(estimand_grammar, tag_name), supported, f"{estimand_where}: {tag_name}")

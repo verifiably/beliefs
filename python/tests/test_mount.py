@@ -148,12 +148,12 @@ def test_current_source_adoption_preserves_shipped_and_mm30_mounts(tmp_path):
     base = shipped_base_contract()
     general, biological = (shipped_domain_contract(n) for n in ("general", "biology"))
     for name, domains, expected, available in (
-        ("general", [general], "53acb1ad28b826a07eca25a541595ad3bbd4fd42c15f74a78112c51756c2d6cc", ()),
-        ("biology", [general, biological], "c2006d8ee430b307b7e543c05350cca349077dc8db1854efc66a4e969eb12c04", ()),
+        ("general", [general], "8c48c2d948aba020d31a5749d0436994d7f20457d53cda0a40be5ea688ac09fe", ()),
+        ("biology", [general, biological], "7860977ddafa785cd698bbaf7d45895d505bcd4d763a0223ee789253ab60a582", ()),
         (
             "mm30",
             [general, biological, vocabulary.contract()],
-            "83fc0a54710a751a7fe733b0634a476216e8e57b38a3658784dd863b626aa7e6",
+            "e1c9a2e9bb9ad11c21e18412f756a3a8ad30a445f6c1baac512a22585b9a4c7d",
             (vocabulary.contract(),),
         ),
     ):
