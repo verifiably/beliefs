@@ -178,6 +178,9 @@ hygiene, `check-code` and `just test-push` when every pushed ref goes to `origin
 and matches `ci_suite_refs`, and the full `just test` otherwise. CI
 (`.github/workflows/ci.yml`) runs `just ci-python` on Python 3.11 and 3.13 and
 `just ci-typescript` on Node 20 and 24 for every branch push, with `TT_FORCE=1`.
+Python jobs use `ubuntu-24.04`, whose loader-listing format the closure checker
+supports; TypeScript jobs use `ubuntu-latest`. Ubuntu 26.04 loader support is not
+established by these CI results.
 
 Two conventions the recipes depend on: `pytest` runs without an extra `-q`
 (`addopts` already has one, and a second hides the summary line `tt` counts), and

@@ -110,6 +110,7 @@ def authored_baseline(root):
             if name not in {"SOURCE_INVENTORY_SHA256", "RECEIPT_SHA256"}:
                 continue
             value = node.value
+            assert value is not None and value.end_lineno is not None and value.end_col_offset is not None
             start = sum(map(len, lines[: value.lineno - 1])) + value.col_offset
             end = sum(map(len, lines[: value.end_lineno - 1])) + value.end_col_offset
             replacement = (

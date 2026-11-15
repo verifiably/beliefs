@@ -71,7 +71,7 @@ def test_invalid_receipt_refuses(tmp_path, mutation):
     if mutation == "receipt-pin":
         path.write_bytes(path.read_bytes() + b" ")
     if mutation == "unlisted":
-        checker.RECEIPT_SHA256 = {}
+        checker.RECEIPT_SHA256.clear()
     assert checker.check(root), mutation
 
 

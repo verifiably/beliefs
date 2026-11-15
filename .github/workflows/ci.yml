@@ -20,7 +20,8 @@ concurrency:
 
 jobs:
   python:
-    runs-on: ubuntu-latest
+    # Keep the verified loader-listing format until Ubuntu 26.04 is supported.
+    runs-on: ubuntu-24.04
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     # About twice the slowest observed run.
     timeout-minutes: 30
