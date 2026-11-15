@@ -25,7 +25,7 @@ def test_selected_channel_union(series_profile, time_roles):
     }
     table = case.table(["0", "0.01"], channels=channels)
     first = case.view(table, [0, 1])
-    second = case.hold({"format": "science.series-view.v1", "table": table, "channel": "other", "selection": [0, 1]})
+    second = case.hold({"format": "science.series-view.v2", "table": table, "channel": "other", "selection": [0, 1]})
     refs = tuple(map(series_ref_from_projection, (first, second)))
 
     def read(roots):
@@ -71,6 +71,6 @@ def test_descriptor_graph_requires_its_table_link():
     ref = case.view(case.table(["0", "0.01"]), [0, 1])
     with pytest.raises(SeriesRefused):
         graph_from_projection(
-            [{"ref": ref, "format": "science.series-view.v1", "links": [], "records": [], "terms": []}],
+            [{"ref": ref, "format": "science.series-view.v2", "links": [], "records": [], "terms": []}],
             roots=(series_ref_from_projection(ref),),
         )

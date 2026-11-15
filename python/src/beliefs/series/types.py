@@ -16,14 +16,21 @@ from beliefs.sealed import sealed
 
 __all__ = [
     "AbsoluteAxis",
+    "AnchorProvenance",
     "AnchorRow",
     "Anchors",
     "Channel",
     "ChannelCoordinates",
+    "ClockMap",
+    "ClockMapTransform",
+    "ClockOrigin",
+    "ClockSegment",
     "Descriptor",
     "ElapsedAxis",
     "IndexAxis",
+    "MissingValue",
     "Origin",
+    "OriginRow",
     "Origins",
     "SeriesGraph",
     "SeriesGraphEntry",
@@ -109,20 +116,35 @@ class Transform:
 
 
 @dataclass(frozen=True)
+class ClockMapTransform:
+    source: SeriesRef
+    procedure: str
+    operation: str = "clock-map"
+
+
+@dataclass(frozen=True)
 class Descriptor:
     table: SeriesRef
     channel: str
     selection: tuple[int, ...]
     anchors: SeriesRef | None = None
     selection_procedure: str | None = None
-    transform: Transform | None = None
-    format: str = "science.series-view.v1"
+    transform: Transform | ClockMapTransform | None = None
+    format: str = "science.series-view.v2"
+
+
+@dataclass(frozen=True)
+class MissingValue:
+    """An explicitly absent channel value, with its coordinate/support retained."""
+
+
+MISSING = MissingValue()
 
 
 @dataclass(frozen=True)
 class Channel:
     coordinates: Coordinates
-    values: tuple[Fraction, ...]
+    values: tuple[Fraction | MissingValue, ...]
 
 
 @dataclass(frozen=True)
@@ -131,13 +153,40 @@ class Table:
     coordinates: tuple[int | Fraction | str, ...]
     channels: Mapping[str, Channel]
     support: tuple[tuple[int | Fraction | str, int | Fraction | str], ...] | None = None
-    format: str = "science.series-table.v1"
+    format: str = "science.series-table.v2"
+
+
+@dataclass(frozen=True)
+class ClockSegment:
+    start: Fraction
+    tai_minus_utc: int
+
+
+@dataclass(frozen=True)
+class ClockMap:
+    low: Fraction
+    high: Fraction
+    segments: tuple[ClockSegment, ...]
+    procedure: str
+    format: str = "science.series-clock-map.v1"
+
+
+@dataclass(frozen=True)
+class ClockOrigin:
+    map: SeriesRef
+    epoch: str
+
+
+@dataclass(frozen=True)
+class OriginRow:
+    label: str
+    clock: ClockOrigin | None = None
 
 
 @dataclass(frozen=True)
 class Origins:
-    origins: Mapping[str, str]
-    format: str = "science.series-origins.v1"
+    origins: Mapping[str, OriginRow]
+    format: str = "science.series-origins.v2"
 
 
 @dataclass(frozen=True)
@@ -145,18 +194,27 @@ class AnchorRow:
     key: str
     sort: str
     term: str
-    coordinate: Fraction
+    coordinate: Fraction | str
+    source_epoch: str | None = None
+
+
+@dataclass(frozen=True)
+class AnchorProvenance:
+    procedure: str
+    epoch_definition: str
 
 
 @dataclass(frozen=True)
 class Anchors:
-    axis: ElapsedAxis
+    axis: ElapsedAxis | AbsoluteAxis
     rule: str
     rows: tuple[AnchorRow, ...]
-    format: str = "science.series-anchors.v1"
+    provenance: AnchorProvenance
+    transform: ClockMapTransform | None = None
+    format: str = "science.series-anchors.v2"
 
 
-SeriesObject: TypeAlias = Descriptor | Table | Origins | Anchors
+SeriesObject: TypeAlias = Descriptor | Table | Origins | Anchors | ClockMap
 
 
 @dataclass(frozen=True)

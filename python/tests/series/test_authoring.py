@@ -61,7 +61,7 @@ def author_case(profile, *, with_series=True, functional="testing/series-contras
 
 def input_roles(value):
     return tuple(
-        SpecInput("reads", row.ref.dataset, "simulation" if row.format == "science.series-table.v1" else "annotation")
+        SpecInput("reads", row.ref.dataset, "simulation" if row.format == "science.series-table.v2" else "annotation")
         for row in value.series_graph
     )
 

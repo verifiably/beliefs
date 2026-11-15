@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, replace
 from fractions import Fraction
 from itertools import pairwise
 from typing import cast, final
 
+from beliefs.claim import Referent, check_referent
 from beliefs.classification_rule import ClassificationRule
 from beliefs.contract.base import TimeRoles
 from beliefs.dependencies import HeldRecords, read_record
@@ -16,18 +16,23 @@ from beliefs.identity import v1
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
+from beliefs.series.clock import clock_coordinate
 from beliefs.series.codec import decode_series_object, series_ref_projection
 from beliefs.series.evidence import ReadBudget, SeriesEvidence, load_series_object
-from beliefs.series.geometry import check_table_geometry, elapsed_factor
+from beliefs.series.geometry import check_table_geometry, elapsed_factor, label_coordinate
 from beliefs.series.graph import graph_from_projection, graph_projection
 from beliefs.series.types import (
     AbsoluteAxis,
     AnchorRow,
     Anchors,
     ChannelCoordinates,
+    ClockMap,
+    ClockMapTransform,
+    ClockOrigin,
     Descriptor,
     ElapsedAxis,
     IndexAxis,
+    MissingValue,
     Origins,
     SeriesGraph,
     SeriesGraphEntry,
@@ -50,7 +55,7 @@ class CheckedSeries:
     descriptor: Descriptor
     axis: IndexAxis | ElapsedAxis | AbsoluteAxis
     coordinates: tuple[int | Fraction | str, ...]
-    values: tuple[Fraction, ...]
+    values: tuple[Fraction | MissingValue, ...]
     channel_coordinates: ChannelCoordinates
     support: tuple[tuple[int | Fraction | str, int | Fraction | str], ...] | None
     anchors: tuple[AnchorRow, ...]
@@ -118,13 +123,29 @@ class _Reader:
             )
         return value
 
-    def origin(self, axis: ElapsedAxis) -> None:
+    def origin(self, axis: ElapsedAxis) -> tuple[ClockMap, ClockOrigin] | None:
         ref = axis.origin.source
         with self.budget.enter(ref):
             obj = self.load(ref)
             if not isinstance(obj, Origins) or axis.origin.key not in obj.origins:
                 raise SeriesRefused("invalid-series", "elapsed origin does not resolve the exact origins row")
-            self.row(ref, obj)
+            origin = obj.origins[axis.origin.key]
+            if axis.basis != "clock-mapped":
+                if origin.clock is not None:
+                    raise SeriesRefused("invalid-series", "native/synthetic origin must be label-only")
+                self.row(ref, obj)
+                return None
+            if origin.clock is None:
+                raise SeriesRefused("invalid-series", "clock-mapped basis requires a clock-bearing origin")
+            with self.budget.enter(origin.clock.map):
+                clock = self.load(origin.clock.map)
+                if not isinstance(clock, ClockMap):
+                    raise SeriesRefused("invalid-series", "origin map must resolve a clock-map object")
+                self.procedure(clock.procedure, implementation=True)
+                clock_coordinate(clock, origin.clock.epoch, epoch=origin.clock.epoch, seconds_per_unit=Fraction(1))
+                self.row(origin.clock.map, clock, records=(clock.procedure,))
+            self.row(ref, obj, (origin.clock.map,))
+            return clock, origin.clock
 
     def table(self, ref: SeriesRef, channel: str) -> Table:
         with self.budget.enter(ref):
@@ -169,26 +190,69 @@ class _Reader:
             self.row(ref, obj, links, refs, tuple(terms))
             return obj
 
-    def anchors(self, ref: SeriesRef, table: Table) -> Anchors:
+    def anchors(self, ref: SeriesRef, table: Table | None = None) -> Anchors:
         with self.budget.enter(ref):
             obj = self.load(ref)
-            if not isinstance(obj, Anchors) or not isinstance(table.axis, ElapsedAxis) or not _same_axis(table, obj):
+            if not isinstance(obj, Anchors):
+                raise SeriesRefused("invalid-series", "anchors must resolve an anchors object")
+            if table is not None and (not isinstance(table.axis, ElapsedAxis) or not _same_axis(table, obj)):
                 raise SeriesRefused("invalid-series", "anchors must use the identical elapsed axis meaning")
-            self.origin(obj.axis)
+            links: list[SeriesRef] = []
+            terms: set[str] = set()
+            clock = None
+            factor = Fraction(1)
+            if isinstance(obj.axis, ElapsedAxis):
+                clock = self.origin(obj.axis)
+                links.append(obj.axis.origin.source)
+                factor, axis_terms = elapsed_factor(self.profile, self.roles, obj.axis.unit)
+                terms.update(axis_terms)
             rule = read_record(self.records, obj.rule)
             if not isinstance(rule, ClassificationRule):
                 raise SeriesRefused("invalid-series", "anchor rule is not a held classification rule")
-            sort = self.profile.sorts.get(rule.classes)
+            self.procedure(obj.provenance.procedure, implementation=True)
+            records = [obj.rule, obj.provenance.procedure]
             keys = [row.key for row in obj.rows]
-            if len(set(keys)) != len(keys) or any(a.coordinate >= b.coordinate for a, b in pairwise(obj.rows)):
+            coordinates = [
+                label_coordinate(row.coordinate) if isinstance(row.coordinate, str) else row.coordinate
+                for row in obj.rows
+            ]
+            if len(set(keys)) != len(keys) or any(a >= b for a, b in pairwise(coordinates)):
                 raise SeriesRefused("invalid-series", "anchor keys are unique and coordinates strictly increase")
             for row in obj.rows:
-                if row.sort != rule.classes or sort is None or sort.retired:
+                if row.sort != rule.classes:
                     raise SeriesRefused("invalid-series", "anchor class sort disagrees with its rule")
-                if sort.identifier_class is not None and re.fullmatch(sort.identifier_class.pattern, row.term) is None:
-                    raise SeriesRefused("invalid-series", "anchor class is outside its declared identifier class")
-            _, terms = elapsed_factor(self.profile, self.roles, obj.axis.unit)
-            self.row(ref, obj, (obj.axis.origin.source,), (obj.rule,), tuple(terms | {rule.classes}))
+                check_referent(
+                    self.profile, Referent(row.sort, row.term), "anchor class", world_kind=None, authoring=True
+                )
+            if obj.transform is not None:
+                assert clock is not None
+                self.procedure(obj.transform.procedure, implementation=True)
+                source = self.anchors(obj.transform.source)
+                if (
+                    not isinstance(source.axis, AbsoluteAxis)
+                    or source.transform is not None
+                    or len(source.rows) != len(obj.rows)
+                ):
+                    raise SeriesRefused("invalid-series", "clock anchors require one-to-one absolute source rows")
+                if source.rule != obj.rule or source.provenance != obj.provenance:
+                    raise SeriesRefused("invalid-series", "clock anchors must copy rule and epoch provenance")
+                for row, prior in zip(obj.rows, source.rows, strict=True):
+                    if (row.key, row.sort, row.term, row.source_epoch) != (
+                        prior.key,
+                        prior.sort,
+                        prior.term,
+                        prior.source_epoch,
+                    ):
+                        raise SeriesRefused("invalid-series", "clock anchors must copy keys, classes and source_epoch")
+                    assert isinstance(prior.coordinate, str)
+                    expected = clock_coordinate(
+                        clock[0], prior.coordinate, epoch=clock[1].epoch, seconds_per_unit=factor
+                    )
+                    if row.coordinate != expected:
+                        raise SeriesRefused("invalid-series", "anchor coordinate contradicts clock map")
+                links.append(obj.transform.source)
+                records.append(obj.transform.procedure)
+            self.row(ref, obj, tuple(links), tuple(records), tuple(terms | {rule.classes}))
             return obj
 
     def descriptor(self, ref: SeriesRef) -> CheckedSeries:
@@ -197,6 +261,12 @@ class _Reader:
             if not isinstance(obj, Descriptor):
                 raise SeriesRefused("invalid-series", "series root/source must resolve a descriptor")
             table = self.table(obj.table, obj.channel)
+            if (
+                isinstance(table.axis, ElapsedAxis)
+                and table.axis.basis == "clock-mapped"
+                and not isinstance(obj.transform, ClockMapTransform)
+            ):
+                raise SeriesRefused("invalid-series", "clock-mapped views require a clock-map transform")
             if obj.selection[-1] >= len(table.coordinates):
                 raise SeriesRefused("invalid-series", "selection is outside the table")
             full = obj.selection == tuple(range(len(table.coordinates)))
@@ -259,6 +329,9 @@ class _Reader:
     def check_transform(self, output: CheckedSeries, source: CheckedSeries) -> None:
         transform = output.descriptor.transform
         assert transform is not None
+        if isinstance(transform, ClockMapTransform):
+            self.check_clock_transform(output, source)
+            return
         if not _same_axis(output, source) or output.channel_coordinates != source.channel_coordinates:
             raise SeriesRefused("invalid-series", "transform cannot relabel axes or channel coordinates")
         mapping = transform.mapping
@@ -292,10 +365,37 @@ class _Reader:
                 raise SeriesRefused(
                     "invalid-series", "rebin groups must be ordered contiguous source positions without reuse"
                 )
+            if any(isinstance(source.values[i], MissingValue) for i in group):
+                raise SeriesRefused("invalid-series", "rebin source group contains a missing value")
             previous = group[-1]
             intervals = [source.support[i] for i in group]
             if bounds != (intervals[0][0], intervals[-1][1]) or any(a[1] != b[0] for a, b in pairwise(intervals)):
                 raise SeriesRefused("invalid-series", "rebin source support does not tile output support")
+
+    def check_clock_transform(self, output: CheckedSeries, source: CheckedSeries) -> None:
+        if not isinstance(output.axis, ElapsedAxis) or output.axis.basis != "clock-mapped":
+            raise SeriesRefused("invalid-series", "clock-map output requires a clock-mapped elapsed axis")
+        if not isinstance(source.axis, AbsoluteAxis) or source.descriptor.transform is not None:
+            raise SeriesRefused("invalid-series", "clock-map source requires an untransformed absolute view")
+        if output.descriptor.selection != source.descriptor.selection:
+            raise SeriesRefused("invalid-series", "clock-map selections must be identical")
+        if output.channel_coordinates != source.channel_coordinates or output.values != source.values:
+            raise SeriesRefused("invalid-series", "clock-map must copy channel coordinates and selected values")
+        clock = self.origin(output.axis)
+        assert clock is not None
+        factor, _ = elapsed_factor(self.profile, self.roles, output.axis.unit)
+
+        def mapped(label: int | Fraction | str) -> Fraction:
+            assert isinstance(label, str)
+            return clock_coordinate(clock[0], label, epoch=clock[1].epoch, seconds_per_unit=factor)
+
+        if output.coordinates != tuple(mapped(label) for label in source.coordinates):
+            raise SeriesRefused("invalid-series", "coordinates contradict clock map")
+        support = (
+            tuple((mapped(low), mapped(high)) for low, high in source.support) if source.support is not None else None
+        )
+        if output.support != support:
+            raise SeriesRefused("invalid-series", "support contradicts clock map")
 
 
 def _read_series_roots(

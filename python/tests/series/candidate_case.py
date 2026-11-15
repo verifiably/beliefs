@@ -235,7 +235,15 @@ def candidate_chain(
         )
         anchors = case.hold(
             {
-                "format": "science.series-anchors.v1",
+                "format": "science.series-anchors.v2",
+                "provenance": {
+                    "procedure": case.procedure(
+                        kind="general/estimator",
+                        name="Synthetic anchor preparation",
+                        definition="Declare the synthetic elapsed onsets.",
+                    ),
+                    "epoch_definition": "Synthetic onset",
+                },
                 "axis": {key: value for key, value in axis.items() if key != "grid"},
                 "rule": rule,
                 "rows": [

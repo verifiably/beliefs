@@ -853,7 +853,7 @@ def _check_series_inputs(
         requirements[dataset] = requirements.get(dataset, allowed) & allowed
 
     for row in checked[0].graph:
-        if row.format != "science.series-table.v1":
+        if row.format != "science.series-table.v2":
             require(row.ref.dataset, {("reads", "annotation")})
 
     def table(series: CheckedSeries, measured: bool) -> None:

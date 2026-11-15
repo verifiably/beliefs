@@ -14,15 +14,23 @@ from beliefs import _measurement_record as record
 from beliefs.errors import ScienceError
 from beliefs.identity import v1
 from beliefs.measurement import Coordinates
+from beliefs.series.clock import clock_map_from_projection
+from beliefs.series.geometry import label_coordinate
 from beliefs.series.types import (
+    MISSING,
     AbsoluteAxis,
+    AnchorProvenance,
     AnchorRow,
     Anchors,
     Channel,
+    ClockMapTransform,
+    ClockOrigin,
     Descriptor,
     ElapsedAxis,
     IndexAxis,
+    MissingValue,
     Origin,
+    OriginRow,
     Origins,
     SeriesObject,
     SeriesRef,
@@ -84,7 +92,7 @@ def _axis(value: object, *, anchors: bool = False) -> IndexAxis | ElapsedAxis | 
     if kind == "index" and not anchors:
         record.shape(value, {"kind"})
         return IndexAxis()
-    if kind == "absolute" and not anchors:
+    if kind == "absolute":
         fields = record.shape(value, {"kind", "convention", "grid"})
         if fields["convention"] != "utc-label" or fields["grid"] != "labels":
             raise SeriesRefused("invalid-series", "unsupported absolute convention or grid")
@@ -94,8 +102,8 @@ def _axis(value: object, *, anchors: bool = False) -> IndexAxis | ElapsedAxis | 
     fields = record.shape(value, {"kind", "unit", "origin", "basis"} | (set() if anchors else {"grid"}))
     origin = record.shape(fields["origin"], {"source", "key"})
     basis = record.text(fields["basis"], "elapsed basis")
-    if basis not in ("native-elapsed", "synthetic"):
-        raise SeriesRefused("invalid-series", "unsupported elapsed basis (clock mapping is not supported)")
+    if basis not in ("native-elapsed", "synthetic", "clock-mapped"):
+        raise SeriesRefused("invalid-series", "unsupported elapsed basis")
     grid, spacing, rate = None, None, None
     if not anchors:
         raw_grid = record.shape(fields["grid"], {"kind"}, {"spacing", "rate"})
@@ -131,7 +139,13 @@ def _coordinates(value: object) -> Coordinates:
     )
 
 
-def _transform(value: object) -> Transform:
+def _transform(value: object) -> Transform | ClockMapTransform:
+    fields = record.shape(value, {"source", "procedure", "operation"}, {"mapping"})
+    if fields["operation"] == "clock-map":
+        record.shape(value, {"source", "procedure", "operation"})
+        return ClockMapTransform(
+            series_ref_from_projection(fields["source"]), record.address(fields["procedure"], "procedure")
+        )
     fields = record.shape(value, {"source", "procedure", "operation", "mapping"})
     operation = record.text(fields["operation"], "operation")
     if operation == "select":
@@ -148,22 +162,54 @@ def _transform(value: object) -> Transform:
     )
 
 
-def _anchor_row(value: object) -> AnchorRow:
-    fields = record.shape(value, {"key", "class", "coordinate"})
+def _anchor_row(value: object, axis: ElapsedAxis | AbsoluteAxis) -> AnchorRow:
+    utc = isinstance(axis, AbsoluteAxis) or axis.basis == "clock-mapped"
+    fields = record.shape(value, {"key", "class", "coordinate"} | ({"source_epoch"} if utc else set()))
     cls = record.shape(fields["class"], {"sort", "term"})
+    coordinate = (
+        record.text(fields["coordinate"], "UTC anchor")
+        if isinstance(axis, AbsoluteAxis)
+        else _number(fields["coordinate"])
+    )
+    if isinstance(coordinate, str):
+        label_coordinate(coordinate)
     return AnchorRow(
         record.text(fields["key"], "anchor key"),
         record.term(cls["sort"], "anchor class sort"),
         record.text(cls["term"], "anchor class term"),
-        _number(fields["coordinate"]),
+        coordinate,
+        record.text(fields["source_epoch"], "source epoch") if utc else None,
     )
+
+
+def _origin_row(value: object) -> OriginRow:
+    fields = record.shape(value, {"label"}, {"clock"})
+    clock = None
+    if "clock" in fields:
+        raw = record.shape(fields["clock"], {"map", "epoch"})
+        epoch = record.text(raw["epoch"], "clock epoch")
+        label_coordinate(epoch)
+        clock = ClockOrigin(series_ref_from_projection(raw["map"]), epoch)
+    return OriginRow(record.text(fields["label"], "origin label"), clock)
+
+
+def _value(value: object) -> Fraction | MissingValue:
+    if isinstance(value, dict) and set(value) == {"missing"} and value["missing"] is True:
+        return MISSING
+    return _number(value)
 
 
 def _decode(value: object) -> SeriesObject:
     if not isinstance(value, Mapping):
         raise SeriesRefused("invalid-series", "series object must be a mapping")
     tag = value.get("format")
-    if tag == "science.series-view.v1":
+    if not isinstance(tag, str):
+        raise SeriesRefused("invalid-series", "series format must be text")
+    if tag in {f"science.series-{kind}.v1" for kind in ("view", "table", "origins", "anchors")}:
+        raise SeriesRefused("pre-v2-series", "previous series generation requires its matching source release")
+    if tag == "science.series-clock-map.v1":
+        return clock_map_from_projection(value)
+    if tag == "science.series-view.v2":
         fields = record.shape(
             value, {"format", "table", "channel", "selection"}, {"anchors", "selection_procedure", "transform"}
         )
@@ -178,24 +224,34 @@ def _decode(value: object) -> SeriesObject:
             record.address(fields["selection_procedure"], "procedure") if "selection_procedure" in fields else None,
             _transform(fields["transform"]) if "transform" in fields else None,
         )
-    if tag == "science.series-origins.v1":
+    if tag == "science.series-origins.v2":
         fields = record.shape(value, {"format", "origins"})
         if not isinstance(fields["origins"], dict) or not fields["origins"] or len(fields["origins"]) > _ROWS:
             raise SeriesRefused("invalid-series", "origins must be a bounded nonempty mapping")
         return Origins(
-            MappingProxyType(
-                {
-                    record.text(k, "origin key"): record.text(record.shape(v, {"label"})["label"], "origin label")
-                    for k, v in fields["origins"].items()
-                }
-            )
+            MappingProxyType({record.text(k, "origin key"): _origin_row(v) for k, v in fields["origins"].items()})
         )
-    if tag == "science.series-anchors.v1":
-        fields = record.shape(value, {"format", "axis", "rule", "rows"})
+    if tag == "science.series-anchors.v2":
+        fields = record.shape(value, {"format", "axis", "rule", "rows", "provenance"}, {"transform"})
         axis = _axis(fields["axis"], anchors=True)
-        assert isinstance(axis, ElapsedAxis)
-        return Anchors(axis, record.address(fields["rule"], "classification-rule"), _array(fields["rows"], _anchor_row))
-    if tag != "science.series-table.v1":
+        assert isinstance(axis, (ElapsedAxis, AbsoluteAxis))
+        raw = record.shape(fields["provenance"], {"procedure", "epoch_definition"})
+        provenance = AnchorProvenance(
+            record.address(raw["procedure"], "procedure"), record.text(raw["epoch_definition"], "epoch definition")
+        )
+        transform = _transform(fields["transform"]) if "transform" in fields else None
+        mapped = isinstance(axis, ElapsedAxis) and axis.basis == "clock-mapped"
+        if (mapped and not isinstance(transform, ClockMapTransform)) or (not mapped and transform is not None):
+            raise SeriesRefused("invalid-series", "only clock-mapped anchors require a clock-map transform")
+        assert transform is None or isinstance(transform, ClockMapTransform)
+        return Anchors(
+            axis,
+            record.address(fields["rule"], "classification-rule"),
+            _array(fields["rows"], lambda row: _anchor_row(row, axis)),
+            provenance,
+            transform,
+        )
+    if tag != "science.series-table.v2":
         raise SeriesRefused("invalid-series", "unsupported series format")
     fields = record.shape(value, {"format", "axis", "coordinates", "channels"}, {"support"})
     axis = _axis(fields["axis"])
@@ -213,7 +269,7 @@ def _decode(value: object) -> SeriesObject:
     channels: dict[str, Channel] = {}
     for name, raw in raw_channels.items():
         channel = record.shape(raw, {"coordinates", "values"})
-        values = _array(channel["values"], _number)
+        values = _array(channel["values"], _value)
         if len(values) != len(coordinates):
             raise SeriesRefused("invalid-series", "channel length differs from coordinates")
         channels[record.text(name, "channel")] = Channel(_coordinates(channel["coordinates"]), values)

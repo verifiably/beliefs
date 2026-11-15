@@ -126,3 +126,24 @@ def test_materialized_select_cannot_relabel_or_compute(change, series_profile, t
     )
     with pytest.raises(SeriesRefused):
         case.read(ref, series_profile, time_roles)
+
+
+def test_select_copies_missing_and_rebin_refuses_it(series_profile, time_roles):
+    from beliefs.series.types import MissingValue, SeriesRefused
+
+    case = SeriesCase()
+    source = case.view(
+        case.table(["0", "0.01"], values=[{"missing": True}, "2"], support=[["0", "0.01"], ["0.01", "0.02"]]), [0, 1]
+    )
+    output = case.table(["0"], values=[{"missing": True}], support=[["0", "0.01"]])
+    selected = case.view(
+        output, [0], transform={"source": source, "procedure": case.procedure(), "operation": "select", "mapping": [0]}
+    )
+    assert isinstance(case.read(selected, series_profile, time_roles).values[0], MissingValue)
+    rebinned = case.view(
+        case.table(["0"], values=["2"], support=[["0", "0.02"]]),
+        [0],
+        transform={"source": source, "procedure": case.procedure(), "operation": "rebin", "mapping": [[0, 1]]},
+    )
+    with pytest.raises(SeriesRefused, match="missing"):
+        case.read(rebinned, series_profile, time_roles)

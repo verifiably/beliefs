@@ -272,7 +272,7 @@ def test_inherited_observation_is_preserved(chain_profile, tmp_path, lineage_sta
     else:
         with pytest.raises(UnfreezableSpec, match="empirical standing"):
             freeze(draft, **args)
-    metadata = next(row.ref.dataset for row in value.series_graph if row.format == "science.series-origins.v1")
+    metadata = next(row.ref.dataset for row in value.series_graph if row.format == "science.series-origins.v2")
     assert not records.empirical_standing(metadata, chain_profile)
 
 
@@ -446,7 +446,7 @@ def test_series_identity_perturbations_reach_the_frozen_target(chain_profile, ch
                 table["channels"]["second"] = table["channels"]["signal"]
             elif change == "origin":
                 table["axis"]["origin"]["source"] = case.hold(
-                    {"format": "science.series-origins.v1", "origins": {"zero": {"label": "Another relative zero"}}}
+                    {"format": "science.series-origins.v2", "origins": {"zero": {"label": "Another relative zero"}}}
                 )
             elif change == "grid":
                 table["axis"]["grid"] = {"kind": "irregular"}

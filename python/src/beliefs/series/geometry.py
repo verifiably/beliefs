@@ -137,6 +137,7 @@ def window_memberships(
     for anchor in series.anchors:
         memberships = []
         for lo, hi in windows:
+            assert isinstance(anchor.coordinate, Fraction)
             low, high = anchor.coordinate + lo, anchor.coordinate + hi
             if low >= high:
                 raise SeriesRefused("invalid-series", "event window must be nonempty")

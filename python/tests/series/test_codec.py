@@ -47,10 +47,10 @@ def test_descriptor_closed_shape(mutation):
 @pytest.mark.parametrize(
     "data",
     [
-        b'{"format":"science.series-origins.v1","origins":{},"origins":{}}',
-        b'{ "format":"science.series-origins.v1","origins":{}}',
-        b'{"format":"science.series-origins.v1","origins":{"a":{"label":null}}}',
-        b'{"format":"science.series-table.v1","axis":{"kind":"index"},"coordinates":[0],"channels":{}}',
+        b'{"format":"science.series-origins.v2","origins":{},"origins":{}}',
+        b'{ "format":"science.series-origins.v2","origins":{}}',
+        b'{"format":"science.series-origins.v2","origins":{"a":{"label":null}}}',
+        b'{"format":"science.series-table.v2","axis":{"kind":"index"},"coordinates":[0],"channels":{}}',
         b"[]",
         b"null",
         b"NaN",

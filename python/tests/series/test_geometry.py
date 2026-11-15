@@ -167,7 +167,8 @@ def h_case():
     case.records.nodes[node.id] = node
     anchors = case.hold(
         {
-            "format": "science.series-anchors.v1",
+            "format": "science.series-anchors.v2",
+            "provenance": {"procedure": case.procedure(), "epoch_definition": "Synthetic onset"},
             "axis": {key: value for key, value in axis.items() if key != "grid"},
             "rule": node.id,
             "rows": [

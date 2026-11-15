@@ -1,0 +1,72 @@
+[
+  {
+    "format": "science.series-view.v1",
+    "table": {
+      "dataset": "dataset:sha256:1b9246cc9f349f8d15f1f5a85c5252664a9164e242608fcb488cf956cfd9d09c",
+      "resource": "sha256:0d4fc4a78d3706edccafb665a8b2fdd9309e82c78625bb0f2b8e7bb9e1c4d21c"
+    },
+    "channel": "signal",
+    "selection": [
+      0,
+      1
+    ]
+  },
+  {
+    "format": "science.series-table.v1",
+    "axis": {
+      "kind": "index"
+    },
+    "coordinates": [
+      0,
+      1
+    ],
+    "channels": {
+      "signal": {
+        "coordinates": {
+          "quantity_kind": "testing/abundance",
+          "unit": "testing/count",
+          "value_type": "level",
+          "transformation": "testing/identity"
+        },
+        "values": [
+          "1",
+          "2"
+        ]
+      }
+    }
+  },
+  {
+    "format": "science.series-origins.v1",
+    "origins": {
+      "zero": {
+        "label": "Sample zero"
+      }
+    }
+  },
+  {
+    "format": "science.series-anchors.v1",
+    "axis": {
+      "kind": "elapsed",
+      "unit": "testing/second",
+      "origin": {
+        "source": {
+          "dataset": "dataset:sha256:1b9246cc9f349f8d15f1f5a85c5252664a9164e242608fcb488cf956cfd9d09c",
+          "resource": "sha256:0d4fc4a78d3706edccafb665a8b2fdd9309e82c78625bb0f2b8e7bb9e1c4d21c"
+        },
+        "key": "zero"
+      },
+      "basis": "synthetic"
+    },
+    "rule": "classification-rule:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "rows": [
+      {
+        "key": "first",
+        "class": {
+          "sort": "testing/event",
+          "term": "onset"
+        },
+        "coordinate": "0"
+      }
+    ]
+  }
+]

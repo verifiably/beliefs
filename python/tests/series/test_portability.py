@@ -337,7 +337,8 @@ def test_consistent_false_graph_is_only_a_structural_declaration(portable):
 
     p = portable
     body = raw_object(v1.encode(estimand_projection(p.value)))
-    body["series_graph"][0]["terms"] = sorted(set(body["series_graph"][0]["terms"]) | {"testing/entity"})
+    table_row = next(row for row in body["series_graph"] if row["format"] == "science.series-table.v2")
+    table_row["terms"] = sorted(set(table_row["terms"]) | {"testing/entity"})
     forged = estimand_from_stored(body, profile=p.profile)
     assert forged.series_graph != p.value.series_graph
     with pytest.raises(SeriesRefused, match="graph"):

@@ -413,16 +413,22 @@ Absence makes no series assertion. Every present series is checked at authoring;
 a functional's `response_axis` can also require one on its measured response.
 Regular elapsed consumers require at least two selected points.
 
-The reader accepts four closed canonical `science.identity.v1` JSON objects:
+The reader accepts five closed canonical `science.identity.v1` JSON objects:
 
 | Format | Meaning-bearing fields |
 |---|---|
-| `science.series-view.v1` | `table`, `channel`, increasing nonempty zero-based `selection`; optional `anchors`, `selection_procedure`, `transform` |
-| `science.series-table.v1` | `axis`, `coordinates`, `channels`; optional half-open `support` |
-| `science.series-origins.v1` | `origins`, mapping keys to `{label}` |
-| `science.series-anchors.v1` | Elapsed `axis` without grid, classification `rule`, and `rows` of `{key, class: {sort,term}, coordinate}` |
+| `science.series-view.v2` | `table`, `channel`, increasing nonempty zero-based `selection`; optional `anchors`, `selection_procedure`, `transform` |
+| `science.series-table.v2` | `axis`, `coordinates`, `channels`; optional half-open `support` |
+| `science.series-origins.v2` | `origins`, mapping keys to `{label}` or `{label, clock: {map, epoch}}` |
+| `science.series-anchors.v2` | Absolute or elapsed `axis`, classification `rule`, `rows`, required `provenance`; optional clock-map `transform` |
+| `science.series-clock-map.v1` | `convention`, `low`, `high`, `segments`, implemented `procedure` |
 
-Each channel has `coordinates` and finite decimal-string `values`. Its coordinate
+Previous v1 series objects refuse with `pre-v2-series`; no compatibility reader
+or automatic conversion is provided.
+
+Each channel has `coordinates` and `values`, each a finite decimal string or exactly
+`{"missing": true}`. Missing values retain their coordinate and support; they do not
+mean zero or interpolation. Missingness is per channel. Its coordinate
 object is `{quantity_kind, value_type, transformation, unit?, scale?}`, with
 exactly one of unit or scale. It must equal the directly bound Measure's
 coordinates. The full Measure still carries its bearer, yielding procedure,
@@ -433,7 +439,7 @@ selected channel.
 
 Axes are index, elapsed or UTC civil labels. Index coordinates are increasing
 nonnegative integers and infer no time or Hz. Elapsed axes declare a unit,
-`origin: {source, key}`, `basis: native-elapsed | synthetic` and an irregular or
+`origin: {source, key}`, `basis: native-elapsed | synthetic | clock-mapped` and an irregular or
 regular grid. A regular grid declares positive decimal spacing and optional
 positive rate in hertz. Arithmetic is exact: points satisfy
 `t[i] = t[0] + i*dt`, span is `(N-1)*dt`, and a supplied rate must satisfy
@@ -441,7 +447,9 @@ positive rate in hertz. Arithmetic is exact: points satisfy
 The [base time roles](contracts.md#base-contract) check quantity identity,
 dimension, source and licensed exact conversion together; a suffix or time
 exponent alone does not license a duration. Origins are symbolic relative
-references, with no timestamp shortcut or implicit clock map.
+references, with no timestamp shortcut or implicit clock map. Native/synthetic
+axes require label-only origin rows. Clock-mapped axes require clock-bearing rows;
+the free-text label is never parsed or substituted for the epoch or origin identity.
 
 An absolute axis is `{kind: absolute, convention: utc-label, grid: labels}`.
 Valid Gregorian `YYYY-MM-DDTHH:MM:SS[.digits]Z` labels preserve exact fractions and
@@ -453,13 +461,45 @@ gaps as gaps. Coverage is its union, not its envelope.
 Any non-full selection requires a held implemented `selection_procedure`; a full
 selection refuses that field. Materialized `select` and `rebin` transformations
 name their source view, implemented procedure and exact row/group mapping.
-Select validates copied rows; rebin validates contiguous tiled support and
-coordinate compatibility without recomputing numerical means. Filtering,
-interpolation, clock mapping and missing-data repair are unsupported. A native
+Select validates copied rows, including missing markers; rebin validates contiguous
+tiled support and coordinate compatibility without recomputing numerical means,
+and refuses any source group containing missing values. Filtering, interpolation
+and missing-data repair are unsupported. A native
 elapsed declaration proves no instrument calibration; a synthetic declaration
 grants no empirical standing. Anchors on non-event forms refuse. Event series
 require the exact RuleAnchor rule/class set, matching elapsed origin/axis, and
 bounded half-open fixed-duration windows whose selected supports tile them.
+
+A clock map declares `convention: utc-tai` and bounded `[low, high)` coverage with
+whole-second UTC bounds at or after 1972. Each segment is exactly
+`{from, tai_minus_utc}`, with an integer offset. The first starts at low, which need
+not be midnight. Later starts strictly increase before high, occur at midnight,
+and change the offset by exactly one second in either direction. The map asserts
+offset provenance; it is not a certified authority table or instrument calibration.
+For civil key `C`, segment offset `O`, origin epoch `e`, and licensed seconds per
+axis unit `q`, conversion is exactly `((C(u)+O(u))-(C(e)+O(e)))/q`. Epochs,
+coordinates and support endpoints must lie inside coverage, including a support
+high endpoint. Negative-leap nonexistent labels refuse, as do parsed `:60` labels
+and results without finite decimal representations.
+
+A clock-mapped view requires exactly a `{source, procedure, operation: clock-map}`
+transform, with no mapping array. Its source is an untransformed absolute view.
+Selections, channel coordinates and selected values are identical; coordinates
+and every support endpoint are checked against the declared map. Support presence
+is preserved. Mapped views cannot materialize select/rebin transforms. A civil
+cadence crossing an offset transition may require an irregular elapsed grid.
+
+Every anchors object requires `provenance: {procedure, epoch_definition}`, naming
+an implemented extraction procedure and nonempty text. Absolute/clock-mapped rows
+also require a raw `source_epoch` string, forbidden on native/synthetic rows. This
+raw string may retain a `:60` label; only the coordinate is parsed. A consumer can
+declare an aligned event epoch, such as a bin start, while preserving the original
+label. The reader validates neither the raw extraction nor the scientific choice
+of epoch. Keys are unique and effective coordinates strictly increase; alignment
+cannot silently merge events. Absolute views refuse bound anchors.
+Clock-mapped anchors require a clock-map transform from absolute anchors, copying
+keys, classes, rule, source epochs and provenance exactly while converting coordinates.
+Response and anchors must share the complete elapsed unit/origin/basis identity.
 
 The estimand freezes `series_graph` (an empty array for no series). Each row is
 exactly `{ref, format, links, records, terms}`, keyed by the full reference and
@@ -472,11 +512,14 @@ retain ordinary transitive dependencies. `target_terms` includes the graph's
 consulted terms without fetching bytes. Unequal series refs or graphs prevent an
 equal-target comparison; unit conversion does not canonicalize their identity.
 
-Build referenced datasets in dependency order: origin first, then tables and
-anchors, then descriptors. A container cannot embed its own address. Every graph
-dataset appears explicitly in spec and run inputs. Metadata uses `reads` /
-`annotation`; synthetic tables use `reads` / `simulation`; native predecessors
-use `reads` / `derivation`. A measured native table can use `observes` /
+Build referenced datasets in dependency order: clock maps before origins, source
+objects before mapped objects, then descriptors. Origins link only maps consulted
+by reachable axes. Clock-map graph rows have no links or terms and cite their
+implemented procedure; anchor rows cite their rule and provenance/transform
+procedures and link their origin and predecessor when present. A container cannot
+embed its own address. Every graph dataset appears explicitly in spec and run inputs. Metadata uses `reads` /
+`annotation`; synthetic tables use `reads` / `simulation`; absolute/native predecessors
+use `reads` / `derivation`. A measured native or clock-mapped table can use `observes` /
 `observation` only with existing empirical standing, including a complete,
 undiverged inherited lineage basis. Otherwise it uses `reads` / `derivation`,
 retaining underlying observed inputs for an empirical route. Split containers

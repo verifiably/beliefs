@@ -32,16 +32,17 @@ def objects():
         "transformation": "testing/identity",
     }
     return (
-        {"format": "science.series-view.v1", "table": ref, "channel": "signal", "selection": [0, 1]},
+        {"format": "science.series-view.v2", "table": ref, "channel": "signal", "selection": [0, 1]},
         {
-            "format": "science.series-table.v1",
+            "format": "science.series-table.v2",
             "axis": {"kind": "index"},
             "coordinates": [0, 1],
             "channels": {"signal": {"coordinates": coordinates, "values": ["1", "2"]}},
         },
-        {"format": "science.series-origins.v1", "origins": {"zero": {"label": "Sample zero"}}},
+        {"format": "science.series-origins.v2", "origins": {"zero": {"label": "Sample zero"}}},
         {
-            "format": "science.series-anchors.v1",
+            "format": "science.series-anchors.v2",
+            "provenance": {"procedure": "procedure:" + "c" * 64, "epoch_definition": "Synthetic onset"},
             "axis": {
                 "kind": "elapsed",
                 "unit": "testing/second",
@@ -139,7 +140,7 @@ class SeriesCase:
 
     def origin(self):
         return {
-            "source": self.hold({"format": "science.series-origins.v1", "origins": {"zero": {"label": "Sample zero"}}}),
+            "source": self.hold({"format": "science.series-origins.v2", "origins": {"zero": {"label": "Sample zero"}}}),
             "key": "zero",
         }
 
@@ -164,7 +165,7 @@ class SeriesCase:
                 "grid": {"kind": "regular", "spacing": "0.01", "rate": "100"},
             }
         table = {
-            "format": "science.series-table.v1",
+            "format": "science.series-table.v2",
             "axis": axis,
             "coordinates": coordinates,
             "channels": channels
@@ -176,7 +177,7 @@ class SeriesCase:
 
     def view(self, table, selection, **extra):
         return self.hold(
-            {"format": "science.series-view.v1", "table": table, "channel": "signal", "selection": selection, **extra}
+            {"format": "science.series-view.v2", "table": table, "channel": "signal", "selection": selection, **extra}
         )
 
     def read(self, ref, profile, roles):

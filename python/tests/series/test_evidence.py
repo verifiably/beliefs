@@ -26,7 +26,7 @@ def test_explicit_location_and_same_buffer():
 
     ref, records, evidence, calls = held_file()
     captured = load_series_object(ref, records=records, evidence=evidence, budget=ReadBudget())
-    assert decode_series_object(captured).format == "science.series-origins.v1"
+    assert decode_series_object(captured).format == "science.series-origins.v2"
     assert [path for path, _ in calls] == ["held.json"]
     with pytest.raises(SeriesRefused) as caught:
         load_series_object(ref, records=records, evidence=SeriesEvidence({}, evidence.locations), budget=ReadBudget())

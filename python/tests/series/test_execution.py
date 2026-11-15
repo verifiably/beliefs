@@ -111,16 +111,15 @@ def test_every_launch_route_checks_staged_series(portable, tmp_path, monkeypatch
         from .fixtures import raw_object
 
         body = raw_object(v1.encode(frozen_projection(p.spec)))
-        body["estimand"]["series_graph"][0]["terms"] = sorted(
-            set(body["estimand"]["series_graph"][0]["terms"]) | {"testing/entity"}
-        )
+        table_row = next(row for row in body["estimand"]["series_graph"] if row["format"] == "science.series-table.v2")
+        table_row["terms"] = sorted(set(table_row["terms"]) | {"testing/entity"})
         args["spec"] = restore(v1.digest(SPEC_DOMAIN, body), v1.encode(body), profile=p.profile)
     if condition == "missing":
         args["series_evidence"] = SeriesEvidence({}, {})
     if condition in {"copied", "planning-copy"}:
         original = boundary._stage_inputs
         copies = []
-        table = next(row.ref for row in p.value.series_graph if row.format == "science.series-table.v1")
+        table = next(row.ref for row in p.value.series_graph if row.format == "science.series-table.v2")
         basename = args["held_inputs"][table.dataset].name
 
         def substitute(*args, **kwargs):
@@ -228,7 +227,7 @@ def test_execution_rechecks_the_original_staged_copy_after_planning(portable, tm
     args = launch_args(p, tmp_path / "run")
     roots, launches = [], []
     original = boundary._stage_inputs
-    table = next(row.ref for row in p.value.series_graph if row.format == "science.series-table.v1")
+    table = next(row.ref for row in p.value.series_graph if row.format == "science.series-table.v2")
     basename = args["held_inputs"][table.dataset].name
 
     def stage_inputs(*a, **kw):
@@ -326,7 +325,7 @@ def test_verification_reports_incompatible_frozen_series_modes_as_failed(portabl
 
     body = raw_object(v1.encode(frozen_projection(p.spec)))
     # A portable, structurally coherent spec can carry a byte-incompatible mode.
-    table = next(row.ref.dataset for row in p.value.series_graph if row.format == "science.series-table.v1")
+    table = next(row.ref.dataset for row in p.value.series_graph if row.format == "science.series-table.v2")
     for entry in body["input_roles"]:
         if entry["dataset"] == table:
             entry["mode"] = "annotation"
