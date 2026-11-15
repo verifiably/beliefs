@@ -763,7 +763,27 @@ Hygiene opens repository metadata only; it neither imports refs/RDFLib nor check
 held UCUM/QUDT membership or current custody. Portable receipts carry public
 locators, content addresses and code provenance, never local evidence paths or
 private review text. Coordinated pin edits remain reviewable assertions, not proof
-of honest execution. The shipped inventory currently contains no external source.
+of honest execution. The shipped inventory includes the SI Brochure time genesis
+under `urn:beliefs:source:bipm-si-brochure`, with canonical domain/register files
+in `domains/si-brochure/` and byte-identical packaged copies. Its six provisional
+entries cover interval duration, periodic frequency, second, fixed elapsed hour,
+hertz and the exact 3600 hour-to-second conversion. The register excludes civil and
+calendar time, clock calibration, generic incidence and angular frequency.
+
+The definitions and unit relation are adapted from the BIPM, *The International
+System of Units (SI)*, ninth edition V4.01 (June 2026),
+[DOI 10.59161/AUEZ1291](https://doi.org/10.59161/AUEZ1291), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Local quantity names,
+dimension vectors and interval/calendar restrictions are beliefs encodings; they
+do not reproduce the full Brochure definitions. The complete bilingual source
+PDF is pinned in the inventory. UCUM 2.2 codes `s`, `h`, `Hz` and QUDT 3.5.3 unit
+IRIs `http://qudt.org/vocab/unit/SEC`, `http://qudt.org/vocab/unit/HR`,
+`http://qudt.org/vocab/unit/HZ` were checked against held release bytes and semantic
+review before genesis. The public receipt records those evidence digests and
+results. Mapping strings are immutable under succession; units cannot be retired.
+Reissuing second or hertz under a new id also requires a base successor because
+`time_roles` fixes their identifiers.
+
 Existing unit parsing checks external mapping keys and nonempty strings; complete
 release validation and human semantic review precede external genesis. Mechanical ownership
 cannot detect copied meanings under different ids or prove semantic equivalence.

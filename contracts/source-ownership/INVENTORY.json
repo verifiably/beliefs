@@ -21,6 +21,15 @@
         "namespace": "mm30",
         "genesis": "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
       }
+    },
+    "urn:beliefs:source:bipm-si-brochure": {
+      "aliases": [
+        "https://doi.org/10.59161/auez1291"
+      ],
+      "owner": {
+        "namespace": "si-brochure",
+        "genesis": "79d06b3be2148612502eac3826ae7f88f520a16f46f666c986a053dadd9ff788"
+      }
     }
   },
   "lineages": {
@@ -82,6 +91,31 @@
           "register_sha256": "df474e157913a8ed0e0d12d666e1265a80d5bb16cd91d50df2fb8f32737b50cf",
           "source_pin": {
             "kind": "authored_pair"
+          }
+        }
+      ]
+    },
+    "si-brochure": {
+      "genesis": "79d06b3be2148612502eac3826ae7f88f520a16f46f666c986a053dadd9ff788",
+      "source_id": "urn:beliefs:source:bipm-si-brochure",
+      "revisions": [
+        {
+          "contract_path": "domains/si-brochure/DOMAIN.yaml",
+          "register_path": "domains/si-brochure/REGISTER.json",
+          "contract_identity": "79d06b3be2148612502eac3826ae7f88f520a16f46f666c986a053dadd9ff788",
+          "register_identity": "assumptions-register:d08a4d0e77fb5ca1239a197806fe49e73c91f324ca8c0c57ae726692ae911660",
+          "contract_sha256": "0ed3aa32e19fdf72881bd46b38f1b4b59f08c62c4da6a62f53d9be0dede7111a",
+          "register_sha256": "6be65c0d5713934a821fd32e8018a8368d1f2f9678980d9348fac482efbdbde3",
+          "source_pin": {
+            "kind": "external",
+            "documents": [
+              {
+                "revision": "SI Brochure 9th edition V4.01 (June 2026)",
+                "sha256": "1122cf38e25b23d780a30607c68f7350b2b6d1f9970a89947aaa87a45ecbb20a",
+                "held_ref": "sha256:1122cf38e25b23d780a30607c68f7350b2b6d1f9970a89947aaa87a45ecbb20a",
+                "locator": "https://www.bipm.org/documents/20126/41483022/SI-Brochure-9.pdf/fcf090b2-04e6-88cc-1149-c3e029ad8232"
+              }
+            ]
           }
         }
       ]

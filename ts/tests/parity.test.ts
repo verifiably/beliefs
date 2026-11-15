@@ -319,9 +319,9 @@ describe("the components go through the constructor", () => {
   });
 });
 
-it("series time roles and synthetic vocabulary compile from the shared fixture", () => {
+it("series time roles and admitted SI vocabulary compile from the canonical domain", () => {
   const document = parseBaseContract(read("contracts/science/CONTRACT.yaml"), "<series base>");
-  const domain = parseDomainContract(read("fixtures/contracts/series-time.yaml"), "<synthetic series time>", document);
+  const domain = parseDomainContract(read("domains/si-brochure/DOMAIN.yaml"), "<admitted SI time>", document);
   const profile = compileProfile(document, [domain]);
   expect(document.version).toBe(5);
   expect(document.estimandGrammar.version).toBe(4);

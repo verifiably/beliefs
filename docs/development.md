@@ -41,7 +41,8 @@ versions; editable sibling revisions are established separately by Git.
 
 `python/tools/admit_external_source.py` validates a separate candidate from a clean
 committed mechanism checkout. It is a developer command, outside the installed
-runtime. The current shipped inventory still has no real external source.
+runtime. The shipped inventory includes the SI Brochure time vocabulary and its
+[provisional register and admission receipt](contracts.md#source-ownership-admission).
 Acquisition, semantic approval and production admission require separate authority.
 
 Prepare a dedicated clean sibling layout containing beliefs, refs, atoms and nodes,
@@ -316,8 +317,10 @@ and the different unchecked/inconclusive/contradicted outcomes.
 Elapsed axes and event lags require the activated declarations at the exact
 [base time roles](contracts.md#base-contract), including defining-source identity
 and licensed exact units. The base map alone activates no SI vocabulary. The
-synthetic fixture in `fixtures/contracts/series-time.yaml` tests these interfaces;
-it has no production admission receipt and is never a source-inventory entry.
+canonical `domains/si-brochure/DOMAIN.yaml` supplies the admitted vocabulary for
+these tests through the Python time accessor and TypeScript parity reader. The
+former unmapped synthetic series-time fixture is removed. All six register entries
+remain provisional; passing interface tests does not establish empirical standing.
 TypeScript covers contract parsing/compilation parity; it has no series target
 reader.
 
@@ -486,7 +489,9 @@ are exact byte-pinned exceptions, not a namespace-wide exemption.
 
 The contract/register pair supplies authored definitions and their justified-use
 limits; semantic consistency and known equivalent meanings require review. The
-inventory is repository-only and external defining-source admission is unsupported.
+inventory is repository-only; the offline admission command supports the SI Brochure
+lineage with held evidence, human semantic review and a pinned success receipt. It
+does not add a runtime inventory or acquire publisher data.
 Unshipped candidates retain joint ownership review outside this checker. The
 unchanged mm30 PHF19 pair is frozen until its loader gains checked succession;
 even formatting or register-prose edits require that support.
