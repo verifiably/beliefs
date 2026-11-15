@@ -375,6 +375,15 @@ compiled profile identities, package resource loaders, assumptions registers
 and estimands remain Python-only. Contract content identity and additive succession
 are shared, with `fixtures/contract-succession.json` checked by both languages.
 
+`fixtures/candidate-contracts.json` pins the content identities of the unshipped
+candidate documents under `fixtures/contracts/candidates/` and of the successor
+that tests derive from the shipped `general` document plus
+`fragments/general-event-locked.yaml`. `tests/test_candidate_contracts.py` and
+`ts/tests/candidate-contracts.test.ts` read it. The candidates are test fixtures:
+they have no inventory row, no packaged copy and no source-ownership verdict.
+A `general` revision moves the derived identity; recompute the row, or retire the
+fragment when its rows ship.
+
 Shipped domain resources keep the current `DOMAIN.yaml`/`REGISTER.json` pair and
 preserve predecessors under `history/<contract-content-hex>/` in both canonical and
 packaged directories. `beliefs.contract.shipped.load_domain_history` supplies the
