@@ -44,6 +44,7 @@ from beliefs.errors import (
     MalformedRecord,
     MalformedSpec,
     PreGrammarSpec,
+    PreV4Estimand,
     RuleUnbound,
     ScienceError,
     UnfreezableSpec,
@@ -707,6 +708,8 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
             f"{where}: pre-grammar spec — frozen before {ESTIMAND_GRAMMAR}, its estimand and applicability are prose. "
             "Refused, never coerced: a corpus holding one was not recreated."
         )
+    if isinstance(mapping, dict) and mapping.get("estimand_grammar") == "science.estimand.v3":
+        raise PreV4Estimand(f"{where}: science.estimand.v3 is refused; required {ESTIMAND_GRAMMAR}")
     if not isinstance(mapping, dict) or not _FROZEN_MEMBERS <= set(mapping) <= _FROZEN_MEMBERS | {
         "supersedes",
         "model",

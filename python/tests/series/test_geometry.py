@@ -196,7 +196,7 @@ def test_anchor_linkage_geometry(series_profile, time_roles):
     assert len(repeated[0][0].positions) == 48
 
 
-def test_partial_bins_and_missing_support_refuse_event_coverage(series_profile, time_roles):
+def test_strict_window_utility_refuses_partial_bins(series_profile, time_roles):
     from beliefs.series.geometry import window_memberships
     from beliefs.series.types import SeriesRefused
 

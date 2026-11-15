@@ -311,6 +311,7 @@ def _build(profile, claim, case, initial_applicability, initial_bindings, initia
     assert isinstance(response, MeasuredBinding)
     arguments = {
         "form": "event-locked",
+        "coverage_policy": "complete-windows" if response.series is not None else None,
         "functional": initial_functional,
         "bindings": initial_bindings,
         "outputs": {"estimate": OutputSpec("response-difference", "real")},

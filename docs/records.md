@@ -468,7 +468,34 @@ and missing-data repair are unsupported. A native
 elapsed declaration proves no instrument calibration; a synthetic declaration
 grants no empirical standing. Anchors on non-event forms refuse. Event series
 require the exact RuleAnchor rule/class set, matching elapsed origin/axis, and
-bounded half-open fixed-duration windows whose selected supports tile them.
+bounded half-open fixed-duration windows. Non-event selected missing values refuse.
+
+A series-bearing event target requires the explicit `coverage_policy` string
+`complete-windows`. The response must select every row without a selection
+procedure: native/synthetic responses have no transform; clock-mapped responses
+have one hop from a full, untransformed absolute source without anchors.
+Materialized select/rebin is forbidden on this response chain. Invalid geometry,
+classification, clocks or missing support metadata refuse before coverage decisions.
+
+The kernel computes `event_coverage: {policy, report}` in the estimand, with one
+`{key, windows}` row per candidate in anchor order and one status per lag window.
+Statuses have this priority: `outside-support` (beyond the full support envelope
+or no intersection), `partial-bin` (an intersecting bin is not fully contained),
+`support-gap` (no exact tiling), `missing-value` (a covered channel value is
+missing), then `complete`. Windows are never clipped or snapped. Only candidates
+with every window complete are retained; overlapping windows keep separate
+memberships and shared samples. A frozen target needs at least one retained
+candidate. `diagnose_event_coverage` returns the full report, retained keys and
+memberships without minting a target or receipt, including all-excluded input.
+
+The report is required exactly for an event response with a series. Stored decode
+checks its closed shape, unique keys, window arity/statuses and a retained row;
+every byte-backed series boundary recomputes and compares the full report and
+graph. One held view may serve multiple lag configurations with different target
+identities. Candidate count times window count must not exceed 100,000, checked
+before report allocation, and the canonical report must fit 16 MiB. Neither limit
+is caller-overridable. Previous `science.estimand.v3` stored specs refuse with
+`PreV4Estimand`; current specs require `science.estimand.v4`.
 
 A clock map declares `convention: utc-tai` and bounded `[low, high)` coverage with
 whole-second UTC bounds at or after 1972. Each segment is exactly
@@ -557,7 +584,12 @@ rows per table, 256 distinct located objects and depth 32. Exceeding one refuses
 there is no caller override or partial validation. Instrument formats such as
 CDF, FITS and CSV require a consumer-owned extraction procedure first. The reader
 does not establish extraction honesty, clock calibration, event truth,
-anti-aliasing, aggregate correctness or independence.
+anti-aliasing, aggregate correctness or independence. Coverage is exhaustive only
+relative to the exact held response tables and candidate inventory: the kernel
+does not prove raw extraction or catalogue completeness. A reproducible estimator
+can ignore the exclusions and still pass structural/replay checks; the report
+records a checked measurement specification, not proof of numerical compliance.
+Procedure review and substantive numerical verification must establish that.
 
 ## Verifications
 

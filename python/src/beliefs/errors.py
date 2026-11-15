@@ -1151,6 +1151,10 @@ class PreGrammarSpec(UnfreezableSpec):
     holding one was not recreated."""
 
 
+class PreV4Estimand(MalformedRecord):
+    """A stored spec names the previous estimand generation, requiring recreation."""
+
+
 class PreGrammarAssessment(MalformedRecord):
     """A stored assessment facet whose estimand is prose: minted before
     `science.estimand.v1`. Refused by name, never coerced."""

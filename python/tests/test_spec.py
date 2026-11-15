@@ -817,3 +817,19 @@ def test_freeze_recovery_distinguishes_unknown_validation_from_incomparable_map(
         specs.append(restored)
     assert specs[0].identity != specs[1].identity
     assert specs[0].assessed_target != specs[1].assessed_target
+
+
+def test_pre_v4_estimand_spec_refused_by_name():
+    from pathlib import Path
+
+    from fixtures_cut3 import TESTING_PROFILE
+
+    from beliefs.errors import PreV4Estimand
+    from beliefs.spec import restore
+
+    # Preserved closed v3-tagged input: never upgraded in place with the positive fixtures.
+    projection = Path(__file__).with_name("fixtures").joinpath("spec-estimand-v3.json").read_bytes()
+    mapping = v1.decode(projection)
+    with pytest.raises(PreV4Estimand, match=r"science.estimand.v3.*required science.estimand.v4") as caught:
+        restore(v1.digest(SPEC_DOMAIN, mapping), projection, profile=TESTING_PROFILE)
+    assert isinstance(caught.value, MalformedRecord)

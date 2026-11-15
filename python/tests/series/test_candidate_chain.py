@@ -159,7 +159,7 @@ def test_an_anchor_table_citing_another_rule_refuses(profile):
 
 
 def test_a_window_not_tiled_by_support_refuses(profile):
-    with pytest.raises(SeriesRefused, match="support does not exactly tile the event window"):
+    with pytest.raises(SeriesRefused, match="event target requires at least one retained candidate"):
         candidate_chain(profile, windows=((Fraction(-97, 2), 0), (24, 120)))
 
 

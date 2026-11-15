@@ -46,11 +46,18 @@ from beliefs.resolution import BindingCheckReceipt, ResolutionSnapshot, TermOutc
 from beliefs.restriction import IntervalRestriction, restriction_from_projection, restriction_projection
 from beliefs.sealed import sealed
 from beliefs.series.codec import series_ref_from_projection, series_ref_projection
+from beliefs.series.coverage import (
+    CheckedEventCoverage,
+    EventCoverage,
+    compute_coverage,
+    coverage_from_projection,
+    coverage_projection,
+)
 from beliefs.series.evidence import SeriesEvidence
-from beliefs.series.geometry import elapsed_factor, window_memberships
+from beliefs.series.geometry import elapsed_factor
 from beliefs.series.graph import graph_from_projection, graph_projection, graph_roots
 from beliefs.series.reader import CheckedSeries, _read_series_roots
-from beliefs.series.types import ElapsedAxis, IndexAxis, SeriesGraph, SeriesRef, SeriesRefused
+from beliefs.series.types import ElapsedAxis, IndexAxis, MissingValue, SeriesGraph, SeriesRef, SeriesRefused
 
 
 @dataclass(frozen=True)
@@ -207,6 +214,7 @@ class Estimand:
     calibration: str | None
     dependencies: tuple[DependencyEntry, ...]
     series_graph: SeriesGraph
+    event_coverage: EventCoverage | None
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         raise UntypedEstimandMember("Estimand values are built by build_estimand or restored by estimand_from_stored")
@@ -612,6 +620,7 @@ def build_estimand(
     records: HeldRecords,
     assessment_dependency: Callable[[str], FrozenAssessmentDependency] | None = None,
     series_evidence: SeriesEvidence | None = None,
+    coverage_policy: str | None = None,
 ) -> tuple[Estimand, BindingCheckReceipt]:
     applicability = check_applicability(profile, claim.operator, applicability.values, authoring=True)
     value = _mint(
@@ -628,9 +637,18 @@ def build_estimand(
         calibration=calibration,
         dependencies=(),
         series_graph=(),
+        event_coverage=None,
     )
     value = _check_shape(profile, value, claim=claim, authoring=True)
     admit_estimand(profile, value, claim, authoring=True)
+    response = value.bindings.get("response")
+    event_series = (
+        value.form == "event-locked" and isinstance(response, MeasuredBinding) and response.series is not None
+    )
+    if event_series:
+        _coverage_policy(coverage_policy)
+    elif coverage_policy is not None:
+        raise SeriesRefused("invalid-series", "coverage_policy is forbidden without an event response series")
     gathered = list(assumptions)
     for binding in measured_bindings(value):
         referent = _role(profile, claim.operator, binding, claim)
@@ -682,7 +700,7 @@ def build_estimand(
         ):
             raise EstimandError("calibration requires its named transfer assumption")
     unique = {v1.encode(instance_projection(a)): a for a in gathered}
-    checked = _build_series(value, profile=profile, records=records, evidence=series_evidence)
+    checked, coverage = _build_series(value, profile=profile, records=records, evidence=series_evidence)
     graph = checked[0].graph if checked else ()
     deps = series_dependency_closure(
         binding_roots(value), graph, records, profile, assessment_dependency=assessment_dependency
@@ -693,6 +711,8 @@ def build_estimand(
             if f.name == "dependencies"
             else graph
             if f.name == "series_graph"
+            else coverage
+            if f.name == "event_coverage"
             else tuple(unique[k] for k in sorted(unique))
             if f.name == "assumptions"
             else getattr(value, f.name)
@@ -789,6 +809,7 @@ def estimand_projection(value: Estimand) -> dict[str, object]:
         "assumptions": [instance_projection(x) for x in value.assumptions],
         "dependencies": dependencies_projection(value.dependencies),
         "series_graph": graph_projection(value.series_graph),
+        **({"event_coverage": coverage_projection(value.event_coverage)} if value.event_coverage is not None else {}),
         **({"calibration": value.calibration} if value.calibration is not None else {}),
     }
 
@@ -913,7 +934,7 @@ def estimand_from_stored(value: object, *, profile: ProfileSpec) -> Estimand:
             "dependencies",
             "series_graph",
         },
-        {"calibration"},
+        {"calibration", "event_coverage"},
     )
     if not isinstance(body["bindings"], Mapping) or not isinstance(body["outputs"], Mapping):
         raise MalformedRecord("bindings and outputs must be mappings")
@@ -951,7 +972,20 @@ def estimand_from_stored(value: object, *, profile: ProfileSpec) -> Estimand:
         calibration=wire.address(body["calibration"], "proxy-model") if "calibration" in body else None,
         dependencies=dependencies_from_projection(body["dependencies"]),
         series_graph=(),
+        event_coverage=None,
     )
+    response = result.bindings.get("response")
+    event_series = (
+        result.form == "event-locked" and isinstance(response, MeasuredBinding) and response.series is not None
+    )
+    coverage = None
+    if event_series:
+        lag = result.bindings.get("lag")
+        if "event_coverage" not in body or not isinstance(lag, LagBinding):
+            raise MalformedRecord("event response series requires event_coverage and lag")
+        coverage = coverage_from_projection(body["event_coverage"], window_count=len(lag.windows))
+    elif "event_coverage" in body:
+        raise MalformedRecord("event_coverage is forbidden without an event response series")
     graph = graph_from_projection(
         body["series_graph"],
         roots=tuple(
@@ -962,7 +996,11 @@ def estimand_from_stored(value: object, *, profile: ProfileSpec) -> Estimand:
     )
     result = _mint(
         **{
-            field.name: graph if field.name == "series_graph" else getattr(result, field.name)
+            field.name: graph
+            if field.name == "series_graph"
+            else coverage
+            if field.name == "event_coverage"
+            else getattr(result, field.name)
             for field in fields(Estimand)
         }
     )
@@ -988,14 +1026,14 @@ ESTIMAND_ERRORS = (EstimandError, UnboundReferent)
 
 def _build_series(
     value: Estimand, *, profile: ProfileSpec, records: HeldRecords, evidence: SeriesEvidence | None
-) -> tuple[CheckedSeries, ...]:
+) -> tuple[tuple[CheckedSeries, ...], EventCoverage | None]:
     bindings = tuple(
         binding
         for binding in measured_bindings(value)
         if isinstance(binding, MeasuredBinding) and binding.series is not None
     )
     if not bindings:
-        return ()
+        return (), None
     if evidence is None:
         raise SeriesRefused("evidence-unavailable", "authoring a series target requires explicit local bytes")
     checked = _read_series_roots(
@@ -1007,6 +1045,7 @@ def _build_series(
     )
     response = value.bindings.get("response")
     requirement = profile.functionals[value.functional].declaration.response_axis
+    coverage = None
     for binding, series in zip(bindings, checked, strict=True):
         if series.channel_coordinates != binding.measure.coordinates:
             raise SeriesRefused("invalid-series", "selected channel coordinates disagree with the bound Measure")
@@ -1024,37 +1063,89 @@ def _build_series(
             raise SeriesRefused("invalid-series", "anchors are allowed only on event-locked series")
         if value.form == "event-locked":
             anchor, lag = value.bindings["anchor"], value.bindings["lag"]
-            if not isinstance(anchor, RuleAnchor) or not isinstance(lag, LagBinding) or not series.anchors:
+            if not isinstance(anchor, RuleAnchor) or not isinstance(lag, LagBinding):
                 raise SeriesRefused("invalid-series", "event series requires RuleAnchor and an anchor table")
-            if anchor.rule != series.anchor_rule or {(row.sort, row.term) for row in series.anchors} != {
-                (ref.sort, ref.term) for ref in anchor.classes
-            }:
-                raise SeriesRefused("invalid-series", "RuleAnchor rule/classes disagree with the anchor table")
-            if not isinstance(series.axis, ElapsedAxis) or not lag.windows:
-                raise SeriesRefused("invalid-series", "event series requires fixed elapsed windows")
-            lag_seconds, _ = elapsed_factor(profile, profile.time_roles, lag.unit)
-            axis_seconds, _ = elapsed_factor(profile, profile.time_roles, series.axis.unit)
-            windows = []
-            for interval in lag.windows:
-                if (
-                    interval.low is None
-                    or interval.high is None
-                    or not interval.low_closed
-                    or interval.high_closed
-                    or interval.convention is not None
-                ):
-                    raise SeriesRefused("invalid-series", "event series windows are bounded half-open fixed durations")
-                factor = lag_seconds / axis_seconds
-                windows.append((interval.low * factor, interval.high * factor))
-            window_memberships(series, tuple(windows))
-    return checked
+            diagnostic = _event_coverage(binding, anchor, lag, series, profile)
+            if not diagnostic.retained_keys:
+                raise SeriesRefused("invalid-series", "event target requires at least one retained candidate")
+            coverage = diagnostic.coverage
+        elif any(isinstance(point, MissingValue) for point in series.values):
+            raise SeriesRefused("invalid-series", "non-event series selected values must not be missing")
+    return checked, coverage
+
+
+def _coverage_policy(policy: object) -> None:
+    if not isinstance(policy, str) or policy != "complete-windows":
+        raise SeriesRefused("invalid-series", "coverage_policy must explicitly be complete-windows")
+
+
+def _event_coverage(
+    response: MeasuredBinding, anchor: RuleAnchor, lag: LagBinding, series: CheckedSeries, profile: ProfileSpec
+) -> CheckedEventCoverage:
+    if series.channel_coordinates != response.measure.coordinates:
+        raise SeriesRefused("invalid-series", "selected channel coordinates disagree with the bound Measure")
+    if not series.anchors:
+        raise SeriesRefused("invalid-series", "event series requires RuleAnchor and an anchor table")
+    if anchor.rule != series.anchor_rule or {(row.sort, row.term) for row in series.anchors} != {
+        (ref.sort, ref.term) for ref in anchor.classes
+    }:
+        raise SeriesRefused("invalid-series", "RuleAnchor rule/classes disagree with the anchor table")
+    if len(set(anchor.classes)) != len(anchor.classes):
+        raise SeriesRefused("invalid-series", "RuleAnchor classes must be distinct")
+    if not isinstance(series.axis, ElapsedAxis) or not lag.windows:
+        raise SeriesRefused("invalid-series", "event series requires fixed elapsed windows")
+    lag_seconds, _ = elapsed_factor(profile, profile.time_roles, lag.unit)
+    axis_seconds, _ = elapsed_factor(profile, profile.time_roles, series.axis.unit)
+    windows = []
+    for interval in lag.windows:
+        if (
+            interval.low is None
+            or interval.high is None
+            or not interval.low_closed
+            or interval.high_closed
+            or interval.convention is not None
+            or interval.unit != lag.unit
+        ):
+            raise SeriesRefused(
+                "invalid-series", "event series windows are bounded half-open fixed durations in the lag unit"
+            )
+        factor = lag_seconds / axis_seconds
+        windows.append((interval.low * factor, interval.high * factor))
+    return compute_coverage(series, tuple(windows))
+
+
+def diagnose_event_coverage(
+    response: MeasuredBinding,
+    anchor: RuleAnchor,
+    lag: LagBinding,
+    *,
+    coverage_policy: str,
+    profile: ProfileSpec,
+    records: HeldRecords,
+    evidence: SeriesEvidence,
+) -> CheckedEventCoverage:
+    """Check explicit bytes and report all candidates without minting a target or receipt."""
+    _coverage_policy(coverage_policy)
+    if (
+        not isinstance(response, MeasuredBinding)
+        or response.series is None
+        or not isinstance(anchor, RuleAnchor)
+        or not isinstance(lag, LagBinding)
+    ):
+        raise SeriesRefused("invalid-series", "coverage diagnostic requires response series, RuleAnchor and LagBinding")
+    (series,) = _read_series_roots(
+        (response.series,), profile=profile, records=records, evidence=evidence, time_roles=profile.time_roles
+    )
+    return _event_coverage(response, anchor, lag, series, profile)
 
 
 def check_series(
     estimand: Estimand, *, profile: ProfileSpec, records: HeldRecords, evidence: SeriesEvidence
 ) -> tuple[CheckedSeries, ...]:
-    checked = _build_series(estimand, profile=profile, records=records, evidence=evidence)
+    checked, coverage = _build_series(estimand, profile=profile, records=records, evidence=evidence)
     graph = checked[0].graph if checked else ()
     if graph != estimand.series_graph:
         raise SeriesRefused("invalid-series", "verified series graph differs from the frozen target graph")
+    if coverage != estimand.event_coverage:
+        raise SeriesRefused("invalid-series", "verified event coverage differs from the frozen target coverage")
     return checked
