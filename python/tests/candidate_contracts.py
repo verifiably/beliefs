@@ -106,3 +106,19 @@ def time_successor(
 ) -> tuple[DomainContract, DomainContract]:
     document, predecessor = time_successor_document(base, genesis_document)
     return predecessor, parse_domain_contract(document, source="<candidate speed>", base=base, predecessor=predecessor)
+
+
+def candidate_profile(base, *, omit=(), extra=()):
+    from beliefs.profile import compile_profile
+
+    general = (
+        shipped_domain_contract("general")
+        if "general-successor" in omit
+        else general_successor_history(base)[-1].contract
+    )
+    domains = [general]
+    if "si-brochure" not in omit:
+        genesis, successor = time_successor(base)
+        domains.append(genesis if "speed" in omit else successor)
+    domains.extend(candidate_history(name, base).contract for name in STATIC if name not in omit)
+    return compile_profile(base, [*domains, *extra])

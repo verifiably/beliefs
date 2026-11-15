@@ -1,10 +1,14 @@
 """Unshipped declarations retain their meanings, coverage and additive history."""
 
+import re
+from fractions import Fraction
+
 import pytest
 from candidate_contracts import (
     GENERAL_SOURCE_ID,
     STATIC,
     candidate_history,
+    candidate_profile,
     fragment,
     general_successor_document,
     general_successor_history,
@@ -19,6 +23,7 @@ from beliefs import errors
 from beliefs.contract.domain import parse_domain_contract
 from beliefs.profile import shipped_assumptions_register, shipped_domain_contract
 from beliefs.register import RegisterEntry, register_entry_keys
+from beliefs.resolution import TermOutcome, build_snapshot
 
 SOURCES = {
     "plasma-populations": "urn:beliefs:definitions:plasma-population-measurement-admissions",
@@ -144,3 +149,72 @@ def test_halo_class_register_pins_the_documented_criterion(base_contract):
     ):
         assert pinned in entry.collapses
     assert "revised in place" in entry.not_established
+
+
+SPEED_MISSING = (
+    "plasma-populations: measurements quantity kind names 'si-brochure/speed', which no activated contract declares"
+)
+OMISSIONS = [
+    ("si-brochure", errors.ProfileError, SPEED_MISSING),
+    ("speed", errors.ProfileError, SPEED_MISSING),
+    (
+        "general-successor",
+        errors.ProfileError,
+        (
+            "catalogue-anchors: dimensions.anchor-epoch: applies_to names 'general/event-locked-change', which is no operator "
+            "(template or bridge) an activated contract declares"
+        ),
+    ),
+    (
+        "plasma-populations",
+        errors.MalformedContract,
+        (
+            "catalogue-anchors: instantiations.halo-anchored-solar-wind-speed: roles.response names sort "
+            "'plasma-populations/near-earth-solar-wind', but no compiled contract declares sort"
+        ),
+    ),
+]
+TERMS = {
+    "plasma-populations/near-earth-solar-wind": "plasma-population:near-earth-solar-wind",
+    "plasma-populations/bulk-flow-speed": "plasma-aspect:bulk-flow-speed",
+    "catalogue-anchors/cdaw-halo-cme": "catalogue-class:cdaw-halo-cme",
+}
+
+
+def test_candidate_profile_compiles_with_four_explicit_lineages(base_contract):
+    profile = candidate_profile(base_contract)
+    assert set(profile.activated_contracts) == {"general", "si-brochure", "plasma-populations", "catalogue-anchors"}
+    assert dict(profile.defining_sources) == {
+        "general": GENERAL_SOURCE_ID,
+        "si-brochure": "urn:beliefs:source:bipm-si-brochure",
+        **SOURCES,
+    }
+
+
+@pytest.mark.parametrize("omitted,error,message", OMISSIONS)
+def test_each_omission_refuses_at_the_first_unresolved_reference(base_contract, omitted, error, message):
+    with pytest.raises(error, match=re.escape(message)):
+        candidate_profile(base_contract, omit={omitted})
+
+
+def test_each_sort_admits_its_one_term_and_no_other_token(base_contract):
+    profile, snapshot = candidate_profile(base_contract), build_snapshot(readable={})
+    for sort, term in TERMS.items():
+        assert snapshot.resolve(profile.sorts[sort], term) is TermOutcome.MEMBER
+        assert snapshot.resolve(profile.sorts[sort], term + "-other") is TermOutcome.NOT_MEMBER
+
+
+def test_the_speed_conversion_is_the_exact_factor_1000(base_contract):
+    found = candidate_profile(base_contract).conversion_between(
+        "si-brochure/metre-per-second", "si-brochure/kilometre-per-second"
+    )
+    assert found is not None
+    assert (found.from_unit, found.to_unit, found.kind, found.factor, found.exact, found.offset, found.error) == (
+        "si-brochure/kilometre-per-second",
+        "si-brochure/metre-per-second",
+        "multiplicative",
+        Fraction(1000),
+        True,
+        None,
+        None,
+    )
