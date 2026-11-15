@@ -63,6 +63,7 @@ def test_static_genesis_matches_its_register_and_oracle(base_contract, namespace
     revision = candidate_history(namespace, base_contract)
     (row,) = [r for r in oracle()["static"] if r["contract_path"].endswith(f"/{namespace}/DOMAIN.yaml")]
     assert revision.contract.content_identity == row["contract_identity"]
+    assert revision.contract.defining_source is not None
     assert revision.contract.defining_source.id == SOURCES[namespace]
     assert set(revision.register.entries) == KEYS[namespace]
     assert revision.register.previous is None
@@ -75,6 +76,7 @@ def test_general_successor_is_additive_with_exact_register_coverage(base_contrac
     *_, previous, current = general_successor_history(base_contract)
     assert previous.contract.content_identity == shipped.content_identity
     assert current.contract.content_identity == pinned["contract_identity"]
+    assert current.contract.defining_source is not None
     assert current.contract.defining_source.id == GENERAL_SOURCE_ID
     assert register_entry_keys(current.contract) - register_entry_keys(shipped) == GENERAL_KEYS
     assert set(current.register.entries) == set(shipped_assumptions_register("general").entries) | GENERAL_KEYS

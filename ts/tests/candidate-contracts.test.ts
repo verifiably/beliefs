@@ -49,7 +49,9 @@ describe("unshipped candidate contracts", () => {
   });
 
   it("dropping an existing general row refuses succession", () => {
-    const { contract } = derivedGeneral(base, (document) => Reflect.deleteProperty(document.designs, "independent-groups"));
+    const { contract } = derivedGeneral(base, (document) =>
+      Reflect.deleteProperty(document.designs, "independent-groups"),
+    );
     expect(contract).toThrow(SuccessionViolation);
   });
 });

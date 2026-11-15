@@ -13,7 +13,7 @@ from beliefs import errors, stored
 from beliefs.assess import build_assessment
 from beliefs.claim import Referent, build_claim
 from beliefs.classification_rule import ClassificationRule
-from beliefs.estimand import RoleAnchor, RuleAnchor, check_series
+from beliefs.estimand import MeasuredBinding, RoleAnchor, RuleAnchor, check_series
 from beliefs.measurement import Aspect, Measure, Observable
 from beliefs.procedure import Procedure
 from beliefs.projection import claim_identity, project_claim
@@ -166,6 +166,7 @@ def test_a_window_not_tiled_by_support_refuses(profile):
 def test_a_missing_anchor_table_refuses(profile):
     chain = candidate_chain(profile)
     response = chain.bindings["response"]
+    assert isinstance(response, MeasuredBinding) and response.series is not None
     bare = chain.case.rewrite(series_ref_projection(response.series), lambda view: view.pop("anchors"))
     bindings = {**chain.bindings, "response": replace(response, series=series_ref_from_projection(bare))}
     with pytest.raises(SeriesRefused, match="event series requires RuleAnchor and an anchor table"):
@@ -308,4 +309,5 @@ def test_series_free_targets_in_km_and_m_compare_convertible(profile):
 def test_series_bound_targets_in_km_and_m_are_not_convertible(profile):
     km, m = candidate_chain(profile), candidate_chain(profile, unit=M)
     verdict = convertibility(proposition_of(km), proposition_of(m), **_context(profile, km, m))
-    assert (verdict.kind, verdict.reason) == ("not-convertible", "target")
+    assert verdict.kind == "not-convertible"
+    assert verdict.reason == "target"
