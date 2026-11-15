@@ -11,7 +11,7 @@ from types import SimpleNamespace
 import pytest
 from candidate_contracts import candidate_profile
 
-from beliefs.estimand import check_series, diagnose_event_coverage
+from beliefs.estimand import LagBinding, MeasuredBinding, RuleAnchor, check_series, diagnose_event_coverage
 from beliefs.series.types import ElapsedAxis
 
 from .candidate_case import JOB, RULES, build, candidate_chain, checks_contract, freeze_chain
@@ -138,8 +138,14 @@ def test_event_preparation_complete_chain(preparation_profile, tmp_path):
         chain.estimand, profile=chain.profile, records=chain.case.records, evidence=chain.case.evidence()
     )
     assert isinstance(series.axis, ElapsedAxis) and series.axis.basis == "clock-mapped"
+    response, anchor, lag = (chain.bindings[key] for key in ("response", "anchor", "lag"))
+    assert isinstance(response, MeasuredBinding)
+    assert isinstance(anchor, RuleAnchor)
+    assert isinstance(lag, LagBinding)
     report = diagnose_event_coverage(
-        **chain.bindings,
+        response=response,
+        anchor=anchor,
+        lag=lag,
         coverage_policy="complete-windows",
         profile=chain.profile,
         records=chain.case.records,
