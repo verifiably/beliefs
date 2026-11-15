@@ -1,0 +1,41 @@
+{
+  "describes": "si-brochure:79d06b3be2148612502eac3826ae7f88f520a16f46f666c986a053dadd9ff788",
+  "entries": {
+    "conversion:si-brochure/hour-to-second": {
+      "collapses": "The declaration carries only the exact multiplicative unit relation, without measurement or clock-model errors.",
+      "licenses": "Convert fixed elapsed hours to seconds by 3600 and use existing inverse lookup, with no offset, error or constant.",
+      "not_established": "Calendar conversion, clock calibration, period-to-frequency transformation and empirical measurement equivalence are not established.",
+      "status": "provisional"
+    },
+    "quantity-kind:si-brochure/duration": {
+      "collapses": "The local name and T:1 vector encode only interval time; clock realization and offset origin remain with the consumer.",
+      "licenses": "Elapsed intervals and signed differences under the time role; the Brochure supplies the second/time association, not this local quantity-kind wording.",
+      "not_established": "Civil/calendar periods, UTC-to-elapsed mapping, clock calibration and empirical reuse standing are not established.",
+      "status": "provisional"
+    },
+    "quantity-kind:si-brochure/frequency": {
+      "collapses": "The T:-1 vector retains periodic frequency for sampling clocks and Fourier coordinates, not every inverse-time quantity.",
+      "licenses": "Periodic frequency associated with hertz under the frequency role.",
+      "not_established": "Generic incidence, angular frequency, a periodic observed process or empirical standing is not established.",
+      "status": "provisional"
+    },
+    "unit:si-brochure/hertz": {
+      "collapses": "The unit retains periodic frequency and does not collapse other inverse-time quantities.",
+      "licenses": "Hertz for the admitted frequency encoding with complete UCUM Hz and QUDT HZ mappings.",
+      "not_established": "Angular frequency, stochastic incidence and cycles-per-sample without a physical sampling grid are not licensed.",
+      "status": "provisional"
+    },
+    "unit:si-brochure/hour": {
+      "collapses": "The unit fixes 3600 elapsed seconds and omits civil time-zone/calendar rules.",
+      "licenses": "Fixed elapsed-hour values and the admitted exact conversion to seconds; UCUM h and QUDT HR identify the same unit.",
+      "not_established": "A daylight-saving or civil/calendar hour is not guaranteed to be 3600 elapsed seconds; empirical standing is not established.",
+      "status": "provisional"
+    },
+    "unit:si-brochure/second": {
+      "collapses": "A named unit abstracts over realization and measurement particulars.",
+      "licenses": "The SI second with complete pinned UCUM s and QUDT SEC unit mappings, restricted here to the duration encoding.",
+      "not_established": "Clock realization, synchronization, elapsed-time reconstruction and empirical measurement validity are not certified.",
+      "status": "provisional"
+    }
+  }
+}

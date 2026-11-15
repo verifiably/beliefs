@@ -66,9 +66,11 @@ HERITAGE_REPRODUCTION_EXCLUSIONS: Mapping[str, tuple[str, str]] = MappingProxyTy
 )
 """Closed `(relative_path -> (sha256_hex, owner_tasks))` exclusion map for pre-v2 heritage inputs."""
 
-SOURCE_INVENTORY_SHA256 = "38aa7074482a2e685de39082da4b0abe4a2ae08b8c9acd86f0ca83a35de48288"
+SOURCE_INVENTORY_SHA256 = "d38916d218ebe19f7a0df691df23835445ef495aa556edbabb1d0cd01cc35405"
 
-RECEIPT_SHA256: dict[str, str] = {}
+RECEIPT_SHA256: dict[str, str] = {
+    "contracts/source-ownership/receipts/9da7a34ac6c7f862d1edb6f760ed09c7c3b82d0c10856465caff7469771bae6e.json": "9da7a34ac6c7f862d1edb6f760ed09c7c3b82d0c10856465caff7469771bae6e",
+}
 
 ADOPTED_SOURCE_REVISIONS = MappingProxyType(
     {

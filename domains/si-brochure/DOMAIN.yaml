@@ -1,0 +1,49 @@
+contract: si-brochure
+version: 1
+lineage: genesis
+defining_source:
+  id: urn:beliefs:source:bipm-si-brochure
+sorts: {}
+dimensions: {}
+quantity_kinds:
+  duration:
+    dimension:
+      T: 1
+    definition: Interval-only encoding of time associated with the second in the SI Brochure; signed differences may represent offsets, excluding civil and calendar periods.
+  frequency:
+    dimension:
+      T: -1
+    definition: Periodic frequency associated with hertz in the SI Brochure, used for sampling clocks and Fourier coordinates; excludes generic incidence and angular frequency.
+units:
+  second:
+    symbol: s
+    quantity_kind: duration
+    calendar: false
+    definition: SI unit of time defined through the fixed caesium-133 transition frequency; used here for elapsed intervals and signed time differences.
+    external:
+      ucum: s
+      qudt: http://qudt.org/vocab/unit/SEC
+  hour:
+    symbol: h
+    quantity_kind: duration
+    calendar: false
+    definition: Non-SI unit of time equal to 3600 seconds; used here as a fixed elapsed unit, not a civil or calendar hour.
+    external:
+      ucum: h
+      qudt: http://qudt.org/vocab/unit/HR
+  hertz:
+    symbol: Hz
+    quantity_kind: frequency
+    calendar: false
+    definition: SI unit of periodic frequency equal to the reciprocal second; distinct from the radian per second.
+    external:
+      ucum: Hz
+      qudt: http://qudt.org/vocab/unit/HZ
+conversions:
+  hour-to-second:
+    from: hour
+    to: second
+    kind: multiplicative
+    factor: '3600'
+    exact: true
+    definition: 'Exact SI Brochure relationship between the non-SI hour and the second: one hour equals 3600 seconds.'
