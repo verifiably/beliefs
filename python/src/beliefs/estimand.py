@@ -57,7 +57,7 @@ from beliefs.series.evidence import SeriesEvidence
 from beliefs.series.geometry import elapsed_factor
 from beliefs.series.graph import graph_from_projection, graph_projection, graph_roots
 from beliefs.series.reader import CheckedSeries, _read_series_roots
-from beliefs.series.types import ElapsedAxis, IndexAxis, MissingValue, SeriesGraph, SeriesRef, SeriesRefused
+from beliefs.series.types import AnchorRow, ElapsedAxis, IndexAxis, MissingValue, SeriesGraph, SeriesRef, SeriesRefused
 
 
 @dataclass(frozen=True)
@@ -579,7 +579,52 @@ def _check_shape(profile: ProfileSpec, value: Estimand, *, claim: Claim | None, 
         raise UncertaintyRefused("unsupported uncertainty representation for these outputs")
     for assumption in value.assumptions:
         check_instance(profile, assumption)
+    if claim is not None:
+        _check_event_anchor_claim(normalized, claim, profile)
     return normalized
+
+
+def _check_event_anchor_claim(value: Estimand, claim: Claim, profile: ProfileSpec) -> None:
+    if value.form != "event-locked":
+        return
+    association = profile.template_of(profile.operator(value.operator)).event_anchor
+    if association is None:
+        raise EstimandNotAdmitted("event target requires a declared template anchor association")
+    if association.role is None:
+        return
+    fillers = claim.roles[association.role]
+    if isinstance(fillers, Referent):
+        expected = {member_key(fillers)}
+    else:
+        if any(member.coefficient != 1 for member in fillers):
+            raise EstimandNotAdmitted("linked anchor role forbids coefficients")
+        expected = {member_key(member.referent) for member in fillers}
+    anchor = value.bindings["anchor"]
+    if isinstance(anchor, RuleAnchor):
+        actual = {member_key(ref) for ref in anchor.classes}
+    else:
+        assert isinstance(anchor, RoleAnchor)
+        if anchor.role != association.role:
+            raise EstimandNotAdmitted("RoleAnchor must name the linked anchor role")
+        actual = {member_key(anchor.category)}
+    if not expected or actual != expected:
+        raise EstimandNotAdmitted("anchor classes must equal the nonempty linked claim role fillers")
+
+
+def _check_retained_anchor_classes(
+    value: Estimand, profile: ProfileSpec, coverage: CheckedEventCoverage, anchors: tuple[AnchorRow, ...]
+) -> None:
+    association = profile.template_of(profile.operator(value.operator)).event_anchor
+    if association is None:
+        raise SeriesRefused("invalid-series", "event target requires a declared template anchor association")
+    if association.role is None:
+        return
+    anchor = value.bindings["anchor"]
+    assert isinstance(anchor, RuleAnchor)
+    retained = set(coverage.retained_keys)
+    classes = {member_key(Referent(row.sort, row.term)) for row in anchors if row.key in retained}
+    if classes != {member_key(ref) for ref in anchor.classes}:
+        raise SeriesRefused("invalid-series", "every linked anchor class requires a retained event")
 
 
 def admit_estimand(profile: ProfileSpec, estimand: Estimand, claim: Claim, *, authoring: bool) -> frozenset[str]:
@@ -1068,6 +1113,7 @@ def _build_series(
             diagnostic = _event_coverage(binding, anchor, lag, series, profile)
             if not diagnostic.retained_keys:
                 raise SeriesRefused("invalid-series", "event target requires at least one retained candidate")
+            _check_retained_anchor_classes(value, profile, diagnostic, series.anchors)
             coverage = diagnostic.coverage
         elif any(isinstance(point, MissingValue) for point in series.values):
             raise SeriesRefused("invalid-series", "non-event series selected values must not be missing")

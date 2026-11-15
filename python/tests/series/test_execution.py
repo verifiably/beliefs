@@ -344,3 +344,44 @@ def test_verification_reports_incompatible_frozen_series_modes_as_failed(portabl
     )
     assert result.verdict == "failed"
     assert any("series" in diagnostic and "mode" in diagnostic for diagnostic in result.report.diagnostics)
+
+
+from .test_anchor_coherence import linked_portable as linked_portable  # noqa: PLC0414
+from .test_anchor_coherence import profiles as profiles  # noqa: PLC0414
+
+
+@pytest.mark.parametrize("route", ["plain", "replay"])
+def test_retained_class_checked_at_launch_without_claim(linked_portable, tmp_path, monkeypatch, route):
+    from beliefs.replay import replay
+
+    p = linked_portable
+    args = launch_args(p, tmp_path / "linked-run")
+
+    def never_launch(*args, **kwargs):
+        pytest.fail("a linked class with no retained event reached the engine")
+
+    monkeypatch.setattr(boundary, "run_engine", never_launch)
+    if route == "plain":
+        result = execute_assessment_run(**args)
+    else:
+        result = replay(p.closure, **{key: value for key, value in args.items() if key != "boundary_policy"})
+    assert isinstance(result, RunRefused)
+    assert "retained" in str(result)
+
+
+@pytest.mark.parametrize("available,expected", [(True, "failed"), (False, "inconclusive")])
+def test_retained_class_verification_without_claim(linked_portable, available, expected):
+    p = linked_portable
+    value = build_verification(
+        p.closure,
+        replace(p.closure, occurrence=replace(p.closure.occurrence, event_token="linked-replay")),
+        specs=p.evidence.specs,
+        held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY},
+        contract_identity="science:" + p.profile.base_contract_identity,
+        epoch="fixture",
+        profile=p.profile,
+        records=p.case.records,
+        series_evidence=p.case.evidence() if available else None,
+    )
+    assert value.verdict == expected
+    assert any("retained" in message for message in value.report.diagnostics) == available

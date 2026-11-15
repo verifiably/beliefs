@@ -488,6 +488,22 @@ memberships and shared samples. A frozen target needs at least one retained
 candidate. `diagnose_event_coverage` returns the full report, retained keys and
 memberships without minting a target or receipt, including all-excluded input.
 
+An event-admitting template declares its anchor association. In linked mode,
+RuleAnchor classes equal the distinct normalized Referents filling the linked
+claim role, including both sort and term. The role must be nonempty and forbid
+coefficients. A non-series RoleAnchor must name that role and its category must
+be the role's entire singleton set; a many-role with several distinct fillers
+requires RuleAnchor. Independent mode keeps ordinary role/member checks without
+prescribing a class link. These associations never grant admission: one complete
+estimand declaration must still admit the target, including conditioning sorts.
+
+For every series RuleAnchor, the rule and candidate class set match the held
+catalogue. In linked mode every linked class must also have a retained event;
+independent mode may retain only a subset of candidate classes. Claim-backed
+admission checks role equality. Byte-backed series checks enforce retained-class
+coverage using the target and checked anchors, without requiring a claim. Stored
+decode alone promises neither fresh coverage recomputation nor retained counts.
+
 The report is required exactly for an event response with a series. Stored decode
 checks its closed shape, unique keys, window arity/statuses and a retained row;
 every byte-backed series boundary recomputes and compares the full report and

@@ -82,9 +82,11 @@ def portable(tmp_path, author_profile, request):
     return persist_case(case, value, author_profile, tmp_path, missing_path=missing_path)
 
 
-def persist_case(case, value, profile, root, *, missing_path=None, parameters=None):
+def persist_case(
+    case, value, profile, root, *, missing_path=None, parameters=None, claim=TESTING_CLAIM, stored_edit=None
+):
     writer = writer_at(root / "corpus", profile)
-    proposition = writer.add(stored.proposition_node("p1", title="P", claim=project_claim(TESTING_CLAIM)))
+    proposition = writer.add(stored.proposition_node("p1", title="P", claim=project_claim(claim)))
     observed = stored.dataset_node(
         title="Observed source",
         resources=({"name": "observed", "digest": digest(b"fixture observation")},),
@@ -101,10 +103,18 @@ def persist_case(case, value, profile, root, *, missing_path=None, parameters=No
         held_rules=spec_rules(),
         rule_procedures={"median-difference/v1": ESTIMATOR_PROCEDURE},
         profile=profile,
-        claim=TESTING_CLAIM,
+        claim=claim,
         records=case.records,
         series_evidence=case.evidence(),
     )
+    if stored_edit is not None:
+        from beliefs.identity import v1
+        from beliefs.spec import SPEC_DOMAIN, frozen_projection, restore
+
+        body = raw_object(v1.encode(frozen_projection(frozen)))
+        stored_edit(body)
+        frozen = restore(v1.digest(SPEC_DOMAIN, body), v1.encode(body), profile=profile)
+        value = frozen.estimand
     for node in case.records.nodes.values():
         writer.add(node)
     for namespace, identity in profile.activated_contracts.items():
@@ -357,3 +367,25 @@ def test_missing_manifest_or_predecessor_is_unchecked(portable):
         profile=p.profile,
     )
     assert not result.checked and result.contradiction is None and "series" in result.reason
+
+
+from .test_anchor_coherence import linked_portable as linked_portable  # noqa: PLC0414
+from .test_anchor_coherence import profiles as profiles  # noqa: PLC0414
+
+
+@pytest.mark.parametrize("available", [True, False])
+def test_retained_class_audit_separates_absence_and_contradiction(linked_portable, available):
+    p = linked_portable
+    # Corpus admission and stored decoding above needed no byte evidence.
+    outcome = audit.check_assessment(
+        p.writer.read_view,
+        p.assessment,
+        profile=p.profile,
+        evidence=replace(p.evidence, series_evidence=p.case.evidence() if available else None),
+    )
+    assert outcome.checked == available
+    if available:
+        assert outcome.contradiction is not None
+        assert "retained" in outcome.contradiction.detail
+    else:
+        assert outcome.contradiction is None and "series" in outcome.reason
