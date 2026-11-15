@@ -5,13 +5,16 @@ from dataclasses import dataclass
 from decimal import Decimal
 from fractions import Fraction
 from hashlib import sha256
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 from candidate_contracts import fragment
-from fixtures_cut3 import UNCONSULTED
+from fixtures_cut3 import MEMORY_PORT, UNCONSULTED, definition, seed_plan, spec_rules, stage
 
 from beliefs import stored
 from beliefs.applicability import Applicability, ScopedRestriction, build_applicability
+from beliefs.boundary import RunMinted, execute_assessment_run
 from beliefs.claim import Claim, Referent, build_claim
 from beliefs.classification_rule import ClassificationRule
 from beliefs.contract.domain import parse_domain_contract
@@ -29,10 +32,15 @@ from beliefs.estimand import (
 from beliefs.measurement import Aspect, Measure, Observable
 from beliefs.procedure import Implementation, Procedure
 from beliefs.profile import ProfileSpec
+from beliefs.recipe import MINIMAL_POLICY
+from beliefs.replay import CONTENT_EQUALITY, replay
 from beliefs.restriction import IntervalRestriction, TimeIntervalRestriction
 from beliefs.series.codec import series_ref_from_projection
+from beliefs.spec import FrozenSpec, RuleFixture, RuleImplementation, Seeded, SpecDraft, freeze
+from beliefs.verify import build_verification
 
 from .fixtures import SeriesCase
+from .test_authoring import input_roles as graph_input_roles
 
 KM, M = "si-brochure/kilometre-per-second", "si-brochure/metre-per-second"
 POPULATION = Referent("plasma-populations/near-earth-solar-wind", "plasma-population:near-earth-solar-wind")
@@ -46,7 +54,29 @@ EPOCH = ("2000-01-01T00:00:00Z", "2000-01-17T00:00:00Z")
 EXPECTED = Fraction(7, 2)
 RULE_DEFINITION = "Synthetic fixture rule. It reproduces no catalogue label."
 MEASURING_DEFINITION = "Synthetic fixture measurement. No instrument produced these values."
-JOB = ""
+JOB = """import json, pathlib
+from fractions import Fraction
+from beliefs.seeds import bind
+seed = bind(config)
+rule transform:
+    input: config["series_descriptor"], config["series_table"], config["series_anchors"]
+    output: "outputs/result.txt"
+    run:
+        seed(rule, wildcards, "model-initialization")
+        view, table, anchors = (json.loads(pathlib.Path(path).read_bytes()) for path in input)
+        values = table["channels"][view["channel"]]["values"]
+        samples = [(Fraction(table["coordinates"][i]), Fraction(values[i])) for i in view["selection"]]
+        first = (Fraction(config["first_low"]), Fraction(config["first_high"]))
+        second = (Fraction(config["second_low"]), Fraction(config["second_high"]))
+        def mean(origin, window):
+            chosen = [value for at, value in samples if origin + window[0] <= at < origin + window[1]]
+            return sum(chosen) / len(chosen)
+        differences = [
+            mean(Fraction(row["coordinate"]), second) - mean(Fraction(row["coordinate"]), first)
+            for row in anchors["rows"]
+        ]
+        pathlib.Path(output[0]).write_text(str(sum(differences) / len(differences)))
+"""
 
 
 @dataclass(frozen=True)
@@ -302,3 +332,88 @@ def build(chain: CandidateChain, **overrides) -> Estimand:
         chain.estimand.functional,
         **overrides,
     )
+
+
+RULES = {
+    "fixture-constant-supported/v1": RuleImplementation(
+        identity="impl-candidate-interp-1",
+        evaluate=lambda manifest: {"outcome": "supported"},
+        fixtures=(RuleFixture(arguments=(None,), expected={"outcome": "supported"}),),
+    ),
+    "content-identity-equality/v1": spec_rules()["content-identity-equality/v1"],
+}
+
+
+def freeze_chain(chain: CandidateChain, *, target="candidate-proposition", input_roles=None) -> FrozenSpec:
+    draft = SpecDraft(
+        target=target,
+        estimand=chain.estimand,
+        method="Synthetic fixture method.",
+        assumptions="Synthetic fixture assumptions.",
+        falsification="Synthetic fixture falsification.",
+        input_roles=graph_input_roles(chain.estimand) if input_roles is None else input_roles,
+        applicability=chain.applicability,
+        interpretation_rule="fixture-constant-supported/v1",
+        equivalence_rule="content-identity-equality/v1",
+        parameters=chain.parameters,
+        nondeterminism=Seeded(plan=seed_plan()),
+        registers=(),
+        standing="empirical",
+        model=None,
+    )
+    return freeze(
+        draft,
+        held_rules=RULES,
+        rule_procedures={"fixture-constant-supported/v1": chain.estimator},
+        profile=chain.profile,
+        claim=chain.claim,
+        records=chain.case.records,
+        series_evidence=chain.case.evidence(),
+    )
+
+
+def run_chain(chain: CandidateChain, spec: FrozenSpec, root: Path, *, with_replay=True) -> SimpleNamespace:
+    code, held = stage(root, snakefile=JOB)
+    inputs = {}
+    for row in chain.estimand.series_graph:
+        name = row.ref.resource.split(":")[1]
+        path = held / (name + ".json")
+        path.write_bytes(chain.case.buffers[name])
+        inputs[row.ref.dataset] = path
+    args = {
+        "spec": spec,
+        "port": MEMORY_PORT,
+        "boundary_policy": MINIMAL_POLICY,
+        "definition": definition(snakefile=JOB),
+        "code_roots": (code,),
+        "held_inputs": inputs,
+        "entrypoint": "code/workflow/Snakefile",
+        "targets": ("outputs/result.txt",),
+        "declared_outputs": ("outputs/result.txt",),
+        "observer": "fixture",
+        "started_at": "2026-11-13T00:00:00Z",
+        "host_realization": "fixture",
+        "scratch_base": root / "scratch",
+        "series_evidence": chain.case.evidence(),
+        "profile": chain.profile,
+        "records": chain.case.records,
+    }
+    original = execute_assessment_run(**args)
+    assert isinstance(original, RunMinted), original
+    emitted = (Path(original.run.occurrence.receipt.execution.scratch_mapping) / "outputs" / "result.txt").read_text()
+    replayed = verification = None
+    if with_replay:
+        replayed = replay(original, **{key: value for key, value in args.items() if key != "boundary_policy"})
+        assert isinstance(replayed, RunMinted), replayed
+        verification = build_verification(
+            original.run,
+            replayed.run,
+            specs={spec.identity: spec},
+            held_rules={CONTENT_EQUALITY.identity: CONTENT_EQUALITY},
+            contract_identity="science:" + chain.profile.base_contract_identity,
+            epoch="candidate-fixture",
+            series_evidence=chain.case.evidence(),
+            profile=chain.profile,
+            records=chain.case.records,
+        )
+    return SimpleNamespace(original=original, replayed=replayed, verification=verification, emitted=emitted)

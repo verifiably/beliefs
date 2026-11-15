@@ -2,19 +2,27 @@
 
 from dataclasses import replace
 from fractions import Fraction
+from hashlib import sha256
 
 import pytest
 from candidate_contracts import candidate_profile
+from test_audit import _stated_optionals, run_publication
 
-from beliefs import errors
+from beliefs import errors, stored
+from beliefs.assess import build_assessment
 from beliefs.claim import Referent, build_claim
 from beliefs.classification_rule import ClassificationRule
 from beliefs.estimand import RoleAnchor, RuleAnchor, check_series
 from beliefs.measurement import Aspect, Measure, Observable
 from beliefs.procedure import Procedure
+from beliefs.projection import project_claim
+from beliefs.record import AssessmentValue
+from beliefs.register import AssumptionsRegister
 from beliefs.series.codec import series_ref_from_projection, series_ref_projection
 from beliefs.series.geometry import window_memberships
 from beliefs.series.types import SeriesRefused
+from beliefs.spec import SpecInput
+from beliefs.standing import check_standing
 
 from .candidate_case import (
     ASPECT,
@@ -22,12 +30,18 @@ from .candidate_case import (
     HALO,
     KM,
     POPULATION,
+    RULES,
+    WINDOWS,
     build,
     candidate_chain,
     checks_contract,
+    freeze_chain,
     hold,
+    run_chain,
     speed_values,
 )
+from .test_authoring import input_roles
+from .test_portability import writer_at
 
 
 @pytest.fixture(scope="module")
@@ -156,3 +170,92 @@ def test_a_role_anchor_refuses_on_a_series_bearing_target(profile):
     chain = candidate_chain(profile)
     with pytest.raises(SeriesRefused, match="event series requires RuleAnchor and an anchor table"):
         build(chain, bindings={**chain.bindings, "anchor": RoleAnchor("anchor", None, HALO)})
+
+
+@pytest.fixture(scope="module")
+def ran(profile, tmp_path_factory):
+    chain = candidate_chain(profile)
+    proposition = stored.proposition_node(
+        "candidate-solar-wind", title="Synthetic candidate proposition", claim=project_claim(chain.claim)
+    )
+    spec = freeze_chain(chain, target=proposition.id)
+    result = run_chain(chain, spec, tmp_path_factory.mktemp("candidate-chain"))
+    result.chain, result.spec, result.proposition = chain, spec, proposition
+    return result
+
+
+def test_chain_emits_the_hand_derived_estimate_and_replays(ran):
+    assert ran.emitted == "7/2"
+    assert Fraction(ran.emitted) == EXPECTED
+    assert dict(ran.original.run.result.outputs) == {"outputs/result.txt": "sha256:" + sha256(b"7/2").hexdigest()}
+    assert ran.original.run.result == ran.replayed.run.result
+    assert ran.verification.verdict == "passed"
+    assert ran.verification.scope == "same-environment"
+
+
+def test_inputs_take_the_synthetic_modes_and_nothing_is_observed(ran):
+    assert sorted((i.role, i.mode) for i in ran.spec.input_roles) == [("reads", "annotation")] * 3 + [
+        ("reads", "simulation")
+    ]
+    assert {i.dataset for i in ran.original.run.recipe.inputs} == {i.dataset for i in ran.spec.input_roles}
+
+
+def test_swapped_windows_negate_the_estimate(ran, profile, tmp_path):
+    swapped = candidate_chain(profile, windows=(WINDOWS[1], WINDOWS[0]))
+    spec = freeze_chain(swapped)
+    assert spec.identity != ran.spec.identity
+    assert run_chain(swapped, spec, tmp_path, with_replay=False).emitted == "-7/2"
+
+
+def test_the_synthetic_table_cannot_be_declared_observed(profile):
+    chain = candidate_chain(profile)
+    roles = tuple(
+        SpecInput("observes", i.dataset, "observation") if i.mode == "simulation" else i
+        for i in input_roles(chain.estimand)
+    )
+    with pytest.raises(
+        errors.UnfreezableSpec, match="series datasets require exactly one compatible explicit input role/mode"
+    ):
+        freeze_chain(chain, input_roles=roles)
+
+
+def test_empirical_standing_refuses_without_an_observed_input(ran, profile):
+    with pytest.raises(
+        errors.StandingRefused, match="empirical needs an observes input of mode observation with empirical standing"
+    ):
+        check_standing(
+            ran.spec,
+            ran.chain.claim,
+            profile=profile,
+            records=ran.chain.case.records,
+            empirical=lambda _: True,
+            assessments=lambda _: True,
+        )
+
+
+def test_the_assessment_write_refuses_for_want_of_an_observed_input(ran, profile, tmp_path):
+    writer = writer_at(tmp_path / "corpus", profile)
+    writer.add(ran.proposition)
+    for node in ran.chain.case.records.nodes.values():
+        writer.add(node)
+    for namespace, identity in profile.activated_contracts.items():
+        writer.add(stored.assumptions_register_node(AssumptionsRegister(f"{namespace}:{identity}", None, {})))
+    writer.add(stored.analysis_spec_node(ran.spec))
+    writer.add(run_publication(ran.original.run))
+    rule = RULES[ran.spec.interpretation_rule]
+    derived = build_assessment(
+        ran.original.run, specs={ran.spec.identity: ran.spec}, implementations={rule.identity: rule}
+    )
+    assert isinstance(derived, AssessmentValue)
+    node = stored.assessment_node(
+        "candidate-solar-wind-assessment",
+        title="Synthetic candidate assessment",
+        spec=derived.spec,
+        run=stored.typed_ref("run", ran.original.run.address()),
+        proposition=ran.proposition.id,
+        outcome=derived.outcome,
+        interpretation_rule=derived.interpretation_rule,
+        **_stated_optionals(derived),
+    )
+    with pytest.raises(errors.EligibilityUnmet, match="has no observes input; reads inputs never confer eligibility"):
+        writer.add(node)
