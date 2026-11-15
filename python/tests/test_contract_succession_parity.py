@@ -53,11 +53,11 @@ def test_shared_succession_outcome(base_contract, case):
 
 @pytest.mark.parametrize("change", ["add", "remove", "change"])
 def test_unit_external_mapping_set_is_permanent(base_contract, change):
-    from time_roles_fixture import time_document
+    from admission_fixtures import synthetic_time_document
 
     from beliefs.profile import compile_profile
 
-    document = time_document()
+    document = synthetic_time_document()
     for unit, code, local in (("second", "s", "SEC"), ("hour", "h", "HR"), ("hertz", "Hz", "HZ")):
         document["units"][unit]["external"] = {"ucum": code, "qudt": "http://qudt.org/vocab/unit/" + local}
     if change == "add":

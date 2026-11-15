@@ -88,6 +88,9 @@ def isolated_invocation(tmp_path, monkeypatch):
     from test_external_admission_evidence import refs_root
 
     module = cli()
+    # The mocked environment describes our authored-only synthetic baseline,
+    # independent of real receipts or checker modules loaded by other tests.
+    monkeypatch.setattr(module.checker, "RECEIPT_SHA256", {})
     root, manifest, bindings = held_evidence(tmp_path)
     _, _, model = candidate(tmp_path / "metadata")
     state = {
@@ -157,7 +160,7 @@ def test_write_failure_preserves_replaced_destination(tmp_path, monkeypatch):
     assert output.read_bytes() == b"another writer owns these bytes"
 
 
-def test_atomic_admission_through_real_precommit_checker(tmp_path):
+def test_atomic_admission_through_real_precommit_checker(tmp_path, monkeypatch):
     import json
     import shutil
 
@@ -186,6 +189,18 @@ def test_atomic_admission_through_real_precommit_checker(tmp_path):
     assert checkout.run("git", "add", ".", cwd=candidate).returncode == 0
     result = run(["--check-staged", str(candidate), "--receipt", str(target)])
     assert result.returncode == 0, result.stderr
+    # Simulate the required real-admission fixture transition, using only
+    # synthetic domain/evidence bytes in this disposable Git repository.
+    (candidate / "fixtures/contracts/series-time.yaml").unlink()
+    caller = candidate / "python/tests/time_roles_fixture.py"
+    caller.write_text(
+        caller.read_text().replace(
+            '"fixtures" / "contracts" / "series-time.yaml"', '"domains" / "si-brochure" / "DOMAIN.yaml"'
+        )
+    )
+    assert checkout.run("git", "add", ".", cwd=candidate).returncode == 0
+    result = run(["--check-staged", str(candidate), "--receipt", str(target)])
+    assert result.returncode == 0, result.stderr
     shutil.rmtree(tmp_path / "inputs/held")
     passed = checkout.run("git", "commit", "-qm", "complete synthetic admission", cwd=candidate)
     assert passed.returncode == 0, passed.stderr + passed.stdout
@@ -194,6 +209,35 @@ def test_atomic_admission_through_real_precommit_checker(tmp_path):
     assert (
         checkout.run("git", "rev-parse", "HEAD", cwd=candidate).stdout.strip() != receipt["mechanism"]["beliefs_commit"]
     )
+
+    import shlex
+
+    from conftest import REPO_ROOT
+
+    # Run the TypeScript regression through the protected front door after the
+    # shared fixture is gone. Dependencies are read from the hydrated test runner.
+    (candidate / "ts/node_modules").symlink_to(REPO_ROOT / "ts/node_modules", target_is_directory=True)
+    node = shutil.which("node")
+    assert node is not None
+    one_cmd = (
+        "cd ts && "
+        + shlex.quote(node)
+        + " "
+        + shlex.quote(str(REPO_ROOT / "ts/node_modules/vitest/vitest.mjs"))
+        + " run"
+    )
+    ts_result = checkout.run("just", "--set", "one_cmd", one_cmd, "test-one", "succession.test.ts", cwd=candidate)
+    assert ts_result.returncode == 0 and "60 passed" in ts_result.stdout, ts_result.stderr + ts_result.stdout
+    import admission_fixtures
+    import test_shipped_contract_checks
+
+    monkeypatch.setattr(admission_fixtures, "REPO_ROOT", candidate)
+    monkeypatch.setattr(test_shipped_contract_checks, "REPO_ROOT", candidate)
+    next_root = tmp_path / "post-admission"
+    next_root.mkdir()
+    _, _, next_args, next_run = mechanism_layout(next_root)
+    next_result = next_run(next_args + ["--output", str(next_root / "new-synthetic.json")])
+    assert next_result.returncode == 0, next_result.stderr
 
 
 def test_changed_manifest_during_validation_refuses(tmp_path, monkeypatch):

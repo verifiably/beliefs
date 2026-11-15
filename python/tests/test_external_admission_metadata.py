@@ -256,3 +256,18 @@ assert check_shipped_contracts.check(Path(sys.argv[2])) == []
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_synthetic_baseline_survives_an_admitted_invoking_tree(tmp_path, monkeypatch):
+    import admission_fixtures
+    import test_shipped_contract_checks
+
+    root, _, receipt = candidate(tmp_path / "already-admitted")
+    checker = _load_checker()
+    install(checker, root, receipt)
+    monkeypatch.setattr(admission_fixtures, "REPO_ROOT", root)
+    monkeypatch.setattr(test_shipped_contract_checks, "REPO_ROOT", root)
+    fresh, _, fresh_receipt = candidate(tmp_path / "fresh")
+    install(checker, fresh, fresh_receipt)
+    assert checker.check(fresh) == []
+    assert NS not in metadata().decode(fresh_receipt["baseline"]["inventory_utf8"].encode())["lineages"]

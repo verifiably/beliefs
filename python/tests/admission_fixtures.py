@@ -1,8 +1,10 @@
 """Entirely synthetic admission records; never publisher or semantic evidence."""
 
+import ast
 import copy
 import hashlib
 import json
+import shutil
 
 import yaml
 from conftest import REPO_ROOT
@@ -32,12 +34,99 @@ def pin(label):
     }
 
 
+def synthetic_time_document():
+    """In-memory synthetic vocabulary for isolated admission and mutation tests."""
+    return {
+        "contract": NS,
+        "version": 1,
+        "lineage": "genesis",
+        "defining_source": {"id": SID},
+        "sorts": {},
+        "dimensions": {},
+        "quantity_kinds": {
+            "duration": {"dimension": {"T": 1}, "definition": "Synthetic interval duration."},
+            "frequency": {"dimension": {"T": -1}, "definition": "Synthetic frequency."},
+        },
+        "units": {
+            name: {
+                "symbol": code,
+                "quantity_kind": quantity,
+                "calendar": False,
+                "definition": "Synthetic unit for tests only.",
+                "external": {"ucum": code, "qudt": QUDT + local},
+            }
+            for name, code, quantity, local in (
+                ("second", "s", "duration", "SEC"),
+                ("hour", "h", "duration", "HR"),
+                ("hertz", "Hz", "frequency", "HZ"),
+            )
+        },
+        "conversions": {
+            "hour-to-second": {
+                "from": "hour",
+                "to": "second",
+                "kind": "multiplicative",
+                "factor": "3600",
+                "exact": True,
+                "definition": "Synthetic exact conversion.",
+            }
+        },
+    }
+
+
+def authored_baseline(root):
+    """Remove real SI only from our disposable copy, then bind a coherent baseline."""
+    inv = _inventory(root)
+    inv["sources"].pop(SID, None)
+    inv["lineages"].pop(NS, None)
+    assert all(
+        row["source_pin"]["kind"] == "authored_pair"
+        for lineage in inv["lineages"].values()
+        for row in lineage["revisions"]
+    ), "first-admission fixture needs an authored-only baseline"
+    for relative in (
+        "domains/si-brochure",
+        "python/src/beliefs/domains/si-brochure",
+        "contracts/source-ownership/receipts",
+    ):
+        path = root / relative
+        if path.exists():
+            shutil.rmtree(path)
+    _save_inventory(root, inv)
+    checker = root / "python/tools/check_shipped_contracts.py"
+    if checker.exists():
+        # Replace only the fixture's literal pin values, without executing it.
+        data = checker.read_bytes()
+        lines = data.splitlines(keepends=True)
+        spans = []
+        for node in ast.parse(data).body:
+            name = (
+                node.targets[0].id
+                if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name)
+                else node.target.id
+                if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+                else None
+            )
+            if name not in {"SOURCE_INVENTORY_SHA256", "RECEIPT_SHA256"}:
+                continue
+            value = node.value
+            start = sum(map(len, lines[: value.lineno - 1])) + value.col_offset
+            end = sum(map(len, lines[: value.end_lineno - 1])) + value.end_col_offset
+            replacement = (
+                repr(digest((root / INVENTORY).read_bytes())).encode() if name == "SOURCE_INVENTORY_SHA256" else b"{}"
+            )
+            spans.append((start, end, replacement))
+        assert len(spans) == 2
+        for start, end, replacement in sorted(spans, reverse=True):
+            data = data[:start] + replacement + data[end:]
+        checker.write_bytes(data)
+
+
 def candidate(tmp_path):
     root = _copy_fixture_root(tmp_path)
+    authored_baseline(root)
     baseline = (root / INVENTORY).read_bytes()
-    doc = yaml.safe_load((REPO_ROOT / "fixtures/contracts/series-time.yaml").read_text())
-    for name, code, local in (("second", "s", "SEC"), ("hour", "h", "HR"), ("hertz", "Hz", "HZ")):
-        doc["units"][name]["external"] = {"ucum": code, "qudt": QUDT + local}
+    doc = synthetic_time_document()
     _write_shipped_pack(root, NS, yaml.safe_dump(doc))
     _admit(root, NS)
     inv = _inventory(root)
@@ -162,10 +251,11 @@ def mechanism_layout(tmp_path):
     ignore = shutil.ignore_patterns(
         ".venv", "node_modules", "__pycache__", ".pytest_cache", ".ruff_cache", ".testmondata*", "*.egg-info"
     )
-    for name in ("contracts", "domains", "fixtures", "python", "docs", ".githooks"):
+    for name in ("contracts", "domains", "fixtures", "python", "ts", "docs", ".githooks"):
         shutil.copytree(REPO_ROOT / name, checkout.root / name, dirs_exist_ok=True, ignore=ignore)
     for name in (".gitignore", ".tt.toml", "justfile", "README.md", "AGENTS.md"):
         shutil.copyfile(REPO_ROOT / name, checkout.root / name)
+    authored_baseline(checkout.root)
     # The real hook and shipped-contract checker run. Unrelated host-wide hygiene
     # commands remain the route fixture's explicit stubs.
     (checkout.root / "python/tools/check_doc_links.py").write_text(

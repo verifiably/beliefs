@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parse, stringify } from "yaml";
+import { stringify } from "yaml";
 import { claimVocabulary } from "../src/contract-succession.js";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
 import { MalformedContract, SuccessionViolation, UnparsedContract } from "../src/errors.js";
@@ -102,7 +102,24 @@ describe("additive contract succession", () => {
 
 describe("permanent unit mappings", () => {
   it.each(["add", "remove", "change"])("refuses %s under the same unit id", (change) => {
-    const document = parse(read("fixtures/contracts/series-time.yaml")) as Document;
+    // Isolated synthetic declarations; independent of production fixture disposition.
+    const document: Document = {
+      contract: "si-brochure",
+      version: 1,
+      lineage: "genesis",
+      defining_source: { id: "urn:beliefs:source:bipm-si-brochure" },
+      sorts: {},
+      dimensions: {},
+      quantity_kinds: { duration: { dimension: { T: 1 } }, frequency: { dimension: { T: -1 } } },
+      units: {
+        second: { symbol: "s", quantity_kind: "duration", calendar: false },
+        hour: { symbol: "h", quantity_kind: "duration", calendar: false },
+        hertz: { symbol: "Hz", quantity_kind: "frequency", calendar: false },
+      },
+      conversions: {
+        "hour-to-second": { from: "hour", to: "second", kind: "multiplicative", factor: "3600", exact: true },
+      },
+    };
     for (const [unit, code, local] of [
       ["second", "s", "SEC"],
       ["hour", "h", "HR"],
