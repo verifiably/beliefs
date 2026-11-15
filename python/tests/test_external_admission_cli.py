@@ -161,6 +161,10 @@ def test_write_failure_preserves_replaced_destination(tmp_path, monkeypatch):
 
 
 def test_atomic_admission_through_real_precommit_checker(tmp_path, monkeypatch):
+    _assert_atomic_admission(tmp_path, monkeypatch, repeat_after_admission=True)
+
+
+def _assert_atomic_admission(tmp_path, monkeypatch, *, repeat_after_admission):
     import json
     import shutil
 
@@ -191,7 +195,9 @@ def test_atomic_admission_through_real_precommit_checker(tmp_path, monkeypatch):
     assert result.returncode == 0, result.stderr
     # Simulate the required real-admission fixture transition, using only
     # synthetic domain/evidence bytes in this disposable Git repository.
-    (candidate / "fixtures/contracts/series-time.yaml").unlink()
+    retired_fixture = candidate / "fixtures/contracts/series-time.yaml"
+    retired_fixture.unlink(missing_ok=True)
+    assert not retired_fixture.exists()
     caller = candidate / "python/tests/time_roles_fixture.py"
     caller.write_text(
         caller.read_text().replace(
@@ -210,34 +216,15 @@ def test_atomic_admission_through_real_precommit_checker(tmp_path, monkeypatch):
         checkout.run("git", "rev-parse", "HEAD", cwd=candidate).stdout.strip() != receipt["mechanism"]["beliefs_commit"]
     )
 
-    import shlex
+    if repeat_after_admission:
+        import admission_fixtures
+        import test_shipped_contract_checks
 
-    from conftest import REPO_ROOT
-
-    # Run the TypeScript regression through the protected front door after the
-    # shared fixture is gone. Dependencies are read from the hydrated test runner.
-    (candidate / "ts/node_modules").symlink_to(REPO_ROOT / "ts/node_modules", target_is_directory=True)
-    node = shutil.which("node")
-    assert node is not None
-    one_cmd = (
-        "cd ts && "
-        + shlex.quote(node)
-        + " "
-        + shlex.quote(str(REPO_ROOT / "ts/node_modules/vitest/vitest.mjs"))
-        + " run"
-    )
-    ts_result = checkout.run("just", "--set", "one_cmd", one_cmd, "test-one", "succession.test.ts", cwd=candidate)
-    assert ts_result.returncode == 0 and "60 passed" in ts_result.stdout, ts_result.stderr + ts_result.stdout
-    import admission_fixtures
-    import test_shipped_contract_checks
-
-    monkeypatch.setattr(admission_fixtures, "REPO_ROOT", candidate)
-    monkeypatch.setattr(test_shipped_contract_checks, "REPO_ROOT", candidate)
-    next_root = tmp_path / "post-admission"
-    next_root.mkdir()
-    _, _, next_args, next_run = mechanism_layout(next_root)
-    next_result = next_run(next_args + ["--output", str(next_root / "new-synthetic.json")])
-    assert next_result.returncode == 0, next_result.stderr
+        monkeypatch.setattr(admission_fixtures, "REPO_ROOT", candidate)
+        monkeypatch.setattr(test_shipped_contract_checks, "REPO_ROOT", candidate)
+        next_root = tmp_path / "post-admission"
+        next_root.mkdir()
+        _assert_atomic_admission(next_root, monkeypatch, repeat_after_admission=False)
 
 
 def test_changed_manifest_during_validation_refuses(tmp_path, monkeypatch):

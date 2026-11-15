@@ -251,7 +251,7 @@ def mechanism_layout(tmp_path):
     ignore = shutil.ignore_patterns(
         ".venv", "node_modules", "__pycache__", ".pytest_cache", ".ruff_cache", ".testmondata*", "*.egg-info"
     )
-    for name in ("contracts", "domains", "fixtures", "python", "ts", "docs", ".githooks"):
+    for name in ("contracts", "domains", "fixtures", "python", "docs", ".githooks"):
         shutil.copytree(REPO_ROOT / name, checkout.root / name, dirs_exist_ok=True, ignore=ignore)
     for name in (".gitignore", ".tt.toml", "justfile", "README.md", "AGENTS.md"):
         shutil.copyfile(REPO_ROOT / name, checkout.root / name)
