@@ -94,7 +94,7 @@ def _testing_document():
 def test_the_estimands_structure_is_kernel_owned_and_closed(corpora):
     writer = corpora()
     grammar = writer.profile.estimand_grammar
-    assert grammar.version == 3 and len(grammar.forms) == 6
+    assert grammar.version == 4 and len(grammar.forms) == 6
     assert grammar.uncertainty_kinds == ("interval", "standard-error", "covariance")
     for change in ["missing", "v1", "extra"]:
         document = _base_document()

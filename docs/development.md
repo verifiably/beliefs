@@ -324,12 +324,19 @@ remain provisional; passing interface tests does not establish empirical standin
 TypeScript covers contract parsing/compilation parity; it has no series target
 reader.
 
-Base v4 uses estimand grammar `science.estimand.v3`. A v3-pinned corpus refuses
+Base v5 uses estimand grammar `science.estimand.v4`. A v4-pinned corpus refuses
 validated reads; no compatibility reader or automatic migration is provided.
 Retain its bytes and select an explicit recreation/migration procedure before
-using v4 against it. A pin edit is not recreation. Assessment identity and facet
+using v5 against it. A pin edit is not recreation. Assessment identity and facet
 tags remain `science.assessment.v2` and `science.assessment-facet.v2`; embedded
 target/spec bytes and keys change, while coarse claim identity can remain stable.
+The series reader accepts v2 table/view/origins/anchors and v1 clock maps only;
+stored v3-tagged specs and pre-v2 series objects refuse by name. Event preparation
+checks have focused portable and certified workflow coverage in `tests/series/`;
+`tests/acceptance/test_event_preparation_acceptance.py` exercises the durable
+mapped-event roundtrip. A generation build runs the forced full code check and
+`test-push` on a clean commit before its acceptance pilot and full certified sweep.
+Those deliberate checks do not change the local automatic-broad policy.
 
 ## The claim-identity parity fixture
 
