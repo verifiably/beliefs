@@ -83,9 +83,24 @@ def portable(tmp_path, author_profile, request):
 
 
 def persist_case(
-    case, value, profile, root, *, missing_path=None, parameters=None, claim=TESTING_CLAIM, stored_edit=None
+    case,
+    value,
+    profile,
+    root,
+    *,
+    missing_path=None,
+    parameters=None,
+    claim=TESTING_CLAIM,
+    stored_edit=None,
+    writer=None,
 ):
-    writer = writer_at(root / "corpus", profile)
+    from beliefs.series.transport import event_retained_keys
+
+    parameters = dict(parameters or {})
+    if value.event_coverage is not None:
+        parameters.setdefault("event_retained_keys", event_retained_keys(value.event_coverage))
+    if writer is None:
+        writer = writer_at(root / "corpus", profile)
     proposition = writer.add(stored.proposition_node("p1", title="P", claim=project_claim(claim)))
     observed = stored.dataset_node(
         title="Observed source",

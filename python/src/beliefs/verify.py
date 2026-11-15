@@ -599,6 +599,7 @@ def _derive(
         raise MalformedRecord(f"equivalence evaluator returned {verdict!r}, outside {VERDICTS}")
     from beliefs.errors import DependencyNotHeld, UnfreezableSpec
     from beliefs.estimand import check_series
+    from beliefs.series.transport import check_event_parameters
 
     diagnostics = list(_job_diagnostics(original, replayed))
     series_unchecked = None
@@ -615,6 +616,7 @@ def _derive(
             continue
         try:
             checked = check_series(target_spec.estimand, profile=profile, records=records, evidence=series_evidence)
+            check_event_parameters(target_spec.estimand, target_spec.parameters)
             from beliefs.spec import _check_series_inputs
 
             _check_series_inputs(checked, target_spec.input_roles, records, profile)

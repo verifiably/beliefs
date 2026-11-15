@@ -122,6 +122,7 @@ from beliefs.report import (
 from beliefs.runrecord import OperationPort, publication_plan
 from beliefs.sealed import sealed
 from beliefs.series.evidence import SeriesEvidence, check_series_input_content, staged_evidence
+from beliefs.series.transport import check_event_parameters
 from beliefs.series.types import SeriesGraph, SeriesRefused
 from beliefs.spec import (
     DATASET_EQUIVALENCE_RULE,
@@ -988,7 +989,10 @@ def _check_staged_series(
     held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     staged: Mapping[str, str | Mapping[str, str]],
 ) -> None:
-    if spec is None or not spec.estimand.series_graph:
+    if spec is None:
+        return
+    if not spec.estimand.series_graph:
+        check_event_parameters(spec.estimand, spec.parameters)
         return
     if profile is None or records is None or evidence is None:
         raise SeriesRefused("evidence-unavailable", "series execution requires explicit evidence/profile/records")
@@ -1003,6 +1007,7 @@ def _check_staged_series(
         spec.estimand.series_graph, records, {dataset: _content_identity(entry) for dataset, entry in staged.items()}
     )
     checked = check_series(spec.estimand, profile=profile, records=records, evidence=bound)
+    check_event_parameters(spec.estimand, spec.parameters)
     _check_series_inputs(checked, spec.input_roles, records, profile)
 
 

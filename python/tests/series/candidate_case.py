@@ -54,7 +54,7 @@ EPOCH = ("2000-01-01T00:00:00Z", "2000-01-17T00:00:00Z")
 EXPECTED = Fraction(7, 2)
 RULE_DEFINITION = "Synthetic fixture rule. It reproduces no catalogue label."
 MEASURING_DEFINITION = "Synthetic fixture measurement. No instrument produced these values."
-JOB = """import json, pathlib
+JOB = """import base64, json, pathlib
 from fractions import Fraction
 from beliefs.seeds import bind
 seed = bind(config)
@@ -64,6 +64,10 @@ rule transform:
     run:
         seed(rule, wildcards, "model-initialization")
         view, table, anchors = (json.loads(pathlib.Path(path).read_bytes()) for path in input)
+        text = config["event_retained_keys"]
+        assert isinstance(text, str) and text.startswith("event-keys.v1.")
+        payload = text[len("event-keys.v1."):]
+        retained = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
         values = table["channels"][view["channel"]]["values"]
         samples = [(Fraction(table["coordinates"][i]), Fraction(values[i])) for i in view["selection"]]
         first = (Fraction(config["first_low"]), Fraction(config["first_high"]))
@@ -73,7 +77,7 @@ rule transform:
             return sum(chosen) / len(chosen)
         differences = [
             mean(Fraction(row["coordinate"]), second) - mean(Fraction(row["coordinate"]), first)
-            for row in anchors["rows"]
+            for row in anchors["rows"] if row["key"] in retained
         ]
         pathlib.Path(output[0]).write_text(str(sum(differences) / len(differences)))
 """
@@ -301,6 +305,10 @@ def candidate_chain(
         ),
     }
     estimand = _build(profile, claim, case, applicability, bindings, functional)
+    if estimand.event_coverage is not None:
+        from beliefs.series.transport import event_retained_keys
+
+        parameters["event_retained_keys"] = event_retained_keys(estimand.event_coverage)
     return CandidateChain(
         case, profile, claim, applicability, bindings, estimand, measuring, estimator, rule, parameters
     )

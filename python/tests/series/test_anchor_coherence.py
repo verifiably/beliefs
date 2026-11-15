@@ -194,6 +194,8 @@ def test_claim_backed_admission_rechecks_stored_shape(profiles):
 
 @pytest.fixture
 def linked_portable(profiles, tmp_path):
+    from beliefs.series.transport import event_retained_keys
+
     from .test_portability import persist_case
 
     profile = profiles(many=True)
@@ -205,13 +207,20 @@ def linked_portable(profiles, tmp_path):
     )
     excluded = build(case, bindings, profiles(linked=False, many=True), claim)
     # The stored replacement never passed freeze under the linked contract.
+    assert excluded.event_coverage is not None
+    retained_parameter = event_retained_keys(excluded.event_coverage)
+
+    def stored_edit(body):
+        body["estimand"] = estimand_projection(excluded)
+        body["parameters"]["event_retained_keys"] = retained_parameter
+
     return persist_case(
         case,
         value,
         profile,
         tmp_path,
         claim=claim,
-        stored_edit=lambda body: body.update(estimand=estimand_projection(excluded)),
+        stored_edit=stored_edit,
     )
 
 

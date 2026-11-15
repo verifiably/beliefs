@@ -488,6 +488,21 @@ memberships and shared samples. A frozen target needs at least one retained
 candidate. `diagnose_event_coverage` returns the full report, retained keys and
 memberships without minting a target or receipt, including all-excluded input.
 
+For a series-bearing event spec, the author supplies the ordinary string parameter
+`event_retained_keys`. `series.transport.event_retained_keys(estimand.event_coverage)`
+constructs it from the complete rows in candidate order: `event-keys.v1.` followed
+by unpadded URL-safe base64 of the science.identity.v1 canonical JSON UTF-8 key
+array. It is limited to 64 KiB, including the prefix. Freeze/revise and stored
+restore compare the entire string with the report; staged run/replay compare after
+fresh coverage recomputation. The key is forbidden on other specs. Nothing injects
+it automatically or removes raw rows from staged inputs.
+
+The existing recipe/config channel conveys the string to the workflow. A consumer
+requires the prefix, removes it, restores base64 padding (`"=" * (-len(payload) % 4)`),
+URL-safe-base64 decodes, then JSON-decodes UTF-8 to recover the key array. Procedures
+must use only these events and the declared windows. The kernel checks this copy
+of the inclusion result, not whether arbitrary estimator code actually consumes it.
+
 An event-admitting template declares its anchor association. In linked mode,
 RuleAnchor classes equal the distinct normalized Referents filling the linked
 claim role, including both sort and term. The role must be nonempty and forbid

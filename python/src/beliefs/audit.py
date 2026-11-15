@@ -376,6 +376,7 @@ def check_assessment(
     from beliefs.dependencies import series_dependency_closure
     from beliefs.errors import DependencyNotHeld
     from beliefs.estimand import binding_roots, check_series
+    from beliefs.series.transport import check_event_parameters
     from beliefs.series.types import SeriesRefused
 
     # Eligibility is a separate check. This adapter supplies the
@@ -415,6 +416,7 @@ def check_assessment(
         else:
             try:
                 check_series(spec.estimand, profile=profile, records=records, evidence=evidence.series_evidence)
+                check_event_parameters(spec.estimand, spec.parameters)
             except DependencyNotHeld as error:
                 unchecked_reason = str(error)
             except SeriesRefused as error:

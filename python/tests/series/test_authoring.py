@@ -18,6 +18,7 @@ from beliefs.claim import Referent
 from beliefs.errors import ScienceError
 from beliefs.estimand import MeasuredBinding, RoleTermLevels, estimand_from_stored, estimand_projection
 from beliefs.series.codec import series_ref_from_projection
+from beliefs.series.transport import event_retained_keys
 from beliefs.spec import SpecInput, freeze
 from beliefs.target import target_terms
 
@@ -68,7 +69,13 @@ def input_roles(value):
 
 def frozen(case, value, profile, *, inputs=None, evidence=True):
     return freeze(
-        spec_draft(estimand=value, input_roles=input_roles(value) if inputs is None else inputs),
+        spec_draft(
+            estimand=value,
+            input_roles=input_roles(value) if inputs is None else inputs,
+            parameters={"event_retained_keys": event_retained_keys(value.event_coverage)}
+            if value.event_coverage is not None
+            else {},
+        ),
         held_rules=spec_rules(),
         rule_procedures={"median-difference/v1": ESTIMATOR_PROCEDURE},
         profile=profile,

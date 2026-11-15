@@ -57,6 +57,7 @@ from beliefs.restriction import check_held_rule_scope
 from beliefs.sealed import sealed
 from beliefs.series.evidence import SeriesEvidence
 from beliefs.series.reader import CheckedSeries
+from beliefs.series.transport import check_event_parameters
 from beliefs.series.types import ElapsedAxis, SeriesRefused
 from beliefs.target import AssessedTarget, Standing, target_from_projection
 
@@ -528,6 +529,7 @@ def freeze(
     if series_evidence is not None:
         checked_series = check_series(draft.estimand, profile=profile, records=records, evidence=series_evidence)
         _check_series_inputs(checked_series, draft.input_roles, records, profile)
+    check_event_parameters(draft.estimand, draft.parameters)
     applicability = checked_applicability(profile, claim.operator, draft.applicability.values, authoring=True)
     pairs = bind_rules((draft.interpretation_rule, draft.equivalence_rule), held_rules)
     if not set(rule_procedures) <= {name for name, _ in pairs} or draft.interpretation_rule not in rule_procedures:
@@ -734,6 +736,7 @@ def restore(identity: str, projection: bytes, *, profile: ProfileSpec) -> Frozen
         raise MalformedRecord(f"{where}: input_roles is a list")
     if not isinstance(mapping["parameters"], dict) or any(type(k) is not str for k in mapping["parameters"]):
         raise MalformedRecord(f"{where}: parameters is a mapping with string keys")
+    check_event_parameters(assessed_target.estimand, mapping["parameters"])
     bindings = mapping["rule_bindings"]
     if not isinstance(bindings, list):
         raise MalformedRecord("rule bindings must be a list")

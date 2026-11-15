@@ -122,6 +122,20 @@ Portable stored records carry the graph without fetching payloads. Execution and
 new verification require local evidence again and check the actual staged
 copies; a copied graph proves no bytes. These checks establish finite geometry
 and linkage, not event truth, clock calibration or numerical aggregate correctness.
+Event targets explicitly choose `coverage_policy="complete-windows"`; the kernel
+freezes a status for every candidate/window and retains only wholly complete events.
+A non-freezing diagnostic can explain an all-excluded result. Linked templates also
+require each claim class to retain an event. Raw extraction and catalogue completeness
+remain consumer assertions.
+
+An event workflow receives the author-supplied `event_retained_keys` string through
+ordinary config. The author helper in `beliefs.series.transport` encodes the ordered
+retained keys; freeze and execution check that exact string against the report.
+Require `event-keys.v1.`, remove the prefix, restore base64 padding, URL-safe-base64
+decode and JSON-decode UTF-8 to obtain the key array. The value is limited to 64 KiB.
+The estimator must apply the declared windows to those events. A repeatable program
+that ignores the keys can still pass structural/replay checks: procedure review and
+numerical verification establish compliance with the exclusions.
 The base's exact external time-role names are an explicit kernel commitment,
 separate from external vocabulary admission.
 
