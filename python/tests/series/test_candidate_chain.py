@@ -7,6 +7,7 @@ from hashlib import sha256
 import pytest
 from candidate_contracts import candidate_profile
 from test_audit import _stated_optionals, run_publication
+from test_convert import snapshot
 
 from beliefs import errors, stored
 from beliefs.assess import build_assessment
@@ -15,7 +16,7 @@ from beliefs.classification_rule import ClassificationRule
 from beliefs.estimand import RoleAnchor, RuleAnchor, check_series
 from beliefs.measurement import Aspect, Measure, Observable
 from beliefs.procedure import Procedure
-from beliefs.projection import project_claim
+from beliefs.projection import claim_identity, project_claim
 from beliefs.record import AssessmentValue
 from beliefs.register import AssumptionsRegister
 from beliefs.series.codec import series_ref_from_projection, series_ref_projection
@@ -23,24 +24,29 @@ from beliefs.series.geometry import window_memberships
 from beliefs.series.types import SeriesRefused
 from beliefs.spec import SpecInput
 from beliefs.standing import check_standing
+from beliefs.target_comparison import convertibility
 
 from .candidate_case import (
     ASPECT,
     EXPECTED,
     HALO,
     KM,
+    NO_AXIS,
     POPULATION,
     RULES,
     WINDOWS,
+    M,
     build,
     candidate_chain,
     checks_contract,
     freeze_chain,
     hold,
+    proposition_of,
     run_chain,
     speed_values,
 )
 from .test_authoring import input_roles
+from .test_chains import key_for
 from .test_portability import writer_at
 
 
@@ -259,3 +265,47 @@ def test_the_assessment_write_refuses_for_want_of_an_observed_input(ran, profile
     )
     with pytest.raises(errors.EligibilityUnmet, match="has no observes input; reads inputs never confer eligibility"):
         writer.add(node)
+
+
+CHANGES = {
+    "anchor-epoch": {"epoch": ("2000-01-01T00:00:00Z", "2000-02-01T00:00:00Z")},
+    "rule": {"rule_definition": "Synthetic fixture rule, second wording."},
+    "anchor-row": {"second_anchor": 716400},
+    "lag-window": {"windows": ((-48, 0), (24, 96))},
+    "procedure": {"measuring_definition": "Synthetic fixture measurement, second wording."},
+    "unit": {"unit": M},
+    "table-byte": {"outside": "998"},
+}
+
+
+@pytest.mark.parametrize("name", CHANGES)
+def test_each_change_keeps_the_claim_and_moves_the_frozen_target(profile, name):
+    base, changed = candidate_chain(profile), candidate_chain(profile, **CHANGES[name])
+    before, after = freeze_chain(base), freeze_chain(changed)
+    assert claim_identity(base.claim) == claim_identity(changed.claim) == base.estimand.claim == changed.estimand.claim
+    assert before.identity != after.identity
+    assert key_for(before) != key_for(after)
+    assert (before.assessed_target.applicability != after.assessed_target.applicability) == (name == "anchor-epoch")
+
+
+def _context(profile, *chains):
+    records = chains[0].case.records
+    for chain in chains[1:]:
+        records.nodes.update(chain.case.records.nodes)
+    return {
+        "profile": profile,
+        "snapshot": snapshot(records, profile=profile),
+        "snapshot_identity": "snapshot:candidate",
+    }
+
+
+def test_series_free_targets_in_km_and_m_compare_convertible(profile):
+    km = candidate_chain(profile, functional=NO_AXIS, with_series=False)
+    m = candidate_chain(profile, functional=NO_AXIS, with_series=False, unit=M)
+    assert convertibility(proposition_of(km), proposition_of(m), **_context(profile, km, m)).kind == "convertible"
+
+
+def test_series_bound_targets_in_km_and_m_are_not_convertible(profile):
+    km, m = candidate_chain(profile), candidate_chain(profile, unit=M)
+    verdict = convertibility(proposition_of(km), proposition_of(m), **_context(profile, km, m))
+    assert (verdict.kind, verdict.reason) == ("not-convertible", "target")

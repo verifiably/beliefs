@@ -417,3 +417,14 @@ def run_chain(chain: CandidateChain, spec: FrozenSpec, root: Path, *, with_repla
             records=chain.case.records,
         )
     return SimpleNamespace(original=original, replayed=replayed, verification=verification, emitted=emitted)
+
+
+def proposition_of(chain: CandidateChain):
+    from beliefs.target import AssessedTarget
+    from beliefs.target_comparison import AssessedProposition
+
+    return AssessedProposition(
+        chain.claim,
+        AssessedTarget(chain.estimand, chain.applicability, chain.estimand.dependencies, None, "empirical"),
+        "fixture-constant-supported/v1",
+    )
