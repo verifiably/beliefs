@@ -49,3 +49,28 @@ def test_shared_succession_outcome(base_contract, case):
     else:
         with pytest.raises(getattr(errors, case["outcome"])):
             parse_domain_contract(document, source=case["name"], base=base_contract, predecessor=predecessor)
+
+
+@pytest.mark.parametrize("change", ["add", "remove", "change"])
+def test_unit_external_mapping_set_is_permanent(base_contract, change):
+    from time_roles_fixture import time_document
+
+    from beliefs.profile import compile_profile
+
+    document = time_document()
+    for unit, code, local in (("second", "s", "SEC"), ("hour", "h", "HR"), ("hertz", "Hz", "HZ")):
+        document["units"][unit]["external"] = {"ucum": code, "qudt": "http://qudt.org/vocab/unit/" + local}
+    if change == "add":
+        del document["units"]["second"]["external"]["qudt"]
+    prior = parse_domain_contract(document, source="synthetic mapped units", base=base_contract, predecessor=None)
+    assert compile_profile(base_contract, [prior]).units
+    successor = copy.deepcopy(document)
+    successor.update(version=2, lineage={"successor": prior.content_identity})
+    if change == "add":
+        successor["units"]["second"]["external"]["qudt"] = "http://qudt.org/vocab/unit/SEC"
+    if change == "remove":
+        del successor["units"]["second"]["external"]["qudt"]
+    if change == "change":
+        successor["units"]["second"]["external"]["ucum"] = "h"
+    with pytest.raises(errors.SuccessionViolation, match="si-brochure: unit:second"):
+        parse_domain_contract(successor, source="changed synthetic mapping", base=base_contract, predecessor=prior)

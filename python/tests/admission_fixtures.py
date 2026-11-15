@@ -187,6 +187,16 @@ def mechanism_layout(tmp_path):
         assert checkout.run("git", "add", ".", cwd=root).returncode == 0
         result = checkout.run("git", "commit", "-qm", "synthetic dependency snapshot", cwd=root)
         assert result.returncode == 0, result.stderr
+    checkout._stub(
+        checkout.root / "bin/uv",
+        "import os, sys\nfrom pathlib import Path\n"
+        + "assert sys.argv[1:4] == ['run', '--frozen', 'python']\n"
+        + "python = "
+        + repr(str(checkout.root / "python/.venv/bin/python"))
+        + "\n"
+        + "os.execv(python, [python, str(Path.cwd() / sys.argv[4]), *sys.argv[5:]])\n",
+        executable=True,
+    )
     assert checkout.run("git", "add", ".").returncode == 0
     result = checkout.run("git", "commit", "-qm", "synthetic mechanism snapshot")
     assert result.returncode == 0, result.stderr

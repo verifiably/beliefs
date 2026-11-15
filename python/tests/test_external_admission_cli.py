@@ -67,6 +67,10 @@ def test_clean_cli_produces_deterministic_receipt_and_checks_index(tmp_path):
     assert checkout.run("git", "add", ".", cwd=candidate).returncode == 0
     result = run(["--check-staged", str(candidate), "--receipt", str(target)])
     assert result.returncode == 0, result.stderr
+    alias = tmp_path / "candidate-alias"
+    alias.symlink_to(candidate, target_is_directory=True)
+    result = run(["--check-staged", str(alias), "--receipt", str(alias / relative)])
+    assert result.returncode == 0, result.stderr
     result = run(args + ["--output", str(tmp_path / "refused.json")])
     assert result.returncode == 1 and "staged" in result.stderr
     assert not (tmp_path / "refused.json").exists()
@@ -151,3 +155,57 @@ def test_write_failure_preserves_replaced_destination(tmp_path, monkeypatch):
     monkeypatch.setattr(module.os, "fsync", replaced)
     assert module.main(args) == 1
     assert output.read_bytes() == b"another writer owns these bytes"
+
+
+def test_atomic_admission_through_real_precommit_checker(tmp_path):
+    import json
+    import shutil
+
+    from admission_fixtures import digest, mechanism_layout
+
+    checkout, candidate, args, run = mechanism_layout(tmp_path)
+    assert checkout.run("git", "config", "core.hooksPath", ".githooks").returncode == 0
+    assert checkout.run("git", "add", ".", cwd=candidate).returncode == 0
+    failed = checkout.run("git", "commit", "-qm", "partial admission", cwd=candidate)
+    assert failed.returncode != 0 and "missing receipt" in failed.stderr + failed.stdout
+    assert checkout.run("git", "reset", "HEAD", cwd=candidate).returncode == 0
+    receipt_path = tmp_path / "receipt.json"
+    result = run(args + ["--output", str(receipt_path)])
+    assert result.returncode == 0, result.stderr
+    relative = "contracts/source-ownership/receipts/" + digest(receipt_path.read_bytes()) + ".json"
+    target = candidate / relative
+    target.parent.mkdir()
+    target.write_bytes(receipt_path.read_bytes())
+    checker = candidate / "python/tools/check_shipped_contracts.py"
+    checker.write_text(
+        checker.read_text().replace(
+            "RECEIPT_SHA256: dict[str, str] = {}",
+            "RECEIPT_SHA256: dict[str, str] = " + repr({relative: digest(receipt_path.read_bytes())}),
+        )
+    )
+    assert checkout.run("git", "add", ".", cwd=candidate).returncode == 0
+    result = run(["--check-staged", str(candidate), "--receipt", str(target)])
+    assert result.returncode == 0, result.stderr
+    shutil.rmtree(tmp_path / "inputs/held")
+    passed = checkout.run("git", "commit", "-qm", "complete synthetic admission", cwd=candidate)
+    assert passed.returncode == 0, passed.stderr + passed.stdout
+    receipt = json.loads(target.read_bytes())
+    assert receipt["mechanism"]["beliefs_commit"] == checkout.run("git", "rev-parse", "HEAD").stdout.strip()
+    assert (
+        checkout.run("git", "rev-parse", "HEAD", cwd=candidate).stdout.strip() != receipt["mechanism"]["beliefs_commit"]
+    )
+
+
+def test_changed_manifest_during_validation_refuses(tmp_path, monkeypatch):
+    module, args, output, _ = isolated_invocation(tmp_path, monkeypatch)
+    original = module.evidence.validate
+
+    def changed(*passed):
+        result = original(*passed)
+        path = Path(args[args.index("--manifest") + 1])
+        path.write_bytes(path.read_bytes() + b" ")
+        return result
+
+    monkeypatch.setattr(module.evidence, "validate", changed)
+    assert module.main(args) == 1
+    assert not output.exists()

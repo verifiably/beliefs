@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { stringify } from "yaml";
+import { parse, stringify } from "yaml";
 import { claimVocabulary } from "../src/contract-succession.js";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
-import { MalformedContract, UnparsedContract } from "../src/errors.js";
+import { MalformedContract, SuccessionViolation, UnparsedContract } from "../src/errors.js";
 import { encode } from "../src/identity/v1.js";
+import { compileProfile } from "../src/profile.js";
 
 const read = (path: string) => readFileSync(new URL(`../../${path}`, import.meta.url), "utf-8");
 // biome-ignore lint/suspicious/noExplicitAny: shared normative documents are deliberately mutated in these tests
@@ -96,5 +97,33 @@ describe("additive contract succession", () => {
   it.each(["2.0", "9007199254740992", "null"])("refuses noncanonical version %s", (version) => {
     const text = stringify(vector.genesis).replace(/^version: .*$/m, `version: ${version}`);
     expect(() => parseDomainContract(text, "invalid-number", base)).toThrow(MalformedContract);
+  });
+});
+
+describe("permanent unit mappings", () => {
+  it.each(["add", "remove", "change"])("refuses %s under the same unit id", (change) => {
+    const document = parse(read("fixtures/contracts/series-time.yaml")) as Document;
+    for (const [unit, code, local] of [
+      ["second", "s", "SEC"],
+      ["hour", "h", "HR"],
+      ["hertz", "Hz", "HZ"],
+    ]) {
+      document.units[unit].external = {
+        ucum: code,
+        qudt: `http://qudt.org/vocab/unit/${local}`,
+      };
+    }
+    if (change === "add") document.units.second.external = { ucum: "s" };
+    const prior = parseDomainContract(stringify(document), "synthetic mapped units", base);
+    expect(compileProfile(base, [prior]).units).toBeDefined();
+    const successor = structuredClone(document);
+    successor.version = 2;
+    successor.lineage = { successor: prior.contentIdentity };
+    if (change === "add") successor.units.second.external.qudt = "http://qudt.org/vocab/unit/SEC";
+    if (change === "remove") successor.units.second.external = { ucum: "s" };
+    if (change === "change") successor.units.second.external.ucum = "h";
+    expect(() => parseDomainContract(stringify(successor), "changed synthetic mapping", base, prior)).toThrow(
+      SuccessionViolation,
+    );
   });
 });

@@ -83,7 +83,7 @@ def _retained_pins(candidate_pins: dict) -> None:
 
 def _staged(candidate: Path, receipt_path: Path) -> None:
     state = environment.verify_staged(MECHANISM, candidate)
-    relative = receipt_path.absolute().relative_to(candidate.resolve()).as_posix()
+    relative = receipt_path.resolve().relative_to(candidate.resolve()).as_posix()
     if relative not in state["files"]:
         raise ValueError("receipt is absent from index")
     receipt = metadata.parse_receipt(state["files"][relative])
