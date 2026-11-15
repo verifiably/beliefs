@@ -1,0 +1,29 @@
+{
+  "describes": "catalogue-anchors:f8cd83d30a660b48c12cd1ac635a5ebb55ef29f6e79669405b877b575e9bc544",
+  "entries": {
+    "dimension:catalogue-anchors/anchor-epoch": {
+      "collapses": "Per-occurrence anchor times are summarized by one half-open whole-second UTC interval.",
+      "licenses": "Stating in applicability the interval within which an occurrence's anchor time label must fall, for targets of general/event-locked-change.",
+      "not_established": "Any link from the interval to an anchor coordinate, a clock or a catalogue snapshot. The required restriction_sort names the class sort and no check reads it for a time interval.",
+      "status": "provisional"
+    },
+    "estimand:instantiation:catalogue-anchors/halo-anchored-solar-wind-speed": {
+      "collapses": "Only the event-locked form is admitted, with no conditioning sorts.",
+      "licenses": "Event-locked targets for this instantiation: an anchor rule, fixed lag windows and a measured response.",
+      "not_established": "Control epochs, difference-in-differences, strata, superposed-epoch curves or any uncertainty model; each would be a new target.",
+      "status": "provisional"
+    },
+    "instantiation:catalogue-anchors/halo-anchored-solar-wind-speed": {
+      "collapses": "The licence to anchor on this class and the choice of response bearer are joined in one admission.",
+      "licenses": "Statistical-layer claims of general/event-locked-change with anchor catalogue-anchors/cdaw-halo-cme and response plasma-populations/near-earth-solar-wind.",
+      "not_established": "That an anchored occurrence was Earth-directed, that the sampled plasma came from it, or that it changed the speed. The comparison is conditioned on an annotation.",
+      "status": "provisional"
+    },
+    "sort:catalogue-anchors/cdaw-halo-cme": {
+      "collapses": "Records the CDAW SOHO/LASCO CME catalogue team marks Halo in the central position angle (CPA) column are one class. The catalogue's own description states the criterion, quoted as written: 'CMEs an apparent width of 360 deg are marked as Halo in the CPA column.' Evidence revision: https://cdaw.gsfc.nasa.gov/CME_list/catalog_description.htm as retrieved 2026-10-11T18:39:52Z, 19613 bytes, SHA-256 dc30ab9357df22dc31899ab9650c4502a8297e229d835ce68b65a98dbb46a357. The sublabels Halo (S), Halo (BA) and Halo (OA) described there are not distinguished. Source location, direction and the annotator's detection limits are collapsed.",
+      "licenses": "Naming this annotation-defined class as the anchor of an event-locked comparison. The sort admits the single term catalogue-class:cdaw-halo-cme; the kernel checks identifier syntax only. Membership is supplied per analysis by a held classification rule and anchor table.",
+      "not_established": "That a labelled record marks a physical or Earth-directed event; that the catalogue is complete; or which records are members: catalogue rows are revised in place and catalogue versions differ, so the pinned criterion fixes what the class means and not its membership. A changed documented criterion is a new class and needs a new identifier.",
+      "status": "provisional"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+# UNSHIPPED CANDIDATE (beliefs-b86fa2). Not admitted, not packaged, no inventory row. The namespace and source id are nominated and reserve nothing.
+extends: general
+rows:
+  templates:
+    event-locked-change:
+      definition: "Over occurrences assigned to the anchor class by an attributed classification rule, a measured quantity of the response bearer differs between two windows at fixed offsets from each occurrence's anchor coordinate. Positive means the comparison window exceeds the reference window."
+      roles:
+        anchor: {arity: one, constraint: [class]}
+        response: {arity: one}
+      sign_apt: true
+      layers: [statistical]
+      forms: [polar, 'null']
+  functionals:
+    mean-within-anchor-window-difference:
+      definition: "For each occurrence, the unweighted mean of the selected response samples in the comparison window minus that in the reference window; then the unweighted mean of those differences over occurrences. Windows are ordered reference first, comparison second."
+      form: event-locked
+      arity: two
+      response_transformation: equivariant-affine
+      reversal: negate
+      response_reversal: negate
+      exchange: not-applicable
+      ties: not-applicable
+      output: response-difference
+      domain: real
+      'null': zero
+      increment: not-applicable
+      uncertainty: exact
+      parameters: not-applicable
+      response_axis: elapsed
+  designs:
+    within-anchor-windows:
+      definition: "Each occurrence contributes one difference between its own two windows and is the analysis unit. No claim that occurrences, or samples within a window, are independent."
+  selection_mechanisms:
+    annotation-defined-anchors:
+      definition: "Occurrences are included by an attributed annotation label under a held classification rule. Inclusion reflects the annotator's detection and editing, not a census of physical events."
+register_entries: {"template:general/event-locked-change": {"collapses": "How the anchor class is assigned, the window offsets and the measured quantity are left to the target; the template states only that a difference between two windows exists.", "licenses": "Statistical-layer polar and null claims that a measured quantity of the response bearer differs between two windows at fixed offsets from each occurrence's anchor coordinate. Positive means the comparison window exceeds the reference window.", "not_established": "Any causal reading. The template has no edge and is distinct from changes-under-intervention.", "status": "provisional"}, "functional:general/mean-within-anchor-window-difference": {"collapses": "Within-window structure is reduced to an unweighted sample mean, and occurrences to an unweighted mean of their differences. The unweighted sample mean equals a time average only for equal bin supports.", "licenses": "The declared transformation behaviour: a common additive offset cancels, a multiplicative coordinate change scales the estimate, swapping the windows negates it. Windows are ordered reference first, comparison second.", "not_established": "Any uncertainty model, independence of occurrences or of samples within a window, or robustness to missing samples.", "status": "provisional"}, "design:general/within-anchor-windows": {"collapses": "Each occurrence is one analysis unit contributing one difference between its own two windows.", "licenses": "Naming the design of an event-locked comparison in which each occurrence supplies its own reference and comparison windows.", "not_established": "Independence of occurrences or of samples within a window. The design is distinct from independent-groups.", "status": "provisional"}, "selection-mechanism:general/annotation-defined-anchors": {"collapses": "The annotator's detection, editing and revision history are reduced to an attributed label under a held classification rule.", "licenses": "Stating that occurrences enter an analysis by an attributed annotation label.", "not_established": "A census of physical events. Inclusion reflects the annotator's detection and editing.", "status": "provisional"}}

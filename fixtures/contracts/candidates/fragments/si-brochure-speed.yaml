@@ -1,0 +1,27 @@
+# UNSHIPPED CANDIDATE (beliefs-b86fa2). Not admitted, not packaged, no inventory row. The namespace and source id are nominated and reserve nothing.
+extends: si-brochure
+rows:
+  quantity_kinds:
+    speed:
+      dimension: {L: 1, T: -1}
+      definition: "Candidate nonnegative magnitude of velocity, excluding velocity vectors and signed components."
+  units:
+    metre-per-second:
+      symbol: m/s
+      quantity_kind: speed
+      calendar: false
+      definition: "Candidate coherent derived unit of speed."
+    kilometre-per-second:
+      symbol: km/s
+      quantity_kind: speed
+      calendar: false
+      definition: "Candidate unit of speed equal to one thousand metres per second."
+  conversions:
+    kilometre-per-second-to-metre-per-second:
+      from: kilometre-per-second
+      to: metre-per-second
+      kind: multiplicative
+      factor: "1000"
+      exact: true
+      definition: "Candidate exact conversion following from the prefix kilo."
+register_entries: {"quantity-kind:si-brochure/speed": {"collapses": "Velocity vectors and signed components are excluded; only the nonnegative magnitude is meant.", "licenses": "Typing a speed with dimension L T^-1 for one synthetic consumer.", "not_established": "That quantities of equal dimension share a meaning; any admission of this row to the SI Brochure lineage, whose source locator is unverified in this candidate.", "status": "provisional"}, "unit:si-brochure/metre-per-second": {"collapses": "The coherent derived unit is declared without any external code.", "licenses": "Serving as the hub of the one declared speed conversion, because conversions never compose.", "not_established": "A validated UCUM or QUDT mapping, which must be settled before the identifier freezes; any admission.", "status": "provisional"}, "unit:si-brochure/kilometre-per-second": {"collapses": "The prefixed compound is declared as a unit in its own right, without any external code.", "licenses": "The Measure and channel unit of the synthetic solar-wind speed series.", "not_established": "A validated UCUM or QUDT mapping; any admission; comparability of two targets merely because their units convert.", "status": "provisional"}, "conversion:si-brochure/kilometre-per-second-to-metre-per-second": {"collapses": "The prefix relation is declared once, in one direction.", "licenses": "Exact multiplicative conversion between the two speed units, in either direction through the existing inverse lookup.", "not_established": "That converted targets are the same target: with a series bound, unit conversion does not canonicalize view identity.", "status": "provisional"}}

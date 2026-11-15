@@ -1,0 +1,19 @@
+{
+  "status": "unshipped candidates; no admission, no inventory row, no ownership verdict",
+  "static": [
+    {
+      "contract_path": "fixtures/contracts/candidates/plasma-populations/DOMAIN.yaml",
+      "contract_identity": "5084ec2369598e0498ed2a66edafda67558fe735457853a08cc678aa6b4eb0d2"
+    },
+    {
+      "contract_path": "fixtures/contracts/candidates/catalogue-anchors/DOMAIN.yaml",
+      "contract_identity": "f8cd83d30a660b48c12cd1ac635a5ebb55ef29f6e79669405b877b575e9bc544"
+    }
+  ],
+  "general_successor": {
+    "fragment_path": "fixtures/contracts/candidates/fragments/general-event-locked.yaml",
+    "source_id": "urn:beliefs:definitions:shared-scientific-commitments",
+    "predecessor_identity": "e74a497975e4a536f1bcbef26de73558d8a528276f4754082c6dd2d399f447ee",
+    "contract_identity": "e3a6d05360c53249ff9ba7a8c0e99d9e8d01e0e378fddaaa246bf44bb73a93d6"
+  }
+}

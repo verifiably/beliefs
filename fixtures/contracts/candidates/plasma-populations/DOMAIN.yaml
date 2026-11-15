@@ -1,0 +1,18 @@
+# UNSHIPPED CANDIDATE (beliefs-b86fa2). Not admitted, not packaged, no inventory row. The namespace and source id are nominated and reserve nothing.
+contract: plasma-populations
+version: 1
+lineage: genesis
+defining_source:
+  id: urn:beliefs:definitions:plasma-population-measurement-admissions
+sorts:
+  near-earth-solar-wind:
+    binding: {kind: scheme, scheme: plasma-population, version: "1"}
+    identifier_class: {prefix: plasma-population, pattern: 'plasma-population:near-earth-solar-wind'}
+  bulk-flow-speed:
+    binding: {kind: scheme, scheme: plasma-aspect, version: "1"}
+    identifier_class: {prefix: plasma-aspect, pattern: 'plasma-aspect:bulk-flow-speed'}
+dimensions: {}
+measurements:
+  near-earth-solar-wind: [si-brochure/speed]
+aspects:
+  si-brochure/speed: [bulk-flow-speed]

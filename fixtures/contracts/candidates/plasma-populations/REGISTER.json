@@ -1,0 +1,29 @@
+{
+  "describes": "plasma-populations:5084ec2369598e0498ed2a66edafda67558fe735457853a08cc678aa6b4eb0d2",
+  "entries": {
+    "aspect:plasma-populations/bulk-flow-speed": {
+      "collapses": "The admission joins the quantity kind si-brochure/speed to this aspect for any bearer that admits speed.",
+      "licenses": "Stating in an observable that a speed is the bulk flow speed.",
+      "not_established": "That equal dimension means equal meaning: another speed of the same plasma is not this aspect.",
+      "status": "provisional"
+    },
+    "measurement:plasma-populations/near-earth-solar-wind": {
+      "collapses": "Every procedure yielding a speed of this population is admitted alike; instrument, cadence and processing stay in the procedure record.",
+      "licenses": "Typing a speed Measure whose bearer is this population, so far for one synthetic consumer.",
+      "not_established": "Calibration, validity scope or comparability across procedures.",
+      "status": "provisional"
+    },
+    "sort:plasma-populations/bulk-flow-speed": {
+      "collapses": "Direction and components of the bulk flow velocity are collapsed to its magnitude.",
+      "licenses": "Naming the aspect under which a speed of a plasma population is measured. The sort admits the single term plasma-aspect:bulk-flow-speed; the kernel checks identifier syntax only.",
+      "not_established": "That a procedure's output is this property. Thermal, Alfven and sound speeds and velocity components are other aspects and need new sorts.",
+      "status": "provisional"
+    },
+    "sort:plasma-populations/near-earth-solar-wind": {
+      "collapses": "Parcels, streams, transient structures and the monitor's position are treated as one population: the unshocked solar-wind plasma upstream of Earth's bow shock that near-Earth monitors sample. No continuity between observations is modelled.",
+      "licenses": "Naming this population as the bearer of a measured bulk property. The sort admits the single term plasma-population:near-earth-solar-wind; the kernel checks identifier syntax only.",
+      "not_established": "That any held series samples this population, which is an authored commitment of the measuring procedure. Frame, sampling location, time shift to a reference location and cross-instrument normalization are procedure particulars, not part of the sort.",
+      "status": "provisional"
+    }
+  }
+}

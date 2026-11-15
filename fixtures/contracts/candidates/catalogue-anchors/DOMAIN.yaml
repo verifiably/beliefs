@@ -1,0 +1,25 @@
+# UNSHIPPED CANDIDATE (beliefs-b86fa2). Not admitted, not packaged, no inventory row. The namespace and source id are nominated and reserve nothing.
+contract: catalogue-anchors
+version: 1
+lineage: genesis
+defining_source:
+  id: urn:beliefs:definitions:catalogue-anchor-admissions
+sorts:
+  cdaw-halo-cme:
+    binding: {kind: scheme, scheme: catalogue-class, version: "1"}
+    identifier_class: {prefix: catalogue-class, pattern: 'catalogue-class:cdaw-halo-cme'}
+    categories: [class]
+dimensions:
+  anchor-epoch:
+    restriction_sort: cdaw-halo-cme
+    restriction: {form: time-interval}
+    placement: applicability
+    applies_to: [general/event-locked-change]
+instantiations:
+  halo-anchored-solar-wind-speed:
+    template: general/event-locked-change
+    roles: {anchor: [cdaw-halo-cme], response: [plasma-populations/near-earth-solar-wind]}
+estimands:
+  instantiation:halo-anchored-solar-wind-speed:
+    forms: [event-locked]
+    conditioning_sorts: []
