@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!-- Synthetic publisher-format fixture; not a UCUM release. -->
+<root xmlns="http://unitsofmeasure.org/ucum-essence" version="fixture-1">
+  <base-unit Code="s"><name>synthetic second</name></base-unit>
+  <unit Code="h" isMetric="no"><name>synthetic hour</name></unit>
+  <unit Code="Hz" isMetric="yes"><name>synthetic hertz</name></unit>
+</root>

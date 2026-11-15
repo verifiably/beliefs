@@ -37,6 +37,79 @@ and new revisions and registry fingerprints, and run affected tests and CI.
 Atoms and nodes retain their default-branch CI policy. The uv lockfile pins package
 versions; editable sibling revisions are established separately by Git.
 
+## Offline external-source admission
+
+`python/tools/admit_external_source.py` validates a separate candidate from a clean
+committed mechanism checkout. It is a developer command, outside the installed
+runtime. The current shipped inventory still has no real external source.
+Acquisition, semantic approval and production admission require separate authority.
+
+Prepare a dedicated clean sibling layout containing beliefs, refs, atoms and nodes,
+then run the frozen Python sync in beliefs. The refs sibling must be the reviewed
+revision, with its generated registry hydrated. The command verifies the actual
+import roots and Git revisions; `--refs-root` asserts that installed checkout and
+does not alter Python's import path. Every Git revision cited in a public receipt
+must be published and retrievable; verify this in the private run sheet. Python CI
+must be green at the accepted mechanism commit before freezing the run sheet.
+
+Create a separate linked beliefs worktree at exactly the mechanism checkout's
+HEAD. Prepare its domain/register pairs, package copies, inventory and inventory
+pin together, leaving the index empty. From the clean mechanism checkout:
+
+```sh
+uv run --frozen --project python python -I python/tools/admit_external_source.py \
+  --candidate CANDIDATE --manifest MANIFEST --bindings BINDINGS \
+  --refs-root REFS --refs-commit FULL_SHA --output NEW_RECEIPT
+```
+
+Manifest version 1 has exactly `version`, `source_id`, `namespace`,
+`contract_identity`, `documents`, `resources`, `units` and
+`semantic_review_sha256`. Documents match the ordered candidate normative pins;
+resources has `ucum` and `qudt` pins of the same four-field form described in
+[contracts.md](contracts.md#source-ownership-admission). Every qualified unit id
+appears once with a bare case-sensitive `ucum` code and an exact full
+`http://qudt.org/vocab/unit/` IRI or explicit null `qudt`. The semantic review
+covers source provenance, permission, mapping meaning and any absence rationale;
+its content digest binds the review without publishing its text.
+
+Bindings version 1 has exactly `version` and `files`. The latter maps every required
+`sha256:<digest>` to its explicitly resolved absolute regular-file path, including
+the semantic review document. Resolve ancestor symlinks deliberately and record the
+result privately; the command refuses implicit path resolution, leaf symlinks,
+nonregular files, missing/extra bindings and mismatched bytes. It hashes and parses
+the same read bytes. UCUM uses a supplied nonempty essence table with the declared
+release. QUDT uses held Turtle only and requires the exact IRI as a subject typed
+`http://qudt.org/schema/qudt/Unit`; imports and locators are never fetched.
+
+The command validates the full candidate and historical continuity, verifies clean
+code/configuration and rechecks frozen inputs before publishing. Only the two
+literal checker pin values may change. Other permitted admission changes are the
+inventory, added digest-named receipts, canonical/package SI Brochure pairs and
+history, deletion of the synthetic series-time fixture, its Python/TypeScript
+callers, and the two contracts/development reference documents. Other code,
+dependency and configuration changes require a new reviewed mechanism.
+
+A successful run writes deterministic public receipt metadata outside the candidate.
+It does not write semantic approval or modify the candidate. Refusal exits 1 without
+a receipt; invalid CLI usage exits 2. Existing output is never overwritten. Private
+write staging and exclusive publication prevent partial success output.
+
+Install the receipt at its digest-named repository path, update `RECEIPT_SHA256`,
+finish the fixture/doc changes, and stage the complete admission. Before committing,
+run this distinct check-only form from the clean mechanism:
+
+```sh
+uv run --frozen --project python python -I python/tools/admit_external_source.py \
+  --check-staged CANDIDATE --receipt CANDIDATE_RECEIPT
+```
+
+It verifies the index, receipt and pin-only checker difference without held payloads
+or candidate code execution. It writes nothing and refuses unstaged changes. Commit
+all admission artifacts together; ordinary pre-commit hygiene then checks the
+installed metadata. Receipt provenance identifies the clean mechanism commit, never
+the future admission commit. A coordinated pin edit remains an independent review
+obligation, not cryptographic proof of honest validation.
+
 ## Layout
 
 ```

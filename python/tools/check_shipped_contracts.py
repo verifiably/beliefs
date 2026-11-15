@@ -551,14 +551,17 @@ def inspect_candidate(root: Path, inventory_bytes: bytes) -> list[str]:
         return [f"source admission: {exc}"]
 
 
-def _check_receipts(root: Path, inventory: dict, revisions: tuple[_AdmissionRevision, ...]) -> None:
+def _check_receipts(
+    root: Path, inventory: dict, revisions: tuple[_AdmissionRevision, ...], *, pins: Mapping[str, str] | None = None
+) -> None:
+    pins = RECEIPT_SHA256 if pins is None else pins
     directory = root / "contracts/source-ownership/receipts"
     actual = {p.relative_to(root).as_posix() for p in directory.rglob("*")} if directory.exists() else set()
-    if actual != set(RECEIPT_SHA256):
+    if actual != set(pins):
         raise ValueError("receipt directory differs from pinned receipt inventory")
     covered: dict[tuple[str, str], dict] = {}
     contracts = {(r.contract.namespace, r.contract.content_identity): r.contract for r in revisions}
-    for relative, expected in RECEIPT_SHA256.items():
+    for relative, expected in pins.items():
         _hex(expected, "receipt pin")
         if relative != f"contracts/source-ownership/receipts/{expected}.json":
             raise ValueError("receipt path must use its exact digest filename")

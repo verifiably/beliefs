@@ -1,0 +1,9 @@
+# Synthetic publisher-format fixture; not a QUDT release.
+@prefix qudt: <http://qudt.org/schema/qudt/> .
+@prefix unit: <http://qudt.org/vocab/unit/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@base <http://qudt.org/vocab/unit/> .
+unit:SEC a qudt:Unit .
+<HR> a qudt:Unit .
+unit:HZ a qudt:Unit .
+<https://example.invalid/ontology> owl:imports <https://example.invalid/never-fetch> .
