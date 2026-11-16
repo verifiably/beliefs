@@ -62,7 +62,7 @@ extraPaths = ["tools"]
 dev = [
     "verifiably-refs",
     "rdflib>=7,<8",
-    "pytest>=9.0",
+    "pytest>=9.2.0",
     "pytest-xdist>=3.8.0",
     "ruff>=0.15.7",
     "pyright>=1.1.390",
