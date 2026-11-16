@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "illustrative": true,
+  "fitter_executed": false,
+  "ns_revision": "af622a8f6ffa7cf2537072b64aaf00e0bc53aae8",
+  "source_mapping": {
+    "spectral_parameterization": "pilot/nested/instruments.py:340-364; signed exponent=-fit.beta; interval=[-fit.beta_hi,-fit.beta_lo]",
+    "outer_result": "pilot/nested/instruments.py:36-45,412-424,480-486; value=rho, aux=other spectral fields",
+    "status": "_ok, _na, _fail keep applicability, execution and interpretation distinct"
+  },
+  "arithmetic": {
+    "frequency_cycles_per_sample": ["0.1", "0.15", "0.2"],
+    "observed_linear_power": ["1", "3", "1"],
+    "floor_linear_power": ["1", "1", "1"],
+    "peak_support": [false, true, false],
+    "beta": "1.5",
+    "beta_interval": ["1", "2"],
+    "spacing_seconds": "0.01",
+    "band_cycles_per_sample": ["0.1", "0.2"]
+  },
+  "raw_spectral_parameterization": {
+    "rho": "0.5", "exponent": "-1.5", "log10_A": "0", "log10_C": "-2",
+    "exponent_interval": ["-2", "-1"], "exponent_identified": true,
+    "powerlaw_decades": "1", "low_share": "0.1", "low_support": 1,
+    "low_bins": [1], "resid_curv": "0.01", "peaks": [], "n_bins": 3,
+    "support_bins": 1, "mad": "0.1", "rmse_log10": "0.1", "n_source": 3,
+    "nperseg": 3, "aperiodic_model": "window-aware-plateau"
+  },
+  "bound_limited": {"exponent": "-1.5", "exponent_interval": ["-6", "2"], "exponent_identified": false},
+  "rho_uncertainty": null,
+  "uncertainty_note": "Absent means not estimated; interval tag is a schema accommodation, not calibrated coverage."
+}
