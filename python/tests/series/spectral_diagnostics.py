@@ -19,7 +19,7 @@ from beliefs.assumptions import AssumptionInstance
 from beliefs.claim import Claim, Referent, build_claim
 from beliefs.contract.base import BaseContract
 from beliefs.contract.domain import DomainContract, parse_domain_contract
-from beliefs.estimand import Control, Estimand, MeasuredBinding, OutputSpec, ValueReference, build_estimand
+from beliefs.estimand import Binding, Control, Estimand, MeasuredBinding, OutputSpec, ValueReference, build_estimand
 from beliefs.procedure import ModelInputs, SameAs, procedure_from_stored
 from beliefs.profile import ProfileSpec
 from beliefs.projection import claim_identity
@@ -114,7 +114,7 @@ def diagnostic_contract(base: BaseContract) -> DomainContract:
 
 
 def diagnostic_estimand(case: SpectralCase, *, form: Literal["quantity", "law-parameters"]) -> Estimand:
-    bindings = {"response": MeasuredBinding("series", None, case.measure, None, None, case.series)}
+    bindings: dict[str, Binding] = {"response": MeasuredBinding("series", None, case.measure, None, None, case.series)}
     if form == "law-parameters":
         bindings["independent"] = ()
     return build_estimand(

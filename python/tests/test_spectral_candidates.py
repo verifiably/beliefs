@@ -72,10 +72,12 @@ def test_spectral_inventory_and_register(base_contract):
     assert current.register.previous == register_identity(previous.register)
     assert all(current.register.entries[k] == v for k, v in previous.register.entries.items())
     assert all(current.register.entries[k].status == "provisional" for k in SPECTRAL_KEYS)
+    assert current.contract.defining_source is not None
     assert current.contract.defining_source.id == GENERAL_SOURCE_ID
     pair = candidate_history("spectral-example", base_contract)
     assert register_entry_keys(pair.contract) == set(pair.register.entries) == EXAMPLE_KEYS
     assert {e.status for e in pair.register.entries.values()} == {"provisional"}
+    assert pair.contract.defining_source is not None
     assert pair.contract.defining_source.id == "urn:beliefs:definitions:synthetic-spectral-example"
     assert pair.contract.content_identity == data["synthetic_pair"]["contract_identity"]
     assert register_identity(pair.register) == data["synthetic_pair"]["register_identity"]

@@ -4,6 +4,7 @@ import json
 from dataclasses import replace
 from decimal import Decimal as D
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from candidate_contracts import spectral_profile
@@ -133,7 +134,7 @@ def test_calibrated_model_needs_eligible_basis(profile):
 
 def test_calibrated_model_missing_transfer_refuses(profile):
     spec, claim, records, _ = model_case(profile, calibrated=True)
-    body = estimand_projection(spec.estimand)
+    body = cast(dict[str, Any], estimand_projection(spec.estimand))
     body["assumptions"] = [a for a in body["assumptions"] if a["kind"] != "spectral-checks/calibration-transfer"]
     e = estimand_from_stored(body, profile=profile)
     s = spectral_case(profile)

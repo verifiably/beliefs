@@ -13,7 +13,7 @@ from test_convert import snapshot
 from beliefs import errors, stored
 from beliefs.assessment_payload import Interval
 from beliefs.claim import Referent, build_claim
-from beliefs.estimand import ValueReference, estimand_projection
+from beliefs.estimand import MeasuredBinding, ValueReference, estimand_projection
 from beliefs.procedure import SameAs, procedure_from_stored
 from beliefs.projection import claim_identity
 from beliefs.series.codec import series_ref_from_projection, series_ref_projection
@@ -63,7 +63,8 @@ def test_quantity_origins_and_outputs(profile):
     for functional, domain in ((RHO, "unit-interval"), (EXPONENT, "real")):
         e = quantity(s, functional)
         assert e.form == "quantity" and set(e.bindings) == {"response"}
-        assert e.bindings["response"].series == s.series
+        response = e.bindings["response"]
+        assert isinstance(response, MeasuredBinding) and response.series == s.series
         assert e.outputs["estimate"].typing == "dimensionless"
         assert e.outputs["estimate"].domain == domain
         assert e.reference == ValueReference(D(0))
@@ -105,7 +106,9 @@ def test_crossed_valid_role_and_series_is_an_owned_gap(profile):
     crossed = replace(a, claim=crossed_claim)
     e = quantity(crossed)
     assert e.claim == claim_identity(crossed_claim)
-    assert e.bindings["response"].series.dataset == a.series.dataset != b.series.dataset
+    response = e.bindings["response"]
+    assert isinstance(response, MeasuredBinding) and response.series is not None
+    assert response.series.dataset == a.series.dataset != b.series.dataset
 
 
 @pytest.mark.parametrize("damage", ["channel", "coordinates", "index", "absolute", "irregular"])
@@ -172,7 +175,7 @@ def test_bound_limited_status_is_not_coverage(profile):
     source = json.loads(RESULTS.read_text())["bound_limited"]
     assert source["exponent_identified"] is False
     spec = freeze_quantity(s, quantity(s, EXPONENT))
-    interval = Interval(*(D(v) for v in source["exponent_interval"]), D("0.95"))
+    interval = Interval(D(source["exponent_interval"][0]), D(source["exponent_interval"][1]), D("0.95"))
     value = fixture_value(spec, estimate=D(source["exponent"]), uncertainty={"estimate": interval})
     assert value.estimates["estimate"] == D(source["exponent"])
     assert value.outcome == "inconclusive"  # Payload accepts the number; status is not enforced.
@@ -236,7 +239,20 @@ def test_selection_changes_view_and_claim(profile):
         form="polar",
         layer="statistical",
     )
-    changed = replace(s, series=selected, claim=claim)
+    procedure = procedure_from_stored(s.case.records.nodes[s.estimator])
+    estimator = stored.procedure_node(
+        replace(
+            procedure,
+            parameters={
+                **procedure.parameters,
+                "view": selected.dataset,
+                "spacing_seconds": "1/50",
+                "band_hz": "[5,10]",
+            },
+        )
+    )
+    s.case.records.nodes[estimator.id] = estimator
+    changed = replace(s, series=selected, claim=claim, estimator=estimator.id)
     a, b = freeze_quantity(s, quantity(s)), freeze_quantity(changed, quantity(changed))
     assert claim_identity(claim) != claim_identity(s.claim)
     assert a.identity != b.identity

@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from fractions import Fraction as F
+from typing import Any, cast
 
 import pytest
 from candidate_contracts import spectral_profile
@@ -60,17 +61,21 @@ def test_two_descriptors_share_one_sort(profile):
     )
     assert a.series != b_ref
     assert claim_identity(a.claim) != claim_identity(b_claim)
-    assert a.claim.roles["series"].sort == b_claim.roles["series"].sort == "general/series-view"
+    left_role, right_role = a.claim.roles["series"], b_claim.roles["series"]
+    assert isinstance(left_role, Referent) and isinstance(right_role, Referent)
+    assert left_role.sort == right_role.sort == "general/series-view"
     assert len({row.ref.dataset for row in read(a).graph}) == 3
     snapshot = build_snapshot(
         readable={}, kinds={"dataset": frozenset(k for k in a.case.records.nodes if k.startswith("dataset:"))}
     )
-    assert decode_claim(WireClaim(**project_claim(a.claim)), profile=profile, snapshot=snapshot)
+    wire = WireClaim(**cast(dict[str, Any], project_claim(a.claim)))
+    _, receipt = decode_claim(wire, profile=profile, snapshot=snapshot)
+    assert receipt.outcomes["role:series"] is TermOutcome.MEMBER
     absent = build_snapshot(readable={}, kinds={"dataset": frozenset()})
     with pytest.raises(errors.UnboundReferent):
-        decode_claim(WireClaim(**project_claim(a.claim)), profile=profile, snapshot=absent)
+        decode_claim(wire, profile=profile, snapshot=absent)
     unknown = build_snapshot(readable={})
-    decoded = decode_claim(WireClaim(**project_claim(a.claim)), profile=profile, snapshot=unknown)
+    decoded = decode_claim(wire, profile=profile, snapshot=unknown)
     assert decoded[1].outcomes["role:series"] is TermOutcome.NOT_CONSULTED
     with pytest.raises(errors.IdentifierClassMismatch):
         build_claim(
@@ -89,7 +94,9 @@ def test_axis_arithmetic(profile):
     assert checked.values == (F(1), F(2), F(1))
     assert checked.spacing_seconds == F(1, 100)
     assert checked.rate_hz == 100
-    assert checked.coordinates[-1] - checked.coordinates[0] == F(1, 50)
+    low, high = checked.coordinates[0], checked.coordinates[-1]
+    assert isinstance(low, F) and isinstance(high, F)
+    assert high - low == F(1, 50)
     hours = spectral_case(profile, axis_unit="si-brochure/hour", spacing="1")
     seconds = spectral_case(profile, spacing="3600")
     assert read(hours).spacing_seconds == read(seconds).spacing_seconds == F(3600)
@@ -327,6 +334,7 @@ def test_clock_mapping_refusals(profile, damage):
     with pytest.raises(error) as caught:
         read(s, ref)
     if error is SeriesRefused:
+        assert isinstance(caught.value, SeriesRefused)
         expected = {
             "implementation": "requires a held procedure with Implementation",
             "origin": "requires a clock-bearing origin",

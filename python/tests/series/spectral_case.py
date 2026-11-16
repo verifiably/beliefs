@@ -145,7 +145,7 @@ def build_quantity(case: SpectralCase, *, functional: str, reference: ValueRefer
         functional=functional,
         bindings={"response": MeasuredBinding("series", None, case.measure, None, None, case.series)},
         outputs={"estimate": OutputSpec("dimensionless", domain)},
-        reference=reference,
+        reference=reference,  # pyright: ignore[reportArgumentType] — None deliberately reaches the public refusal.
         control=Control("general/observational", (), "general/single-record-summary", "general/explicit-series-view"),
         uncertainty="interval",
         assumptions=(),

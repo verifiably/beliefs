@@ -66,7 +66,10 @@ function profile(joint: boolean, omitTime = false) {
 function parts(c: Document) {
   const ref = (r: Document) => new Referent(r.sort, r.term);
   return {
-    ...c,
+    operator: c.operator,
+    form: c.form,
+    polarity: c.polarity,
+    layer: c.layer,
     roles: new Map(
       Object.entries(c.roles).map(([k, v]) => [
         k,
