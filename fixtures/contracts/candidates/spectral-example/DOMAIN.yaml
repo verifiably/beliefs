@@ -1,0 +1,28 @@
+# UNSHIPPED CANDIDATE (beliefs-f484a7). Test apparatus, no scientific admission.
+contract: spectral-example
+version: 1
+lineage: genesis
+defining_source: {id: 'urn:beliefs:definitions:synthetic-spectral-example'}
+sorts: {}
+dimensions: {}
+templates:
+  has-spectral-summary:
+    definition: "One role series; a declared spectral procedure supplies a summary of the selected finite record."
+    roles: {series: {arity: one}}
+    sign_apt: false
+    layers: [statistical]
+    forms: [polar]
+quantity_kinds:
+  synthetic-amplitude:
+    definition: "The numerical level authored by this fixture's finite synthetic signal procedure."
+    dimension: construct
+measurements:
+  general/series-view: [synthetic-amplitude]
+instantiations:
+  selected-series-summary:
+    template: has-spectral-summary
+    roles: {series: [general/series-view]}
+estimands:
+  instantiation:selected-series-summary:
+    forms: [quantity, law-parameters]
+    conditioning_sorts: []

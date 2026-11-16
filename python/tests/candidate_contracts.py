@@ -13,7 +13,7 @@ from beliefs.contract.base import BaseContract
 from beliefs.contract.document import load_document
 from beliefs.contract.domain import DomainContract, parse_domain_contract
 from beliefs.contract.shipped import ShippedDomainRevision, load_domain_history
-from beliefs.profile import shipped_assumptions_register, shipped_domain_contract
+from beliefs.profile import ProfileSpec, shipped_assumptions_register, shipped_domain_contract
 from beliefs.register import AssumptionsRegister, register_from_projection, register_identity, register_projection
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -56,23 +56,27 @@ def with_rows(
     return result
 
 
-def general_successor_document(base: BaseContract) -> tuple[dict[str, Any], DomainContract]:
+def general_successor_document(
+    base: BaseContract, *, fragments=("general-event-locked",)
+) -> tuple[dict[str, Any], DomainContract]:
     predecessor = shipped_domain_contract("general")
     path = ROOT / "domains/general/DOMAIN.yaml"
     document = cast(dict[str, Any], load_document(path, source=str(path)))
-    return with_rows(
-        document, predecessor, fragment("general-event-locked")["rows"], defining_source={"id": GENERAL_SOURCE_ID}
-    ), predecessor
+    for name in fragments:
+        document = with_rows(document, predecessor, fragment(name)["rows"], defining_source={"id": GENERAL_SOURCE_ID})
+    return document, predecessor
 
 
-def general_successor_history(base: BaseContract) -> tuple[ShippedDomainRevision, ...]:
-    document, predecessor = general_successor_document(base)
+def general_successor_history(
+    base: BaseContract, *, fragments=("general-event-locked",)
+) -> tuple[ShippedDomainRevision, ...]:
+    document, predecessor = general_successor_document(base, fragments=fragments)
     contract = parse_domain_contract(document, source="<candidate general>", base=base, predecessor=predecessor)
     previous = shipped_assumptions_register("general")
     entries = register_from_projection(
         {
             "describes": f"general:{contract.content_identity}",
-            "entries": fragment("general-event-locked")["register_entries"],
+            "entries": {key: value for name in fragments for key, value in fragment(name)["register_entries"].items()},
         },
         source="<candidate general register>",
     ).entries
@@ -121,4 +125,25 @@ def candidate_profile(base, *, omit=(), extra=()):
         genesis, successor = time_successor(base)
         domains.append(genesis if "speed" in omit else successor)
     domains.extend(candidate_history(name, base).contract for name in STATIC if name not in omit)
+    return compile_profile(base, [*domains, *extra])
+
+
+def spectral_profile(
+    base: BaseContract, *, joint: bool = False, omit: tuple[str, ...] = (), extra: tuple[DomainContract, ...] = ()
+) -> ProfileSpec:
+    from beliefs.profile import compile_profile
+
+    names = ("general-event-locked", "general-spectral") if joint else ("general-spectral",)
+    active = tuple(name for name in names if name not in omit)
+    general = (
+        general_successor_history(base, fragments=active)[-1].contract if active else shipped_domain_contract("general")
+    )
+    domains = [general]
+    if "si-brochure" not in omit:
+        domains.append(
+            time_successor(base)[0 if "speed" in omit else 1] if joint else shipped_domain_contract("si-brochure")
+        )
+    for name in (*STATIC, "spectral-example") if joint else ("spectral-example",):
+        if name not in omit:
+            domains.append(candidate_history(name, base).contract)
     return compile_profile(base, [*domains, *extra])

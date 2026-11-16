@@ -1,0 +1,35 @@
+{
+  "describes": "spectral-example:39f13b4c1d7d1ea60248d0660998903c9c748cea209c852a58c39e0c0c89c714",
+  "entries": {
+    "estimand:instantiation:spectral-example/selected-series-summary": {
+      "collapses": "Quantity and law-parameters forms share this synthetic role; no conditioning.",
+      "licenses": "Two separate single-output quantity targets and a law refusal probe.",
+      "not_established": "Faithful joint law support without measured independent coordinates.",
+      "status": "provisional"
+    },
+    "instantiation:spectral-example/selected-series-summary": {
+      "collapses": "The synthetic execution template is admitted on general/series-view.",
+      "licenses": "One role naming a recorded view.",
+      "not_established": "A physical bearer, descriptive claim or calibrated method.",
+      "status": "provisional"
+    },
+    "measurement:general/series-view": {
+      "collapses": "This synthetic amplitude is admitted on the recorded view sort.",
+      "licenses": "Typing the fixture measurement chain.",
+      "not_established": "Extraction honesty, physical interpretation or procedure validity.",
+      "status": "provisional"
+    },
+    "quantity-kind:spectral-example/synthetic-amplitude": {
+      "collapses": "Authored numerical levels of one finite synthetic procedure.",
+      "licenses": "Construct scale with a held authority and no unit.",
+      "not_established": "Water level, voltage, power density or a physical observable.",
+      "status": "provisional"
+    },
+    "template:spectral-example/has-spectral-summary": {
+      "collapses": "A finite procedure execution is represented as a sign-inapt statistical polar claim.",
+      "licenses": "Fixture scaffolding for numerical targets on one series.",
+      "not_established": "A falsifiable descriptive scientific claim, oscillator or power-law existence; retire under beliefs-226df6.",
+      "status": "provisional"
+    }
+  }
+}

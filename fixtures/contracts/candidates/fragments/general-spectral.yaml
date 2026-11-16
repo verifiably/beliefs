@@ -1,0 +1,71 @@
+# UNSHIPPED CANDIDATE (beliefs-f484a7). Names/source reserve nothing; not admitted or packaged.
+extends: general
+rows:
+  sorts:
+    series-view:
+      binding: {kind: world-kind, world_kind: dataset}
+  functionals:
+    peak-power-fraction:
+      definition: "Quantity target on one series: positive observed linear spectral power excess over a declared fitted floor, on declared peak support, divided by total observed in-band linear power; denominator must be positive."
+      form: quantity
+      arity: one
+      response_axis: regular-elapsed
+      response_transformation: fixed
+      response_reversal: not-applicable
+      reversal: not-applicable
+      exchange: not-applicable
+      ties: not-applicable
+      increment: not-applicable
+      output: dimensionless
+      domain: unit-interval
+      'null': none
+      parameters: not-applicable
+      uncertainty: none
+    signed-aperiodic-exponent:
+      definition: "Quantity target on one series: the signed exponent -beta of the declared aperiodic model, with its procedure's identification diagnostics."
+      form: quantity
+      arity: one
+      response_axis: regular-elapsed
+      response_transformation: fixed
+      response_reversal: not-applicable
+      reversal: not-applicable
+      exchange: not-applicable
+      ties: not-applicable
+      increment: not-applicable
+      output: dimensionless
+      domain: real
+      'null': none
+      parameters: not-applicable
+      uncertainty: none
+  designs:
+    single-record-summary:
+      definition: "One selected record is the analysis unit. Several outputs or views do not constitute independent samples."
+  selection_mechanisms:
+    explicit-series-view:
+      definition: "Inclusion is the explicit descriptor selection and any held selection procedure, not enrollment, random sampling or a physical population census."
+register_entries:
+  sort:general/series-view:
+    collapses: "A held dataset record designates an immutable selected-series descriptor, collapsing the view to that recorded object."
+    licenses: "Naming that recorded view across datasets through one dataset world-kind sort."
+    not_established: "Physical source identity, a free channel label, held bytes or concordance between the role and bound series; beliefs-327ccd owns concordance."
+    status: provisional
+  functional:general/peak-power-fraction:
+    collapses: "Observed linear power, fitted floor, declared support and band reduce to positive excess area divided by positive total observed in-band area."
+    licenses: "A dimensionless unit-interval quantity of one selected series under a frozen procedure; conservative fixed response coordinates and regular elapsed axis."
+    not_established: "Relative abundance, oscillators, peak detection truth, floor validity, stationarity, invariance under rescaling, rank, logarithm or grid changes, calibration or cross-method synthesis."
+    status: provisional
+  functional:general/signed-aperiodic-exponent:
+    collapses: "The declared aperiodic model reduces to its signed exponent -beta; diagnostics remain separate."
+    licenses: "A dimensionless real quantity under a frozen procedure; conservative fixed response coordinates and regular elapsed axis."
+    not_established: "Identification, interval coverage, equivalence of straight-line and window-aware plateau fits, or invariance under rescaling, rank, logarithm or grid changes."
+    status: provisional
+  design:general/single-record-summary:
+    collapses: "One selected finite record is one analysis unit."
+    licenses: "Recording multiple outputs of that same record without inventing independent samples."
+    not_established: "Stationarity, process representativeness, ergodicity or independent groups."
+    status: provisional
+  selection-mechanism:general/explicit-series-view:
+    collapses: "Inclusion is the descriptor's selected indices and any held selection procedure."
+    licenses: "Preserving explicit selected-sample identity."
+    not_established: "Selection honesty, random sampling, enrollment or a physical population census."
+    status: provisional
