@@ -6,27 +6,169 @@
   "source_mapping": {
     "spectral_parameterization": "pilot/nested/instruments.py:340-364; signed exponent=-fit.beta; interval=[-fit.beta_hi,-fit.beta_lo]",
     "outer_result": "pilot/nested/instruments.py:36-45,412-424,480-486; value=rho, aux=other spectral fields",
-    "status": "_ok, _na, _fail keep applicability, execution and interpretation distinct"
+    "status": "_ok, _na, _fail keep applicability, execution and interpretation distinct",
+    "coupling": "pilot/nested/instruments.py:130-142,154-191,465-470; surrogate label is declared context, not a fitter result"
   },
   "arithmetic": {
-    "frequency_cycles_per_sample": ["0.1", "0.15", "0.2"],
-    "observed_linear_power": ["1", "3", "1"],
-    "floor_linear_power": ["1", "1", "1"],
-    "peak_support": [false, true, false],
+    "frequency_cycles_per_sample": [
+      "0.1",
+      "0.15",
+      "0.2"
+    ],
+    "observed_linear_power": [
+      "1",
+      "3",
+      "1"
+    ],
+    "floor_linear_power": [
+      "1",
+      "1",
+      "1"
+    ],
+    "peak_support": [
+      false,
+      true,
+      false
+    ],
     "beta": "1.5",
-    "beta_interval": ["1", "2"],
+    "beta_interval": [
+      "1",
+      "2"
+    ],
     "spacing_seconds": "0.01",
-    "band_cycles_per_sample": ["0.1", "0.2"]
+    "band_cycles_per_sample": [
+      "0.1",
+      "0.2"
+    ]
   },
   "raw_spectral_parameterization": {
-    "rho": "0.5", "exponent": "-1.5", "log10_A": "0", "log10_C": "-2",
-    "exponent_interval": ["-2", "-1"], "exponent_identified": true,
-    "powerlaw_decades": "1", "low_share": "0.1", "low_support": 1,
-    "low_bins": [1], "resid_curv": "0.01", "peaks": [], "n_bins": 3,
-    "support_bins": 1, "mad": "0.1", "rmse_log10": "0.1", "n_source": 3,
-    "nperseg": 3, "aperiodic_model": "window-aware-plateau"
+    "rho": "0.5",
+    "exponent": "-1.5",
+    "log10_A": "0",
+    "log10_C": "-2",
+    "exponent_interval": [
+      "-2",
+      "-1"
+    ],
+    "exponent_identified": true,
+    "powerlaw_decades": "1",
+    "low_share": "0.1",
+    "low_support": 1,
+    "low_bins": [
+      1
+    ],
+    "resid_curv": "0.01",
+    "peaks": [],
+    "n_bins": 3,
+    "support_bins": 1,
+    "mad": "0.1",
+    "rmse_log10": "0.1",
+    "n_source": 3,
+    "nperseg": 3,
+    "aperiodic_model": "welch-expected power law plus white plateau"
   },
-  "bound_limited": {"exponent": "-1.5", "exponent_interval": ["-6", "2"], "exponent_identified": false},
+  "bound_limited": {
+    "exponent": "-1.5",
+    "exponent_interval": [
+      "-6",
+      "2"
+    ],
+    "exponent_identified": false
+  },
   "rho_uncertainty": null,
-  "uncertainty_note": "Absent means not estimated; interval tag is a schema accommodation, not calibrated coverage."
+  "uncertainty_note": "Absent means not estimated; interval tag is a schema accommodation, not calibrated coverage.",
+  "instrument_results": {
+    "executed": {
+      "name": "spectral_rho",
+      "value": "0.5",
+      "aux": {
+        "exponent": "-1.5",
+        "log10_A": "0",
+        "log10_C": "-2",
+        "exponent_interval": [
+          "-2",
+          "-1"
+        ],
+        "exponent_identified": true,
+        "powerlaw_decades": "1",
+        "low_share": "0.1",
+        "low_support": 1,
+        "low_bins": [
+          1
+        ],
+        "resid_curv": "0.01",
+        "peaks": [],
+        "n_bins": 3,
+        "support_bins": 1,
+        "mad": "0.1",
+        "rmse_log10": "0.1",
+        "n_source": 3,
+        "nperseg": 3,
+        "aperiodic_model": "welch-expected power law plus white plateau"
+      },
+      "applicable": true,
+      "applicability_reason": "ok",
+      "executed": true,
+      "execution_reason": "ok",
+      "interpretation": "descriptive"
+    },
+    "inapplicable": {
+      "name": "spectral_rho",
+      "value": null,
+      "aux": {},
+      "applicable": false,
+      "applicability_reason": "too-short-after-margin",
+      "executed": false,
+      "execution_reason": "not-run",
+      "interpretation": "descriptive"
+    },
+    "failed": {
+      "name": "spectral_rho",
+      "value": null,
+      "aux": {},
+      "applicable": true,
+      "applicability_reason": "ok",
+      "executed": false,
+      "execution_reason": "ValueError",
+      "interpretation": "descriptive"
+    }
+  },
+  "coupling": {
+    "surrogate": "epoch-shuffle",
+    "pac_mi": {
+      "name": "pac_mi",
+      "value": "0.02",
+      "aux": {
+        "preferred_phase": "0.1",
+        "comodulogram": {
+          "1x1": "0.02"
+        },
+        "mi_max9": "0.02",
+        "n_cells": 1,
+        "margin": 1,
+        "window_samples": 98
+      },
+      "applicable": true,
+      "applicability_reason": "ok",
+      "executed": true,
+      "execution_reason": "ok",
+      "interpretation": "descriptive"
+    },
+    "waveform_shape": {
+      "name": "waveform_shape",
+      "value": "0.1",
+      "aux": {
+        "rise_decay_asymmetry": "0.1",
+        "peak_trough_sharpness": "0.2",
+        "n_cycles": 8
+      },
+      "applicable": true,
+      "applicability_reason": "ok",
+      "executed": true,
+      "execution_reason": "ok",
+      "interpretation": "descriptive"
+    },
+    "license": "Illustrative alignment under a named surrogate; no causal edge, independent oscillators or absence claim.",
+    "coordinate_admission": "No faithful phase/amplitude binding is admitted by this candidate."
+  }
 }
