@@ -117,12 +117,36 @@ Scope references must already be resolved: if
 repeats facet and stamp checks and refuses governed kinds without facets; it does
 not repeat the held-dependency checks, since records stage in id order.
 
+For `source-assertion`, `add`, `import_bundle`, `move` and replacement preflight
+run document validation, canonical decode (`stored.source_assertion_value`) and
+`source_assertion_refusal` before eligibility checks. They raise
+`SourceAssertionRefused` with `code` set to `source-assertion-malformed`
+(malformed facet, non-NFC text, bad id or missing/doubled `anchored_in` edge),
+`source-assertion-edge-mismatch` (any edge set other than the single
+`anchored_in` edge, `assesses` included) or `source-assertion-ref-unresolved`
+(`source` or `bears_on.proposition` absent or resolving to another kind in the
+citation view, including read mounts or the same import bundle). On `add`,
+`recorded_by` must equal the writer's bound actor (`ActorMismatch` otherwise);
+`import_bundle`, `move` and `consolidate` preserve `recorded_by` under
+provenance. Publication staging runs the record-local `SourceAssertionRefused`
+checks (`source-assertion-malformed` and `source-assertion-edge-mismatch`)
+without resolving references. `relocation.consolidate` validates both
+`source-assertion` replicas whole (`SourceAssertionRefused`), refuses differing
+`(read, bears_on)` judgments or `anchored_in` targets that do not resolve to the
+same live `source` in `keep`'s citation view with
+`SourceAssertionReplicasDisagree` (a subclass of `RelocationRefused`), and keeps
+the survivor's `recorded_by` and `anchored_in` edge while uniting
+`deprecated_ids`.
+
 A kind with its own door is refused through `add`. Holdings observations, act
-reports and publication records have no ordinary door at all. `delete` removes one
-record's file. It takes the lock, checks the pins and resolves its target first,
-then requires the permit on the target's kind, then refuses act reports, holdings
-observations, coordination kinds, exposure events and reservation assignments
-(`DeletionKindExcluded`).
+reports and publication records have no ordinary door at all. `revise` operates
+only on propositions, datasets, exposure events and reservation assignments,
+refusing `source-assertion` and other immutable kinds with `ReviseKindImmutable`.
+`delete` removes one record's file and logs the removal in the root's log
+(available for `source-assertion`). It takes the lock, checks the pins and
+resolves its target first, then requires the permit on the target's kind, then
+refuses act reports, holdings observations, coordination kinds, exposure events
+and reservation assignments (`DeletionKindExcluded`).
 
 ## Writer sessions
 
@@ -471,9 +495,11 @@ the function's signature for its optional arguments. It runs these steps:
 2. Resolve the view and evaluate it at the current [epoch](glossary.md#epoch).
    The publish is refused if the selection is incomplete (`selection-incomplete`),
    if it is empty (`empty-selection`), or if a selected record depends on one left
-   out (`closure-incomplete`). Closure follows world relations, and a selected
-   reservation assignment's `supersedes` edge as well, so a published successor
-   carries its predecessor chain; other kinds' `supersedes` edges stay outside it.
+   out (`closure-incomplete`). Closure follows world relations, a selected
+   reservation assignment's `supersedes` edge (so a published successor carries
+   its predecessor chain; other kinds' `supersedes` edges stay outside it), and
+   a selected source assertion's `anchored_in` target and `bears_on.proposition`
+   reference.
 3. Append the publish intent. Then write `selection.v1` and `request.v1`
    create-only under `<operations_root>/publish/<token>/`.
 4. Stage the selected records, together with one `publication` marker, in a fresh
@@ -495,9 +521,14 @@ main ones are:
 - `PermitExceeded`: the permit does not cover the act;
 - `ContractMismatch`: the manifest pins disagree with the profile;
 - `WriteRefused` and its subclasses (`ValidationRefused`, `EligibilityUnmet`,
-  `CollisionRefused`, `RecordAlreadyMinted`, `ActorMismatch`, and `ReservationRefused`,
-  whose `code` names the exposure or reservation check that failed; see
-  [records.md](records.md#write-rules)): the record fails a
+  `CollisionRefused`, `RecordAlreadyMinted`, `ActorMismatch`,
+  `ReviseKindImmutable`, `SourceAssertionRefused` whose `code` is
+  `source-assertion-malformed`, `source-assertion-edge-mismatch` or
+  `source-assertion-ref-unresolved`, `ReservationRefused` whose `code` names the
+  exposure or reservation check that failed, and `RelocationRefused` including
+  `SourceAssertionReplicasDisagree`; see
+  [records.md](records.md#source-assertions) and
+  [records.md](records.md#write-rules)): the record or relocation fails a
   check;
 - `SignatureRefused`: a relation breaks an enforced signature;
 - `SessionRefused`: a session cannot open; its subclass `ChainClaimed` names a

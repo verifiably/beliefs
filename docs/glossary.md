@@ -270,9 +270,12 @@ the beliefs documents use, each linking the document that specifies or explains 
   role categories. ([contracts](contracts.md#domain-contracts))
 - <a id="source"></a>**Source** — A record of a published work, addressed by its first
   accepted external identifier. ([records](records.md#datasets-sources-and-holdings))
-- <a id="source-assertion"></a>**Source assertion** — A record of what a source (a
-  paper or other work) asserts. It has no route to belief.
-  ([records](records.md#record-kinds))
+- <a id="source-assertion"></a>**Source assertion** — A content-addressed record
+  (`stored.source_assertion_node` / `stored.source_assertion_value`) of one
+  reader's attributed reading (`asserts`, `denies` or `hypothesizes`) of a
+  source's stance on a proposition, carrying one `anchored_in` edge to that
+  `source`. It is inert in evaluation and has no route to belief.
+  ([records](records.md#source-assertions))
 - <a id="standing"></a>**Standing** — Whether a record is active, computed from the
   retractions that target it. ([guide](guide.md#worlds-identity-and-change))
 - <a id="store-object"></a>**Store object** — A file a store keeps under its own

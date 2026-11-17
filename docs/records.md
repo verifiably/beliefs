@@ -64,15 +64,13 @@ The base contract names a reader for each kernel facet, but that name is not
 resolved or called: the code checks each facet where it is used. At the write
 boundary, `add` checks that a record's kind and facets are in the compiled profile,
 checks every schema-shaped facet (`empirical-observation` and domain facets)
-against its fields, and decodes the `display`, `analysis-spec`, `verification`,
-`dataset`, `source`, `composite`, `run-closure`, `exposure-event`,
+against its fields, and decodes the `display`, `source-assertion`, `analysis-spec`,
+`verification`, `dataset`, `source`, `composite`, `run-closure`, `exposure-event`,
 `reservation-assignment`, `assumptions-register`, `procedure`, `referent-mapping`,
 `proxy-model` and `classification-rule` facets. `retract` and
 `attest_coreference` decode their own records, and import decodes act reports. A
 proposition's claim, an assessment's facet, a `lineage-basis` and a run without a
-closure are checked only when read. A `source-assertion` record must carry its
-facet, as the profile requires, but the facet's payload is never checked: its
-declared reader does not exist.
+closure are checked only when read.
 
 The prose kinds, `interpretation`, `discussion` and `story`, carry only an optional
 `display` facet. They have no identity domain and never enter a belief's inputs.
@@ -117,6 +115,9 @@ The write boundary enforces these signatures:
   report and an assessment);
 - a `retracts` node target must be an assessment, retraction, verification, procedure,
   referent mapping, proxy model, classification rule or assumptions register;
+- a source assertion carries one `anchored_in` edge from itself to its `source`,
+  which must resolve to a `source`, and no other edges (see [Source
+  assertions](#source-assertions));
 - the edges of an exposure event or a reservation assignment must equal those its
   facet names, and each one's target must resolve to a record of the kind the table
   gives (see [Exposure events and reservation
@@ -170,6 +171,10 @@ Some records are content-addressed: their id is derived from their content.
   `science.source-address.v1`, where the scheme is its first accepted external
   identifier in the order `doi`, `pmid`, `isbn`, `accession`. There is no fallback
   to a title or year.
+- A source assertion's id is `source-assertion:` and the digest of
+  `{"read": facet["read"], "bears_on": facet["bears_on"]}` under
+  `science.source-assertion.v1`. It excludes the source address, `recorded_by`,
+  `title` and `body`.
 - An exposure event's id is `exposure-event:` and the digest of its facet under
   `science.exposure-event.v1`, and a reservation assignment's is
   `reservation-assignment:` and the digest of its facet under
@@ -774,6 +779,99 @@ whose subject is the set's store-tree location and whose `set-summary` outcome h
 `origin`, `fetched_by`, `requests`, `fetched`, `failed`, `abandoned` (non-negative integers with
 `requests` their sum), `traversal_complete` (a boolean), `log` and `tree`. It is the one act-report
 outcome with integer and boolean fields; the stored validator checks each field's type.
+
+## Source assertions
+
+A `source-assertion` records one reader's attributed reading of one source's
+stance on one proposition. Source assertions are inert in belief evaluation:
+`evaluate`, `evaluate_over`, `claim_view` and `gather` never read them
+(`Records.source_assertions` is unread below), so adding, importing or deleting
+them changes neither a proposition's answer (`Belief`, `NoBelief`, `Refused`)
+nor its `belief_input_digest`.
+
+`beliefs.source_assertion` defines `SourceAssertion`, `Reading`,
+`Representation`, `Span`, `Bearing`, `source_assertion_from_stored`
+(`SourceAssertion.from_stored`) and `source_assertion_refusal`.
+`stored.source_assertion_node(value, *, title, body="")` builds a stamped
+record and `stored.source_assertion_value(node)` (named as the facet's reader in
+the base contract) decodes a stored record, checks its `anchored_in` edge and
+verifies its id.
+
+The `source-assertion` facet has two judgment halves and a recorder field, with
+exact dictionary keys:
+
+- `read`: `{representation, span, extracted_by, attributed_to?}`:
+  - `representation`: `{sha256, media_type, extent}` — `sha256` is 64 lowercase
+    hexadecimal digits, `media_type` is a non-empty string, and `extent` is in
+    the closed set `("full", "abstract")`;
+  - `span`: `{quote, locator}` — both non-empty strings;
+  - `extracted_by`: an actor string matching the write permit's actor grammar;
+  - `attributed_to` (optional): a non-empty string, omitted when absent and
+    never `null`.
+- `bears_on`: `{sign, proposition}`:
+  - `sign`: in the closed set `("asserts", "denies", "hypothesizes")`. `Bearing`
+    refuses any other string (such as `assesses`) with `SignatureRefused` (and
+    non-strings with `MalformedRecord`); stored decoding refuses an out-of-set
+    `sign` as `MalformedRecord`;
+  - `proposition`: a `proposition:<rest>` reference (non-empty after
+    `proposition:`).
+- `recorded_by`: an actor string matching the write permit's actor grammar.
+
+Every text field (`sha256`, `media_type`, `extent`, `quote`, `locator`,
+`extracted_by`, `attributed_to`, `proposition`, `recorded_by`, and the
+`anchored_in` target `source`) must be a non-empty string already in Unicode
+NFC and encodable under `science.identity.v1`. The constructor and stored reader
+never normalize silently; non-NFC text raises `MalformedRecord`.
+
+Every `source-assertion` record carries one `anchored_in` edge
+`(self.id, "anchored_in", self.source)`, where `self.source` is a
+`source:<rest>` reference. The record's id is `source-assertion:<digest>`, the
+`science.identity.v1` digest of `{"read": facet["read"], "bears_on":
+facet["bears_on"]}` under `science.source-assertion.v1`. The digest excludes the
+source address, `recorded_by`, `title` and `body`. Correcting a source's
+external identifier leaves existing assertions byte-unchanged while
+`resolve` follows `deprecated_ids` to the corrected `source`, coreference
+attestations over sources rename no assertion, distinct readers
+(`extracted_by`) or spans give distinct records, and two recorders
+(`recorded_by`) of the same reading produce one address.
+
+**Write boundary, lifecycle and publication.** `source-assertion` enters through
+`add`, `import_bundle`, `move` and `consolidate`. At `add`, `recorded_by` must
+equal the writer's bound actor (`ActorMismatch` otherwise); `import_bundle`,
+`move` and `consolidate` preserve `recorded_by` as written. Before eligibility
+checks on `add`, `import_bundle`, `move` and replacement preflight, the
+boundary decodes the record and enforces `source_assertion_refusal`, raising
+`SourceAssertionRefused` with `code`:
+
+- `source-assertion-malformed`: non-canonical or malformed facet, non-NFC text,
+  bad id, or zero or more than one `anchored_in` edge;
+- `source-assertion-edge-mismatch`: the record's relations differ from its single
+  `anchored_in` edge as a duplicate-free set (including any doubled edge or
+  extra edge such as `assesses`);
+- `source-assertion-ref-unresolved`: `source` or `bears_on.proposition` does not
+  resolve in the citation view (including read mounts or the same import
+  bundle) to a held `source` or `proposition` record.
+
+Publication staging runs the record-local `SourceAssertionRefused` checks
+(`source-assertion-malformed` and `source-assertion-edge-mismatch`) without
+resolving references. Publication closure follows a selected source assertion's
+`anchored_in` target and `bears_on.proposition` reference
+([writes.md](writes.md#publication)). `revise` refuses `source-assertion` with
+`ReviseKindImmutable`, while `delete` removes the record's file and logs the
+removal in the root's log. `consolidate` validates both replicas whole
+(`SourceAssertionRefused`), requires equal `(read, bears_on)` and matching live
+`source` resolution in `keep`'s citation view (`SourceAssertionReplicasDisagree`
+otherwise), and retains the survivor's `recorded_by` and `anchored_in` edge
+while uniting `deprecated_ids`.
+
+**Audit.** `corpus_check` (and both audits) decodes `source-assertion` records
+via `stored.source_assertion_value`, reporting any malformed facet, non-NFC
+text, bad id, or missing/doubled `anchored_in` edge as
+`facet-payload-malformed` without raising. `audit_corpus` and `audit_world` run
+`check_source_assertion` (`source_assertion_refusal`), reporting
+`source-assertion-edge-mismatch` and `source-assertion-ref-unresolved` (both in
+`WORLD_AUDIT_CODES`); a reference held in an absent corpus is skipped as
+unchecked, and the write-time `recorded_by == actor` rule is not repeated.
 
 ## Other world records
 
@@ -1512,6 +1610,14 @@ the outcomes keyed by their position labels (`role:<name>`, `role:<name>[<i>]`,
   scheme in `evidence` or `prior_runs`), whose stored facet is not the canonical
   form of the value it decodes to (for example an empty `evidence` or `bound`
   written out), or whose id does not recompute from the facet (`MalformedRecord`).
+- A source assertion whose facet has missing or unexpected fields, a
+  non-canonical form (such as `attributed_to: null`), non-NFC or
+  non-`science.identity.v1`-encodable text, an `extent` outside
+  `full`/`abstract`, a `sign` outside `asserts`/`denies`/`hypothesizes`, an
+  invalid `sha256`, actor or `source:`/`proposition:` reference, zero or more
+  than one `anchored_in` edge, an `anchored_in` source mismatch, or an id that
+  does not recompute from `read` and `bears_on` (`MalformedRecord`; the `Bearing`
+  constructor raises `SignatureRefused` for an out-of-set string `sign`).
 
 
 ### Standing sources for independence

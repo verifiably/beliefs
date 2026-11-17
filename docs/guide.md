@@ -40,15 +40,18 @@ gives the wider picture.
    code, the environment, the parameters and the outputs are all on the record.
 5. **Only an admitted assessment bears on belief.** Empirical, model and
    calibrated-model assessments have separate standing requirements and counting
-   keys. A paper's statement is recorded as a source assertion and has no direct
-   counting route.
+   keys. A source's statement is recorded as a `source-assertion` — an
+   attributed reading (`asserts`, `denies` or `hypothesizes`) built by
+   `stored.source_assertion_node`, decoded by `stored.source_assertion_value`,
+   and anchored to its `source` via `anchored_in` — and is inert in evaluation,
+   with no route to belief ([records.md](records.md#source-assertions)).
 6. **History is additive.** Supersession and retraction are new records. Every
    change made through beliefs, a deletion included, is entered in the root's
    log, where audit can find it.
 
 ```text
 held dataset ◀──observes── run ◀──produced_by── assessment ──assesses──▶ proposition ──▶ belief
-source ◀──anchored_in── source assertion          (no route to belief)
+source ◀──anchored_in── source assertion          (inert; no route to belief)
 contracts + corpus manifest ──▶ compiled profile, which checks every write above
 ```
 
@@ -275,6 +278,7 @@ successful demonstration certifies independence or biological interpretation.
 | Specs, runs, assessments, verifications | [records.md](records.md#specs-runs-and-assessments), [records.md](records.md#verifications) |
 | Measurement records, aptness and coordinate conversion | [records.md](records.md#measurement-records), [records.md](records.md#coordinate-convertibility) |
 | Datasets, holdings and sources | [records.md](records.md#datasets-sources-and-holdings) |
+| Source assertions | [records.md](records.md#source-assertions) |
 | Belief answers | [records.md](records.md#beliefs) |
 | The TypeScript mirror and parity fixtures | [records.md](records.md#encoding-and-parity) |
 | Contract documents and profiles | [contracts.md](contracts.md#documents), [contracts.md](contracts.md#profiles) |
