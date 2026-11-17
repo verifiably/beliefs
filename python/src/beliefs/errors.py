@@ -1315,6 +1315,16 @@ class ReservationRefused(WriteRefused):
         self.code = code
 
 
+class SourceAssertionRefused(WriteRefused):
+    """A source assertion refused at the write boundary. `code` is one of
+    `source-assertion-malformed`, `source-assertion-edge-mismatch`, or
+    `source-assertion-ref-unresolved`."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(f"{code}: {message}")
+        self.code = code
+
+
 class RecordAlreadyMinted(WriteRefused):
     """The create-path guard: the corpus already holds this `(uid, id)` pair.
 

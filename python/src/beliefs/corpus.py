@@ -136,6 +136,7 @@ from beliefs.errors import (
     SemanticHashStale,
     SignatureRefused,
     SourceAddressDisagreement,
+    SourceAssertionRefused,
     SupersedeIdentityUnchanged,
     UnfreezableSpec,
     ValidationRefused,
@@ -172,6 +173,8 @@ from beliefs.referent_mapping import MAPPING_FACET, MAPPING_KIND, mapping_from_s
 from beliefs.register import ENTRY_KINDS, REGISTER_FACET, REGISTER_KIND, AssumptionsRegister, register_from_stored
 from beliefs.report import OperationIntent
 from beliefs.reservation import (
+    UNREAD,
+    KindOf,
     ReservationAssignment,
     assignment_record_refusal,
     assignment_succession_refusal,
@@ -180,6 +183,7 @@ from beliefs.reservation import (
 from beliefs.restriction import check_held_rule_scope, type_restriction_map
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
+from beliefs.source_assertion import SourceAssertion, source_assertion_refusal
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
 from beliefs.view_query import _world_address, parse_view_query
 
@@ -3141,6 +3145,10 @@ class CorpusWriter:
         self._refuse_family_kinds(node, admitted_kind=node.kind)
         self._refuse_source(node, provenance=True)
         self._refuse_dataset_basis(node)
+        if node.kind == "source-assertion":
+            self._refuse_source_assertion_cited(
+                node, document_validated=False, view=self._citation_view(), provenance=provenance
+            )
         self._refuse_ineligible(node, view=self._citation_view())
         if stored.display_facet_malformed(node):
             raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
@@ -4564,6 +4572,10 @@ class CorpusWriter:
         self._refuse_already_minted(node)
         self._refuse_source(node, provenance=provenance)
         self._refuse_dataset_basis(node)
+        if node.kind == "source-assertion":
+            self._refuse_source_assertion_cited(
+                node, document_validated=document_validated, view=view, provenance=provenance
+            )
         self._refuse_assesses_target_kind(node, view=view)
         self._refuse_ineligible(node, view=view)
         if stored.display_facet_malformed(node):
@@ -4733,6 +4745,8 @@ class CorpusWriter:
             proxy_from_stored(node)
         elif node.kind == RULE_KIND:
             rule_from_stored(node)
+        elif node.kind == "source-assertion":
+            self._check_source_assertion(node, kind_of=lambda _ref: UNREAD)
 
     def _refuse_facets(
         self, node: Node, *, view: ReadView | _ImportView | MountCitations | None = None, provenance: bool = False
@@ -4788,6 +4802,50 @@ class CorpusWriter:
             raise ActorMismatch(
                 f"{node.id}: the event names recorder {value.recorded_by!r}, not the bound {self._authority.actor!r}"
             )
+
+    @staticmethod
+    def _check_source_assertion(node: Node, *, kind_of: KindOf) -> SourceAssertion:
+        """Decode `node` and run `source_assertion_refusal`, translating every refusal into `SourceAssertionRefused`."""
+        try:
+            value = stored.source_assertion_value(node)
+        except MalformedRecord as caught:
+            raise SourceAssertionRefused("source-assertion-malformed", str(caught)) from caught
+        refusal = source_assertion_refusal(value, node.relations, kind_of=kind_of)
+        if refusal is not None:
+            raise SourceAssertionRefused(refusal.code, f"{node.id}: {refusal.detail}")
+        return value
+
+    def _refuse_source_assertion_cited(
+        self,
+        node: Node,
+        *,
+        document_validated: bool,
+        view: ReadView | _ImportView | MountCitations,
+        provenance: bool,
+    ) -> None:
+        """Run document validation, record-local checks, and resolution before eligibility on source assertions."""
+        if stored.display_facet_malformed(node):
+            raise ValidationRefused(f"{node.id}: refused by document validation: malformed display facet")
+        if not document_validated:
+            self._refuse_invalid(node)
+        self._refuse_facet_shapes(node)
+        self._refuse_source_assertion(node, view=view, provenance=provenance)
+
+    def _refuse_source_assertion(
+        self, node: Node, *, view: ReadView | _ImportView | MountCitations, provenance: bool
+    ) -> None:
+        """A source assertion's one edge is `anchored_in` to its `source`, both `source` and `proposition`
+        resolve by kind, and the recorder is the bound actor (kept as written under provenance)."""
+        with self._citing():
+            value = self._check_source_assertion(
+                node,
+                kind_of=lambda ref: view.get(ref).kind if view.holds(ref) else None,
+            )
+            if not provenance and value.recorded_by != self._authority.actor:
+                raise ActorMismatch(
+                    f"{node.id}: the source assertion names recorder {value.recorded_by!r}, not the bound "
+                    f"{self._authority.actor!r}"
+                )
 
     @staticmethod
     def _refuse_assignment_successor_on_add(node: Node) -> None:

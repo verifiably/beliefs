@@ -103,6 +103,7 @@ from beliefs.reservation import (
     reservation_assignment_from_facet,
 )
 from beliefs.sealed import sealed
+from beliefs.source_assertion import SourceAssertion, source_assertion_from_stored
 from beliefs.spec import FrozenSpec, frozen_projection, restore
 from beliefs.target import AssessedTarget, Standing, target_from_projection
 from beliefs.verification import Verification
@@ -146,6 +147,7 @@ __all__ = [
     "RUN_FACET",
     "SEMANTIC_DOMAINS",
     "SEMANTIC_IDENTITY_FACET",
+    "SOURCE_ASSERTION_FACET",
     "SOURCE_FACET",
     "SUCCEEDED_BY",
     "SUPERSEDES",
@@ -200,6 +202,8 @@ __all__ = [
     "semantic_hash_missing",
     "semantic_projection",
     "source_address_of",
+    "source_assertion_node",
+    "source_assertion_value",
     "source_basis",
     "stamp_semantic_identity",
     "stored_semantic_hash",
@@ -217,6 +221,7 @@ __all__ = [
 SEMANTIC_IDENTITY_FACET = "semantic-identity"
 EMPIRICAL_OBSERVATION_FACET = "empirical-observation"
 PROPOSITION_FACET = "proposition"
+SOURCE_ASSERTION_FACET = "source-assertion"
 ANALYSIS_SPEC_FACET = "analysis-spec"
 ASSESSMENT_FACET = "assessment"
 COMPOSITE_FACET = "composite"
@@ -1677,6 +1682,20 @@ def coreference_attestation_node(
     return _node("coreference-attestation", slug, title, {COREFERENCE_ATTESTATION_FACET: facet}, ())
 
 
+def source_assertion_value(node: Node) -> SourceAssertion:
+    """Decode a stored `source-assertion` node and check its id and anchor edge."""
+    facet = _facet(node, SOURCE_ASSERTION_FACET)
+    if facet is None:
+        raise MalformedRecord(f"{node.id}: a source assertion carries a {SOURCE_ASSERTION_FACET!r} facet")
+    try:
+        value = source_assertion_from_stored(facet, node.relations)
+    except MalformedRecord as caught:
+        raise MalformedRecord(f"{node.id}: {caught}") from caught
+    if node.id != value.id:
+        raise MalformedRecord(f"{node.id}: the id does not recompute from the facet; its address is {value.id}")
+    return value
+
+
 def exposure_event_value(node: Node) -> ExposureEvent:
     facet = _facet(node, EXPOSURE_EVENT_FACET)
     if facet is None:
@@ -1729,6 +1748,20 @@ def reservation_assignment_relations(value: ReservationAssignment) -> list[Relat
     if value.applies:
         relations.append(Relation(source=source, predicate=APPLIES, target=value.applies))
     return relations
+
+
+def source_assertion_node(value: SourceAssertion, *, title: str, body: str = "") -> Node:
+    """Build a stamped `source-assertion` record from its typed value."""
+    if type(value) is not SourceAssertion:
+        raise MalformedRecord("source_assertion_node writes a SourceAssertion and nothing else")
+    return _node(
+        "source-assertion",
+        value.identity(),
+        title,
+        {SOURCE_ASSERTION_FACET: value.facet()},
+        value.relations(),
+        body=body,
+    )
 
 
 def exposure_event_node(value: ExposureEvent, *, title: str, body: str = "") -> Node:
