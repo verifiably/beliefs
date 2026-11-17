@@ -1511,7 +1511,19 @@ assessment's recorded intrinsic failure may stand beside a computed scope failur
 
 `evaluation.claim_view` captures standing, records and acceptance once, evaluates
 all sorted keys separately and reports conversion and synthesis for each pair.
-Pair lookups use the same capture but stay outside the individual belief closures.
+Pair lookups use the same capture but stay outside the individual belief closures:
+each pair owns its own reader, so no pair's reads reach a keyed closure or another
+pair. Every scope comparison in convertibility and synthesis (observable proxies
+consulted as candidates, crosswalk validity and target applicability) is the pair
+snapshot's checked `ComparabilitySnapshot.compare_scope`; a selected scope rule that
+is missing, retracted or otherwise ineligible makes the synthesis
+`TargetNotConvertible("dependency ineligible")`, never an unknown success or a
+waived assumption. Each started pair carries `PairVerdict.evidence`, a transient
+`PairEvidence` holding its own reads, eligibility states, typed bodies, both
+compared assessments, scoped retractions, read trace and consulted pins (including
+pair-only relation owners and selected rule terms); `None` means the comparison
+never started. A pair whose consulted context is unpinned or disagrees is reported
+`TargetUnknown` with no permission.
 An ambiguous direct crosswalk or malformed comparison proxy yields an unknown
 pair verdict while preserving the keyed answers. A malformed selected verification
 refuses only its key; a sibling's verification or its retraction never enters that

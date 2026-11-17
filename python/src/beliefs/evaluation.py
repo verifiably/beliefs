@@ -60,7 +60,7 @@ from beliefs.belief import (
 from beliefs.claim import Claim
 from beliefs.closure import RETRACTION_OVERTURNED, RETRACTION_UPHELD, Closure, RetractionEnumeration, build_closure
 from beliefs.comparability import ComparabilitySnapshot
-from beliefs.consulted import consulted_contracts
+from beliefs.consulted import CorpusPins, consulted_contracts
 from beliefs.corpus import ReadView, _absence_of, retraction_standing, run_value
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.decode import claim_from_stored
@@ -671,8 +671,8 @@ def _gather(
 
     view = discovery.view
     world, local_corpus = discovery.world, discovery.local_corpus
-    enumeration, facets = discovery.enumeration, discovery.facets
-    subtracted, retired, history = discovery.subtracted, discovery.retired, discovery.history
+    enumeration = discovery.enumeration
+    subtracted, retired = discovery.subtracted, discovery.retired
     if discovery.absent:
         return replace(
             _absent_inputs(proposition, context, enumeration, discovery.absent, (), binding, world),
@@ -793,23 +793,7 @@ def _gather(
     visited.update(dependencies.closure.reads)
     verification_ids.update(reader.verification_ids)
     # --- the closure's enumeration: this proposition's inputs, transitively
-    scope = visited | verification_ids | set(snapshot.bases)
-    taken: set[str] = set()
-    grew = True
-    while grew:
-        grew = False
-        for ref, facet in facets.items():
-            if ref in taken:
-                continue
-            target = cast(Mapping[str, str], facet["target"])
-            target_key = None if target["arm"] == "snapshot" else target["resolved"]  # a snapshot arm is never in scope
-            if target_key is not None and (target_key in scope or target_key in taken):
-                taken.add(ref)
-                grew = True
-    scoped = RetractionEnumeration(
-        found=tuple(sorted({*((ref, recorded) for ref, recorded in enumeration.found if ref in taken), *history})),
-        coverage=enumeration.coverage,
-    )
+    scoped = _retractions_in_scope(discovery, visited | verification_ids | set(snapshot.bases))
     trace.extend(("retraction", ref) for ref, _recorded in scoped.found)
     selection.finish()
 
@@ -862,6 +846,29 @@ def _gather(
         absent=tuple(sorted(set(absent))),
         node_corpus=MappingProxyType(dict(node_corpus)),
         acceptance=selection.report,
+    )
+
+
+def _retractions_in_scope(discovery: _Discovery, scope: set[str]) -> RetractionEnumeration:
+    """The enumeration's retractions reaching ``scope``, transitively, plus history."""
+    taken: set[str] = set()
+    grew = True
+    while grew:
+        grew = False
+        for ref, facet in discovery.facets.items():
+            if ref in taken:
+                continue
+            target = cast(Mapping[str, str], facet["target"])
+            target_key = None if target["arm"] == "snapshot" else target["resolved"]  # a snapshot arm is never in scope
+            if target_key is not None and (target_key in scope or target_key in taken):
+                taken.add(ref)
+                grew = True
+    enumeration = discovery.enumeration
+    return RetractionEnumeration(
+        found=tuple(
+            sorted({*((ref, recorded) for ref, recorded in enumeration.found if ref in taken), *discovery.history})
+        ),
+        coverage=enumeration.coverage,
     )
 
 
@@ -1138,11 +1145,87 @@ class _CapturedComparisonRecords:
 
 
 @dataclass(frozen=True)
+class PairEvidence:
+    """What one pair's comparison read, judged and consulted (design §7.4).
+
+    Transient: not a record, an identity domain or a second evidence store. Its
+    reads, eligibility states and consulted pins are the pair's own, beside but
+    never inside either keyed belief's ``EvaluationInputs``."""
+
+    dependencies: DependencyEvidence
+    consulted: tuple[tuple[str, str], ...]
+    retractions: RetractionEnumeration
+    node_corpus: Mapping[str, tuple[str, ...]]
+    read_trace: tuple[ReadRef, ...]
+
+
+@dataclass(frozen=True)
 class PairVerdict:
     left: str
     right: str
     convertibility: ConversionVerdict
     synthesis: SynthesisVerdict
+    evidence: PairEvidence | None = None
+    """``None`` exactly when the comparison never started (keyed inputs or claims
+    unavailable, or keyed dependencies ineligible); a started comparison, refused
+    or not, retains its evidence."""
+
+
+_MEASUREMENT_KINDS = frozenset(
+    {"procedure", "referent-mapping", "proxy-model", "classification-rule", "assumptions-register"}
+)
+
+
+def _pair_evidence(
+    records: _CapturedComparisonRecords,
+    snapshot: ComparabilitySnapshot,
+    discovery: _Discovery,
+    *,
+    proposition: str,
+    claim: Claim,
+    compared: tuple[AssessmentValue, AssessmentValue],
+    node_corpus: Mapping[str, tuple[str, ...]],
+    pins: Mapping[str, CorpusPins],
+    profile: ProfileSpec,
+) -> tuple[PairEvidence, str | None]:
+    """Finalize one pair's evidence; the second value names a consultation failure."""
+    reads = tuple(sorted(records.reads))
+    typed: dict[str, Record] = {}
+    verdicts: dict[str, Eligible | Ineligible] = dict(snapshot.states)
+    for id in reads:
+        if id.partition(":")[0] in _MEASUREMENT_KINDS and records.view.holds(id) and records._accepted(id):
+            try:
+                typed[id] = read_record(records, id)
+            except MalformedRecord as exc:
+                verdicts[id] = Ineligible("malformed-record", (str(exc),))
+    identities = {value.identity(): value for value in compared}
+    assessments: dict[str, AssessmentValue] = dict(records.assessments)
+    for ref, identity in discovery.assessment_refs.items():
+        if identity in identities:
+            assessments[ref] = identities[identity]
+    dependencies = DependencyEvidence(ClosureEligibility(verdicts, reads), typed, assessments, records.runs)
+    failure = None
+    try:
+        consulted = consulted_contracts(
+            claims={proposition: claim},
+            targets={value.identity(): (value.proposition, value.target) for value in compared},
+            profile=profile,
+            node_corpus=node_corpus,
+            pins=pins,
+            closure_nodes=tuple(sorted(identities)),
+            scope_comparisons=snapshot.scope_comparisons,
+            scope_dependencies=dependencies,
+        )
+    except (ContractDisagreement, ContractMismatch) as exc:
+        consulted, failure = (), f"consulted-contracts-disagree: {exc}"
+    evidence = PairEvidence(
+        dependencies=dependencies,
+        consulted=consulted,
+        retractions=_retractions_in_scope(discovery, set(reads)),
+        node_corpus=MappingProxyType(dict(node_corpus)),
+        read_trace=tuple(records.trace),
+    )
+    return evidence, failure
 
 
 @dataclass(frozen=True)
@@ -1247,8 +1330,6 @@ def _evaluate_claim(
                 selection.report,
             )
         pairs: list[PairVerdict] = []
-        comparison_records = _CapturedComparisonRecords(discovery, selection, profile, availability.observations)
-        comparison = ComparabilitySnapshot(profile, comparison_records, comparison_records.eligibility)
         for left, right in itertools.combinations(keys, 2):
             a_inputs, b_inputs = traces[left][2], traces[right][2]
             if a_inputs is None or b_inputs is None:
@@ -1266,26 +1347,44 @@ def _evaluate_claim(
             a, b = a_inputs.assessments[0], b_inputs.assessments[0]
             if a_inputs.claim is None or b_inputs.claim is None:
                 conversion = TargetUnknown("claim referents unavailable", snapshot_identity)
+                pairs.append(PairVerdict(left, right, conversion, conversion))
+                continue
+            # Each pair owns its reader over the same capture: no read leaks into a
+            # keyed closure or into another pair.
+            comparison_records = _CapturedComparisonRecords(discovery, selection, profile, availability.observations)
+            comparison = ComparabilitySnapshot(profile, comparison_records, comparison_records.eligibility)
+            first = AssessedProposition(a_inputs.claim, a.target, a.interpretation_rule)
+            second = AssessedProposition(b_inputs.claim, b.target, b.interpretation_rule)
+            try:
+                conversion = convertibility(
+                    first, second, profile=profile, snapshot=comparison, snapshot_identity=snapshot_identity
+                )
+                combined = synthesis(
+                    first,
+                    second,
+                    profile=profile,
+                    snapshot=comparison,
+                    snapshot_identity=snapshot_identity,
+                    observable_proxies=comparison_records.observable_proxies,
+                )
+            except (AmbiguousCrosswalk, _InputRefused) as exc:
+                conversion = TargetUnknown(str(exc), snapshot_identity)
                 combined = conversion
-            else:
-                first = AssessedProposition(a_inputs.claim, a.target, a.interpretation_rule)
-                second = AssessedProposition(b_inputs.claim, b.target, b.interpretation_rule)
-                try:
-                    conversion = convertibility(
-                        first, second, profile=profile, snapshot=comparison, snapshot_identity=snapshot_identity
-                    )
-                    combined = synthesis(
-                        first,
-                        second,
-                        profile=profile,
-                        snapshot=comparison,
-                        snapshot_identity=snapshot_identity,
-                        observable_proxies=comparison_records.observable_proxies,
-                    )
-                except (AmbiguousCrosswalk, _InputRefused) as exc:
-                    conversion = TargetUnknown(str(exc), snapshot_identity)
-                    combined = conversion
-            pairs.append(PairVerdict(left, right, conversion, combined))
+            evidence, refusal = _pair_evidence(
+                comparison_records,
+                comparison,
+                discovery,
+                proposition=proposition,
+                claim=a_inputs.claim,
+                compared=(a, b),
+                node_corpus={**a_inputs.node_corpus, **b_inputs.node_corpus},
+                pins=context.pins,
+                profile=profile,
+            )
+            if refusal is not None:
+                # Unpinned or disagreeing consulted context grants no permission.
+                conversion = combined = TargetUnknown(refusal, snapshot_identity)
+            pairs.append(PairVerdict(left, right, conversion, combined, evidence))
         return _ClaimEvaluation(
             ClaimView(proposition, snapshot_identity, {key: traces[key][0] for key in keys}, tuple(pairs), None),
             MappingProxyType(traces),

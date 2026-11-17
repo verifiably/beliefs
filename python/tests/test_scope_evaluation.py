@@ -66,7 +66,7 @@ class Scene:
     unrestricted target over a universally validated procedure). Rule T reads an
     observable of a third namespace, so its body terms need their own pin."""
 
-    def __init__(self, root: Path, *, shared_key: bool = False, failing: str = "", t_held: bool = True):
+    def __init__(self, root: Path, *, shared_key: bool = False, failing: str = "", t_held: bool = True, rows=None):
         t_rule = ClassificationRule("testing/level", (TERM_OBSERVABLE,), "Rule T: intermediate.", None, None, None)
         self.world = world = World(t_rule=t_rule)
         self.universal = world.records.put(_procedure("Universal assay", {}))
@@ -76,9 +76,12 @@ class Scene:
         stale = world.estimand(original)
         assert stale.assumptions == ()
         unaffected = world.estimand(original, procedure=self.universal, scope={})
-        rows = [("a", stale, world.scope_values), ("c", unaffected, {})]
-        if shared_key:
-            rows.insert(1, ("b", stale, world.scope_values))
+        if rows is None:
+            rows = [("a", stale, world.scope_values), ("c", unaffected, {})]
+            if shared_key:
+                rows.insert(1, ("b", stale, world.scope_values))
+        else:
+            rows = rows(self, original)
         root.mkdir(parents=True)
         from domain_facet_fixtures import LOCAL_CORPUS_ID
 
@@ -92,7 +95,7 @@ class Scene:
         self.values: dict[str, object] = {}
         self.letters = [letter for letter, _, _ in rows]
         for letter, estimand, scope in rows:
-            applicability = world.applicability(original) if scope else world.applicability(original, values={})
+            applicability = world.applicability(original, values=scope)
             spec = freeze(
                 spec_draft(
                     target=PROPOSITION,
@@ -151,7 +154,15 @@ class Scene:
         if extra is not None:
             documents.append(relations_document(extra, namespace="scope-relations-c"))
         contracts = [_parse(endpoint_document(), "testing"), _parse(dict(TERMS_DOCUMENT), "scope-terms")]
-        contracts.extend(_parse(document, document["contract"]) for document in documents)
+        if retire:
+            # A real lineage successor of the relation owner that retires its relation.
+            genesis = _parse(relations_document(self.world.tables()[1], namespace="scope-relations-b"), "genesis")
+            documents[1].update(version=2, lineage={"successor": genesis.content_identity})
+            successor = parse_domain_contract(documents[1], source="successor", base=BASE, predecessor=genesis)
+            contracts.extend([_parse(documents[0], "scope-relations"), successor])
+            contracts.extend(_parse(document, document["contract"]) for document in documents[2:])
+        else:
+            contracts.extend(_parse(document, document["contract"]) for document in documents)
         return compile_profile(BASE, contracts)
 
     def key(self, letter: str) -> str:

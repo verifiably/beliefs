@@ -12,13 +12,21 @@ from typing import Literal, TypeAlias, cast, get_args
 
 from beliefs.assumptions import AssumptionInstance, check_instance
 from beliefs.dependencies import HeldRecords, Record, read_record
-from beliefs.eligibility import ClosureEligibility, Ineligible
-from beliefs.errors import AmbiguousCrosswalk, DependencyNotHeld, MalformedContract, MalformedRecord, ProfileError
+from beliefs.eligibility import ClosureEligibility, Eligible, Ineligible
+from beliefs.errors import (
+    AmbiguousCrosswalk,
+    DependencyNotHeld,
+    MalformedContract,
+    MalformedRecord,
+    ProfileError,
+    ScopeDependencyIneligible,
+)
 from beliefs.measurement import Coordinates
 from beliefs.procedure import Procedure, SameAs
 from beliefs.profile import CompiledConversion, CompiledFunctional, CompiledTransformation, ProfileSpec
 from beliefs.proxy_model import ProxyModel
-from beliefs.restriction import decimal_projection
+from beliefs.restriction import RestrictionMap, ScopeComparison, decimal_projection
+from beliefs.scope_checks import ScopeReader
 
 __all__ = [
     "Arity",
@@ -196,9 +204,38 @@ class ComparabilitySnapshot:
     records: HeldRecords
     eligibility: Callable[[str], ClosureEligibility]
     reads: tuple[str, ...] = field(default=(), init=False)
+    states: dict[str, Eligible | Ineligible] = field(default_factory=dict, init=False)
+    """Every eligibility verdict this comparison operation judged, keyed by id:
+    checked dependencies and selected scope rule roots alike."""
+    _scope: ScopeReader | None = field(default=None, init=False)
 
     def _observe(self, ids: tuple[str, ...]) -> None:
         self.reads = tuple(dict.fromkeys((*self.reads, *ids)))
+
+    @property
+    def scope_comparisons(self) -> tuple[ScopeComparison, ...]:
+        return () if self._scope is None else self._scope.comparisons
+
+    def _require_scope_roots(self, roots: tuple[str, ...]) -> None:
+        failed: list[str] = []
+        for root in roots:
+            result = self.eligibility(root)
+            self._observe(result.reads)
+            self.states[root] = result.verdicts[root]
+            if isinstance(result.verdicts[root], Ineligible):
+                failed.append(root)
+        if failed:
+            raise ScopeDependencyIneligible(
+                f"scope-dependency-ineligible: selected scope rules are ineligible ({', '.join(failed)})", tuple(failed)
+            )
+
+    def compare_scope(self, a: RestrictionMap, b: RestrictionMap) -> ScopeComparison:
+        """The operation's checked scope comparison (design §7.3): selected rule
+        roots are judged through this snapshot's eligibility and read through its
+        records, accumulating reads; a failure raises ``ScopeDependencyIneligible``."""
+        if self._scope is None:
+            self._scope = ScopeReader(self.profile, self.read, self._require_scope_roots)
+        return self._scope.compare(a, b)
 
     def read(self, id: str) -> Record:
         self._observe((id,))
@@ -210,6 +247,7 @@ class ComparabilitySnapshot:
             result = self.eligibility(id)
             self._observe(result.reads)
             verdict = result.verdicts[id]
+            self.states[id] = verdict
             if isinstance(verdict, Ineligible):
                 refused.extend((id, *verdict.concerns))
                 if verdict.reason.startswith("dependency-ineligible: "):
