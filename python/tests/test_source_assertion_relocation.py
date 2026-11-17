@@ -7,13 +7,17 @@ from typing import cast
 
 import pytest
 from authority import ACTOR, FULL
+from coordination_fixtures import content_for
 from fixtures_cut4 import path_for, raw_write
 from fixtures_cut6 import PINS
+from nodes.core.frontmatter import node_to_markdown
 from nodes.core.node import Node
 from nodes.core.write_plan import DefaultExecutor
-from profiles import WITH_BIOLOGY, pins_for
+from profiles import WITH_BIOLOGY, biology, pins_for
+from session_doors_fixture import PUBLISHES, V2, Clock
 from test_corpus_write import OperationRecorder
 from test_relocation import CONSOLIDATE_FIELDS, MOVE_FIELDS, _files, _recording_port, _writer
+from test_reservation_relocation import _addresses, _corpus
 from test_source_assertion_routes import (
     BUNDLE_FIELDS,
     IDENTIFIERS_A,
@@ -23,14 +27,23 @@ from test_source_assertion_routes import (
     _source,
     _with_assesses,
 )
+from test_world_receipts import hold_shipped
 
 from beliefs import relocation, stored
 from beliefs import root as science_root
-from beliefs.corpus import CorpusWriter
+from beliefs.coordination import coordination_revision
+from beliefs.corpus import CoordinationResolver, CorpusWriter, ReadView
 from beliefs.errors import RelocationRefused, SourceAssertionRefused, SourceAssertionReplicasDisagree
+from beliefs.intents.publish import Destination
+from beliefs.profile import compile_profile, shipped_base_contract, shipped_coordination
+from beliefs.publication_arrival import admit_publication
+from beliefs.publish import Published, publish
 from beliefs.report import Consolidated, RecordMutationEntry
-from beliefs.root import init_corpus_root, open_corpus
+from beliefs.root import init_corpus_root, init_world_root, moment_seam, open_corpus, open_world
+from beliefs.world import Fresh, WorldConfig, epoch
 from beliefs.world.logmodel import WellFormedView
+from beliefs.world.verify import ArtifactCarrier, ObserverSet
+from beliefs.world.view import open_world_view
 
 
 @pytest.fixture()
@@ -521,3 +534,65 @@ def test_consolidate_source_assertions_durably_on_certified_volume(certified_wor
     other_after = seam.inspect_registered(other_root)
     assert type(other_after) is WellFormedView
     assert len(other_after.entries) > other_before_count
+
+
+def test_a_published_assertion_with_its_source_and_proposition_admits_at_an_empty_destination(certified_work: Path):
+    base = Path(certified_work).resolve()
+    alpha_id, alpha_writer = _corpus(base / "alpha", WITH_BIOLOGY)
+    src = alpha_writer.add(_source())
+    prop = alpha_writer.add(_proposition())
+    value = _assertion(src, prop, quote="caf\u00e9")
+    assertion = alpha_writer.add(stored.source_assertion_node(value, title="assertion"))
+    selected = (assertion.id, src.id, prop.id)
+
+    written = base / "written"
+    _corpus(written, V2)
+    config = WorldConfig(base / "world", "e" * 32, (base / "alpha", written))
+    init_world_root(config, authority=FULL)
+    world = open_world(config, authority=FULL)
+    world.admit(base / "alpha", provenance=Fresh())
+    world.admit(written, provenance=Fresh())
+    epoch.build_epoch(world, coverage=frozenset({alpha_id}), bindings=hold_shipped(world))
+    resolver = CoordinationResolver({config.corpus_roots[0]: WITH_BIOLOGY, config.corpus_roots[1]: V2})
+    project = open_corpus(written, authority=FULL, profile=V2, coordination_resolver=resolver).mint_coordination(
+        "project", content=content_for("project", query=_addresses(*selected))
+    )
+    staging_profile = compile_profile(
+        shipped_base_contract(), [biology("fixture")], coordination=shipped_coordination(2)
+    )
+    ops, dest = base / "ops", base / "dest"
+    ops.mkdir()
+    dest.mkdir()
+
+    outcome = publish(
+        open_corpus(written, authority=PUBLISHES, profile=V2, coordination_resolver=resolver),
+        resolver,
+        open_world(config, authority=PUBLISHES),
+        view=coordination_revision(project).address,
+        destination=Destination.local(str(dest)),
+        operations_root=ops,
+        staging_profile=staging_profile,
+        clock=Clock(),
+        seam=moment_seam(),
+    )
+    assert type(outcome) is Published, outcome
+
+    exported = dest / outcome.corpus_id
+    recipient = WorldConfig(base / "recipient", "c" * 32, (exported,))
+    init_world_root(recipient, authority=FULL)
+    recipient_world = open_world(recipient, authority=FULL)
+    observers = ObserverSet(
+        (ArtifactCarrier.from_bytes((dest / f"{outcome.corpus_id}.head-artifact.v1").read_bytes()),)
+    )
+    _, report = admit_publication(recipient_world, exported, observers)
+    assert report.outcome == "validated"
+    built = epoch.build_epoch(
+        recipient_world, coverage=frozenset({outcome.corpus_id}), bindings=hold_shipped(recipient_world)
+    )
+    view = open_world_view(recipient_world, built)
+    for ref in selected:
+        assert node_to_markdown(view.get(ref)) == node_to_markdown(alpha_writer.read_view.get(ref))
+    published = ReadView.opened_at(exported)
+    assert stored.source_assertion_value(published.get(value.id)) == value
+    assert stored.source_assertion_value(published.get(value.id)).read.span.quote == "caf\u00e9"
+    assert stored.source_assertion_value(view.get(value.id)) == value

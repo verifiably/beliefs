@@ -32,6 +32,7 @@ from beliefs.publish_request import (
     staging_world_id_for,
 )
 from beliefs.reservation import Group, IntervalUnit, ReservationAssignment
+from beliefs.source_assertion import Bearing, Reading, Representation, SourceAssertion, Span
 
 V2 = "coordination:" + shipped_coordination(2).content_identity
 V1 = "coordination:" + shipped_coordination(1).content_identity
@@ -162,6 +163,76 @@ def test_an_unresolvable_endpoint_is_missing_by_its_stored_spelling():
     assert closure_missing(FakeView([r]), (r.id,)) == ("dataset:gone",)
 
 
+def _source_and_proposition():
+    source = stored.source_node(title="A paper", identifiers={"doi": "10.1234/abc"})
+    proposition = stored.proposition_node("p1", title="p1", claim={"terms": []})
+    return source, proposition
+
+
+def _source_assertion(source_id: str, proposition_id: str, *, quote: str = "PHF19 is overexpressed"):
+    value = SourceAssertion(
+        source=source_id,
+        read=Reading(
+            representation=Representation(sha256="a" * 64, media_type="application/pdf", extent="full"),
+            span=Span(quote=quote, locator="Results, para 2"),
+            extracted_by=ACTOR,
+        ),
+        bears_on=Bearing(sign="asserts", proposition=proposition_id),
+        recorded_by=ACTOR,
+    )
+    return value, stored.source_assertion_node(value, title="assertion")
+
+
+def test_an_assertion_without_its_source_and_proposition_is_closure_incomplete():
+    source, proposition = _source_and_proposition()
+    _, assertion = _source_assertion(source.id, proposition.id)
+    view = FakeView([source, proposition, assertion])
+    assert closure_missing(view, (assertion.id,)) == tuple(sorted((source.id, proposition.id)))
+    assert closure_missing(view, (assertion.id, source.id)) == (proposition.id,)
+    assert closure_missing(view, (assertion.id, proposition.id)) == (source.id,)
+
+
+def test_an_assertion_with_its_source_and_proposition_is_closure_complete():
+    source, proposition = _source_and_proposition()
+    _, assertion = _source_assertion(source.id, proposition.id)
+    view = FakeView([source, proposition, assertion])
+    assert closure_missing(view, (assertion.id, source.id, proposition.id)) == ()
+
+
+def test_selecting_a_source_does_not_pull_in_its_assertions():
+    source, proposition = _source_and_proposition()
+    _, assertion = _source_assertion(source.id, proposition.id)
+    assert closure_missing(FakeView([source, proposition, assertion]), (source.id,)) == ()
+    source_with_reverse_edge = source.model_copy(
+        update={"relations": [Relation(source=assertion.id, predicate=stored.ANCHORED_IN, target=source.id)]}
+    )
+    assert closure_missing(FakeView([source_with_reverse_edge, proposition, assertion]), (source.id,)) == ()
+    prop_with_anchor = proposition.model_copy(
+        update={"relations": [Relation(source=proposition.id, predicate=stored.ANCHORED_IN, target=source.id)]}
+    )
+    assert closure_missing(FakeView([source, prop_with_anchor, assertion]), (proposition.id,)) == ()
+
+
+def test_an_assertion_proposition_is_missing_by_its_live_address():
+    source, proposition = _source_and_proposition()
+    old_prop = "proposition:old-alias"
+    _, assertion = _source_assertion(source.id, old_prop)
+    view = FakeView([source, proposition, assertion], aliases={old_prop: proposition.id})
+    assert closure_missing(view, (assertion.id, source.id)) == (proposition.id,)
+    assert closure_missing(view, (assertion.id, source.id, proposition.id)) == ()
+    assert closure_missing(FakeView([source, assertion]), (assertion.id, source.id)) == (old_prop,)
+
+
+def test_a_malformed_assertion_does_not_make_closure_raise():
+    source, proposition = _source_and_proposition()
+    _, assertion = _source_assertion(source.id, proposition.id)
+    facet = {k: v for k, v in assertion.facets[stored.SOURCE_ASSERTION_FACET].items() if k != "bears_on"}
+    malformed = assertion.model_copy(update={"facets": {stored.SOURCE_ASSERTION_FACET: facet}})
+    view = FakeView([source, proposition, malformed])
+    assert closure_missing(view, (malformed.id,)) == (source.id,)
+    assert closure_missing(view, (malformed.id, source.id)) == ()
+
+
 def test_pins_union_domains_and_add_the_written_coordination_pin():
     derived = derive_pins(
         {"a" * 32: CorpusPins(BASE_PIN, {"biology": "biology:1"}), "b" * 32: CorpusPins(BASE_PIN, {})},
@@ -265,6 +336,17 @@ def test_a_record_with_hand_edited_prose_is_accepted_and_round_trips():
     records = tuple(sorted((n.id, node_to_markdown(n)) for n in (d, r)))
     snapshot = Snapshot("e" * 32, records)
     assert decode_snapshot(encode_snapshot(snapshot)) == snapshot
+
+
+def test_a_composed_quote_round_trips_through_the_snapshot():
+    source, proposition = _source_and_proposition()
+    _, assertion = _source_assertion(source.id, proposition.id, quote="caf\u00e9")
+    records = tuple(sorted((n.id, node_to_markdown(n)) for n in (source, proposition, assertion)))
+    snapshot = Snapshot("e" * 32, records)
+    decoded = decode_snapshot(encode_snapshot(snapshot))
+    assert decoded == snapshot
+    decoded_node = node_from_markdown(dict(decoded.records)[assertion.id])
+    assert stored.source_assertion_value(decoded_node).read.span.quote == "caf\u00e9"
 
 
 @pytest.mark.parametrize(

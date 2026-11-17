@@ -58,21 +58,32 @@ V3_PIN = "coordination:" + shipped_coordination(3).content_identity
 
 
 def _closes_over(node: Node, relation: Relation) -> bool:
-    """A world relation, or the `supersedes` edge a reservation assignment carries to its predecessor:
-    the destination resolves `predecessor` when it decodes the facet, so a published successor carries
-    its chain. Every other kind's `supersedes` stays a lifecycle edge outside closure."""
+    """A world relation, the `supersedes` edge a reservation assignment carries to its predecessor
+    (whose chain publishes with it), or the `anchored_in` edge a source assertion carries to its
+    source. Every other kind's `supersedes` and `anchored_in` stay lifecycle edges outside closure."""
     if relation.predicate in stored.WORLD_RELATIONS:
         return True
-    return (
-        relation.predicate == stored.SUPERSEDES and node.kind == "reservation-assignment" and relation.source == node.id
-    )
+    if relation.predicate == stored.SUPERSEDES:
+        return node.kind == "reservation-assignment" and relation.source == node.id
+    if relation.predicate == stored.ANCHORED_IN:
+        return node.kind == "source-assertion" and relation.source == node.id
+    return False
+
+
+def _record_missing(view, endpoint: str, chosen: set[str], missing: set[str]) -> None:
+    live = view.resolve(endpoint)
+    if live is None:
+        missing.add(endpoint)
+    elif live not in chosen:
+        missing.add(live)
 
 
 def closure_missing(view, selected: tuple[str, ...]) -> tuple[str, ...]:
-    """Every world-relation endpoint of a selected record outside the selection, by its live
-    address, or by its stored spelling when it does not resolve; a selected reservation assignment's
-    `supersedes` edge counts too (its predecessor chain publishes with it). `view` answers `get(id)`
-    and `resolve(ref)`."""
+    """Every closure endpoint of a selected record outside the selection, by its live address or by
+    its stored spelling when it does not resolve: world-relation endpoints, a selected reservation
+    assignment's `supersedes` target, and a selected source assertion's `anchored_in` target and
+    `bears_on.proposition` reference (skipped if its facet is malformed, which staging refuses).
+    `view` answers `get(id)` and `resolve(ref)`."""
     chosen = set(selected)
     missing: set[str] = set()
     for address in selected:
@@ -83,11 +94,13 @@ def closure_missing(view, selected: tuple[str, ...]) -> tuple[str, ...]:
             for endpoint in (relation.source, relation.target):
                 if endpoint == node.id:
                     continue
-                live = view.resolve(endpoint)
-                if live is None:
-                    missing.add(endpoint)
-                elif live not in chosen:
-                    missing.add(live)
+                _record_missing(view, endpoint, chosen, missing)
+        if node.kind == "source-assertion":
+            try:
+                value = stored.source_assertion_value(node)
+            except MalformedRecord:
+                continue
+            _record_missing(view, value.bears_on.proposition, chosen, missing)
     return tuple(sorted(missing))
 
 
