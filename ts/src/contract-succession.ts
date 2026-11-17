@@ -1,6 +1,7 @@
 /** Canonical schema projections mirrored from contract/domain.py, excluding editorial prose. */
 import type { DomainContract, RestrictionForm, RoleDecl } from "./contract.js";
 import { type IdentityValue, compareByCodePoint } from "./identity/v1.js";
+import { scopeRelationSchema } from "./scope-relations.js";
 
 type Projection = { [key: string]: IdentityValue };
 const sorted = (values: readonly string[]) => [...values].sort(compareByCodePoint);
@@ -128,5 +129,6 @@ export function claimVocabulary(contract: DomainContract): ReadonlyMap<string, I
     if (d.direction !== null) p.direction = d.direction;
     return p;
   });
+  add("scope-relation", contract.scopeRelations, scopeRelationSchema);
   return result;
 }

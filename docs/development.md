@@ -384,6 +384,11 @@ duplicate-after-NFC refusal, projections, canonical bytes and digests, while
 compiled profile identities, package resource loaders, assumptions registers
 and estimands remain Python-only. Contract content identity and additive succession
 are shared, with `fixtures/contract-succession.json` checked by both languages.
+`fixtures/scope-relations.json` is the shared scope-relation vector: declaration
+schema, local qualification, parse and compile refusals, and graph consistency
+cases, read by `tests/test_scope_declarations.py`, `tests/test_scope_graph.py` and
+`ts/tests/scope-relations.test.ts`. TypeScript compiles and validates scope-relation
+tables but implements no scope comparison.
 
 `fixtures/candidate-contracts.json` pins the content identities of the unshipped
 candidate documents under `fixtures/contracts/candidates/` and of the successor

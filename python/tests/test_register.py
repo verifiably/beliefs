@@ -89,9 +89,12 @@ def test_the_exact_values_and_catalogue_alignment():
     assert REGISTER_DOMAIN == "science.assumptions-register.v2"
     assert set(ENTRY_KINDS) == {kind for kind, _ in DECLARATION_FAMILIES}
     assert ENTRY_KINDS == tuple(kind for kind, _ in DECLARATION_FAMILIES)
-    assert len(ENTRY_KINDS) == 21
+    assert len(ENTRY_KINDS) == 22
     assert set(_REGISTER_PROFILE_TABLES) == set(ENTRY_KINDS) - {"estimand", "measurement", "aspect"}
-    assert [kind for kind, _ in REPRESENTATIVE_TESTING_KEYS] == list(ENTRY_KINDS)
+    # scope-relation is audited over its separately owned contract in test_scope_declarations.py.
+    assert [kind for kind, _ in REPRESENTATIVE_TESTING_KEYS] == [
+        kind for kind in ENTRY_KINDS if kind != "scope-relation"
+    ]
     assert register_identity(provisional) != register_identity(established)
     assert register_from_projection(register_projection(provisional), source="test") == provisional
     assert register_from_projection(register_projection(established), source="test") == established
@@ -387,7 +390,11 @@ def test_foreign_ownership_and_register_entry_keys_expansion():
 
     # Every key in `register_entry_keys` for both contracts validates cleanly with zero findings.
     testing_keys = register_entry_keys(testing)
-    assert {kind for kind, _ in DECLARATION_FAMILIES} == {key.partition(":")[0] for key in testing_keys}
+    # The testing contract is endpoint vocabulary and declares no scope relation; that family's
+    # coverage is checked over the separately owned scope-relations fixture (test_scope_declarations.py).
+    assert {kind for kind, _ in DECLARATION_FAMILIES} - {"scope-relation"} == {
+        key.partition(":")[0] for key in testing_keys
+    }
     full_testing = AssumptionsRegister(
         describes=f"testing:{testing.content_identity}",
         previous=None,

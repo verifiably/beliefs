@@ -26,6 +26,7 @@ from beliefs.comparability import (
     functional_properties,
     unit_map,
 )
+from beliefs.errors import ScopeDependencyIneligible
 from beliefs.estimand import (
     AxisLevels,
     IncrementBinding,
@@ -45,7 +46,7 @@ from beliefs.measurement import Coordinates, Observable
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
 from beliefs.proxy_model import ProxyModel
-from beliefs.restriction import IntervalRestriction, co_scope, co_scope_by_dimension, restriction_projection
+from beliefs.restriction import IntervalRestriction, restriction_projection
 from beliefs.target import AssessedTarget
 
 
@@ -460,6 +461,34 @@ def synthesis(
     snapshot_identity: str,
     observable_proxies: Callable[[Observable, Observable], tuple[str, ...]],
 ) -> SynthesisVerdict:
+    """Every scope comparison here is the snapshot's checked one: a declared
+    relation contributes only after its selected rules are judged, and a failed
+    selected dependency is a dependency-ineligible result, never an unknown
+    success or a waived assumption. An observable-proxy candidate whose checked
+    comparison fails is skipped like an ineligible proxy; if no candidate remains
+    for that reason, the result is dependency-ineligible."""
+    try:
+        return _synthesis(
+            a,
+            b,
+            profile=profile,
+            snapshot=snapshot,
+            snapshot_identity=snapshot_identity,
+            observable_proxies=observable_proxies,
+        )
+    except ScopeDependencyIneligible:
+        return TargetNotConvertible("dependency ineligible", snapshot_identity)
+
+
+def _synthesis(
+    a: AssessedProposition,
+    b: AssessedProposition,
+    *,
+    profile: ProfileSpec,
+    snapshot: ComparabilitySnapshot,
+    snapshot_identity: str,
+    observable_proxies: Callable[[Observable, Observable], tuple[str, ...]],
+) -> SynthesisVerdict:
     conversion, correspondence = _convert(a, b, profile=profile, snapshot=snapshot, snapshot_identity=snapshot_identity)
     if not isinstance(conversion, TargetConvertible):
         return conversion
@@ -476,6 +505,7 @@ def synthesis(
             continue
         candidate: tuple[str, ProxyModel, tuple[str, ...]] | None = None
         undecidable = False
+        scope_ineligible = False
         for ref in sorted(set(observable_proxies(ox, oy))):
             if snapshot.check_eligibility((ref,)) is not None:
                 continue
@@ -484,7 +514,16 @@ def synthesis(
                 continue
             if {value.source.observable, value.target.observable} != {ox, oy}:
                 continue
-            scopes = tuple(co_scope(t.target.applicability.restrictions(), value.validity, profile) for t in (a, b))
+            try:
+                scopes = tuple(
+                    snapshot.compare_scope(t.target.applicability.restrictions(), value.validity).verdict
+                    for t in (a, b)
+                )
+            except ScopeDependencyIneligible:
+                # Like an ineligible proxy, a candidate whose selected scope context is
+                # ineligible cannot be used; its consulted comparison stays recorded.
+                scope_ineligible = True
+                continue
             if "disjoint" in scopes:
                 continue
             if "unknown" in scopes:
@@ -496,6 +535,10 @@ def synthesis(
             if candidate is None:
                 candidate = ref, value, scopes
         if candidate is None:
+            if scope_ineligible:
+                # No usable bridge remains because a candidate's checked scope context
+                # failed: report that cause, never a definite "no bridge".
+                return TargetNotConvertible("dependency ineligible", snapshot_identity)
             return (
                 TargetUnknown("observable", snapshot_identity)
                 if undecidable
@@ -519,7 +562,10 @@ def synthesis(
         ref = instance.particulars["record"]
         proxy = snapshot.read(ref)
         assert isinstance(proxy, ProxyModel) and proxy.crosswalk is not None
-        scopes = tuple(co_scope(value.target.applicability.restrictions(), proxy.validity, profile) for value in (a, b))
+        checked = tuple(
+            snapshot.compare_scope(value.target.applicability.restrictions(), proxy.validity) for value in (a, b)
+        )
+        scopes = tuple(result.verdict for result in checked)
         if "disjoint" in scopes:
             return SynthesisRefused("scope", snapshot_identity)
         if "unknown" in scopes:
@@ -527,10 +573,8 @@ def synthesis(
         dimensions = sorted(
             {
                 dimension
-                for value in (a, b)
-                for dimension, relation in co_scope_by_dimension(
-                    value.target.applicability.restrictions(), proxy.validity, profile
-                ).items()
+                for result in checked
+                for dimension, relation in result.by_dimension.items()
                 if relation != "equal"
             }
         )
@@ -556,15 +600,14 @@ def synthesis(
     left, right = a.target.estimand, b.target.estimand
     if left.control != right.control:
         return SynthesisRefused("control", snapshot_identity)
-    scope = co_scope(a.target.applicability.restrictions(), b.target.applicability.restrictions(), profile)
+    compared = snapshot.compare_scope(a.target.applicability.restrictions(), b.target.applicability.restrictions())
+    scope = compared.verdict
     if scope == "unknown":
         return TargetUnknown("scope", snapshot_identity)
     if scope == "disjoint":
         return SynthesisRefused("scope", snapshot_identity)
     if scope != "equal":
-        differences = co_scope_by_dimension(
-            a.target.applicability.restrictions(), b.target.applicability.restrictions(), profile
-        )
+        differences = compared.by_dimension
         dimensions = ",".join(k for k, v in sorted(differences.items()) if v != "equal")
         intervals = sorted(
             v1.encode(

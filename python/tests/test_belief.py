@@ -202,8 +202,10 @@ def scenario(**overrides: object) -> _Scenario:
         "profile": PROFILE,
     }
     kwargs["key"] = a1.key()
-    kwargs["dependencies"] = dependency_evidence(records.assessments)
     kwargs.update(overrides)
+    if "dependencies" not in overrides:
+        # Evidence for the records actually evaluated: each assessment needs its scope state.
+        kwargs["dependencies"] = dependency_evidence(cast(Records, kwargs["records"]).assessments)
     return cast(_Scenario, kwargs)
 
 

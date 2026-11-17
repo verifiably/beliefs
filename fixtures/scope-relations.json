@@ -1,0 +1,1094 @@
+{
+  "endpoint_contract": "fixtures/contracts/testing.yaml",
+  "document": {
+    "contract": "scope-relations",
+    "version": 1,
+    "lineage": "genesis",
+    "sorts": {},
+    "dimensions": {},
+    "scope_relations": {
+      "special-within-general": {
+        "dimension": "testing/stage",
+        "relation": "narrower",
+        "left": {
+          "sort": "testing/stage",
+          "term": "EX:special"
+        },
+        "right": {
+          "sort": "testing/stage",
+          "term": "EX:general"
+        },
+        "description": "Editorial prose outside the schema projection."
+      },
+      "early-equals-initial": {
+        "dimension": "testing/stage",
+        "relation": "equal",
+        "left": {
+          "sort": "testing/stage",
+          "term": "EX:early"
+        },
+        "right": {
+          "sort": "testing/stage",
+          "term": "EX:initial"
+        }
+      },
+      "restricted-within-case": {
+        "dimension": "testing/case-status",
+        "relation": "narrower",
+        "left": {
+          "rule": "classification-rule:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "classes": [
+            "EX:restricted"
+          ]
+        },
+        "right": {
+          "rule": "classification-rule:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "classes": [
+            "EX:case"
+          ]
+        }
+      }
+    }
+  },
+  "identity": "b2b41c76f63ac950d7bc8e7e1b2ca31a13a6f954286e819bfc51669d25449eed",
+  "schema": {
+    "scope-relation:special-within-general": {
+      "dimension": "testing/stage",
+      "relation": "narrower",
+      "left": {
+        "sort": "testing/stage",
+        "term": "EX:special"
+      },
+      "right": {
+        "sort": "testing/stage",
+        "term": "EX:general"
+      }
+    },
+    "scope-relation:early-equals-initial": {
+      "dimension": "testing/stage",
+      "relation": "equal",
+      "left": {
+        "sort": "testing/stage",
+        "term": "EX:early"
+      },
+      "right": {
+        "sort": "testing/stage",
+        "term": "EX:initial"
+      }
+    },
+    "scope-relation:restricted-within-case": {
+      "dimension": "testing/case-status",
+      "relation": "narrower",
+      "left": {
+        "rule": "classification-rule:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "classes": [
+          "EX:restricted"
+        ]
+      },
+      "right": {
+        "rule": "classification-rule:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "classes": [
+          "EX:case"
+        ]
+      }
+    }
+  },
+  "compiled": {
+    "scope-relations/special-within-general": {
+      "dimension": "testing/stage",
+      "relation": "narrower",
+      "left": {
+        "sort": "testing/stage",
+        "term": "EX:special"
+      },
+      "right": {
+        "sort": "testing/stage",
+        "term": "EX:general"
+      },
+      "retired": false
+    },
+    "scope-relations/early-equals-initial": {
+      "dimension": "testing/stage",
+      "relation": "equal",
+      "left": {
+        "sort": "testing/stage",
+        "term": "EX:early"
+      },
+      "right": {
+        "sort": "testing/stage",
+        "term": "EX:initial"
+      },
+      "retired": false
+    },
+    "scope-relations/restricted-within-case": {
+      "dimension": "testing/case-status",
+      "relation": "narrower",
+      "left": {
+        "rule": "classification-rule:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "classes": [
+          "EX:restricted"
+        ]
+      },
+      "right": {
+        "rule": "classification-rule:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "classes": [
+          "EX:case"
+        ]
+      },
+      "retired": false
+    }
+  },
+  "local": {
+    "changes": [
+      {
+        "path": [
+          "scope_relations"
+        ],
+        "value": {
+          "early-within-late": {
+            "dimension": "stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "stage",
+              "term": "EX:early"
+            },
+            "right": {
+              "sort": "stage",
+              "term": "EX:late"
+            },
+            "retired": true
+          }
+        }
+      }
+    ],
+    "schema": {
+      "scope-relation:early-within-late": {
+        "dimension": "stage",
+        "relation": "narrower",
+        "left": {
+          "sort": "stage",
+          "term": "EX:early"
+        },
+        "right": {
+          "sort": "stage",
+          "term": "EX:late"
+        }
+      }
+    },
+    "compiled": {
+      "testing/early-within-late": {
+        "dimension": "testing/stage",
+        "relation": "narrower",
+        "left": {
+          "sort": "testing/stage",
+          "term": "EX:early"
+        },
+        "right": {
+          "sort": "testing/stage",
+          "term": "EX:late"
+        },
+        "retired": true
+      }
+    }
+  },
+  "parse_refusals": [
+    {
+      "name": "within-tag",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "relation"
+      ],
+      "value": "within",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "subclass-tag",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "relation"
+      ],
+      "value": "subclass",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "part-of-tag",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "relation"
+      ],
+      "value": "part-of",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "broader-is-a-result-not-a-declaration",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "relation"
+      ],
+      "value": "broader",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "non-string-tag",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "relation"
+      ],
+      "value": 1,
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "unknown-field",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "justification"
+      ],
+      "value": "prose",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "missing-right",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "right"
+      ],
+      "delete": true,
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "missing-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "delete": true,
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "retired-not-boolean",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "retired"
+      ],
+      "value": "yes",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "bad-name",
+      "path": [
+        "scope_relations",
+        "Bad_Name"
+      ],
+      "value": {
+        "dimension": "testing/stage",
+        "relation": "equal",
+        "left": {
+          "sort": "testing/stage",
+          "term": "EX:a"
+        },
+        "right": {
+          "sort": "testing/stage",
+          "term": "EX:b"
+        }
+      },
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "undeclared-local-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "stage",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "base-namespace-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "science/stage",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "own-namespace-spelled-qualified",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "scope-relations/stage",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "undeclared-local-sort",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "sort"
+      ],
+      "value": "stage",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "term-endpoint-extra-key",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "classes"
+      ],
+      "value": [
+        "EX:x"
+      ],
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "term-endpoint-missing-term",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "term"
+      ],
+      "delete": true,
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "term-not-canonical",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "term"
+      ],
+      "value": "EX:café",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "term-empty",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "term"
+      ],
+      "value": "",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "interval-endpoint",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left"
+      ],
+      "value": {
+        "unit": "testing/second",
+        "low": "1",
+        "low_closed": true,
+        "high_closed": true
+      },
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "union-endpoint",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left"
+      ],
+      "value": [
+        {
+          "sort": "testing/stage",
+          "term": "EX:a"
+        },
+        {
+          "sort": "testing/stage",
+          "term": "EX:b"
+        }
+      ],
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "mixed-endpoints",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "right"
+      ],
+      "value": {
+        "rule": "classification-rule:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "classes": [
+          "EX:case"
+        ]
+      },
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "multi-class-endpoint",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "left",
+        "classes"
+      ],
+      "value": [
+        "EX:a",
+        "EX:b"
+      ],
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "empty-classes",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "left",
+        "classes"
+      ],
+      "value": [],
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "classes-not-a-list",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "left",
+        "classes"
+      ],
+      "value": "EX:restricted",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "class-not-canonical",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "left",
+        "classes"
+      ],
+      "value": [
+        "EX:café"
+      ],
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "bad-rule-id",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "left",
+        "rule"
+      ],
+      "value": "classification-rule:ABC",
+      "outcome": "MalformedContract"
+    },
+    {
+      "name": "rule-of-another-kind",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "left",
+        "rule"
+      ],
+      "value": "procedure:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "outcome": "MalformedContract"
+    }
+  ],
+  "compile_refusals": [
+    {
+      "name": "unknown-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "testing/nonexistent",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "claim-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "testing/population",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "interval-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "testing/follow-up",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "time-interval-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "testing/epoch",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "term-endpoints-on-rule-dimension",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "dimension"
+      ],
+      "value": "testing/case-status",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "rule-endpoints-on-term-dimension",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "dimension"
+      ],
+      "value": "testing/stage",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "wrong-endpoint-sort",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "sort"
+      ],
+      "value": "testing/level",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "unknown-endpoint-sort",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "sort"
+      ],
+      "value": "testing/nonexistent",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "term-outside-identifier-class",
+      "path": [
+        "scope_relations",
+        "special-within-general",
+        "left",
+        "term"
+      ],
+      "value": "XX:special",
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "class-outside-identifier-class",
+      "path": [
+        "scope_relations",
+        "restricted-within-case",
+        "left",
+        "classes"
+      ],
+      "value": [
+        "XX:restricted"
+      ],
+      "outcome": "ProfileError"
+    }
+  ],
+  "graph_refusals": [
+    {
+      "name": "strict-self-edge",
+      "contracts": [
+        {
+          "a-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "strict-cycle",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "long-strict-cycle",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-c": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            }
+          },
+          "c-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "equal-plus-strict",
+      "contracts": [
+        {
+          "a-eq-b": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "strict-into-equality-class",
+      "contracts": [
+        {
+          "a-eq-b": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-eq-c": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            }
+          },
+          "c-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "contradiction-across-contracts",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        },
+        {
+          "b-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-classes-equal",
+      "contracts": [
+        {
+          "ra-rb": {
+            "dimension": "testing/case-status",
+            "relation": "equal",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-classes-nested",
+      "contracts": [
+        {
+          "ra-rb": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-nested-through-another-rule",
+      "contracts": [
+        {
+          "ra-sx": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            }
+          },
+          "sx-rb": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-equal-through-another-rule",
+      "contracts": [
+        {
+          "ra-sx": {
+            "dimension": "testing/case-status",
+            "relation": "equal",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            }
+          },
+          "sx-rb": {
+            "dimension": "testing/case-status",
+            "relation": "equal",
+            "left": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    }
+  ],
+  "graph_accepts": [
+    {
+      "name": "duplicate-consistent-facts",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        },
+        {
+          "a-within-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "retired-fact-does-not-conflict",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "retired": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "equality-and-strictness-compose",
+      "contracts": [
+        {
+          "a-eq-b": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-c": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "distinct-rules-nest",
+      "contracts": [
+        {
+          "ra-sx": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            }
+          },
+          "ra-sy": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:y"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

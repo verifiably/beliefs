@@ -201,6 +201,10 @@ class TestAgreement:
             "closure_nodes",
             "facets_read",
             "collectors",
+            # The checked scope context (scope containment design §7.4): typed
+            # comparisons and their evidence, never an ordering or priority input.
+            "scope_comparisons",
+            "scope_dependencies",
         }
 
 

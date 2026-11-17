@@ -48,6 +48,29 @@ class DependencyNotHeld(MeasurementError):
     """A normative measurement dependency is not held."""
 
 
+class ScopeDependencyIneligible(MeasurementError):
+    """A selected scope-relation dependency cannot be used by this operation: a
+    rule in the comparison's selected component is not held, is corrupt or of
+    another kind, has another classes sort, or is ineligible in the operation's
+    snapshot (scope containment design §7.3). ``record_ids`` names every failed
+    selected record, never only the first."""
+
+    def __init__(self, message: str, record_ids: tuple[str, ...]) -> None:
+        super().__init__(message)
+        self.record_ids = tuple(sorted(set(record_ids)))
+
+
+class ScopeValidityIncompatible(MeasurementError):
+    """A frozen target lacks a validity assumption its scope now requires under
+    the current profile, as when the sole declared proof behind a waiver was
+    retired (scope containment design §7.3). ``missing`` holds the required
+    assumption instances, with their particulars. Decoding is unaffected."""
+
+    def __init__(self, message: str, missing: tuple[object, ...]) -> None:
+        super().__init__(message)
+        self.missing = tuple(missing)
+
+
 class AmbiguousCrosswalk(MeasurementError):
     """More than one held direct crosswalk joins a pair of scale authorities."""
 
@@ -1023,6 +1046,14 @@ class MalformedRecord(RecordError):
     """A field that is not what the kernel's tables declare — a digest that is
     not ``<algorithm>:<lowercase hex>``, an outcome or scope outside its closed
     set, a role outside ``observes | reads | transforms``."""
+
+
+class ScopeEvidenceIncomplete(MalformedRecord):
+    """Captured evaluation inputs omit or contradict the scope evidence a pure
+    recomputation requires: a selected rule's body, state or attempted read, an
+    assessment's scope state, or a recorded scope reason that disagrees with the
+    recomputed one (scope containment design §7.4). An accurately recorded
+    incompatible or failed-read state is a valid ineligible input, not this."""
 
 
 class InputOutsideCorpus(MalformedRecord):

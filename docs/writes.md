@@ -94,7 +94,9 @@ that includes the arriving records. A calibration also requires supported empiri
 assessments of the calibrated observable: one variable uses the proxy's source
 procedure, the other a nonmodel procedure. Their interpretation rules must be
 allowed by the calibration, and their frozen applicability must cover its validity.
-Qualification reads the frozen target without fetching a spec. For scale targets,
+That coverage comparison is checked: when it selects declared scope relations, every
+selected rule must resolve in the supplied view with the dimension's classes sort, or
+the record refuses. Qualification reads the frozen target without fetching a spec. For scale targets,
 transfer is required exactly when the calibrated observable is absent from all of
 the authority's yields. Crosswalks require two authorities: matching orientations
 need a positive coefficient, opposite orientations a negative affine coefficient;
@@ -107,7 +109,13 @@ Assessment mint and import validate the declared standing route against the held
 spec and matching run inputs. Empirical standing requires observation mode;
 model standing matches the claim's model; calibrated-model standing requires
 qualified, currently admitted basis assessments, covered prediction scope and
-explicit transfer assumptions. The mounted citation view supplies these checks,
+explicit transfer assumptions. Before any route check, standing rederives the
+target's scope-dependent validity requirements under the current profile and
+refuses (`scope-validity-incompatible`) when the frozen estimand lacks one, as after
+the sole proof behind a waiver is retired, or (`scope-dependency-ineligible`) when a
+selected scope rule cannot be read. `spec.freeze` applies the same requirement and
+raises `ScopeValidityIncompatible`; see
+[binding aptness](records.md#binding-aptness). The mounted citation view supplies these checks,
 including recursive basis runs, verifications and retractions. See
 [declared standing](records.md#declared-standing-at-write-boundaries).
 

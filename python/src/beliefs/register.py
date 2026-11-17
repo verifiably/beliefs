@@ -4,7 +4,7 @@ license and leave unestablished, as a content-addressed world record.
 A register describes one domain contract by its content identity
 (`describes: "<namespace>:<content identity>"`), optionally names the revision it
 supersedes (`previous`), and carries entries keyed by the typed address of the
-declaration each describes across all 21 `ENTRY_KINDS` families. Ordinary keys
+declaration each describes across all 22 `ENTRY_KINDS` families. Ordinary keys
 are `<kind>:<namespace>/<name>`; estimand keys qualify their inner target as
 `estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`.
 The kind is part of the key because the declaration tables are separate

@@ -3,8 +3,8 @@
 Type: data model; document types 1. This document describes the records a beliefs
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
-encoding, `science.identity.v1`. The shipped base contract is version 5, with
-claim grammar 2, estimand grammar 4, and measurement and composite grammar 1. The other
+encoding, `science.identity.v1`. The shipped base contract is version 6, with
+claim grammar 2, estimand grammar 4, and measurement, composite and scope grammar 1. The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
@@ -914,15 +914,23 @@ what they license and what they leave unestablished. Its facet has `describes`, 
 contract it describes as `<namespace>:<content identity>` (64 lowercase hex), an
 optional `previous`, the `assumptions-register:` id of the revision it supersedes,
 and `entries`. Each entry is keyed by the typed address of a declaration across the
-21 domain declaration families (`sort`, `dimension`, `template`, `instantiation`,
+22 domain declaration families (`sort`, `dimension`, `template`, `instantiation`,
 `bridge`, `estimand`, `duration-convention`, `functional`, `identification-class`,
 `design`, `selection-mechanism`, `procedure-kind`, `aggregation-rule`,
 `assumption-kind`, `measurement`, `aspect`, `quantity-kind`, `unit`, `constant`,
-`conversion` and `transformation`). Ordinary keys are `<kind>:<namespace>/<name>`;
+`conversion`, `transformation` and `scope-relation`). Ordinary keys are `<kind>:<namespace>/<name>`;
 estimand keys qualify their inner target as
 `estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`.
 Each entry has three non-empty prose strings (`collapses`, `licenses` and
 `not_established`) plus a required `status` (`provisional` or `established`).
+A `scope-relation` entry, including one for a retired relation, carries the relation's
+endpoint definitions, intended universe, what identifies one case and occasion and how
+unclassified cases count (`collapses`); the exact equality or proper-containment
+consequence with its definitional justification, a properness counterexample for
+`narrower`, and the defining source revision (`licenses`); and what it does not
+establish, such as empirical validation, imported ontology closure or sibling
+disjointness (`not_established`). The kernel checks shape and coverage, not the
+adequacy of that prose. The register domain stays `science.assumptions-register.v2`.
 The kind is part of the key, so a sort and a
 dimension that share a local name have separate entries, and an instantiation and a
 bridge sharing a name have distinct estimand entries. A `measurement` entry
@@ -951,7 +959,7 @@ profile's activated domain contracts; none of these refuses a write:
   identity. A `previous` naming a register not held ends the chain there; registers
   on a cycle have no head, and each is compared to the pin.
 - `register-entry-unknown` (error, on the register): an entry key whose kind is not
-  one of the 21 declaration families (its reader refuses such a register too), or, for a register
+  one of the 22 declaration families (its reader refuses such a register too), or, for a register
   describing the pinned identity, a key naming no declaration of that kind and target
   owned by that contract. A register describing another identity reports `register-stale`
   alone.
@@ -1114,7 +1122,11 @@ procedure. The interpretation rule must be listed in the calibration's allowed
 rules. Qualification reads the frozen assessed target, without fetching its spec.
 Each assessment's applicability must be equal to or broader than the proxy's
 validity over the union of dimensions. Narrower, overlapping, disjoint and unknown
-comparisons refuse with `calibration-scope-overstated`. Quantifiers remain in
+comparisons refuse with `calibration-scope-overstated`. `qualify_calibration` takes
+the caller's checked comparison as a required `scope_compare` keyword (both the
+write door and standing pass a `ScopeReader`'s `compare`), so coverage by a declared
+scope relation counts only after its selected context is checked; there is no
+unchecked default. Quantifiers remain in
 identity while this comparison uses geometric restrictions.
 
 The source observable, any explicit target observable and any calibrated
@@ -1159,6 +1171,36 @@ Exactly one activated contract must declare the required kind by local name.
 An assumption-based proxy also contributes its checked basis instance. Returned
 assumptions are distinct and sorted by canonical projection.
 
+Both validity comparisons go through a checked `scope_checks.ScopeReader`
+(`aptness.validity_requirements` computes the scope-dependent part alone). When a
+comparison selects [declared scope relations](contracts.md#typed-restrictions), the
+reader strictly reads every rule in the selected components, intermediaries
+included, follows their ordinary references, and requires each to be a
+classification rule whose classes sort is the dimension's, with the declared class
+inside that sort's identifier class. A missing, corrupt, wrong-kind or wrong-sort
+rule refuses the use with `ScopeDependencyIneligible`, naming every failed rule,
+before any assumption is suppressed; there is no fallback to a smaller graph or to
+`unknown`. A disconnected relation's rules are neither read nor required to be held,
+and a same-rule comparison reads none. The selected rules are checked, not frozen:
+no relation context enters the returned dependency closure, `record_terms`,
+`target_terms` or a stored assessment's frozen dependencies, so adding or retiring a
+relation never changes a stored target's bytes, key or entries.
+
+`target_validity.target_scope_requirements` rederives, under the current profile, the
+validity assumptions an existing target's held procedure and proxy bodies and its
+applicability now require, and reports those its frozen estimand does not carry.
+Additional explicit assumptions remain allowed. `spec.freeze` refuses a target with
+a missing requirement (`ScopeValidityIncompatible`, carrying the missing instances
+with their particulars), and standing refuses it before any route-specific check
+(`StandingRefused`, `scope-validity-incompatible`; a failed selected rule is
+`scope-dependency-ineligible`). Requirements are compared with their exact
+particulars, so any change to the active relation table can invalidate an earlier
+waiver: retiring the sole proof behind it, or adding a relation that changes the
+comparison verdict or the nonequal dimensions a required assumption names. Either
+way the waiver stops being usable under the successor profile while the stored
+target still decodes and replay under the original pin is unchanged. A newly authored
+estimand gathers the now-required assumption normally.
+
 `dependencies.dependency_closure` freezes the procedure, any cited mapping and
 proxy, and every normative record they reference, once each and sorted by id.
 Each entry pairs the id with its sorted contract terms. Typed structural walks
@@ -1201,6 +1243,13 @@ pairs the requested verdicts with sorted, distinct `reads`: every id observed
 by heldness or record reads, including attempted missing ids and members visited
 before a `not-held` or `cycle` verdict. A later snapshot's retraction can change
 eligibility while the frozen ids and terms remain unchanged. Eligibility is a snapshot judgment separate from the frozen target identity.
+
+`eligibility.merge_scope_eligibility(intrinsic, scope)` combines an assessment's
+intrinsic and current-profile scope results: an intrinsic failure is returned
+unchanged with its reason and concerns, otherwise the scope result. An
+`AssessmentEligibilityReader` given a `scope` callback runs it for every decoded
+nested assessment, even one intrinsically ineligible, and records the merged
+state under the assessment's identity in `states`.
 
 #### Coordinate convertibility
 
@@ -1535,9 +1584,58 @@ claim raises `MalformedRecord`. A read domain
 facet reads its namespace. Every consulted namespace must be pinned by the closure's
 corpora to one identity, the profile's; otherwise the answer is `Refused`.
 
+When a matched or nested target's comparisons select [declared scope
+relations](contracts.md#typed-restrictions), each selected relation's owner, its
+dimension's and endpoint sorts' owners, and the namespaces of every selected rule's
+body-derived terms are consulted too; a relation disconnected from every compared
+operand consults nothing, so activating it changes no digest.
+
+Capture also records each target's current-profile scope state. Each matched
+assessment's state is stored under its `AssessmentValue.identity()` in
+`DependencyEvidence.closure.verdicts` (beside the dependency rows keyed by stored
+references): `Eligible`, `Ineligible("scope-validity-incompatible", <missing
+assumption projections>)` when its frozen estimand lacks a validity assumption its
+scope now requires, `Ineligible("scope-dependency-ineligible", <failed rule ids>)`
+when a selected scope rule is missing, retracted or otherwise ineligible, or
+`Ineligible("dependency-ineligible", (<id>,))` when its procedure or proxy body
+cannot be read. Nested assessments store their merged state, and every selected rule
+root stores its closure state, with its attempted reads. Admission then refuses an
+assessment whose state is ineligible, after its existing checks and with that reason
+as the refusal prefix; the assessment is filtered and its key can end with
+`NoBelief("no-eligible-assessment")` while every other key is unaffected, and pairs
+involving that key report `TargetUnknown`. Replay under the original profile pin
+keeps the original result; the stored target's bytes and key never change.
+
+`evaluate` first recomputes every required scope check from the supplied targets
+and typed bodies (`evidence.scope_evidence`). A missing state, selected body or
+attempted read, or a recorded scope reason that disagrees with the recomputation,
+raises `ScopeEvidenceIncomplete` (a `MalformedRecord`, `scope-evidence-incomplete`).
+A selected owner whose pin is missing, or pinned differently across corpora, is a
+consultation failure instead: the answer is
+`Refused("consulted-contracts-disagree: …")`; one pinned at another identity than
+the profile's is `Refused("profile-pin-mismatch: …")`. An accurately recorded stale
+or failed-read state is a valid ineligible input, not malformed evidence: a missing body is admitted only for
+an explicitly failed read with its attempted read and ineligible state. A nested
+assessment's recorded intrinsic failure may stand beside a computed scope failure.
+
 `evaluation.claim_view` captures standing, records and acceptance once, evaluates
 all sorted keys separately and reports conversion and synthesis for each pair.
-Pair lookups use the same capture but stay outside the individual belief closures.
+Pair lookups use the same capture but stay outside the individual belief closures:
+each pair owns its own reader, so no pair's reads reach a keyed closure or another
+pair. Every scope comparison in convertibility and synthesis (observable proxies
+consulted as candidates, crosswalk validity and target applicability) is the pair
+snapshot's checked `ComparabilitySnapshot.compare_scope`; a selected scope rule that
+is missing, retracted or otherwise ineligible makes the synthesis
+`TargetNotConvertible("dependency ineligible")`, never an unknown success or a
+waived assumption. An observable-proxy candidate whose checked comparison fails is
+skipped like an ineligible proxy (its comparison stays in the pair's evidence), so
+the outcome never depends on candidate order; when no candidate remains because of
+such failures, the result is again dependency-ineligible. Each started pair carries `PairVerdict.evidence`, a transient
+`PairEvidence` holding its own reads, eligibility states, typed bodies, both
+compared assessments, scoped retractions, read trace and consulted pins (including
+pair-only relation owners and selected rule terms); `None` means the comparison
+never started. A pair whose consulted context is unpinned or disagrees is reported
+`TargetUnknown` with no permission.
 An ambiguous direct crosswalk or malformed comparison proxy yields an unknown
 pair verdict while preserving the keyed answers. A malformed selected verification
 refuses only its key; a sibling's verification or its retraction never enters that

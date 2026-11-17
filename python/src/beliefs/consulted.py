@@ -22,7 +22,7 @@ from collections.abc import Callable, Mapping
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import final
+from typing import TYPE_CHECKING, final
 
 from beliefs.claim import Claim, Member, Referent
 from beliefs.errors import ContractDisagreement, ContractMismatch, EstimandError, MalformedRecord
@@ -30,6 +30,10 @@ from beliefs.estimand import admit_estimand
 from beliefs.profile import ProfileSpec
 from beliefs.sealed import sealed
 from beliefs.target import AssessedTarget, target_terms
+
+if TYPE_CHECKING:
+    from beliefs.evidence import DependencyEvidence
+    from beliefs.restriction import ScopeComparison
 
 __all__ = [
     "BASE_NAMESPACE",
@@ -113,6 +117,43 @@ def assessed_target_contracts(artefact: object, profile: ProfileSpec, claim: Cla
     return read
 
 
+def _scope_contracts(
+    comparisons: tuple[ScopeComparison, ...], dependencies: DependencyEvidence | None, profile: ProfileSpec
+) -> set[str]:
+    """The namespaces a checked scope context consulted (design §7.4): each
+    selected relation's owner, dimension and endpoint-sort owners, recomputed from
+    the comparison's operands, plus the body-derived terms of every selected rule
+    and its ordinary references, read from the supplied checked evidence. Never an
+    arbitrary namespace list and never all activated contracts."""
+    from beliefs.dependencies import record_references, record_terms
+    from beliefs.eligibility import Ineligible
+    from beliefs.restriction import scope_contracts, scope_rule_ids
+
+    read: set[str] = set()
+    for comparison in comparisons:
+        owners = scope_contracts(comparison, profile)
+        if not owners:
+            continue
+        if dependencies is None:
+            raise MalformedRecord("a comparison that selected scope context requires its checked dependency evidence")
+        read |= owners
+        pending = list(scope_rule_ids(comparison, profile))
+        seen: set[str] = set()
+        while pending:
+            id = pending.pop()
+            if id in seen:
+                continue
+            seen.add(id)
+            body = dependencies.records.get(id)
+            if body is None:
+                if id in dependencies.closure.reads and isinstance(dependencies.closure.verdicts.get(id), Ineligible):
+                    continue
+                raise MalformedRecord(f"selected scope dependency {id} has neither a checked body nor a failed read")
+            read |= {term.partition("/")[0] for term in record_terms(body, profile)}
+            pending.extend(record_references(body, profile))
+    return read
+
+
 def consulted_contracts(
     *,
     claims: Mapping[str, Claim],
@@ -123,6 +164,8 @@ def consulted_contracts(
     closure_nodes: tuple[str, ...],
     facets_read: Mapping[str, tuple[str, ...]] = MappingProxyType({}),
     collectors: tuple[Collector, ...] = (claim_contracts, assessed_target_contracts),
+    scope_comparisons: tuple[ScopeComparison, ...] = (),
+    scope_dependencies: DependencyEvidence | None = None,
 ) -> tuple[tuple[str, str], ...]:
     """The consulted set, as sorted ``(namespace, identity)`` pairs.
 
@@ -178,6 +221,7 @@ def consulted_contracts(
                     f"{key}: the estimand is not admitted for the claim of the proposition it targets ({caught}); "
                     "a malformed walk input"
                 ) from caught
+    read |= _scope_contracts(scope_comparisons, scope_dependencies, profile)
     for node, keys in facets_read.items():
         if node not in closure_nodes:
             raise MalformedRecord(

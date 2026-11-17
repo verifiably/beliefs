@@ -263,7 +263,12 @@ explicitly and remains owned by beliefs-6f039b.
    despite exit zero. It assumes no fixed scientific result and no old cuts.
 
 For several assessed targets, use `evaluation.claim_view` for one answer per key
-and pairwise conversion/synthesis verdicts. The `evaluate_over` convenience refuses
+and pairwise conversion/synthesis verdicts; each pair also carries the evidence its
+own comparison read and consulted (`PairVerdict.evidence`). Declared scope
+relations ([contracts.md](contracts.md#scope-relations)) let comparisons recognize
+reviewed equality and proper containment between distinct terms or rules; they never
+change a stored target, and retiring one can make an existing target's current use
+refuse while its original-pin replay is unchanged. The `evaluate_over` convenience refuses
 multiple keys; it forwards the exact answer for one key. Neither aggregation nor a
 successful demonstration certifies independence or biological interpretation.
 

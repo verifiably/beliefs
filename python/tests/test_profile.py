@@ -74,9 +74,10 @@ def test_no_coordination_contract_preserves_the_compiled_identity(base_contract)
     when functional and control declarations entered the schema,
     and when assumptions-register moved to science.assumptions-register.v2,
     when estimand v3 and the explicit time-role coupling entered the projection,
-    and when estimand v4 established the event-series generation."""
+    when estimand v4 established the event-series generation,
+    and when base v6 added the scope grammar and the scope-relation table."""
     before = compile_profile(base_contract, [])
-    assert before.compiled_identity == "5c5377d662647d3bc613ef2bb266b407c52c7f09e539b52109cda2bd66ac9c6e"
+    assert before.compiled_identity == "9820eb4c99f0d168e5c3b030c8bf1e423052813fcaa9af611c44f4dc571d31d1"
     assert compile_profile(base_contract, [], coordination=None).compiled_identity == before.compiled_identity
     assert before.coordination_kinds == {}
 
@@ -1139,6 +1140,7 @@ class TestTheOrdinaryRouteToAnUnparsedArtifact:
                 constants={},
                 conversions={},
                 transformations={},
+                scope_relations={},
                 facets={},
                 content_identity="0" * 64,
                 base_identity="0" * 64,

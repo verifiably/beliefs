@@ -978,8 +978,9 @@ class TestSuccession:
         from beliefs.register import register_entry_keys
 
         tags = {key.split(":")[0] for key, _ in genesis._declarations()}
-        assert len(DECLARATION_FAMILIES) == 21
-        assert tags == {kind for kind, _ in DECLARATION_FAMILIES}
+        assert len(DECLARATION_FAMILIES) == 22
+        # The testing contract declares no scope relation (test_scope_declarations.py covers that family).
+        assert tags == {kind for kind, _ in DECLARATION_FAMILIES} - {"scope-relation"}
         assert tags == {
             "sort",
             "dimension",

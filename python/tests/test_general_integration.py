@@ -787,4 +787,4 @@ def test_historical_base_bytes_refuse_under_v5_and_claim_projection_stays_same()
         rule_procedures={"probability-of-superiority/v1": estimator_id},
     )
     assert spec_provisional.identity != spec_established.identity
-    assert shipped_base_contract().version == 5
+    assert shipped_base_contract().version == 6

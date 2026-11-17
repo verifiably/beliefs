@@ -120,7 +120,9 @@ def test_calibrated_model_needs_eligible_basis(profile):
     value = stored.assessment_value(records.nodes[basis], profile=profile)
     assert value.standing == "empirical" and value.outcome == "supported"  # Synthetic typing apparatus only.
     proxy = proxy_from_stored(records.nodes[spec.estimand.calibration])
-    qualify_calibration(proxy, records.read, profile)
+    from beliefs.scope_checks import author_scope_reader
+
+    qualify_calibration(proxy, records.read, profile, scope_compare=author_scope_reader(profile, records).compare)
     assert any(
         a.kind == "spectral-checks/calibration-transfer" and a.particulars["proxy"] == spec.estimand.calibration
         for a in spec.estimand.assumptions
