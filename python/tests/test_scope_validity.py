@@ -87,14 +87,23 @@ class World:
         endpoints = parse_domain_contract(endpoint_document(), source="testing", base=BASE, predecessor=None)
         return compile_profile(BASE, [endpoints, *contracts])
 
-    def applicability(self, profile):
-        return build_applicability(profile, TESTING_CLAIM, self.scope_values, snapshot=UNCONSULTED)[0]
+    def applicability(self, profile, *, values=None):
+        values = self.scope_values if values is None else values
+        return build_applicability(profile, TESTING_CLAIM, values, snapshot=UNCONSULTED)[0]
 
-    def estimand(self, profile, *, assumptions=()):
+    def estimand(self, profile, *, assumptions=(), procedure=None, scope=None):
         response = MeasuredBinding(
             "cause",
             None,
-            Measure(OBSERVABLE, "testing/tpm", None, "ratio", "level", "testing/identity", self.procedure),
+            Measure(
+                OBSERVABLE,
+                "testing/tpm",
+                None,
+                "ratio",
+                "level",
+                "testing/identity",
+                self.procedure if procedure is None else procedure,
+            ),
             None,
             None,
         )
@@ -111,7 +120,7 @@ class World:
             uncertainty="interval",
             assumptions=assumptions,
             calibration=None,
-            applicability=self.applicability(profile),
+            applicability=self.applicability(profile, values=scope),
             records=self.records,
         )
         return estimand

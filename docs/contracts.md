@@ -779,7 +779,11 @@ are checked too. Measurement, functional, output, control, assumptions and scope
 terms all count; a calendar convention also reads its conversion and endpoint
 units. Authority validation scope and procedure kinds enter through the frozen
 record terms. This traversal takes no world reader; `consulted_contracts` accepts
-`targets=` and applies pin agreement to the resulting namespaces.
+`targets=` and applies pin agreement to the resulting namespaces. Declared scope
+context is never part of this body walk: `consulted_contracts` takes the checked
+comparisons separately (`scope_comparisons=` with `scope_dependencies=`), recomputes
+their selected context, and adds the selected relations', dimensions' and endpoint
+sorts' owners and the selected rule bodies' term namespaces.
 
 ### Defining source metadata
 

@@ -25,7 +25,7 @@ from beliefs.series.graph import graph_roots
 from beliefs.series.types import SeriesGraph
 
 if TYPE_CHECKING:
-    from beliefs.record import RunValue
+    from beliefs.record import AssessmentValue, RunValue
     from beliefs.verification import Verification
 
 __all__ = [
@@ -36,6 +36,7 @@ __all__ = [
     "Ineligible",
     "closure_eligibility",
     "dependency_eligibility",
+    "merge_scope_eligibility",
 ]
 
 
@@ -51,6 +52,15 @@ class Ineligible:
 
 
 AssessmentEligibility: TypeAlias = Callable[[str], Eligible | Ineligible]
+
+
+def merge_scope_eligibility(intrinsic: Eligible | Ineligible, scope: Eligible | Ineligible) -> Eligible | Ineligible:
+    """An assessment's effective state from its intrinsic and scope-layer results.
+
+    Ineligible wins, and an intrinsic failure keeps its own reason and concerns
+    even when the scope check failed too; a scope success never overwrites an
+    intrinsic failure (scope containment design §7.3)."""
+    return intrinsic if isinstance(intrinsic, Ineligible) else scope
 
 
 @dataclass(frozen=True)
@@ -204,13 +214,19 @@ class AssessmentEligibilityReader:
     profile: ProfileSpec
     run_of: Callable[[str], "RunValue"]
     verifications_of: Callable[[str], tuple["Verification", ...]]
+    scope: Callable[["AssessmentValue"], Eligible | Ineligible] | None = None
+    """The operation's current-profile scope check of a nested target; when
+    supplied, it runs for every decoded assessment, even one intrinsically
+    ineligible, and its result merges through ``merge_scope_eligibility``."""
+    states: dict[str, Eligible | Ineligible] = field(default_factory=dict)
+    """Effective merged states keyed by ``AssessmentValue.identity()``, recorded
+    only when ``scope`` is supplied."""
     _active: set[str] = field(default_factory=set)
     _memo: dict[str, Eligible | Ineligible] = field(default_factory=dict)
 
     def __call__(self, id: str) -> Eligible | Ineligible:
         from beliefs import stored
         from beliefs.errors import ScienceError
-        from beliefs.verification import ADMITTED, lifecycle_state
 
         if id in self._active:
             return Ineligible("cycle", (id,))
@@ -220,48 +236,63 @@ class AssessmentEligibilityReader:
             return Ineligible("basis-not-held-or-retracted", (id,))
         self._active.add(id)
         try:
-            value = stored.assessment_value(self.records.read(id), profile=self.profile)
-            frozen = series_dependency_closure(
+            try:
+                value = stored.assessment_value(self.records.read(id), profile=self.profile)
+            except ScienceError as error:
+                return Ineligible(str(error), (id,))
+            try:
+                intrinsic = self._intrinsic(id, value)
+            except ScienceError as error:
+                intrinsic = Ineligible(str(error), (id,))
+            verdict = intrinsic
+            if self.scope is not None:
+                verdict = merge_scope_eligibility(intrinsic, self.scope(value))
+                self.states[value.identity()] = verdict
+            self._memo[id] = verdict
+            return verdict
+        finally:
+            self._active.difference_update((id,))
+
+    def _intrinsic(self, id: str, value: "AssessmentValue") -> Eligible | Ineligible:
+        from beliefs import stored
+        from beliefs.verification import ADMITTED, lifecycle_state
+
+        frozen = series_dependency_closure(
+            (d.id for d in value.dependencies),
+            value.target.estimand.series_graph,
+            self.records,
+            self.profile,
+            assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
+                ref, records=self.records, profile=self.profile
+            ),
+        )
+        if frozen != value.dependencies:
+            return Ineligible("frozen-dependency-mismatch", (id,))
+        run = self.run_of(value.run)
+        if run.ref != stored.typed_ref("run", value.run):
+            verdict = Ineligible("run-mismatch")
+        elif value.standing == "empirical" and not any(i.role == "observes" for i in run.inputs):
+            verdict = Ineligible("no-observes-input")
+        elif any(not i.dataset.resources for i in run.inputs) or not all(
+            d is not None and self.records.observation_held(d)
+            for i in run.inputs
+            for resource in i.dataset.resources
+            for d in (resource.digest,)
+        ):
+            verdict = Ineligible("input-not-held")
+        elif lifecycle_state(self.verifications_of(value.identity())) != ADMITTED:
+            verdict = Ineligible("not-admitted-verification-state")
+        else:
+            closure = closure_eligibility(
                 (d.id for d in value.dependencies),
-                value.target.estimand.series_graph,
                 self.records,
                 self.profile,
+                assessments=self,
+                graph=value.target.estimand.series_graph,
                 assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
                     ref, records=self.records, profile=self.profile
                 ),
             )
-            if frozen != value.dependencies:
-                return Ineligible("frozen-dependency-mismatch", (id,))
-            run = self.run_of(value.run)
-            if run.ref != stored.typed_ref("run", value.run):
-                verdict = Ineligible("run-mismatch")
-            elif value.standing == "empirical" and not any(i.role == "observes" for i in run.inputs):
-                verdict = Ineligible("no-observes-input")
-            elif any(not i.dataset.resources for i in run.inputs) or not all(
-                d is not None and self.records.observation_held(d)
-                for i in run.inputs
-                for resource in i.dataset.resources
-                for d in (resource.digest,)
-            ):
-                verdict = Ineligible("input-not-held")
-            elif lifecycle_state(self.verifications_of(value.identity())) != ADMITTED:
-                verdict = Ineligible("not-admitted-verification-state")
-            else:
-                closure = closure_eligibility(
-                    (d.id for d in value.dependencies),
-                    self.records,
-                    self.profile,
-                    assessments=self,
-                    graph=value.target.estimand.series_graph,
-                    assessment_dependency=lambda ref: stored.frozen_assessment_dependency(
-                        ref, records=self.records, profile=self.profile
-                    ),
-                )
-                first = next((ref for ref, v in closure.verdicts.items() if isinstance(v, Ineligible)), None)
-                verdict = Eligible() if first is None else Ineligible("dependency-ineligible", (first,))
-            self._memo[id] = verdict
-            return verdict
-        except ScienceError as error:
-            return Ineligible(str(error), (id,))
-        finally:
-            self._active.difference_update((id,))
+            first = next((ref for ref, v in closure.verdicts.items() if isinstance(v, Ineligible)), None)
+            verdict = Eligible() if first is None else Ineligible("dependency-ineligible", (first,))
+        return verdict

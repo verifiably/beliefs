@@ -427,6 +427,11 @@ def _evaluate_traced(
     for row in records.observed_facets:
         ledger.setdefault(row.address, []).append(row.key)
     read_claims = {proposition: records.claims[proposition]} if proposition in records.claims else {}
+    # Recompute every scope check from the supplied targets and bodies before any
+    # consultation or admission; incomplete evidence raises, never passes (§7.4).
+    from beliefs.evidence import scope_evidence
+
+    comparisons = scope_evidence(matched, dependencies, profile=profile)
     try:
         consulted = consulted_contracts(
             claims=read_claims,
@@ -436,6 +441,8 @@ def _evaluate_traced(
             pins=context.pins,
             closure_nodes=closure_nodes,
             facets_read={address: tuple(keys) for address, keys in ledger.items()},
+            scope_comparisons=comparisons,
+            scope_dependencies=dependencies,
         )
     except ContractDisagreement as exc:
         return Refused(f"consulted-contracts-disagree: {exc}"), NotReached()

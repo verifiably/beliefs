@@ -1138,6 +1138,13 @@ by heldness or record reads, including attempted missing ids and members visited
 before a `not-held` or `cycle` verdict. A later snapshot's retraction can change
 eligibility while the frozen ids and terms remain unchanged. Eligibility is a snapshot judgment separate from the frozen target identity.
 
+`eligibility.merge_scope_eligibility(intrinsic, scope)` combines an assessment's
+intrinsic and current-profile scope results: an intrinsic failure is returned
+unchanged with its reason and concerns, otherwise the scope result. An
+`AssessmentEligibilityReader` given a `scope` callback runs it for every decoded
+nested assessment, even one intrinsically ineligible, and records the merged
+state under the assessment's identity in `states`.
+
 #### Coordinate convertibility
 
 `comparability.convert` classifies a map from side A's coordinates into side B's
@@ -1470,6 +1477,37 @@ proposition's claim. A target naming a different claim or not admitted for that
 claim raises `MalformedRecord`. A read domain
 facet reads its namespace. Every consulted namespace must be pinned by the closure's
 corpora to one identity, the profile's; otherwise the answer is `Refused`.
+
+When a matched or nested target's comparisons select [declared scope
+relations](contracts.md#typed-restrictions), each selected relation's owner, its
+dimension's and endpoint sorts' owners, and the namespaces of every selected rule's
+body-derived terms are consulted too; a relation disconnected from every compared
+operand consults nothing, so activating it changes no digest.
+
+Capture also records each target's current-profile scope state. Each matched
+assessment's state is stored under its `AssessmentValue.identity()` in
+`DependencyEvidence.closure.verdicts` (beside the dependency rows keyed by stored
+references): `Eligible`, `Ineligible("scope-validity-incompatible", <missing
+assumption projections>)` when its frozen estimand lacks a validity assumption its
+scope now requires, `Ineligible("scope-dependency-ineligible", <failed rule ids>)`
+when a selected scope rule is missing, retracted or otherwise ineligible, or
+`Ineligible("dependency-ineligible", (<id>,))` when its procedure or proxy body
+cannot be read. Nested assessments store their merged state, and every selected rule
+root stores its closure state, with its attempted reads. Admission then refuses an
+assessment whose state is ineligible, after its existing checks and with that reason
+as the refusal prefix; the assessment is filtered and its key can end with
+`NoBelief("no-eligible-assessment")` while every other key is unaffected, and pairs
+involving that key report `TargetUnknown`. Replay under the original profile pin
+keeps the original result; the stored target's bytes and key never change.
+
+`evaluate` first recomputes every required scope check from the supplied targets
+and typed bodies (`evidence.scope_evidence`). A missing state, selected body,
+attempted read or owner pin, or a recorded scope reason that disagrees with the
+recomputation, raises `ScopeEvidenceIncomplete` (a `MalformedRecord`,
+`scope-evidence-incomplete`). An accurately recorded stale or failed-read state is a
+valid ineligible input, not malformed evidence: a missing body is admitted only for
+an explicitly failed read with its attempted read and ineligible state. A nested
+assessment's recorded intrinsic failure may stand beside a computed scope failure.
 
 `evaluation.claim_view` captures standing, records and acceptance once, evaluates
 all sorted keys separately and reports conversion and synthesis for each pair.

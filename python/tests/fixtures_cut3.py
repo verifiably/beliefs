@@ -940,11 +940,17 @@ def frozen_fixture_spec(target, inputs, *, estimand=None, claim=TESTING_CLAIM, p
 def dependency_evidence(assessments):
     """Construct explicit held normative evidence for portable value fixtures."""
     from beliefs.dependencies import read_record
-    from beliefs.eligibility import closure_eligibility
+    from beliefs.eligibility import ClosureEligibility, closure_eligibility
     from beliefs.evidence import DependencyEvidence
+    from beliefs.scope_checks import author_scope_reader
+    from beliefs.target_validity import scope_eligibility
 
     ids = tuple(sorted({d.id for a in assessments for d in a.dependencies}))
     eligibility = closure_eligibility(ids, MEASUREMENT_RECORDS, TESTING_PROFILE)
+    # Each assessment's scope state under its identity, as capture records it.
+    reader = author_scope_reader(TESTING_PROFILE, MEASUREMENT_RECORDS)
+    states = {a.identity(): scope_eligibility(a.target, reader) for a in assessments}
+    eligibility = ClosureEligibility({**eligibility.verdicts, **states}, eligibility.reads)
     return DependencyEvidence(
         eligibility,
         {id: read_record(MEASUREMENT_RECORDS, id) for id in eligibility.reads if MEASUREMENT_RECORDS.holds(id)},

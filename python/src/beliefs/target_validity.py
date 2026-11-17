@@ -15,7 +15,8 @@ from dataclasses import dataclass
 
 from beliefs.aptness import validity_requirements
 from beliefs.assumptions import AssumptionInstance, instance_projection
-from beliefs.errors import MalformedRecord
+from beliefs.eligibility import Eligible, Ineligible
+from beliefs.errors import DependencyNotHeld, MalformedRecord, ScopeDependencyIneligible, ScopeEvidenceIncomplete
 from beliefs.estimand import MeasuredBinding, measured_bindings
 from beliefs.identity import v1
 from beliefs.procedure import Procedure
@@ -23,7 +24,10 @@ from beliefs.proxy_model import ProxyModel
 from beliefs.scope_checks import ScopeReader
 from beliefs.target import AssessedTarget
 
-__all__ = ["ScopeRequirements", "target_scope_requirements"]
+__all__ = ["SCOPE_REASONS", "ScopeRequirements", "scope_eligibility", "target_scope_requirements"]
+
+SCOPE_REASONS = frozenset({"scope-validity-incompatible", "scope-dependency-ineligible"})
+"""The two scope-layer ineligibility reasons; neither stands in for an intrinsic verdict."""
 
 
 @dataclass(frozen=True)
@@ -57,3 +61,35 @@ def target_scope_requirements(target: AssessedTarget, *, reader: ScopeReader) ->
     return ScopeRequirements(
         tuple(required[key] for key in keys), tuple(required[key] for key in keys if key not in present)
     )
+
+
+def scope_eligibility(target: AssessedTarget, reader: ScopeReader) -> Eligible | Ineligible:
+    """A target's scope-layer state under ``reader``'s profile and snapshot.
+
+    ``scope-dependency-ineligible`` names every failed selected scope rule;
+    ``scope-validity-incompatible`` carries each missing assumption's canonical
+    projection. A procedure or proxy body that cannot be read is an intrinsic
+    failure, not a scope result: it reports ``dependency-ineligible`` with that id
+    and records no scope success. Incomplete supplied evidence is never absorbed.
+    """
+    for binding in measured_bindings(target.estimand):
+        roots = [binding.measure.procedure]
+        if isinstance(binding, MeasuredBinding) and binding.proxy is not None:
+            roots.append(binding.proxy)
+        for id in roots:
+            try:
+                reader.held(id)
+            except ScopeEvidenceIncomplete:
+                raise
+            except (DependencyNotHeld, MalformedRecord):
+                return Ineligible("dependency-ineligible", (id,))
+    try:
+        missing = target_scope_requirements(target, reader=reader).missing
+    except ScopeDependencyIneligible as error:
+        return Ineligible("scope-dependency-ineligible", error.record_ids)
+    if missing:
+        return Ineligible(
+            "scope-validity-incompatible",
+            tuple(sorted(v1.encode(instance_projection(instance)).decode() for instance in missing)),
+        )
+    return Eligible()

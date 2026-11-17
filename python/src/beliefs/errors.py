@@ -1048,6 +1048,14 @@ class MalformedRecord(RecordError):
     set, a role outside ``observes | reads | transforms``."""
 
 
+class ScopeEvidenceIncomplete(MalformedRecord):
+    """Captured evaluation inputs omit or contradict the scope evidence a pure
+    recomputation requires: a selected rule's body, state or attempted read, an
+    assessment's scope state, or a recorded scope reason that disagrees with the
+    recomputed one (scope containment design §7.4). An accurately recorded
+    incompatible or failed-read state is a valid ineligible input, not this."""
+
+
 class InputOutsideCorpus(MalformedRecord):
     """A corpus-local read of an assessment whose run the corpus does not hold,
     or whose run names an input the corpus does not hold: read it over a world view.

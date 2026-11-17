@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from typing import final
 
 from beliefs.dataset import ByteObservation, DatasetDeclaration, Held, admission_state, dataset_address
-from beliefs.eligibility import Eligible
+from beliefs.eligibility import Eligible, Ineligible
 from beliefs.evidence import DependencyEvidence
 from beliefs.procedure import Procedure
 from beliefs.record import AssessmentValue, RunValue
@@ -39,7 +39,8 @@ class AdmissionRefused:
     assessment: str
     reason: str
     """Prefix-stable: `run-mismatch` | `no-observes-input` | `input-not-held` |
-    `not-admitted-verification-state`, followed by `: detail`."""
+    `not-admitted-verification-state` | `model-not-held` | `dependency-ineligible` |
+    `scope-validity-incompatible` | `scope-dependency-ineligible`, followed by `: detail`."""
 
 
 def admit(
@@ -87,6 +88,11 @@ def admit(
             basis = dependencies.assessments.get(dependency.id)
             if basis is None or basis.facet_digest() != dependency.facet_digest:
                 return AdmissionRefused(uid, f"dependency-ineligible: frozen facet mismatch {dependency.id}")
+    # Last, the target's current-profile scope state recorded under its identity
+    # (design §7.3): a stale waiver filters this assessment, never the evaluation.
+    state = dependencies.closure.verdicts.get(uid)
+    if isinstance(state, Ineligible):
+        return AdmissionRefused(uid, f"{state.reason}: {', '.join(state.concerns)}")
     return Admitted(uid)
 
 

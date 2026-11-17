@@ -65,7 +65,13 @@ from beliefs.corpus import ReadView, _absence_of, retraction_standing, run_value
 from beliefs.dataset import ByteObservation, dataset_address
 from beliefs.decode import claim_from_stored
 from beliefs.dependencies import Record, read_record, series_dependency_closure
-from beliefs.eligibility import AssessmentEligibilityReader, ClosureEligibility, Ineligible, closure_eligibility
+from beliefs.eligibility import (
+    AssessmentEligibilityReader,
+    ClosureEligibility,
+    Eligible,
+    Ineligible,
+    closure_eligibility,
+)
 from beliefs.errors import (
     AmbiguousCrosswalk,
     CaptureDrift,
@@ -83,6 +89,7 @@ from beliefs.errors import (
     RetractionResolutionDisagreement,
     RetractionUnreadable,
     ScienceError,
+    ScopeDependencyIneligible,
 )
 from beliefs.evidence import DependencyEvidence
 from beliefs.facet_read import FACET_READ_DOMAIN, FacetRead, read_observed_facets
@@ -94,6 +101,7 @@ from beliefs.profile import ProfileSpec
 from beliefs.proxy_model import ProxyModel, proxy_from_stored
 from beliefs.record import AssessmentValue, RunValue
 from beliefs.resolution import ResolutionSnapshot
+from beliefs.scope_checks import ScopeReader
 from beliefs.sealed import sealed
 from beliefs.target_comparison import (
     AssessedProposition,
@@ -103,6 +111,7 @@ from beliefs.target_comparison import (
     convertibility,
     synthesis,
 )
+from beliefs.target_validity import scope_eligibility
 from beliefs.verification import Verification
 
 if TYPE_CHECKING:
@@ -832,6 +841,8 @@ def _gather(
         pins=context.pins,
         closure_nodes=tuple(sorted(ids)) + tuple(stored.typed_ref("run", a.run) for a in matched) + observed_addresses,
         facets_read={address: tuple(keys) for address, keys in ledger.items()},
+        scope_comparisons=reader.scope.comparisons,
+        scope_dependencies=dependencies,
     )
     return EvaluationInputs(
         proposition=proposition,
@@ -927,7 +938,26 @@ class _CapturedComparisonRecords:
         self.verifications: dict[str, Verification] = {}
         self.verification_ids: set[str] = set()
         self.absent: list[tuple[str, str]] = []
-        self.assessment_eligibility = AssessmentEligibilityReader(self, profile, self.run_of, self.verifications_of)
+        self.scope_states: dict[str, Eligible | Ineligible] = {}
+        """Each selected scope rule root's closure state, keyed by rule id."""
+        self.scope = ScopeReader(profile, lambda id: read_record(self, id), self._require_scope_roots)
+        self.assessment_eligibility = AssessmentEligibilityReader(
+            self, profile, self.run_of, self.verifications_of, scope=self._target_scope
+        )
+
+    def _require_scope_roots(self, roots: tuple[str, ...]) -> None:
+        """Record every selected root's closure state and attempted reads, then
+        refuse the scope operation if any is ineligible; never stop at the first."""
+        for root in roots:
+            self.scope_states[root] = self.eligibility(root).verdicts[root]
+        failed = tuple(root for root in roots if isinstance(self.scope_states[root], Ineligible))
+        if failed:
+            raise ScopeDependencyIneligible(
+                f"scope-dependency-ineligible: selected scope rules are ineligible ({', '.join(failed)})", failed
+            )
+
+    def _target_scope(self, value: AssessmentValue) -> Eligible | Ineligible:
+        return scope_eligibility(value.target, self.scope)
 
     def _attempt(self, id: str) -> None:
         self.reads.add(id)
@@ -1043,6 +1073,20 @@ class _CapturedComparisonRecords:
                         verdicts[dependency.id] = Ineligible("frozen-dependency-mismatch")
             except (DependencyNotHeld, DependencyCycle, MalformedRecord):
                 pass  # closure eligibility records the failed traversal
+        # Scope states (design §7.4): each matched target's scope result under its
+        # assessment identity (admission judges its intrinsic gates), each nested
+        # assessment's merged state, and every selected rule root's state. Computed
+        # for every reconstructible target, whatever its intrinsic outcome.
+        for assessment in assessments:
+            verdicts[assessment.identity()] = self._target_scope(assessment)
+        for value in tuple(self.assessments.values()):
+            identity = value.identity()
+            if identity not in self.assessment_eligibility.states and identity not in verdicts:
+                self.assessment_eligibility.states[identity] = self._target_scope(value)
+        for identity, state in self.assessment_eligibility.states.items():
+            verdicts.setdefault(identity, state)
+        for root, state in self.scope_states.items():
+            verdicts.setdefault(root, state)
         records: dict[str, Record] = {}
         for id in tuple(sorted(self.reads)):
             if (
