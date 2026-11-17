@@ -2272,6 +2272,7 @@ ELIGIBILITY_CODES = frozenset({"eligibility-unmet", "eligibility-unresolved", "s
 
 _WHOLE_READERS: Mapping[str, tuple[str, Callable[[Node], object]]] = MappingProxyType(
     {
+        "source-assertion": (stored.SOURCE_ASSERTION_FACET, stored.source_assertion_value),
         "exposure-event": (stored.EXPOSURE_EVENT_FACET, stored.exposure_event_value),
         "reservation-assignment": (stored.RESERVATION_ASSIGNMENT_FACET, stored.reservation_assignment_value),
         REGISTER_KIND: (REGISTER_FACET, register_from_stored),

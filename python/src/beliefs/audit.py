@@ -82,6 +82,7 @@ from beliefs.reservation import (
     exposure_event_refusal,
 )
 from beliefs.runrecord import decode_run_closure
+from beliefs.source_assertion import source_assertion_refusal
 from beliefs.spec import FrozenSpec
 from beliefs.verify import _derive, decode_verification
 
@@ -107,6 +108,7 @@ __all__ = [
     "check_exposure_event",
     "check_lineage_basis",
     "check_reservation_assignment",
+    "check_source_assertion",
     "check_spec_target",
     "check_supersedes_kinds",
     "check_verification",
@@ -153,6 +155,8 @@ WORLD_AUDIT_CODES = frozenset(
         "composite-relations-mismatch",
         "composite-malformed",
         "supersedes-cross-kind",
+        "source-assertion-edge-mismatch",
+        "source-assertion-ref-unresolved",
         "exposure-edge-mismatch",
         "exposure-ref-unresolved",
         "exposure-unit-sort-undeclared",
@@ -681,6 +685,17 @@ def check_exposure_event(
     )
 
 
+def check_source_assertion(
+    view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
+) -> DerivationOutcome:
+    """The boundary's `source_assertion_refusal` over the stored record, reported rather than raised.
+    The `recorded_by` actor binding is a write-time authority check, not a derivation, and is not
+    repeated here."""
+    value = stored.source_assertion_value(node)  # MalformedRecord → derivation-malformed, by the loop's catch
+    reader = _CitedReader(view)
+    return reader.outcome(node, source_assertion_refusal(value, node.relations, kind_of=reader.kind_of))
+
+
 def check_reservation_assignment(
     view: ReadView | _ImportView | WorldReadView, node: Node, *, profile: ProfileSpec
 ) -> DerivationOutcome:
@@ -857,6 +872,8 @@ def audit_corpus(view: ReadView, *, evidence: DerivationEvidence, profile: Profi
                 outcome = check_exposure_event(view, node, profile=profile)
             elif node.kind == "reservation-assignment":
                 outcome = check_reservation_assignment(view, node, profile=profile)
+            elif node.kind == "source-assertion":
+                outcome = check_source_assertion(view, node, profile=profile)
             else:
                 continue
         except PreGrammarSpec as refused:
@@ -916,6 +933,8 @@ def _recompute(
         return check_exposure_event(view, node, profile=profile)
     if node.kind == "reservation-assignment":
         return check_reservation_assignment(view, node, profile=profile)
+    if node.kind == "source-assertion":
+        return check_source_assertion(view, node, profile=profile)
     return None
 
 
