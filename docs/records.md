@@ -1507,9 +1507,11 @@ keeps the original result; the stored target's bytes and key never change.
 and typed bodies (`evidence.scope_evidence`). A missing state, selected body or
 attempted read, or a recorded scope reason that disagrees with the recomputation,
 raises `ScopeEvidenceIncomplete` (a `MalformedRecord`, `scope-evidence-incomplete`).
-A selected owner whose pin is missing or disagrees is a consultation failure instead:
-the answer is `Refused("consulted-contracts-disagree: …")`. An accurately recorded stale or failed-read state is a
-valid ineligible input, not malformed evidence: a missing body is admitted only for
+A selected owner whose pin is missing, or pinned differently across corpora, is a
+consultation failure instead: the answer is
+`Refused("consulted-contracts-disagree: …")`; one pinned at another identity than
+the profile's is `Refused("profile-pin-mismatch: …")`. An accurately recorded stale
+or failed-read state is a valid ineligible input, not malformed evidence: a missing body is admitted only for
 an explicitly failed read with its attempted read and ineligible state. A nested
 assessment's recorded intrinsic failure may stand beside a computed scope failure.
 
@@ -1522,7 +1524,10 @@ consulted as candidates, crosswalk validity and target applicability) is the pai
 snapshot's checked `ComparabilitySnapshot.compare_scope`; a selected scope rule that
 is missing, retracted or otherwise ineligible makes the synthesis
 `TargetNotConvertible("dependency ineligible")`, never an unknown success or a
-waived assumption. Each started pair carries `PairVerdict.evidence`, a transient
+waived assumption. An observable-proxy candidate whose checked comparison fails is
+skipped like an ineligible proxy (its comparison stays in the pair's evidence), so
+the outcome never depends on candidate order; when no candidate remains because of
+such failures, the result is again dependency-ineligible. Each started pair carries `PairVerdict.evidence`, a transient
 `PairEvidence` holding its own reads, eligibility states, typed bodies, both
 compared assessments, scoped retractions, read trace and consulted pins (including
 pair-only relation owners and selected rule terms); `None` means the comparison

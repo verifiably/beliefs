@@ -464,7 +464,9 @@ def synthesis(
     """Every scope comparison here is the snapshot's checked one: a declared
     relation contributes only after its selected rules are judged, and a failed
     selected dependency is a dependency-ineligible result, never an unknown
-    success or a waived assumption."""
+    success or a waived assumption. An observable-proxy candidate whose checked
+    comparison fails is skipped like an ineligible proxy; if no candidate remains
+    for that reason, the result is dependency-ineligible."""
     try:
         return _synthesis(
             a,
@@ -503,6 +505,7 @@ def _synthesis(
             continue
         candidate: tuple[str, ProxyModel, tuple[str, ...]] | None = None
         undecidable = False
+        scope_ineligible = False
         for ref in sorted(set(observable_proxies(ox, oy))):
             if snapshot.check_eligibility((ref,)) is not None:
                 continue
@@ -519,6 +522,7 @@ def _synthesis(
             except ScopeDependencyIneligible:
                 # Like an ineligible proxy, a candidate whose selected scope context is
                 # ineligible cannot be used; its consulted comparison stays recorded.
+                scope_ineligible = True
                 continue
             if "disjoint" in scopes:
                 continue
@@ -531,6 +535,10 @@ def _synthesis(
             if candidate is None:
                 candidate = ref, value, scopes
         if candidate is None:
+            if scope_ineligible:
+                # No usable bridge remains because a candidate's checked scope context
+                # failed: report that cause, never a definite "no bridge".
+                return TargetNotConvertible("dependency ineligible", snapshot_identity)
             return (
                 TargetUnknown("observable", snapshot_identity)
                 if undecidable

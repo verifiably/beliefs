@@ -1010,7 +1010,7 @@ def test_review_mixed_value_types_refuse(lab, types, reverse, unit):
     assert synthesis(left, right, **lab.synthesis_ctx()).kind == "not-convertible"
 
 
-@pytest.mark.parametrize("failing_first", [True, False])
+@pytest.mark.parametrize("failing_first", [True, False, None])
 def test_a_candidate_whose_checked_scope_fails_is_skipped_in_either_order(
     lab, base_contract, testing_document, failing_first
 ):
@@ -1060,11 +1060,16 @@ def test_a_candidate_whose_checked_scope_fails_is_skipped_in_either_order(
     for attempt in range(200):
         good = scoped.records.put(bridge({}, f"good-{attempt}"))
         bad = scoped.records.put(bridge({CASES_DIMENSION: RuleRestriction(ineligible, ("EX:x",))}, f"bad-{attempt}"))
-        if (bad < good) == failing_first:
+        if failing_first is None or (bad < good) == failing_first:
             break
-    ctx = scoped.synthesis_ctx(lambda _a, _b: (bad, good))
+    candidates = (bad,) if failing_first is None else (bad, good)
+    ctx = scoped.synthesis_ctx(lambda _a, _b: candidates)
     ctx["snapshot"] = snapshot(scoped.records, profile=scoped.profile, refused=ineligible)
     result = synthesis(a, b, **ctx)
+    if failing_first is None:
+        # With no usable candidate left, the real cause is reported, not "no bridge".
+        assert isinstance(result, TargetNotConvertible) and result.reason == "dependency ineligible", result
+        return
     assert result.kind == "permitted-under", result
     # The failed candidate's comparison was consulted and kept.
     assert len(ctx["snapshot"].scope_comparisons) >= 2
