@@ -131,3 +131,34 @@ describe("scope relation declarations", () => {
     expect(errorName(() => succeed(unretired, retired))).toBe("SuccessionViolation");
   });
 });
+
+describe("declared scope graph consistency", () => {
+  type GraphCase = { name: string; contracts: Document[]; outcome?: string };
+  const graphs = vector as unknown as { graph_refusals: GraphCase[]; graph_accepts: GraphCase[] };
+  const owners = ["scope-relations", "scope-relations-b", "scope-relations-c"];
+  const contracts = (row: GraphCase) =>
+    row.contracts.map((table, index) =>
+      parseDomainContract(
+        stringify({
+          contract: owners[index],
+          version: 1,
+          lineage: "genesis",
+          sorts: {},
+          dimensions: {},
+          scope_relations: table,
+        }),
+        owners[index],
+        base,
+      ),
+    );
+
+  it.each(graphs.graph_refusals)("refuses an inconsistent graph: $name", (row) => {
+    const parsed = contracts(row);
+    expect(errorName(() => compileProfile(base, [testing(), ...parsed]))).toBe(row.outcome);
+  });
+
+  it.each(graphs.graph_accepts)("compiles a consistent graph: $name", (row) => {
+    const parsed = contracts(row);
+    expect(errorName(() => compileProfile(base, [testing(), ...parsed]))).toBe("accepted");
+  });
+});

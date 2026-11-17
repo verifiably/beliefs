@@ -85,6 +85,7 @@ from beliefs.errors import (
 )
 from beliefs.identity import v1
 from beliefs.patterns import IdentifierClass
+from beliefs.scope_graph import ScopeGraph, compile_scope_graphs
 from beliefs.sealed import sealed
 
 if TYPE_CHECKING:
@@ -686,6 +687,9 @@ class ProfileSpec:
     """Every declared scope relation of the activated contracts, retired ones
     included, keyed by qualified relation term. Retirement is projected because it
     changes the comparison table (scope containment design §5)."""
+    scope_graphs: Mapping[str, ScopeGraph]
+    """The validated per-dimension graphs of the live scope relations. Derived
+    from ``scope_relations``, so it is not separately projected into identity."""
     admission: Mapping[str, tuple[str, ...]]
     """The admission index: template term → the typed addresses
     ``instantiation:<namespace>/<name>`` of every instantiation of it across the
@@ -1500,6 +1504,7 @@ def compile_profile(
         measurements=MappingProxyType(measurements),
         scope_grammar=base.scope_grammar,
         scope_relations=MappingProxyType(scope_relations),
+        scope_graphs=compile_scope_graphs(scope_relations.values()),
         admission=MappingProxyType(admission),
         coordination_kinds=MappingProxyType(dict(coordination_kinds)),
         coordination_address_root=(coordination.address_root if coordination is not None else None),

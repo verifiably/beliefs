@@ -61,6 +61,7 @@ import {
   type ScopeEndpoint,
   type ScopeRelationDecl,
   isTermEndpoint,
+  validateScopeGraphs,
 } from "./scope-relations.js";
 
 export interface CompiledSort {
@@ -877,6 +878,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       scopeRelations[term(contract.namespace, name)] = compileScopeRelation(contract, decl, sorts, dimensions);
     }
   }
+  validateScopeGraphs(Object.values(scopeRelations), (message) => new ProfileError(message));
 
   const admission: Record<string, readonly string[]> = Object.create(null);
   for (const templateTerm of Object.keys(templates)) {

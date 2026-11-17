@@ -1,4 +1,11 @@
-"""The five typed restriction forms and exact, conservative scope comparison."""
+"""The five typed restriction forms and exact, conservative scope comparison.
+
+Term and rule comparison may use the profile's declared scope relations
+(scope containment design §6). One structural operation, ``compare_scopes``,
+computes both the verdict and the selected declaration context; ``co_scope`` and
+``co_scope_by_dimension`` project it. A structural result reads no record and
+confers no checked authority on its own.
+"""
 
 from __future__ import annotations
 
@@ -9,12 +16,14 @@ from decimal import Decimal
 from fractions import Fraction
 from functools import cmp_to_key
 from types import MappingProxyType
-from typing import Generic, Literal, TypeAlias, TypeVar
+from typing import Generic, Literal, TypeAlias, TypeVar, final
 
-from beliefs.errors import MalformedRecord, MalformedRestriction
+from beliefs.contract.scope import RuleScopeEndpoint, TermScopeEndpoint
+from beliefs.errors import MalformedRecord, MalformedRestriction, ProfileError
 from beliefs.identifiers import canonical
 from beliefs.profile import CompiledRestrictionForm, ProfileSpec
 from beliefs.reservation import OPEN, IntervalUnit
+from beliefs.scope_graph import EMPTY_GRAPH, ScopeAtom, ScopeGraph
 
 __all__ = [
     "CoScope",
@@ -22,16 +31,20 @@ __all__ = [
     "Restriction",
     "RestrictionMap",
     "RuleRestriction",
+    "ScopeComparison",
     "TermRestriction",
     "TimeIntervalRestriction",
     "UnionRestriction",
     "check_held_rule_scope",
     "co_scope",
     "co_scope_by_dimension",
+    "compare_scopes",
     "decimal_from_projection",
     "decimal_projection",
     "restriction_from_projection",
     "restriction_projection",
+    "scope_contracts",
+    "scope_rule_ids",
     "type_restriction_map",
 ]
 
@@ -511,7 +524,34 @@ def _subset_scope(a: set[_SetItem], b: set[_SetItem]) -> CoScope:
     return "unknown"
 
 
-def _compare(a: Restriction, b: Restriction, profile: ProfileSpec) -> CoScope:
+def _normalized(atoms: list[ScopeAtom], graph: ScopeGraph) -> frozenset[ScopeAtom]:
+    """Equivalent atoms become their representative; an atom strictly contained by
+    another atom of the same operand is redundant and removed."""
+    reps = {graph.rep(atom) for atom in atoms}
+    return frozenset(x for x in reps if not any(x != y and graph.strictly_below(x, y) for y in reps))
+
+
+def _declared(
+    left: list[ScopeAtom], right: list[ScopeAtom], graph: ScopeGraph, *, label_sets: bool
+) -> tuple[CoScope, tuple[str, ...]]:
+    """Design §6 steps 2–4 over original operand atoms; the context is selected
+    before any atom is removed, so dropped atoms keep their provenance."""
+    relations = graph.context((*left, *right))
+    lower, upper = _normalized(left, graph), _normalized(right, graph)
+    if label_sets:
+        verdict = _subset_scope(set(lower), set(upper))
+        if verdict != "unknown":
+            return verdict, relations
+    if lower == upper:
+        return "equal", relations
+    if len(lower) == 1 and any(graph.strictly_below(next(iter(lower)), y) for y in upper):
+        return "narrower", relations
+    if len(upper) == 1 and any(graph.strictly_below(next(iter(upper)), x) for x in lower):
+        return "broader", relations
+    return "unknown", relations
+
+
+def _compare(dimension: str, a: Restriction, b: Restriction, profile: ProfileSpec) -> tuple[CoScope, tuple[str, ...]]:
     left = a.members if isinstance(a, UnionRestriction) else (a,)
     right = b.members if isinstance(b, UnionRestriction) else (b,)
     members = (*left, *right)
@@ -519,51 +559,77 @@ def _compare(a: Restriction, b: Restriction, profile: ProfileSpec) -> CoScope:
     if len(intervals) == len(members):
         normalized = [_calendar_span(value, profile) for value in intervals]
         if any(value is None for value in normalized):
-            return "unknown"
+            return "unknown", ()
         resolved = [value for value in normalized if value is not None]
         # A union's normalization unit must not depend on argument or member order.
         unit = min(unit for unit, _ in resolved) if len(members) > 2 else resolved[0][0]
         spans = [_interval_span(span, source, unit, profile) for source, span in resolved]
         if any(span is None for span in spans):
-            return "unknown"
+            return "unknown", ()
         known = [span for span in spans if span is not None]
-        return _span_scope(known[: len(left)], known[len(left) :])
+        return _span_scope(known[: len(left)], known[len(left) :]), ()
     times = [value for value in members if isinstance(value, TimeIntervalRestriction)]
     if len(times) == len(members):
         time_spans = [
             _Span(None if value.start == OPEN else value.start, None if value.end == OPEN else value.end, True, False)
             for value in times
         ]
-        return _span_scope(time_spans[: len(left)], time_spans[len(left) :])
+        return _span_scope(time_spans[: len(left)], time_spans[len(left) :]), ()
+    graph = profile.scope_graphs.get(dimension, EMPTY_GRAPH)
     terms = [value for value in members if isinstance(value, TermRestriction)]
     if len(terms) == len(members):
-        return _subset_scope(
-            {(canonical(value.sort), canonical(value.term)) for value in terms[: len(left)]},
-            {(canonical(value.sort), canonical(value.term)) for value in terms[len(left) :]},
-        )
+        atoms = [("term", canonical(value.sort), canonical(value.term)) for value in terms]
+        return _declared(atoms[: len(left)], atoms[len(left) :], graph, label_sets=True)
     rules = [value for value in members if isinstance(value, RuleRestriction)]
-    if len(rules) == len(members) and len({value.rule for value in rules}) == 1:
-        return _subset_scope(
-            {canonical(term) for value in rules[: len(left)] for term in value.classes},
-            {canonical(term) for value in rules[len(left) :] for term in value.classes},
-        )
-    return "unknown"
+    if len(rules) == len(members):
+        if len({value.rule for value in rules}) == 1:
+            # One exact rule on both sides: its class-set arithmetic, with no graph.
+            return _subset_scope(
+                {canonical(term) for value in rules[: len(left)] for term in value.classes},
+                {canonical(term) for value in rules[len(left) :] for term in value.classes},
+            ), ()
+        left_atoms = [("rule", value.rule, canonical(c)) for value in rules[: len(left)] for c in value.classes]
+        right_atoms = [("rule", value.rule, canonical(c)) for value in rules[len(left) :] for c in value.classes]
+        return _declared(left_atoms, right_atoms, graph, label_sets=False)
+    return "unknown", ()
 
 
-def co_scope_by_dimension(a: RestrictionMap, b: RestrictionMap, profile: ProfileSpec) -> Mapping[str, CoScope]:
-    return MappingProxyType(
-        {
-            key: _compare(a[key], b[key], profile) if key in a and key in b else "narrower" if key in a else "broader"
-            for key in sorted(a.keys() | b.keys())
-        }
-    )
+_COMPARED = object()
 
 
-def co_scope(a: RestrictionMap, b: RestrictionMap, profile: ProfileSpec) -> CoScope:
-    verdicts = set(co_scope_by_dimension(a, b, profile).values())
+@final
+@dataclass(frozen=True, init=False)
+class ScopeComparison:
+    """One structural comparison: its operands, per-dimension and folded verdicts,
+    and the sorted qualified terms of every declaration it selected.
+
+    Computed by ``compare_scopes`` only. A caller-supplied verdict or context would
+    be exactly the unchecked shortcut the checked readers exist to refuse.
+    """
+
+    left: RestrictionMap
+    right: RestrictionMap
+    by_dimension: Mapping[str, CoScope]
+    verdict: CoScope
+    relations: tuple[str, ...]
+
+    def __init__(self, *args: object, **kwargs: object) -> None:
+        raise TypeError("ScopeComparison is computed by compare_scopes(a, b, profile), never supplied")
+
+    @classmethod
+    def _computed(cls, token: object, **fields: object) -> ScopeComparison:
+        if token is not _COMPARED:
+            raise TypeError("ScopeComparison._computed is compare_scopes' own route")
+        comparison = object.__new__(cls)
+        for name, value in fields.items():
+            object.__setattr__(comparison, name, value)
+        return comparison
+
+
+def _fold(verdicts: set[CoScope]) -> CoScope:
     for verdict in ("disjoint", "unknown"):
         if verdict in verdicts:
-            return verdict
+            return verdict  # type: ignore[return-value]
     if {"narrower", "broader"} <= verdicts or "overlapping" in verdicts:
         return "overlapping"
     if "narrower" in verdicts:
@@ -571,3 +637,70 @@ def co_scope(a: RestrictionMap, b: RestrictionMap, profile: ProfileSpec) -> CoSc
     if "broader" in verdicts:
         return "broader"
     return "equal"
+
+
+def compare_scopes(a: RestrictionMap, b: RestrictionMap, profile: ProfileSpec) -> ScopeComparison:
+    """The one structural scope comparison (design §§6, 7.1): verdicts and the
+    selected declaration context, computed together. Reads no record."""
+    by_dimension: dict[str, CoScope] = {}
+    relations: set[str] = set()
+    for key in sorted(a.keys() | b.keys()):
+        if key in a and key in b:
+            by_dimension[key], selected = _compare(key, a[key], b[key], profile)
+            relations.update(selected)
+        else:
+            by_dimension[key] = "narrower" if key in a else "broader"
+    return ScopeComparison._computed(
+        _COMPARED,
+        left=MappingProxyType(dict(a)),
+        right=MappingProxyType(dict(b)),
+        by_dimension=MappingProxyType(by_dimension),
+        verdict=_fold(set(by_dimension.values())),
+        relations=tuple(sorted(relations)),
+    )
+
+
+def co_scope_by_dimension(a: RestrictionMap, b: RestrictionMap, profile: ProfileSpec) -> Mapping[str, CoScope]:
+    return compare_scopes(a, b, profile).by_dimension
+
+
+def co_scope(a: RestrictionMap, b: RestrictionMap, profile: ProfileSpec) -> CoScope:
+    return compare_scopes(a, b, profile).verdict
+
+
+def _reselected(comparison: ScopeComparison, profile: ProfileSpec) -> tuple[str, ...]:
+    """Recompute the context from the comparison's own operands under ``profile``;
+    a comparison computed under another table is refused, never trusted."""
+    if type(comparison) is not ScopeComparison:
+        raise TypeError("expected a ScopeComparison computed by compare_scopes")
+    relations = compare_scopes(comparison.left, comparison.right, profile).relations
+    if relations != comparison.relations:
+        raise ProfileError("the comparison's selected scope relations differ under this profile; recompute it here")
+    return relations
+
+
+def scope_rule_ids(comparison: ScopeComparison, profile: ProfileSpec) -> tuple[str, ...]:
+    """The classification-rule roots of every selected declaration, sorted."""
+    rules: set[str] = set()
+    for term in _reselected(comparison, profile):
+        declaration = profile.scope_relations[term].declaration
+        rules.update(e.rule for e in (declaration.left, declaration.right) if isinstance(e, RuleScopeEndpoint))
+    return tuple(sorted(rules))
+
+
+def scope_contracts(comparison: ScopeComparison, profile: ProfileSpec) -> frozenset[str]:
+    """The contracts whose declarations the comparison's context actually used:
+    each selected relation's owner, its dimension's and its endpoint sorts'."""
+    owners: set[str] = set()
+    for term in _reselected(comparison, profile):
+        relation = profile.scope_relations[term]
+        dimension = profile.dimensions[relation.declaration.dimension]
+        owners |= {relation.contract, dimension.contract}
+        for endpoint in (relation.declaration.left, relation.declaration.right):
+            if isinstance(endpoint, TermScopeEndpoint):
+                owners.add(profile.sorts[endpoint.sort].contract)
+        restriction = dimension.restriction
+        leaf = restriction.of if restriction is not None and restriction.form == "union" else restriction
+        if leaf is not None and leaf.classes is not None:
+            owners.add(profile.sorts[leaf.classes].contract)
+    return frozenset(owners)

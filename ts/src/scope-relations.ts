@@ -168,3 +168,88 @@ export function parseScopeRelations(
   }
   return entries;
 }
+
+/** One leaf scope as a comparable key: `term\u0000sort\u0000term` or `rule\u0000id\u0000class`. */
+function atomKey(endpoint: ScopeEndpoint): string {
+  return isTermEndpoint(endpoint)
+    ? `term\u0000${endpoint.sort}\u0000${endpoint.term}`
+    : `rule\u0000${endpoint.rule}\u0000${endpoint.classes[0]}`;
+}
+
+/**
+ * Refuse a profile whose live scope relations are inconsistent, as Python's
+ * `compile_scope_graphs` does: a strict relation inside an equality class, a strict
+ * directed cycle, or equality or a strict path between two classes of one rule.
+ * Retired relations contribute nothing. No comparison is exposed on this side.
+ */
+export function validateScopeGraphs(
+  relations: readonly CompiledScopeRelation[],
+  refuse: (message: string) => Error,
+): void {
+  const byDimension = new Map<string, CompiledScopeRelation[]>();
+  for (const relation of [...relations].sort((a, b) => (a.term < b.term ? -1 : a.term > b.term ? 1 : 0))) {
+    if (relation.declaration.retired) continue;
+    const list = byDimension.get(relation.declaration.dimension) ?? [];
+    list.push(relation);
+    byDimension.set(relation.declaration.dimension, list);
+  }
+  for (const [dimension, members] of byDimension) {
+    const parent = new Map<string, string>();
+    const find = (atom: string): string => {
+      let root = atom;
+      while ((parent.get(root) ?? root) !== root) root = parent.get(root) as string;
+      parent.set(atom, root);
+      return root;
+    };
+    const atoms = new Set<string>();
+    for (const relation of members) {
+      for (const endpoint of [relation.declaration.left, relation.declaration.right]) atoms.add(atomKey(endpoint));
+    }
+    for (const relation of members) {
+      if (relation.declaration.relation !== "equal") continue;
+      const a = find(atomKey(relation.declaration.left));
+      const b = find(atomKey(relation.declaration.right));
+      if (a !== b) parent.set(a < b ? b : a, a < b ? a : b);
+    }
+    const edges = new Map<string, Set<string>>();
+    for (const relation of members) {
+      if (relation.declaration.relation !== "narrower") continue;
+      const lower = find(atomKey(relation.declaration.left));
+      const upper = find(atomKey(relation.declaration.right));
+      if (lower === upper) throw refuse(`${relation.term}: a strict relation between scopes declared equal`);
+      const set = edges.get(lower) ?? new Set<string>();
+      set.add(upper);
+      edges.set(lower, set);
+    }
+    const above = new Map<string, Set<string>>();
+    for (const start of new Set([...atoms].map(find))) {
+      const reached = new Set<string>();
+      const pending = [...(edges.get(start) ?? [])];
+      while (pending.length > 0) {
+        const node = pending.pop() as string;
+        if (reached.has(node)) continue;
+        reached.add(node);
+        pending.push(...(edges.get(node) ?? []));
+      }
+      if (reached.has(start)) throw refuse(`${dimension}: the active scope relations contain a strict cycle`);
+      above.set(start, reached);
+    }
+    const byRule = new Map<string, string[]>();
+    for (const atom of atoms) {
+      const [form, rule] = atom.split("\u0000");
+      if (form !== "rule") continue;
+      byRule.set(rule, [...(byRule.get(rule) ?? []), atom]);
+    }
+    for (const [rule, classes] of byRule) {
+      for (let i = 0; i < classes.length; i += 1) {
+        for (let j = i + 1; j < classes.length; j += 1) {
+          const a = find(classes[i]);
+          const b = find(classes[j]);
+          if (a === b || above.get(a)?.has(b) || above.get(b)?.has(a)) {
+            throw refuse(`${dimension}: two classes of rule ${rule} are made equal or nested by scope relations`);
+          }
+        }
+      }
+    }
+  }
+}

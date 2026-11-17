@@ -500,6 +500,52 @@ unknown. Per-dimension results fold with disjoint first, then unknown, then mixe
 narrower/broader or overlapping, then a single containment direction or equality.
 `co_scope_by_dimension` exposes those particulars.
 
+Term and rule scopes may also use the profile's live [scope relations](#scope-relations).
+Compilation builds one graph per dimension: equal endpoints are quotiented into
+equality classes named by a deterministic representative (the least atom), and
+`narrower` relations become strict edges. A strict edge within an equality class, a
+strict cycle, or equality or a strict path (direct or through other rules) between
+two classes of one rule refuses the profile with `ProfileError`, including when the
+facts come from different contracts. Retired relations contribute no edge. Python and
+TypeScript refuse the same graphs; only Python compares through them.
+`compare_scopes(a, b, profile)` is the one structural comparison; it returns a
+`ScopeComparison` (operands, per-dimension verdicts, folded verdict and the sorted
+terms of the relations it selected), which only `compare_scopes` constructs, and
+`co_scope` and `co_scope_by_dimension` project it. On a dimension where both sides
+are term or rule leaves:
+
+1. Each operand becomes its atoms: canonical terms, or one `(rule, class)` atom per
+   rule class. When both operands name only the same rule, their class sets compare
+   by inclusion as above and no relation is used.
+2. The context is every live relation in the undirected graph components that
+   contain any original operand atom, chosen before normalization. Each atom is
+   replaced by its representative, and an atom strictly below another atom of the
+   same operand is removed as redundant.
+3. Terms then compare as label sets: identical sets are `equal`, a proper subset
+   `narrower`, a proper superset `broader`. This keeps the inherited convention that
+   an additional, nonredundant term label extends the scope; it is a modeling
+   convention, not a proof about undeclared terms.
+4. Otherwise identical normalized sets are `equal`; one left atom strictly below a
+   right atom is `narrower`, and the inverse `broader`; anything else is `unknown`.
+   Cross-rule sets never use label-set inclusion, and equality to one member of a
+   larger union proves no strict containment.
+
+So with A narrower than P, `A ∪ P` equals P and A is narrower than `P ∪ C`, while
+A and B both narrower than P leave `A ∪ B` against P `unknown`: siblings may cover
+their parent. The declared fragment holds only equality and proper containment, so
+a curator who cannot establish properness declares nothing and the comparison stays
+`unknown`; an ordinary subclass edge does not qualify. Because the same-rule
+class-set arithmetic treats added classes as widening a scope, nested classes of one
+definition (definite versus any case) need separate rule definitions. Context is
+whole components, never a winning path: an edge joining a component changes the
+selected context even when it changes no verdict, and a large component selects
+many relations. A relation disconnected from both operands selects nothing. Numeric,
+time, same-rule and one-sided comparisons select nothing. Structural comparison
+reads no record and confers no checked authority; `scope_rule_ids` and
+`scope_contracts` recompute a comparison's context under a profile (refusing one
+computed under another table) and name its rule roots and the contracts whose
+relation, dimension or endpoint sorts it used.
+
 A calendar interval without a convention is admitted as unresolved. When both
 scopes restrict the dimension, an unresolved calendar interval compares
 `unknown` even against itself. A supplied `convention` must name a declared duration

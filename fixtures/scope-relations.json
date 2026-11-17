@@ -617,5 +617,478 @@
       ],
       "outcome": "ProfileError"
     }
+  ],
+  "graph_refusals": [
+    {
+      "name": "strict-self-edge",
+      "contracts": [
+        {
+          "a-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "strict-cycle",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "long-strict-cycle",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-c": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            }
+          },
+          "c-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "equal-plus-strict",
+      "contracts": [
+        {
+          "a-eq-b": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "strict-into-equality-class",
+      "contracts": [
+        {
+          "a-eq-b": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-eq-c": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            }
+          },
+          "c-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "contradiction-across-contracts",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        },
+        {
+          "b-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-classes-equal",
+      "contracts": [
+        {
+          "ra-rb": {
+            "dimension": "testing/case-status",
+            "relation": "equal",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-classes-nested",
+      "contracts": [
+        {
+          "ra-rb": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-nested-through-another-rule",
+      "contracts": [
+        {
+          "ra-sx": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            }
+          },
+          "sx-rb": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    },
+    {
+      "name": "same-rule-equal-through-another-rule",
+      "contracts": [
+        {
+          "ra-sx": {
+            "dimension": "testing/case-status",
+            "relation": "equal",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            }
+          },
+          "sx-rb": {
+            "dimension": "testing/case-status",
+            "relation": "equal",
+            "left": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:b"
+              ]
+            }
+          }
+        }
+      ],
+      "outcome": "ProfileError"
+    }
+  ],
+  "graph_accepts": [
+    {
+      "name": "duplicate-consistent-facts",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        },
+        {
+          "a-within-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "retired-fact-does-not-conflict",
+      "contracts": [
+        {
+          "a-b": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-a": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "retired": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "equality-and-strictness-compose",
+      "contracts": [
+        {
+          "a-eq-b": {
+            "dimension": "testing/stage",
+            "relation": "equal",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:a"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            }
+          },
+          "b-c": {
+            "dimension": "testing/stage",
+            "relation": "narrower",
+            "left": {
+              "sort": "testing/stage",
+              "term": "EX:b"
+            },
+            "right": {
+              "sort": "testing/stage",
+              "term": "EX:c"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "distinct-rules-nest",
+      "contracts": [
+        {
+          "ra-sx": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:x"
+              ]
+            }
+          },
+          "ra-sy": {
+            "dimension": "testing/case-status",
+            "relation": "narrower",
+            "left": {
+              "rule": "classification-rule:1111111111111111111111111111111111111111111111111111111111111111",
+              "classes": [
+                "EX:a"
+              ]
+            },
+            "right": {
+              "rule": "classification-rule:2222222222222222222222222222222222222222222222222222222222222222",
+              "classes": [
+                "EX:y"
+              ]
+            }
+          }
+        }
+      ]
+    }
   ]
 }
