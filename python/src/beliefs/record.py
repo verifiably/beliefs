@@ -1,4 +1,4 @@
-"""Run, assessment and source-assertion values for the belief seam.
+"""Run and assessment values for the belief seam.
 
 Assessment values own a frozen target and named numerical payload. Their
 execution identity, target key and complete facet digest serve different
@@ -16,7 +16,7 @@ from typing import final
 from beliefs.assessment_payload import CurvePoint, Uncertainty, check_payload, payload_projection
 from beliefs.dataset import DatasetDeclaration
 from beliefs.dependencies import ASSESSMENT_FACET_DOMAIN, assessment_facet_digest
-from beliefs.errors import MalformedRecord, SignatureRefused
+from beliefs.errors import MalformedRecord
 from beliefs.identity import v1
 from beliefs.sealed import sealed
 from beliefs.target import AssessedTarget, target_projection
@@ -26,16 +26,13 @@ __all__ = [
     "ASSESSMENT_FACET_DOMAIN",
     "OUTCOMES",
     "ROLES",
-    "SOURCE_ASSERTION_RELATIONS",
     "AssessmentValue",
     "RunInput",
     "RunValue",
-    "SourceAssertion",
 ]
 
 ROLES = ("observes", "reads", "transforms")
 OUTCOMES = ("supported", "refuted", "inconclusive")
-SOURCE_ASSERTION_RELATIONS = ("asserts", "denies", "hypothesizes")
 
 ASSESSMENT_DOMAIN = "science.assessment.v2"
 
@@ -137,28 +134,3 @@ class AssessmentValue:
                 "standing": self.standing,
             },
         )
-
-
-@sealed
-@final
-@dataclass(frozen=True)
-class SourceAssertion:
-    """A source-assertion can assert, deny or hypothesize — never assess.
-
-    The relation signatures are closed, and this constructor is where
-    the closure is enforced here: there is no other authoring
-    surface to refuse at. Inertness is the default; `assesses` is declared for
-    assessments exactly once."""
-
-    ref: str
-    relation: str
-    proposition: str
-    payload: Mapping[str, str]
-
-    def __post_init__(self) -> None:
-        if self.relation not in SOURCE_ASSERTION_RELATIONS:
-            raise SignatureRefused(
-                f"a source-assertion cannot carry {self.relation!r}; its closed signatures are "
-                f"{SOURCE_ASSERTION_RELATIONS} — an `assesses` edge is the assessment's, by type"
-            )
-        object.__setattr__(self, "payload", MappingProxyType(dict(self.payload)))

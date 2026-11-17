@@ -22,9 +22,9 @@ from beliefs.identity import v1
 from beliefs.record import (
     AssessmentValue,
     RunInput,
-    SourceAssertion,
 )
 from beliefs.restriction import IntervalRestriction
+from beliefs.source_assertion import SIGNS, Bearing
 
 D1 = "sha256:" + "11" * 32
 
@@ -45,11 +45,11 @@ def assessment(**overrides) -> AssessmentValue:
 class TestClosedSignatures:
     def test_an_assesses_edge_from_a_source_assertion_is_refused(self):
         with pytest.raises(SignatureRefused):
-            SourceAssertion(ref="s1", relation="assesses", proposition="prop-1", payload={})
+            Bearing(sign="assesses", proposition="proposition:prop-1")
 
-    @pytest.mark.parametrize("relation", ["asserts", "denies", "hypothesizes"])
-    def test_the_three_declared_relations_construct(self, relation):
-        SourceAssertion(ref="s1", relation=relation, proposition="prop-1", payload={"quote": "…"})
+    @pytest.mark.parametrize("sign", SIGNS)
+    def test_the_three_declared_relations_construct(self, sign):
+        Bearing(sign=sign, proposition="proposition:prop-1")
 
     def test_a_run_input_role_outside_the_set_is_refused(self):
         dataset = DatasetDeclaration(resources=(ResourceDeclaration(name="r", digest=D1),))

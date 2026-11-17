@@ -17,6 +17,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import TypedDict, cast
 
+import authority
 import pytest
 import yaml
 from fixtures_cut3 import UNCONSULTED, dependency_evidence, typed_applicability, typed_estimand, typed_target
@@ -49,8 +50,9 @@ from beliefs.lineage import LineageSnapshot
 from beliefs.policy import BELIEF_V1, BELIEF_V1_FIXTURES, BELIEF_V1_RULE, PolicyBinding, PolicyImplementation
 from beliefs.profile import ProfileSpec, compile_profile
 from beliefs.projection import claim_identity
-from beliefs.record import AssessmentValue, RunInput, RunValue, SourceAssertion
+from beliefs.record import AssessmentValue, RunInput, RunValue
 from beliefs.restriction import IntervalRestriction
+from beliefs.source_assertion import Bearing, Reading, Representation, SourceAssertion, Span
 from beliefs.stored import typed_ref
 from beliefs.verification import Verification
 
@@ -473,8 +475,17 @@ class TestUnholdingPrecedence:
 class TestSourceAssertionMovesNothing:
     def test_every_field_maximal_moves_no_belief_output_byte(self):
         baseline = evaluate(**scenario())
+        proposition = PROPOSITION if PROPOSITION.startswith("proposition:") else f"proposition:{PROPOSITION}"
         sa = SourceAssertion(
-            ref="sa-1", relation="asserts", proposition=PROPOSITION, payload={"k1": "v1", "k2": "v2", "k3": "v3"}
+            source="source:" + "1" * 64,
+            read=Reading(
+                representation=Representation(sha256="a" * 64, media_type="application/pdf", extent="full"),
+                span=Span(quote="PHF19 is overexpressed", locator="Results, para 2"),
+                extracted_by=authority.ACTOR,
+                attributed_to="MSigDB curators",
+            ),
+            bears_on=Bearing(sign="asserts", proposition=proposition),
+            recorded_by=authority.ACTOR,
         )
         kwargs = scenario()
         records = replace(kwargs["records"], source_assertions=(sa,))

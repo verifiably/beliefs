@@ -9,6 +9,7 @@ import pickle
 from decimal import Decimal
 from unittest.mock import patch
 
+import authority
 import pytest
 from fixtures_cut3 import (
     D_IN,
@@ -57,7 +58,8 @@ from beliefs.recipe import (
     job_key,
     project_recipe,
 )
-from beliefs.record import AssessmentValue, SourceAssertion
+from beliefs.record import AssessmentValue
+from beliefs.source_assertion import Bearing, Reading, Representation, SourceAssertion, Span
 from beliefs.spec import (
     Deterministic,
     ExclusionCertification,
@@ -159,16 +161,24 @@ def test_an_incomplete_closure_is_refused_and_no_run_value_exists():
         closure(result=ResultManifest(outputs=()))
 
 
+def _source_assertion() -> SourceAssertion:
+    return SourceAssertion(
+        source="source:" + "1" * 64,
+        read=Reading(
+            representation=Representation(sha256="a" * 64, media_type="application/pdf", extent="full"),
+            span=Span(quote="PHF19 is overexpressed", locator="Results, para 2"),
+            extracted_by=authority.ACTOR,
+        ),
+        bears_on=Bearing(sign="asserts", proposition="proposition:ab"),
+        recorded_by=authority.ACTOR,
+    )
+
+
 def test_the_note_is_a_separate_act_and_the_member_is_then_supplied():
     # The source-assertion is its own explicit authored act (the
     # 2's typed constructor); only the supplied member mints the run value.
-    note = SourceAssertion(
-        ref="s1",
-        relation="asserts",
-        proposition="prop-1",
-        payload={"quote": "environment reconstructed by hand"},
-    )
-    assert note.relation == "asserts"
+    note = _source_assertion()
+    assert note.bears_on.sign == "asserts"
     run = closure()  # every member present — the run value exists
     assert len(run.address()) == 64  # a bare v1 digest
 

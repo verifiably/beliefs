@@ -54,8 +54,9 @@ from beliefs.policy import (
     conforms,
 )
 from beliefs.profile import ProfileSpec
-from beliefs.record import AssessmentValue, RunValue, SourceAssertion
+from beliefs.record import AssessmentValue, RunValue
 from beliefs.sealed import sealed
+from beliefs.source_assertion import SourceAssertion
 from beliefs.verification import ADMITTED, Verification, lifecycle_state
 
 __all__ = [
