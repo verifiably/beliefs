@@ -97,7 +97,7 @@ def union(*members):
 
 def endpoint(atom: str | tuple[str, str]) -> dict[str, Any]:
     if isinstance(atom, tuple):
-        return {"rule": RULES[atom[0]], "classes": [f"EX:{atom[1]}"]}
+        return {"rule": RULES.get(atom[0], atom[0]), "classes": [f"EX:{atom[1]}"]}
     return {"sort": STAGE, "term": f"EX:{atom}"}
 
 

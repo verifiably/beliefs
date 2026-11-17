@@ -4,13 +4,14 @@ from collections.abc import Callable
 
 from beliefs.claim import Claim, Referent
 from beliefs.dependencies import HeldRecords, read_record
-from beliefs.errors import StandingRefused
+from beliefs.errors import ScopeDependencyIneligible, StandingRefused
 from beliefs.estimand import MeasuredBinding
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
 from beliefs.proxy_model import Calibration, ProxyModel, qualify_calibration
-from beliefs.restriction import co_scope
+from beliefs.scope_checks import author_scope_reader
 from beliefs.spec import FrozenSpec, SpecInput
+from beliefs.target_validity import target_scope_requirements
 
 
 def _refuse(reason: str) -> None:
@@ -50,6 +51,18 @@ def check_standing(
 
     if spec.estimand.claim != claim_identity(claim):
         _refuse("frozen target names another claim")
+    # Every route first rederives the target's scope-dependent waivers under this
+    # profile, before any route-specific early return (design §7.3).
+    scope = author_scope_reader(profile, records)
+    try:
+        missing = target_scope_requirements(spec.assessed_target, reader=scope).missing
+    except ScopeDependencyIneligible as error:
+        raise StandingRefused(str(error)) from error
+    if missing:
+        raise StandingRefused(
+            "scope-validity-incompatible: the frozen estimand lacks validity assumptions its scope requires "
+            f"under this profile ({', '.join(sorted(str(dict(a.particulars)) for a in missing))})"
+        )
     reference = claim.roles.get("within-model")
     if spec.standing == "empirical":
         if reference is not None or spec.model is not None or spec.estimand.calibration is not None:
@@ -96,8 +109,12 @@ def check_standing(
     ).target_observable
     if proxy.source.procedure != spec.model or proxy.target.observable != target:
         _refuse("calibration source model or target observable disagrees")
-    qualify_calibration(proxy, records.read, profile)
-    if co_scope(spec.applicability.restrictions(), proxy.validity, profile) not in {"equal", "narrower"}:
+    qualify_calibration(proxy, records.read, profile, scope_compare=scope.compare)
+    try:
+        covered = scope.compare(spec.applicability.restrictions(), proxy.validity).verdict
+    except ScopeDependencyIneligible as error:
+        raise StandingRefused(str(error)) from error
+    if covered not in {"equal", "narrower"}:
         raise StandingRefused("calibration-scope-uncovered: prediction exceeds proxy validity")
     if proxy.basis.transfer is not None and proxy.basis.transfer not in spec.estimand.assumptions:
         _refuse("calibration transfer assumption is absent from estimand")

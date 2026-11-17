@@ -13,7 +13,7 @@ from beliefs.errors import CalibrationNotQualified, CrosswalkSignRefused, Malfor
 from beliefs.measurement import Observable, observable_projection
 from beliefs.procedure import Procedure, Scale
 from beliefs.profile import ProfileSpec
-from beliefs.restriction import Restriction, co_scope, decimal_projection
+from beliefs.restriction import Restriction, RestrictionMap, ScopeComparison, decimal_projection
 
 __all__ = [
     "PROXY_DOMAIN",
@@ -275,8 +275,18 @@ def check_crosswalk(proxy: ProxyModel, source: Procedure, authority: Procedure) 
         raise CrosswalkSignRefused("crosswalk-sign: conversion sign disagrees with scale orientations")
 
 
-def qualify_calibration(proxy: ProxyModel, read: Callable[[str], Node], profile: ProfileSpec) -> None:
-    """Check the immutable empirical agreement and coverage of each basis."""
+def qualify_calibration(
+    proxy: ProxyModel,
+    read: Callable[[str], Node],
+    profile: ProfileSpec,
+    *,
+    scope_compare: Callable[[RestrictionMap, RestrictionMap], ScopeComparison],
+) -> None:
+    """Check the immutable empirical agreement and coverage of each basis.
+
+    ``scope_compare`` is the caller's checked comparison (a ``ScopeReader.compare``):
+    coverage by declared scope relations counts only after their selected context
+    is checked. There is no unchecked default."""
     from beliefs.estimand import MeasuredBinding
     from beliefs.procedure import procedure_from_stored
     from beliefs.stored import assessment_value
@@ -320,7 +330,10 @@ def qualify_calibration(proxy: ProxyModel, read: Callable[[str], Node], profile:
                 )
             if assessment.interpretation_rule not in basis.rules:
                 raise CalibrationNotQualified("calibration-rule: interpretation rule is not an allowed tolerance")
-            if co_scope(assessment.applicability.restrictions(), proxy.validity, profile) not in {"equal", "broader"}:
+            if scope_compare(assessment.applicability.restrictions(), proxy.validity).verdict not in {
+                "equal",
+                "broader",
+            }:
                 raise CalibrationNotQualified(f"calibration-scope-overstated: assessment {address!r}")
         except ScienceError as exc:
             raise CalibrationNotQualified(str(exc)) from exc

@@ -433,3 +433,34 @@ def test_unknown_and_incomparable_validation_are_disambiguated_by_record(profile
         assert procedure_from_stored(records.read(instance.particulars["record"])).validated_in == validation
         instances.append(instance_projection(instance))
     assert instances[0] != instances[1]
+
+
+def test_validity_requirements_keep_exact_particulars_and_check_every_comparison(profile):
+    from beliefs.aptness import validity_requirements
+    from beliefs.dependencies import read_record
+    from beliefs.procedure import Procedure
+    from beliefs.proxy_model import ProxyModel
+    from beliefs.scope_checks import author_scope_reader
+
+    narrow = {"testing/follow-up": IntervalRestriction("testing/hour", Fraction(1), Fraction(2), True, True)}
+    records, measure, _, proxy_id = setup_binding(validated_in=narrow, validity=narrow)
+    procedure, model = read_record(records, measure.procedure), read_record(records, proxy_id)
+    assert isinstance(procedure, Procedure) and isinstance(model, ProxyModel)
+    reader = author_scope_reader(profile, records)
+    assert validity_requirements(SCOPE, measure.procedure, procedure, proxy_id, model, reader) == (
+        AssumptionInstance(
+            "testing/procedure-validity",
+            {"record": measure.procedure, "co_scope": "broader", "dimensions": "testing/follow-up"},
+        ),
+        AssumptionInstance(
+            "testing/proxy-validity", {"record": proxy_id, "co_scope": "broader", "dimensions": "testing/follow-up"}
+        ),
+    )
+    assert len(reader.comparisons) == 2 and reader.reads == ()
+    unknown = replace(procedure, validated_in="unknown")
+    assert validity_requirements(SCOPE, measure.procedure, unknown, None, None, reader) == (
+        AssumptionInstance(
+            "testing/procedure-validity",
+            {"record": measure.procedure, "co_scope": "unknown", "dimensions": "testing/follow-up"},
+        ),
+    )

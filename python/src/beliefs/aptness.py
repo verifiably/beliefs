@@ -26,9 +26,10 @@ from beliefs.procedure import Procedure, SameAs
 from beliefs.profile import ProfileSpec
 from beliefs.proxy_model import ProxyModel
 from beliefs.referent_mapping import ReferentMapping
-from beliefs.restriction import RestrictionMap, check_held_rule_scope, co_scope, co_scope_by_dimension
+from beliefs.restriction import RestrictionMap, check_held_rule_scope
+from beliefs.scope_checks import ScopeReader, author_scope_reader
 
-__all__ = ["Apt", "check_aptness"]
+__all__ = ["Apt", "check_aptness", "validity_requirements"]
 
 
 @dataclass(frozen=True)
@@ -39,15 +40,44 @@ class Apt:
 
 
 def _validity(
-    profile: ProfileSpec, scope: RestrictionMap, validity: RestrictionMap, id: str, name: str
+    reader: ScopeReader, scope: RestrictionMap, validity: RestrictionMap, id: str, name: str
 ) -> AssumptionInstance | None:
-    verdict = co_scope(scope, validity, profile)
-    if verdict in {"equal", "narrower"}:
+    comparison = reader.compare(scope, validity)
+    if comparison.verdict in {"equal", "narrower"}:
         return None
-    dimensions = ",".join(
-        dimension for dimension, result in co_scope_by_dimension(scope, validity, profile).items() if result != "equal"
-    )
-    return _validity_assumption(profile, id, name, verdict, dimensions)
+    dimensions = ",".join(dimension for dimension, result in comparison.by_dimension.items() if result != "equal")
+    return _validity_assumption(reader.profile, id, name, comparison.verdict, dimensions)
+
+
+def validity_requirements(
+    scope: RestrictionMap,
+    procedure_id: str,
+    procedure: Procedure,
+    proxy_id: str | None,
+    proxy: ProxyModel | None,
+    reader: ScopeReader,
+) -> tuple[AssumptionInstance, ...]:
+    """The scope-dependent validity assumptions one measured binding requires.
+
+    Scope only: admission, yield, scale and bearer checks are ``check_aptness``'s.
+    Every comparison goes through ``reader``, so a declared proof suppresses an
+    assumption only after its selected context is checked (design §7.3).
+    """
+    required: list[AssumptionInstance] = []
+    if procedure.validated_in == "unknown":
+        required.append(
+            _validity_assumption(reader.profile, procedure_id, "procedure-validity", "unknown", ",".join(sorted(scope)))
+        )
+    else:
+        validity = _validity(reader, scope, procedure.validated_in, procedure_id, "procedure-validity")
+        if validity is not None:
+            required.append(validity)
+    if proxy is not None:
+        assert proxy_id is not None
+        validity = _validity(reader, scope, proxy.validity, proxy_id, "proxy-validity")
+        if validity is not None:
+            required.append(validity)
+    return tuple(required)
 
 
 def _validity_assumption(profile: ProfileSpec, id: str, name: str, verdict: str, dimensions: str) -> AssumptionInstance:
@@ -126,23 +156,11 @@ def check_aptness(
         return rule.classes
 
     check_held_rule_scope(profile, scope, classes_of=held_rule_classes)
-    assumptions: list[AssumptionInstance] = []
-    if procedure.validated_in == "unknown":
-        validity = _validity_assumption(
-            profile, measure.procedure, "procedure-validity", "unknown", ",".join(sorted(scope))
-        )
-    else:
-        validity = _validity(profile, scope, procedure.validated_in, measure.procedure, "procedure-validity")
-    if validity is not None:
-        assumptions.append(validity)
-    if model is not None:
-        assert proxy is not None
-        validity = _validity(profile, scope, model.validity, proxy, "proxy-validity")
-        if validity is not None:
-            assumptions.append(validity)
-        if isinstance(model.basis, AssumptionInstance):
-            check_instance(profile, model.basis)
-            assumptions.append(model.basis)
+    reader = author_scope_reader(profile, records)
+    assumptions = list(validity_requirements(scope, measure.procedure, procedure, proxy, model, reader))
+    if model is not None and isinstance(model.basis, AssumptionInstance):
+        check_instance(profile, model.basis)
+        assumptions.append(model.basis)
     ids = [measure.procedure]
     if mapping is not None:
         ids.append(mapping)

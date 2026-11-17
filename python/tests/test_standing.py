@@ -19,6 +19,7 @@ from beliefs import stored
 from beliefs.claim import Referent, build_claim
 from beliefs.errors import ScienceError
 from beliefs.procedure import ModelInputs
+from beliefs.scope_checks import author_scope_reader
 from beliefs.spec import freeze
 from beliefs.standing import check_standing, check_within_model
 
@@ -212,14 +213,20 @@ def test_calibration_rejects_nonempirical_or_wrong_agreement(change):
     elif change == "source":
         proxy = replace(proxy, source=replace(proxy.source, procedure="procedure:" + "f" * 64))
     with pytest.raises(ScienceError, match="calibration"):
-        qualify_calibration(proxy, records.read, TESTING_PROFILE)
+        qualify_calibration(
+            proxy, records.read, TESTING_PROFILE, scope_compare=author_scope_reader(TESTING_PROFILE, records).compare
+        )
 
 
 def test_empirical_two_variable_calibration_is_qualified():
     from beliefs.proxy_model import qualify_calibration
 
     records, _, _, proxy = calibration_context()
-    qualify_calibration(proxy, records.read, TESTING_PROFILE)
+    with pytest.raises(TypeError):
+        qualify_calibration(proxy, records.read, TESTING_PROFILE)  # type: ignore[call-arg]
+    reader = author_scope_reader(TESTING_PROFILE, records)
+    qualify_calibration(proxy, records.read, TESTING_PROFILE, scope_compare=reader.compare)
+    assert reader.comparisons  # coverage went through the checked comparison
 
 
 def calibrated_prediction(
@@ -682,3 +689,28 @@ def test_same_claim_record_alias_keeps_the_frozen_target(certified_work):
         )
     )
     assert stored.assessment_value(twin, profile=TESTING_PROFILE).key() == value.key()
+
+
+def test_standing_rechecks_scope_waivers_before_any_route():
+    from fixtures_cut3 import TESTING_CLAIM
+    from test_scope_validity import World
+
+    from beliefs.errors import StandingRefused
+    from beliefs.standing import check_standing
+
+    world = World()
+    original = world.profile(*world.tables())
+    spec = world.freeze(original, world.estimand(original))
+
+    def check(profile):
+        check_standing(
+            spec, TESTING_CLAIM, profile=profile, records=world.records, empirical=lambda _: True, assessments=bool
+        )
+
+    check(original)
+    # The empirical route would pass, but the retired proof's waiver is refused first.
+    with pytest.raises(StandingRefused, match="scope-validity-incompatible"):
+        check(world.profile(*world.tables(retire_second=True)))
+    del world.records.nodes[world.t]
+    with pytest.raises(StandingRefused, match="scope-dependency-ineligible"):
+        check(original)

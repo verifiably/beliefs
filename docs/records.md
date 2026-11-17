@@ -1019,7 +1019,11 @@ procedure. The interpretation rule must be listed in the calibration's allowed
 rules. Qualification reads the frozen assessed target, without fetching its spec.
 Each assessment's applicability must be equal to or broader than the proxy's
 validity over the union of dimensions. Narrower, overlapping, disjoint and unknown
-comparisons refuse with `calibration-scope-overstated`. Quantifiers remain in
+comparisons refuse with `calibration-scope-overstated`. `qualify_calibration` takes
+the caller's checked comparison as a required `scope_compare` keyword (both the
+write door and standing pass a `ScopeReader`'s `compare`), so coverage by a declared
+scope relation counts only after its selected context is checked; there is no
+unchecked default. Quantifiers remain in
 identity while this comparison uses geometric restrictions.
 
 The source observable, any explicit target observable and any calibrated
@@ -1063,6 +1067,33 @@ conditionally accepts the gap; it supplies no validation evidence.
 Exactly one activated contract must declare the required kind by local name.
 An assumption-based proxy also contributes its checked basis instance. Returned
 assumptions are distinct and sorted by canonical projection.
+
+Both validity comparisons go through a checked `scope_checks.ScopeReader`
+(`aptness.validity_requirements` computes the scope-dependent part alone). When a
+comparison selects [declared scope relations](contracts.md#typed-restrictions), the
+reader strictly reads every rule in the selected components, intermediaries
+included, follows their ordinary references, and requires each to be a
+classification rule whose classes sort is the dimension's, with the declared class
+inside that sort's identifier class. A missing, corrupt, wrong-kind or wrong-sort
+rule refuses the use with `ScopeDependencyIneligible`, naming every failed rule,
+before any assumption is suppressed; there is no fallback to a smaller graph or to
+`unknown`. A disconnected relation's rules are neither read nor required to be held,
+and a same-rule comparison reads none. The selected rules are checked, not frozen:
+no relation context enters the returned dependency closure, `record_terms`,
+`target_terms` or a stored assessment's frozen dependencies, so adding or retiring a
+relation never changes a stored target's bytes, key or entries.
+
+`target_validity.target_scope_requirements` rederives, under the current profile, the
+validity assumptions an existing target's held procedure and proxy bodies and its
+applicability now require, and reports those its frozen estimand does not carry.
+Additional explicit assumptions remain allowed. `spec.freeze` refuses a target with
+a missing requirement (`ScopeValidityIncompatible`, carrying the missing instances
+with their particulars), and standing refuses it before any route-specific check
+(`StandingRefused`, `scope-validity-incompatible`; a failed selected rule is
+`scope-dependency-ineligible`). This is how retiring the sole proof behind a waiver
+stops that waiver being used under the successor profile while the stored target
+still decodes and replay under the original pin is unchanged. A newly authored
+estimand gathers the now-required assumption normally.
 
 `dependencies.dependency_closure` freezes the procedure, any cited mapping and
 proxy, and every normative record they reference, once each and sorted by id.

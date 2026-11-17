@@ -179,6 +179,7 @@ from beliefs.reservation import (
 )
 from beliefs.restriction import check_held_rule_scope, type_restriction_map
 from beliefs.runrecord import OperationPort
+from beliefs.scope_checks import held_scope_reader
 from beliefs.sealed import sealed
 from beliefs.traversal import LineageEntry, Reach, RelationEntry, Step, closure
 from beliefs.view_query import _world_address, parse_view_query
@@ -4695,7 +4696,17 @@ class CorpusWriter:
                         refuse("basis.calibration.transfer", "calibration-transfer-redundant")
                 if transfer is not None:
                     checked("basis.calibration.transfer", lambda: check_instance(self._profile, transfer))
-                checked("basis.calibration", lambda: qualify_calibration(proxy, held_calibration_record, self._profile))
+                calibration_scope = held_scope_reader(
+                    self._profile,
+                    holds=lambda address: view.resolve(address) == address,
+                    read=view.get,
+                )
+                checked(
+                    "basis.calibration",
+                    lambda: qualify_calibration(
+                        proxy, held_calibration_record, self._profile, scope_compare=calibration_scope.compare
+                    ),
+                )
             else:
                 checked("basis.assumption", lambda: check_instance(self._profile, basis))
 

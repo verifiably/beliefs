@@ -47,6 +47,7 @@ from beliefs.errors import (
     PreV4Estimand,
     RuleUnbound,
     ScienceError,
+    ScopeValidityIncompatible,
     UnfreezableSpec,
 )
 from beliefs.estimand import Estimand, admit_estimand, binding_roots, check_series, estimand_projection
@@ -54,12 +55,14 @@ from beliefs.identity import v1
 from beliefs.procedure import Procedure
 from beliefs.profile import ProfileSpec
 from beliefs.restriction import check_held_rule_scope
+from beliefs.scope_checks import author_scope_reader
 from beliefs.sealed import sealed
 from beliefs.series.evidence import SeriesEvidence
 from beliefs.series.reader import CheckedSeries
 from beliefs.series.transport import check_event_parameters
 from beliefs.series.types import ElapsedAxis, SeriesRefused
 from beliefs.target import AssessedTarget, Standing, target_from_projection
+from beliefs.target_validity import target_scope_requirements
 
 __all__ = [
     "BITWISE_EQUIVALENCE_RULES",
@@ -570,6 +573,14 @@ def freeze(
 
     check_held_rule_scope(profile, applicability.restrictions(), classes_of=rule_classes)
     target = AssessedTarget(draft.estimand, applicability, dependencies, draft.model, draft.standing)
+    # Rederive the scope-dependent waivers under this pinned profile before committing to them.
+    missing = target_scope_requirements(target, reader=author_scope_reader(profile, records)).missing
+    if missing:
+        raise ScopeValidityIncompatible(
+            "scope-validity-incompatible: the estimand lacks validity assumptions its scope requires under this "
+            f"profile: {', '.join(sorted(str(dict(a.particulars)) for a in missing))}",
+            missing,
+        )
     identity = v1.digest(SPEC_DOMAIN, _facet_projection(draft, bindings, supersedes, target))
     members = {
         f.name: getattr(draft, f.name)
