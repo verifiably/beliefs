@@ -221,6 +221,9 @@ class AssessmentEligibilityReader:
     states: dict[str, Eligible | Ineligible] = field(default_factory=dict)
     """Effective merged states keyed by ``AssessmentValue.identity()``, recorded
     only when ``scope`` is supplied."""
+    intrinsics: dict[str, Eligible | Ineligible] = field(default_factory=dict)
+    """The intrinsic half of each recorded state, so an owner can re-merge it with
+    a scope result computed against its final dependency rows."""
     _active: set[str] = field(default_factory=set)
     _memo: dict[str, Eligible | Ineligible] = field(default_factory=dict)
 
@@ -248,6 +251,7 @@ class AssessmentEligibilityReader:
             if self.scope is not None:
                 verdict = merge_scope_eligibility(intrinsic, self.scope(value))
                 self.states[value.identity()] = verdict
+                self.intrinsics[value.identity()] = intrinsic
             self._memo[id] = verdict
             return verdict
         finally:

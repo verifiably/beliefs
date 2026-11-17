@@ -172,7 +172,14 @@ class Lab:
             assumptions=assumptions,
             **kwargs,
         )
-        return AssessedProposition(claim, AssessedTarget(e, app, e.dependencies, None, "empirical"), "rule")
+        dependencies = e.dependencies
+        if app.rule_ids():
+            from beliefs.dependencies import dependency_closure
+
+            # A rule-scoped applicability freezes its cited rules beside the estimand's.
+            roots = [*(entry.id for entry in e.dependencies), *app.rule_ids()]
+            dependencies = dependency_closure(roots, self.records, self.profile)
+        return AssessedProposition(claim, AssessedTarget(e, app, dependencies, None, "empirical"), "rule")
 
     def conversion_ctx(self):
         return {
@@ -1001,3 +1008,66 @@ def test_review_mixed_value_types_refuse(lab, types, reverse, unit):
     left, right = (b, a) if reverse else (a, b)
     assert convertibility(left, right, **lab.conversion_ctx()).kind == "not-convertible"
     assert synthesis(left, right, **lab.synthesis_ctx()).kind == "not-convertible"
+
+
+@pytest.mark.parametrize("failing_first", [True, False])
+def test_a_candidate_whose_checked_scope_fails_is_skipped_in_either_order(
+    lab, base_contract, testing_document, failing_first
+):
+    """A candidate proxy whose checked scope comparison selects an ineligible rule is
+    skipped, as an ineligible proxy is; the outcome never depends on id order."""
+    from scope_fixtures import relation, relations_document
+
+    from beliefs.assumptions import AssumptionInstance
+    from beliefs.classification_rule import ClassificationRule
+    from beliefs.measurement import Aspect
+    from beliefs.proxy_model import ProxyModel, ProxySource, ProxyTarget
+    from beliefs.restriction import RuleRestriction
+    from beliefs.target_comparison import synthesis
+
+    testing_document["dimensions"]["case-status"]["applies_to"] = ["affects", "correlates-with"]
+    source = Observable("testing/energy", lab.event.sort, Aspect("testing/energy-aspect", "EX:apparent"))
+    target = replace(source, aspect=Aspect("testing/energy-aspect", "EX:intrinsic"))
+    rule = lab.records.put(ClassificationRule("testing/level", (source,), "Rule R.", None, None, None))
+    ineligible = "classification-rule:" + "5" * 64
+    owner = parse_domain_contract(
+        relations_document({"r-s": relation((rule, "a"), "narrower", (ineligible, "x"))}),
+        source="scope-relations",
+        base=base_contract,
+        predecessor=None,
+    )
+    endpoints = parse_domain_contract(testing_document, source="<scoped>", base=base_contract, predecessor=None)
+    scoped = Lab(compile_profile(base_contract, [endpoints, time_contract(base_contract), owner]))
+    scoped.records = lab.records
+    proc = scoped.records.put(procedure(yields=(source, target)))
+    left = scoped.measured(
+        role="parties", member=scoped.event, kind="energy", unit="electronvolt", aspect=source.aspect, procedure_id=proc
+    )
+    right = replace(left, measure=replace(left.measure, observable=target))
+    scope = {CASES_DIMENSION: ScopedRestriction("generic", RuleRestriction(rule, ("EX:a",)))}
+    kwargs = {"claim": scoped.event_claim, "form": "quantity", "functional": "temperature-level", "scope": scope}
+    a, b = scoped.target(response=left, **kwargs), scoped.target(response=right, **kwargs)
+
+    def bridge(validity, label):
+        return ProxyModel(
+            ProxySource(source, proc),
+            ProxyTarget(target, None),
+            validity,
+            AssumptionInstance("testing/proxy-validity", {"record": label, "co_scope": "equal", "dimensions": ""}),
+            None,
+        )
+
+    for attempt in range(200):
+        good = scoped.records.put(bridge({}, f"good-{attempt}"))
+        bad = scoped.records.put(bridge({CASES_DIMENSION: RuleRestriction(ineligible, ("EX:x",))}, f"bad-{attempt}"))
+        if (bad < good) == failing_first:
+            break
+    ctx = scoped.synthesis_ctx(lambda _a, _b: (bad, good))
+    ctx["snapshot"] = snapshot(scoped.records, profile=scoped.profile, refused=ineligible)
+    result = synthesis(a, b, **ctx)
+    assert result.kind == "permitted-under", result
+    # The failed candidate's comparison was consulted and kept.
+    assert len(ctx["snapshot"].scope_comparisons) >= 2
+
+
+CASES_DIMENSION = "testing/case-status"

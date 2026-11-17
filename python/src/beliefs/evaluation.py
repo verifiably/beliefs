@@ -71,6 +71,7 @@ from beliefs.eligibility import (
     Eligible,
     Ineligible,
     closure_eligibility,
+    merge_scope_eligibility,
 )
 from beliefs.errors import (
     AmbiguousCrosswalk,
@@ -947,6 +948,9 @@ class _CapturedComparisonRecords:
         self.absent: list[tuple[str, str]] = []
         self.scope_states: dict[str, Eligible | Ineligible] = {}
         """Each selected scope rule root's closure state, keyed by rule id."""
+        self._rows: dict[str, Eligible | Ineligible] | None = None
+        """Once set, the evidence's authoritative verdict rows: a selected root
+        already judged there (a frozen dependency, say) is never judged afresh."""
         self.scope = ScopeReader(profile, lambda id: read_record(self, id), self._require_scope_roots)
         self.assessment_eligibility = AssessmentEligibilityReader(
             self, profile, self.run_of, self.verifications_of, scope=self._target_scope
@@ -956,7 +960,12 @@ class _CapturedComparisonRecords:
         """Record every selected root's closure state and attempted reads, then
         refuse the scope operation if any is ineligible; never stop at the first."""
         for root in roots:
-            self.scope_states[root] = self.eligibility(root).verdicts[root]
+            if self._rows is not None and root in self._rows:
+                self.scope_states[root] = self._rows[root]
+            else:
+                self.scope_states[root] = self.eligibility(root).verdicts[root]
+                if self._rows is not None:
+                    self._rows[root] = self.scope_states[root]
         failed = tuple(root for root in roots if isinstance(self.scope_states[root], Ineligible))
         if failed:
             raise ScopeDependencyIneligible(
@@ -1084,14 +1093,18 @@ class _CapturedComparisonRecords:
         # assessment identity (admission judges its intrinsic gates), each nested
         # assessment's merged state, and every selected rule root's state. Computed
         # for every reconstructible target, whatever its intrinsic outcome.
+        # One source of truth: from here every selected root reads its recorded row
+        # (including a frozen-dependency-mismatch overwrite), and each nested state
+        # re-merges its intrinsic half with a scope result against those final rows.
+        self._rows = verdicts
         for assessment in assessments:
             verdicts[assessment.identity()] = self._target_scope(assessment)
         for value in tuple(self.assessments.values()):
             identity = value.identity()
-            if identity not in self.assessment_eligibility.states and identity not in verdicts:
-                self.assessment_eligibility.states[identity] = self._target_scope(value)
-        for identity, state in self.assessment_eligibility.states.items():
-            verdicts.setdefault(identity, state)
+            if identity in verdicts:
+                continue
+            intrinsic = self.assessment_eligibility.intrinsics.get(identity, Eligible())
+            verdicts[identity] = merge_scope_eligibility(intrinsic, self._target_scope(value))
         for root, state in self.scope_states.items():
             verdicts.setdefault(root, state)
         records: dict[str, Record] = {}

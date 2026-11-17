@@ -511,9 +511,15 @@ def _synthesis(
                 continue
             if {value.source.observable, value.target.observable} != {ox, oy}:
                 continue
-            scopes = tuple(
-                snapshot.compare_scope(t.target.applicability.restrictions(), value.validity).verdict for t in (a, b)
-            )
+            try:
+                scopes = tuple(
+                    snapshot.compare_scope(t.target.applicability.restrictions(), value.validity).verdict
+                    for t in (a, b)
+                )
+            except ScopeDependencyIneligible:
+                # Like an ineligible proxy, a candidate whose selected scope context is
+                # ineligible cannot be used; its consulted comparison stays recorded.
+                continue
             if "disjoint" in scopes:
                 continue
             if "unknown" in scopes:

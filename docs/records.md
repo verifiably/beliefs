@@ -1090,9 +1090,12 @@ Additional explicit assumptions remain allowed. `spec.freeze` refuses a target w
 a missing requirement (`ScopeValidityIncompatible`, carrying the missing instances
 with their particulars), and standing refuses it before any route-specific check
 (`StandingRefused`, `scope-validity-incompatible`; a failed selected rule is
-`scope-dependency-ineligible`). This is how retiring the sole proof behind a waiver
-stops that waiver being used under the successor profile while the stored target
-still decodes and replay under the original pin is unchanged. A newly authored
+`scope-dependency-ineligible`). Requirements are compared with their exact
+particulars, so any change to the active relation table can invalidate an earlier
+waiver: retiring the sole proof behind it, or adding a relation that changes the
+comparison verdict or the nonequal dimensions a required assumption names. Either
+way the waiver stops being usable under the successor profile while the stored
+target still decodes and replay under the original pin is unchanged. A newly authored
 estimand gathers the now-required assumption normally.
 
 `dependencies.dependency_closure` freezes the procedure, any cited mapping and
@@ -1501,10 +1504,11 @@ involving that key report `TargetUnknown`. Replay under the original profile pin
 keeps the original result; the stored target's bytes and key never change.
 
 `evaluate` first recomputes every required scope check from the supplied targets
-and typed bodies (`evidence.scope_evidence`). A missing state, selected body,
-attempted read or owner pin, or a recorded scope reason that disagrees with the
-recomputation, raises `ScopeEvidenceIncomplete` (a `MalformedRecord`,
-`scope-evidence-incomplete`). An accurately recorded stale or failed-read state is a
+and typed bodies (`evidence.scope_evidence`). A missing state, selected body or
+attempted read, or a recorded scope reason that disagrees with the recomputation,
+raises `ScopeEvidenceIncomplete` (a `MalformedRecord`, `scope-evidence-incomplete`).
+A selected owner whose pin is missing or disagrees is a consultation failure instead:
+the answer is `Refused("consulted-contracts-disagree: …")`. An accurately recorded stale or failed-read state is a
 valid ineligible input, not malformed evidence: a missing body is admitted only for
 an explicitly failed read with its attempted read and ineligible state. A nested
 assessment's recorded intrinsic failure may stand beside a computed scope failure.

@@ -525,8 +525,10 @@ are term or rule leaves:
    `narrower`, a proper superset `broader`. This keeps the inherited convention that
    an additional, nonredundant term label extends the scope; it is a modeling
    convention, not a proof about undeclared terms.
-4. Otherwise identical normalized sets are `equal`; one left atom strictly below a
-   right atom is `narrower`, and the inverse `broader`; anything else is `unknown`.
+4. Otherwise identical normalized sets are `equal`; a left operand that normalizes to
+   exactly one atom strictly below some right atom is `narrower`, and a right operand
+   of exactly one atom strictly below some left atom is `broader`; anything else is
+   `unknown`.
    Cross-rule sets never use label-set inclusion, and equality to one member of a
    larger union proves no strict containment.
 

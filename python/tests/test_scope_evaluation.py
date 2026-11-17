@@ -66,7 +66,16 @@ class Scene:
     unrestricted target over a universally validated procedure). Rule T reads an
     observable of a third namespace, so its body terms need their own pin."""
 
-    def __init__(self, root: Path, *, shared_key: bool = False, failing: str = "", t_held: bool = True, rows=None):
+    def __init__(
+        self,
+        root: Path,
+        *,
+        shared_key: bool = False,
+        failing: str = "",
+        t_held: bool = True,
+        rows=None,
+        tamper: str = "",
+    ):
         t_rule = ClassificationRule("testing/level", (TERM_OBSERVABLE,), "Rule T: intermediate.", None, None, None)
         self.world = world = World(t_rule=t_rule)
         self.universal = world.records.put(_procedure("Universal assay", {}))
@@ -110,6 +119,19 @@ class Scene:
                 records=world.records,
             )
             nodes.append(stored.analysis_spec_node(spec))
+            target = spec.assessed_target
+            if letter == tamper:
+                # The stored target's entry for operand rule R disagrees with the held body:
+                # a frozen-dependency mismatch on a rule that is also a selected scope root.
+                target = replace(
+                    target,
+                    dependencies=tuple(
+                        replace(entry, terms=tuple(sorted({*entry.terms, "testing/stage"})))
+                        if entry.id == world.r
+                        else entry
+                        for entry in target.dependencies
+                    ),
+                )
             nodes.append(
                 stored.dataset_node(title=f"d-{letter}", resources=_resources(letter), empirical_observation=EMPIRICAL)
             )
@@ -124,7 +146,7 @@ class Scene:
                 proposition=PROPOSITION,
                 outcome="supported",
                 interpretation_rule=spec.interpretation_rule,
-                target=spec.assessed_target,
+                target=target,
             )
             value = stored.assessment_value(node, profile=original)
             self.values[letter] = value
@@ -461,3 +483,54 @@ def test_retracted_selected_rule_is_scope_ineligible(tmp_path):
     assert isinstance(evaluation.view.beliefs[key], NoBelief)
     assert isinstance(evaluation.view.beliefs[scene.key("c")], Belief)
     assert scene.replay(profile, key) == evaluation.view.beliefs[key]
+
+
+def test_frozen_mismatch_on_a_selected_root_stays_key_local(tmp_path):
+    scene = Scene(tmp_path / "corpus", tamper="a")
+    profile, r = scene.profile(), scene.world.r
+    evaluation = scene.evaluate(profile)
+    stale, unaffected = scene.key("a"), scene.key("c")
+    inputs = evaluation.traces[stale][2]
+    assert inputs is not None
+    verdicts = inputs.dependencies.closure.verdicts
+    assert verdicts[r] == Ineligible("frozen-dependency-mismatch")
+    # One source of truth: the selected root's recorded row is what its scope state used.
+    state = verdicts[scene.identity("a")]
+    assert isinstance(state, Ineligible) and state.reason == "scope-dependency-ineligible" and r in state.concerns
+    assert isinstance(evaluation.view.beliefs[stale], NoBelief)
+    assert isinstance(evaluation.view.beliefs[unaffected], Belief)
+    assert scene.replay(profile, stale) == evaluation.view.beliefs[stale]
+
+
+def test_nested_targets_are_rechecked_in_pure_replay(tmp_path):
+    """C14 nested: the stale assessment supplied only as a captured nested dependency."""
+    from beliefs.evidence import scope_evidence
+
+    scene = Scene(tmp_path / "corpus")
+    retired, nested = scene.profile(retire=True), scene.identity("a")
+    inputs = scene.evaluate(retired).traces[scene.key("a")][2]
+    assert inputs is not None
+    captured = inputs.dependencies
+    stale = captured.closure.verdicts[nested]
+    assert isinstance(stale, Ineligible) and stale.reason == "scope-validity-incompatible"
+
+    def as_nested(**rows):
+        verdicts = {**captured.closure.verdicts, **rows}
+        verdicts = {k: v for k, v in verdicts.items() if v is not None}
+        return DependencyEvidence(
+            ClosureEligibility(verdicts, captured.closure.reads),
+            captured.records,
+            {"assessment:a-a": scene.values["a"]},  # type: ignore[dict-item]
+            captured.runs,
+        )
+
+    # An accurate stale state, or an intrinsic failure that wins over it, is valid input.
+    assert scope_evidence((), as_nested(), profile=retired)
+    assert scope_evidence((), as_nested(**{nested: Ineligible("input-not-held")}), profile=retired)
+    # A missing or Eligible state, or a different scope reason, is incomplete evidence.
+    for row in (None, Eligible(), Ineligible("scope-dependency-ineligible", ("forged",))):
+        with pytest.raises(errors.ScopeEvidenceIncomplete):
+            scope_evidence((), as_nested(**{nested: row}), profile=retired)
+    # Omitting a selected rule's state for the nested target refuses too.
+    with pytest.raises(errors.ScopeEvidenceIncomplete):
+        scope_evidence((), as_nested(**{scene.world.t: None}), profile=retired)
