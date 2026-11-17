@@ -840,8 +840,13 @@ attestations over sources rename no assertion, distinct readers
 equal the writer's bound actor (`ActorMismatch` otherwise); `import_bundle`,
 `move` and `consolidate` preserve `recorded_by` as written. Before eligibility
 checks on `add`, `import_bundle`, `move` and replacement preflight, the
-boundary decodes the record and enforces `source_assertion_refusal`, raising
-`SourceAssertionRefused` with `code`:
+boundary validates document shape and required facets, decodes the record and
+enforces `source_assertion_refusal`. `add`, `move` and replacement preflight
+raise `SourceAssertionRefused` directly with `code` (after `ValidationRefused`
+on document or required-facet checks); `import_bundle` writes a failure act
+report and wraps each per-member `SourceAssertionRefused` (as well as document
+and required-facet `ValidationRefused`) in `ImportRefused`, with `member` naming
+the record and `__cause__` holding the inner refusal:
 
 - `source-assertion-malformed`: non-canonical or malformed facet, non-NFC text,
   bad id, or zero or more than one `anchored_in` edge;

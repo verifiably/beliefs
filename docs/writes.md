@@ -118,25 +118,30 @@ repeats facet and stamp checks and refuses governed kinds without facets; it doe
 not repeat the held-dependency checks, since records stage in id order.
 
 For `source-assertion`, `add`, `import_bundle`, `move` and replacement preflight
-run document validation, canonical decode (`stored.source_assertion_value`) and
-`source_assertion_refusal` before eligibility checks. They raise
-`SourceAssertionRefused` with `code` set to `source-assertion-malformed`
-(malformed facet, non-NFC text, bad id or missing/doubled `anchored_in` edge),
-`source-assertion-edge-mismatch` (any edge set other than the single
-`anchored_in` edge, `assesses` included) or `source-assertion-ref-unresolved`
-(`source` or `bears_on.proposition` absent or resolving to another kind in the
-citation view, including read mounts or the same import bundle). On `add`,
-`recorded_by` must equal the writer's bound actor (`ActorMismatch` otherwise);
-`import_bundle`, `move` and `consolidate` preserve `recorded_by` under
-provenance. Publication staging runs the record-local `SourceAssertionRefused`
-checks (`source-assertion-malformed` and `source-assertion-edge-mismatch`)
-without resolving references. `relocation.consolidate` validates both
-`source-assertion` replicas whole (`SourceAssertionRefused`), refuses differing
-`(read, bears_on)` judgments or `anchored_in` targets that do not resolve to the
-same live `source` in `keep`'s citation view with
-`SourceAssertionReplicasDisagree` (a subclass of `RelocationRefused`), and keeps
-the survivor's `recorded_by` and `anchored_in` edge while uniting
-`deprecated_ids`.
+run document and required-facet validation, canonical decode
+(`stored.source_assertion_value`) and `source_assertion_refusal` before
+eligibility checks. `add`, `move` and replacement preflight raise
+`SourceAssertionRefused` directly (after `ValidationRefused` on document or
+required-facet checks), whereas `import_bundle` writes a failure act report and
+wraps any per-member `SourceAssertionRefused` (as well as document and
+required-facet `ValidationRefused`) in `ImportRefused`, with `member` naming the
+record and `__cause__` holding the inner refusal. `SourceAssertionRefused` sets
+`code` to `source-assertion-malformed` (malformed facet, non-NFC text, bad id or
+missing/doubled `anchored_in` edge), `source-assertion-edge-mismatch` (any edge
+set other than the single `anchored_in` edge, `assesses` included) or
+`source-assertion-ref-unresolved` (`source` or `bears_on.proposition` absent or
+resolving to another kind in the citation view, including read mounts or the
+same import bundle). On `add`, `recorded_by` must equal the writer's bound actor
+(`ActorMismatch` otherwise); `import_bundle`, `move` and `consolidate` preserve
+`recorded_by` under provenance. Publication staging runs the record-local
+`SourceAssertionRefused` checks (`source-assertion-malformed` and
+`source-assertion-edge-mismatch`) without resolving references.
+`relocation.consolidate` validates both `source-assertion` replicas whole
+(`SourceAssertionRefused`), refuses differing `(read, bears_on)` judgments or
+`anchored_in` targets that do not resolve to the same live `source` in `keep`'s
+citation view with `SourceAssertionReplicasDisagree` (a subclass of
+`RelocationRefused`), and keeps the survivor's `recorded_by` and `anchored_in`
+edge while uniting `deprecated_ids`.
 
 A kind with its own door is refused through `add`. Holdings observations, act
 reports and publication records have no ordinary door at all. `revise` operates
@@ -522,14 +527,15 @@ main ones are:
 - `ContractMismatch`: the manifest pins disagree with the profile;
 - `WriteRefused` and its subclasses (`ValidationRefused`, `EligibilityUnmet`,
   `CollisionRefused`, `RecordAlreadyMinted`, `ActorMismatch`,
-  `ReviseKindImmutable`, `SourceAssertionRefused` whose `code` is
+  `ReviseKindImmutable`, `ImportRefused` wrapping per-member import refusals in
+  `__cause__`, `SourceAssertionRefused` whose `code` is
   `source-assertion-malformed`, `source-assertion-edge-mismatch` or
   `source-assertion-ref-unresolved`, `ReservationRefused` whose `code` names the
   exposure or reservation check that failed, and `RelocationRefused` including
   `SourceAssertionReplicasDisagree`; see
   [records.md](records.md#source-assertions) and
-  [records.md](records.md#write-rules)): the record or relocation fails a
-  check;
+  [records.md](records.md#write-rules)): the record, import or relocation fails
+  a check;
 - `SignatureRefused`: a relation breaks an enforced signature;
 - `SessionRefused`: a session cannot open; its subclass `ChainClaimed` names a
   write root or store root another session on this host holds;
