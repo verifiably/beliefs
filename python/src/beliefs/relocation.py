@@ -30,13 +30,18 @@ from beliefs.errors import (
     DuplicateLocation,
     HistoryDisagreement,
     IdentityError,
+    MalformedRecord,
     RelocationKindExcluded,
     RelocationRefused,
     RelocationTargetMissing,
     SameRootRefused,
+    SourceAssertionRefused,
+    SourceAssertionReplicasDisagree,
 )
 from beliefs.identity import v1
 from beliefs.report import ActReport, Consolidated, Moved, OperationIntent
+from beliefs.reservation import UNREAD
+from beliefs.source_assertion import SourceAssertion, source_assertion_refusal
 
 
 @contextmanager
@@ -167,6 +172,75 @@ def _reconcile(survivor: Node, loser: Node, *, correction_entries: list[dict[str
     return stored.stamp_semantic_identity(unstamped) if unstamped.kind in stored.SEMANTIC_DOMAINS else unstamped
 
 
+def _check_source_assertion_replicas(
+    keep_node: Node,
+    keep_writer: CorpusWriter,
+    other_node: Node,
+    other_writer: CorpusWriter,
+) -> None:
+    """Validate both `source-assertion` replicas whole, then match judgment and live source."""
+    decoded: dict[str, SourceAssertion] = {}
+    for position, node, writer in (
+        ("keep", keep_node, keep_writer),
+        ("other", other_node, other_writer),
+    ):
+        try:
+            value = stored.source_assertion_value(node)
+        except MalformedRecord as caught:
+            raise SourceAssertionRefused(
+                "source-assertion-malformed",
+                f"{node.id}: the {position} replica in {writer.corpus_id}: {caught}",
+            ) from caught
+        refusal = source_assertion_refusal(value, node.relations, kind_of=lambda _ref: UNREAD)
+        if refusal is not None:
+            raise SourceAssertionRefused(
+                refusal.code,
+                f"{node.id}: the {position} replica in {writer.corpus_id}: {refusal.detail}",
+            )
+        decoded[position] = value
+
+    keep_val, other_val = decoded["keep"], decoded["other"]
+    if (keep_val.read, keep_val.bears_on) != (other_val.read, other_val.bears_on):
+        raise SourceAssertionReplicasDisagree(
+            f"{keep_node.id}: the keep replica in {keep_writer.corpus_id} and the other replica in "
+            f"{other_writer.corpus_id} disagree on reading or proposition bearing"
+        )
+
+    with keep_writer._citing():
+        view = keep_writer._citation_view()
+        live_sources: dict[str, str] = {}
+        for position, target in (("keep", keep_val.source), ("other", other_val.source)):
+            live = view.resolve(target)
+            if live is None or not view.holds(live):
+                raise SourceAssertionReplicasDisagree(
+                    f"{keep_node.id}: the {position} replica's source {target!r} does not resolve in "
+                    f"keep corpus {keep_writer.corpus_id}"
+                )
+            target_node = view.get(live)
+            if target_node.kind != "source":
+                raise SourceAssertionReplicasDisagree(
+                    f"{keep_node.id}: the {position} replica's source {target!r} resolves to {live} "
+                    f"(kind {target_node.kind!r}, not 'source') in keep corpus {keep_writer.corpus_id}"
+                )
+            live_sources[position] = live
+        if live_sources["keep"] != live_sources["other"]:
+            raise SourceAssertionReplicasDisagree(
+                f"{keep_node.id}: the keep replica anchors in {live_sources['keep']} while the other "
+                f"replica anchors in {live_sources['other']} in keep corpus {keep_writer.corpus_id}"
+            )
+
+
+def _merge_source_assertion(keep_node: Node, other_node: Node) -> Node:
+    """Restamp `keep_node` with united `deprecated_ids`, keeping its facet and single edge."""
+    unstamped = keep_node.model_copy(
+        update={
+            "deprecated_ids": sorted({*keep_node.deprecated_ids, *other_node.deprecated_ids}),
+            "facets": dict(keep_node.facets),
+        }
+    )
+    return stored.stamp_semantic_identity(unstamped)
+
+
 def consolidate(
     keep: tuple[CorpusWriter, str],
     other: tuple[CorpusWriter, str],
@@ -235,8 +309,14 @@ def consolidate(
                         f"{node.id}: the {position} replica in {writer.corpus_id} derives {address}; "
                         "consolidate judges both declarations before it discards one"
                     )
+        if keep_node.kind == "source-assertion":
+            _check_source_assertion_replicas(keep_node, keep_writer, other_node, other_writer)
         _refuse_contract_disagreement(other_node, other_writer, keep_writer)
-        merged = _reconcile(keep_node, other_node, correction_entries=correction_entries)
+        merged = (
+            _merge_source_assertion(keep_node, other_node)
+            if keep_node.kind == "source-assertion"
+            else _reconcile(keep_node, other_node, correction_entries=correction_entries)
+        )
         keep_writer._preflight_replace_locked(merged, provenance=True)
         for position, writer in (("keep", keep_writer), ("other", other_writer)):
             if writer._operation_port is None:

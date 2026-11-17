@@ -1606,6 +1606,13 @@ class HistoryDisagreement(RelocationRefused):
     themselves reconcile by absorption."""
 
 
+class SourceAssertionReplicasDisagree(RelocationRefused):
+    """`consolidate` was given two `source-assertion` replicas whose
+    judgments (`read`, `bears_on`) differ, whose anchor sources do not resolve
+    to held `source` records in `keep`'s citation view, or whose anchor
+    sources resolve to different live sources."""
+
+
 class DuplicateLocation(RelocationRefused):
     """`move`'s destination already holds a record at that canonical address.
 
