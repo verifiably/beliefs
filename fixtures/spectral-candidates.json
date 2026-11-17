@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "base_identity": "08f0b96b11a9bb54eb20a52fb90a8cc647cedfc78375a64f2c0039ea4b9df52b",
+  "base_identity": "5423b2ed43eb2abaae7a15c6cfb84c9d15af3380e041bc8a00f780d3f270a945",
   "synthetic_pair": {
     "contract_identity": "39f13b4c1d7d1ea60248d0660998903c9c748cea209c852a58c39e0c0c89c714",
     "register_identity": "assumptions-register:5186fc7701e1d02bbe11044a4816fde47dbac341b30d664c4241605d53f43b0e"
@@ -9,12 +9,12 @@
     "spectral": {
       "general_contract_identity": "d6baa3b14ad47de11e474fda25bb406129161e5d065bc2d08f19c845c167979b",
       "general_register_identity": "assumptions-register:096c55186d533519eec005c995c400d38107ada21da52774a29b8fca25fe1443",
-      "compiled_identity_python": "cd495c8356da811db2a4d612aa652259461ccfd512205d705eff881f1c24cce8"
+      "compiled_identity_python": "c78ab640d3faeaa3da544000364745b78d571570832f94ac80c07cd4cb05e01c"
     },
     "joint": {
       "general_contract_identity": "34fbdf81b98a023abd4cf2dee15c6842d09b0d2a603181e67b215bccea995d3b",
       "general_register_identity": "assumptions-register:728ee1c703afbcc27b80f7e96496dfa0df379a8bc318bb8193a343c24f276eee",
-      "compiled_identity_python": "c16509cbccbee4d233a374dd7b54231de6519a62d42e78aef54c37e057408ac9"
+      "compiled_identity_python": "2c934952a8e33cdc26358d521b0959bb3a051b9242a8ef307df610914ed62326"
     }
   },
   "claims": [

@@ -184,7 +184,7 @@ describe("the base contract's declarations", () => {
   });
   it("declares the v2 claim grammar's closed sets", () => {
     const grammar = base.claimGrammar;
-    expect(base.version).toBe(5);
+    expect(base.version).toBe(6);
     expect(grammar.version).toBe(2);
     expect(grammar.forms).toEqual(["polar", "null"]);
     expect(grammar.roleCategories).toEqual(["set", "temporal", "class", "pattern"]);

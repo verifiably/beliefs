@@ -49,6 +49,7 @@ from beliefs.contract.base import (
     FacetUse,
     MeasurementGrammar,
     RelationDecl,
+    ScopeGrammar,
     TimeRoles,
 )
 from beliefs.contract.coordination import CoordinationContract
@@ -67,6 +68,12 @@ from beliefs.contract.domain import (
 )
 from beliefs.contract.facets import FieldDecl
 from beliefs.contract.functional import FunctionalDecl
+from beliefs.contract.scope import (
+    CompiledScopeRelation,
+    ScopeEndpoint,
+    ScopeRelationDecl,
+    TermScopeEndpoint,
+)
 from beliefs.errors import (
     ContractMismatch,
     DuplicateContribution,
@@ -107,6 +114,7 @@ __all__ = [
     "CompiledQuantityKind",
     "CompiledRestrictionForm",
     "CompiledRole",
+    "CompiledScopeRelation",
     "CompiledSelectionMechanism",
     "CompiledSort",
     "CompiledTemplate",
@@ -646,6 +654,7 @@ class ProfileSpec:
     claim_grammar: ClaimGrammar
     composite_grammar: CompositeGrammar
     estimand_grammar: EstimandGrammar
+    scope_grammar: ScopeGrammar
     time_roles: TimeRoles
     defining_sources: Mapping[str, str]
     measurement_grammar: MeasurementGrammar
@@ -673,6 +682,10 @@ class ProfileSpec:
     conversions: Mapping[str, CompiledConversion]
     transformations: Mapping[str, CompiledTransformation]
     measurements: Mapping[str, frozenset[str]]
+    scope_relations: Mapping[str, CompiledScopeRelation]
+    """Every declared scope relation of the activated contracts, retired ones
+    included, keyed by qualified relation term. Retirement is projected because it
+    changes the comparison table (scope containment design §5)."""
     admission: Mapping[str, tuple[str, ...]]
     """The admission index: template term → the typed addresses
     ``instantiation:<namespace>/<name>`` of every instantiation of it across the
@@ -779,6 +792,8 @@ class ProfileSpec:
             facets=self.facets,
             relations=self.relations,
             time_roles=self.time_roles,
+            scope_grammar=self.scope_grammar,
+            scope_relations=self.scope_relations,
             coordination=coordination,
         )
 
@@ -1389,6 +1404,11 @@ def compile_profile(
                     f"{term}: a duration convention requires an exact multiplicative conversion joining one calendar and one noncalendar unit of the same quantity kind, without error or constant"
                 )
             duration_conventions[term] = CompiledDurationConvention(term, conversion_term, contract.namespace)
+    scope_relations = {
+        contract.term(name): _compile_scope_relation(contract, decl, sorts, dimensions)
+        for contract in contracts
+        for name, decl in contract.scope_relations.items()
+    }
     admission = {
         term: tuple(
             sorted(
@@ -1478,6 +1498,8 @@ def compile_profile(
         conversions=tables.conversions,
         transformations=tables.transformations,
         measurements=MappingProxyType(measurements),
+        scope_grammar=base.scope_grammar,
+        scope_relations=MappingProxyType(scope_relations),
         admission=MappingProxyType(admission),
         coordination_kinds=MappingProxyType(dict(coordination_kinds)),
         coordination_address_root=(coordination.address_root if coordination is not None else None),
@@ -1499,6 +1521,8 @@ def compile_profile(
                 facets=facets,
                 relations=base.relations,
                 time_roles=base.time_roles,
+                scope_grammar=base.scope_grammar,
+                scope_relations=scope_relations,
                 coordination=coordination_projection,
             ),
         ),
@@ -1548,6 +1572,8 @@ def _projection(
     kinds: Mapping[str, CompiledKind],
     facets: Mapping[str, CompiledFacet],
     relations: Mapping[str, RelationDecl],
+    scope_grammar: ScopeGrammar,
+    scope_relations: Mapping[str, CompiledScopeRelation],
     coordination: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     """Every declaration is keyed **by term identifier** (an estimand declaration
@@ -1604,6 +1630,8 @@ def _projection(
         "constants": {term: decl.schema_projection() for term, decl in tables.constants.items()},
         "conversions": {term: decl.schema_projection() for term, decl in tables.conversions.items()},
         "transformations": {term: decl.schema_projection() for term, decl in tables.transformations.items()},
+        "scope_grammar": scope_grammar.projection(),
+        "scope_relations": {term: decl.schema_projection() for term, decl in scope_relations.items()},
     }
     if coordination is not None:
         projection["coordination"] = dict(coordination)
@@ -1637,6 +1665,71 @@ def _resolve_sort(contract: DomainContract, name: str, sorts: Mapping[str, Compi
             "stand behind an undeclared sort."
         )
     return term
+
+
+def _compile_scope_endpoint(
+    contract: DomainContract,
+    endpoint: ScopeEndpoint,
+    leaf: CompiledRestrictionForm,
+    sorts: Mapping[str, CompiledSort],
+    where: str,
+) -> ScopeEndpoint:
+    if isinstance(endpoint, TermScopeEndpoint):
+        if leaf.form != "term":
+            raise ProfileError(f"{where}: a term endpoint on a {leaf.form} dimension; endpoints take its leaf form")
+        sort = _local_term(contract, endpoint.sort)
+        if sort not in sorts:
+            raise ProfileError(f"{where}: names sort {sort!r}, which no activated contract declares")
+        if sort != leaf.sort:
+            raise ProfileError(f"{where}: sort {sort!r} is not the dimension's restriction sort {leaf.sort!r}")
+        identifier_class = sorts[sort].identifier_class
+        if identifier_class is not None and not identifier_class.matches(endpoint.term):
+            raise ProfileError(f"{where}: term {endpoint.term!r} is outside the identifier class of {sort!r}")
+        return TermScopeEndpoint(sort, endpoint.term)
+    if leaf.form != "rule" or leaf.classes is None:
+        raise ProfileError(f"{where}: a rule endpoint on a {leaf.form} dimension; endpoints take its leaf form")
+    identifier_class = sorts[leaf.classes].identifier_class
+    if identifier_class is not None and not identifier_class.matches(endpoint.classes[0]):
+        raise ProfileError(
+            f"{where}: class {endpoint.classes[0]!r} is outside the identifier class of {leaf.classes!r}"
+        )
+    return endpoint
+
+
+def _compile_scope_relation(
+    contract: DomainContract,
+    decl: ScopeRelationDecl,
+    sorts: Mapping[str, CompiledSort],
+    dimensions: Mapping[str, CompiledDimension],
+) -> CompiledScopeRelation:
+    """Qualify a relation and check its endpoints against the dimension's leaf form.
+
+    Rule bodies are not read here: a profile performs no world reads, so a rule's
+    kind and classes sort are checked where a comparison uses the relation.
+    """
+    where = f"{contract.namespace}: scope_relations.{decl.name}"
+    term = _local_term(contract, decl.dimension)
+    dimension = dimensions.get(term)
+    if dimension is None:
+        raise ProfileError(f"{where}: names dimension {term!r}, which no activated contract declares")
+    form = dimension.restriction
+    if dimension.placement != "applicability" or form is None:
+        raise ProfileError(f"{where}: {term!r} is not an applicability dimension with a typed restriction")
+    leaf = form.of if form.form == "union" else form
+    if leaf is None or leaf.form not in ("term", "rule"):
+        raise ProfileError(f"{where}: {term!r} restricts by {form.form}; only term and rule scopes are related")
+    return CompiledScopeRelation(
+        term=contract.term(decl.name),
+        contract=contract.namespace,
+        declaration=ScopeRelationDecl(
+            name=decl.name,
+            dimension=term,
+            relation=decl.relation,
+            left=_compile_scope_endpoint(contract, decl.left, leaf, sorts, f"{where}: left"),
+            right=_compile_scope_endpoint(contract, decl.right, leaf, sorts, f"{where}: right"),
+            retired=decl.retired,
+        ),
+    )
 
 
 def _resolve_template(

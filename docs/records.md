@@ -3,8 +3,8 @@
 Type: data model; document types 1. This document describes the records a beliefs
 corpus holds: their fields, how each is identified, the invariants the write boundary
 and the readers enforce, and what decoding rejects. The code accepts one identity
-encoding, `science.identity.v1`. The shipped base contract is version 5, with
-claim grammar 2, estimand grammar 4, and measurement and composite grammar 1. The other
+encoding, `science.identity.v1`. The shipped base contract is version 6, with
+claim grammar 2, estimand grammar 4, and measurement, composite and scope grammar 1. The other
 reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
@@ -811,15 +811,23 @@ what they license and what they leave unestablished. Its facet has `describes`, 
 contract it describes as `<namespace>:<content identity>` (64 lowercase hex), an
 optional `previous`, the `assumptions-register:` id of the revision it supersedes,
 and `entries`. Each entry is keyed by the typed address of a declaration across the
-21 domain declaration families (`sort`, `dimension`, `template`, `instantiation`,
+22 domain declaration families (`sort`, `dimension`, `template`, `instantiation`,
 `bridge`, `estimand`, `duration-convention`, `functional`, `identification-class`,
 `design`, `selection-mechanism`, `procedure-kind`, `aggregation-rule`,
 `assumption-kind`, `measurement`, `aspect`, `quantity-kind`, `unit`, `constant`,
-`conversion` and `transformation`). Ordinary keys are `<kind>:<namespace>/<name>`;
+`conversion`, `transformation` and `scope-relation`). Ordinary keys are `<kind>:<namespace>/<name>`;
 estimand keys qualify their inner target as
 `estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`.
 Each entry has three non-empty prose strings (`collapses`, `licenses` and
 `not_established`) plus a required `status` (`provisional` or `established`).
+A `scope-relation` entry, including one for a retired relation, carries the relation's
+endpoint definitions, intended universe, what identifies one case and occasion and how
+unclassified cases count (`collapses`); the exact equality or proper-containment
+consequence with its definitional justification, a properness counterexample for
+`narrower`, and the defining source revision (`licenses`); and what it does not
+establish, such as empirical validation, imported ontology closure or sibling
+disjointness (`not_established`). The kernel checks shape and coverage, not the
+adequacy of that prose. The register domain stays `science.assumptions-register.v2`.
 The kind is part of the key, so a sort and a
 dimension that share a local name have separate entries, and an instantiation and a
 bridge sharing a name have distinct estimand entries. A `measurement` entry
@@ -848,7 +856,7 @@ profile's activated domain contracts; none of these refuses a write:
   identity. A `previous` naming a register not held ends the chain there; registers
   on a cycle have no head, and each is compared to the pin.
 - `register-entry-unknown` (error, on the register): an entry key whose kind is not
-  one of the 21 declaration families (its reader refuses such a register too), or, for a register
+  one of the 22 declaration families (its reader refuses such a register too), or, for a register
   describing the pinned identity, a key naming no declaration of that kind and target
   owned by that contract. A register describing another identity reports `register-stale`
   alone.

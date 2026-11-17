@@ -43,6 +43,7 @@ from typing import ClassVar, Literal, Self, cast, final
 from beliefs.contract.base import BaseContract
 from beliefs.contract.facets import FacetDecl, parse_facet_declarations
 from beliefs.contract.functional import FunctionalDecl, parse_functional
+from beliefs.contract.scope import ScopeRelationDecl, parse_scope_relations
 from beliefs.errors import MalformedContract, SubclassRefused, SuccessionViolation, UnparsedContract
 from beliefs.identifiers import not_a_canonical_identifier
 from beliefs.identity import v1
@@ -124,6 +125,7 @@ _CONTRACT_OPTIONAL = frozenset(
         "constants",
         "conversions",
         "transformations",
+        "scope_relations",
     }
 )
 _V1_FIELDS = ("operators", "edges")
@@ -805,6 +807,7 @@ _Declaration = (
     | IdentificationClassDecl
     | DesignDecl
     | SelectionMechanismDecl
+    | ScopeRelationDecl
 )
 
 
@@ -857,6 +860,9 @@ class DomainContract:
     constants: Mapping[str, ConstantDecl]
     conversions: Mapping[str, ConversionDecl]
     transformations: Mapping[str, TransformationDecl]
+    scope_relations: Mapping[str, ScopeRelationDecl]
+    """Declared equality and proper-containment relations between leaf scopes
+    (scope containment design §4); absent in a document means empty."""
     facets: Mapping[str, FacetDecl]
     content_identity: str
 
@@ -915,6 +921,7 @@ class DomainContract:
         constants: dict[str, ConstantDecl],
         conversions: dict[str, ConversionDecl],
         transformations: dict[str, TransformationDecl],
+        scope_relations: dict[str, ScopeRelationDecl],
         facets: dict[str, FacetDecl],
         content_identity: str,
         base_identity: str,
@@ -952,6 +959,7 @@ class DomainContract:
             ("constants", MappingProxyType(dict(constants))),
             ("conversions", MappingProxyType(dict(conversions))),
             ("transformations", MappingProxyType(dict(transformations))),
+            ("scope_relations", MappingProxyType(dict(scope_relations))),
             ("facets", MappingProxyType(dict(facets))),
             ("content_identity", content_identity),
             ("base_identity", base_identity),
@@ -1017,8 +1025,9 @@ DECLARATION_FAMILIES: tuple[tuple[str, str], ...] = (
     ("constant", "constants"),
     ("conversion", "conversions"),
     ("transformation", "transformations"),
+    ("scope-relation", "scope_relations"),
 )
-"""Ordered `(kind_tag, DomainContract_attribute)` catalogue of all 21 declaration families."""
+"""Ordered `(kind_tag, DomainContract_attribute)` catalogue of all 22 declaration families."""
 
 
 # --- parse helpers ----------------------------------------------------------------
@@ -1836,6 +1845,20 @@ def parse_domain_contract(
             quantity_kind, _reference_list(value, f"{source}: aspects.{key}", measurement_reference)
         )
 
+    def dimension_reference(value: object, where: str) -> str:
+        reference = _reference(value, where, namespace=namespace, base_name=base.name, what="dimension")
+        if "/" not in reference and reference not in dimensions:
+            raise MalformedContract(f"{where}: {reference!r} is not a dimension this contract declares")
+        return reference
+
+    scope_relations = parse_scope_relations(
+        root.get("scope_relations", {}),
+        f"{source}: scope_relations",
+        relations=base.scope_grammar.relations,
+        dimension_reference=dimension_reference,
+        sort_reference=resolve,
+    )
+
     contract = DomainContract._parsed(
         _MINT,
         namespace=namespace,
@@ -1867,6 +1890,7 @@ def parse_domain_contract(
         constants=constants,
         conversions=conversions,
         transformations=transformations,
+        scope_relations=scope_relations,
         facets=facets,
         content_identity=v1.digest(DOMAIN_CONTRACT_DOMAIN, root),
         base_identity=base.content_identity,

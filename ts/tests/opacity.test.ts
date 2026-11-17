@@ -339,6 +339,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
     constants: {},
     conversions: {},
     transformations: {},
+    scopeRelations: {},
     admission: { "forged/op": [] },
   };
 
@@ -455,6 +456,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           timeRoles: base.timeRoles,
           measurementGrammar: base.measurementGrammar,
           compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
+          scopeGrammar: base.scopeGrammar,
         }),
     ).toThrow(UnparsedContract);
     expect(
@@ -486,6 +488,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           constants: {},
           conversions: {},
           transformations: {},
+          scopeRelations: {},
           facets: {},
           base,
         }),
@@ -504,6 +507,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           timeRoles: base.timeRoles,
           measurementGrammar: base.measurementGrammar,
           compositeGrammar: FORGED_COMPOSITE_GRAMMAR,
+          scopeGrammar: base.scopeGrammar,
         }),
     ).toThrow(SubclassRefused);
     expect(
@@ -535,6 +539,7 @@ describe("a contract that nobody authored cannot be compiled", () => {
           constants: {},
           conversions: {},
           transformations: {},
+          scopeRelations: {},
           facets: {},
           base,
         }),

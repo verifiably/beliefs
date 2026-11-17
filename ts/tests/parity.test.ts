@@ -323,7 +323,7 @@ it("series time roles and admitted SI vocabulary compile from the canonical doma
   const document = parseBaseContract(read("contracts/science/CONTRACT.yaml"), "<series base>");
   const domain = parseDomainContract(read("domains/si-brochure/DOMAIN.yaml"), "<admitted SI time>", document);
   const profile = compileProfile(document, [domain]);
-  expect(document.version).toBe(5);
+  expect(document.version).toBe(6);
   expect(document.estimandGrammar.version).toBe(4);
   expect(profile.timeRoles).toEqual(JSON.parse(read("fixtures/series-contract-v1.json")).time_roles);
 });

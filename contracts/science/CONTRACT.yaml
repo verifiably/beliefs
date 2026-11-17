@@ -10,7 +10,7 @@
 # change, because the identities *are* the bytes.
 
 contract: science
-version: 5
+version: 6
 
 # Candidate time-role coupling; external vocabulary admission is separate.
 time_roles:
@@ -107,6 +107,16 @@ measurement_grammar:
 composite_grammar:
   version: 1
   shapes: [dag]
+
+# --- scope grammar -----------------------------------------------------------
+# The relations a domain contract may declare between two leaf scopes of one
+# applicability dimension: `equal` (exactly the same cases) and `narrower`
+# (proper containment). `broader` is the inverse comparison result, not a second
+# spelling. Comparison performs only equality and strict-containment closure
+# over these declarations; no subclass, part-of or ontology edge is interpreted.
+scope_grammar:
+  version: 1
+  relations: [equal, narrower]
 
 # --- kinds, relations and facets ----------------------------------------------
 kinds:

@@ -56,6 +56,12 @@ import {
 } from "./contract.js";
 import { ContractMismatch, MalformedContract, ProfileError, SubclassRefused, UnparsedContract } from "./errors.js";
 import type { IdentifierClass } from "./patterns.js";
+import {
+  type CompiledScopeRelation,
+  type ScopeEndpoint,
+  type ScopeRelationDecl,
+  isTermEndpoint,
+} from "./scope-relations.js";
 
 export interface CompiledSort {
   readonly term: string;
@@ -240,6 +246,8 @@ export class ProfileSpec {
   readonly constants: ResolutionTable<CompiledConstant>;
   readonly conversions: ResolutionTable<CompiledConversion>;
   readonly transformations: ResolutionTable<CompiledTransformation>;
+  /** Every declared scope relation of the activated contracts, retired ones included, by qualified term. */
+  readonly scopeRelations: ResolutionTable<CompiledScopeRelation>;
   /**
    * The admission index: template term → the typed addresses
    * `instantiation:<namespace>/<name>` of every instantiation of it across the
@@ -280,6 +288,7 @@ export class ProfileSpec {
       constants: ResolutionTable<CompiledConstant>;
       conversions: ResolutionTable<CompiledConversion>;
       transformations: ResolutionTable<CompiledTransformation>;
+      scopeRelations: ResolutionTable<CompiledScopeRelation>;
       admission: ResolutionTable<readonly string[]>;
     },
   ) {
@@ -328,6 +337,7 @@ export class ProfileSpec {
     this.constants = frozenTable(Object.entries(parts.constants));
     this.conversions = frozenTable(Object.entries(parts.conversions));
     this.transformations = frozenTable(Object.entries(parts.transformations));
+    this.scopeRelations = frozenTable(Object.entries(parts.scopeRelations));
     this.admission = frozenTable(Object.entries(parts.admission));
     Object.freeze(this);
   }
@@ -861,6 +871,13 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     }
   }
 
+  const scopeRelations: Record<string, CompiledScopeRelation> = Object.create(null);
+  for (const contract of contracts) {
+    for (const [name, decl] of Object.entries(contract.scopeRelations)) {
+      scopeRelations[term(contract.namespace, name)] = compileScopeRelation(contract, decl, sorts, dimensions);
+    }
+  }
+
   const admission: Record<string, readonly string[]> = Object.create(null);
   for (const templateTerm of Object.keys(templates)) {
     admission[templateTerm] = sorted(
@@ -900,7 +917,72 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
     constants,
     conversions,
     transformations,
+    scopeRelations,
     admission,
+  });
+}
+
+function compileScopeEndpoint(
+  contract: DomainContract,
+  endpoint: ScopeEndpoint,
+  leaf: CompiledRestrictionForm,
+  sorts: Readonly<Record<string, CompiledSort>>,
+  where: string,
+): ScopeEndpoint {
+  if (isTermEndpoint(endpoint)) {
+    if (leaf.form !== "term")
+      throw new ProfileError(`${where}: a term endpoint on a ${leaf.form} dimension; endpoints take its leaf form`);
+    const sort = localTerm(contract, endpoint.sort);
+    if (!Object.hasOwn(sorts, sort))
+      throw new ProfileError(`${where}: names sort ${JSON.stringify(sort)}, which no activated contract declares`);
+    if (sort !== leaf.sort)
+      throw new ProfileError(`${where}: sort ${JSON.stringify(sort)} is not the dimension's restriction sort`);
+    const identifierClass = sorts[sort].identifierClass;
+    if (identifierClass !== null && !identifierClass.matches(endpoint.term))
+      throw new ProfileError(
+        `${where}: term ${JSON.stringify(endpoint.term)} is outside the identifier class of ${sort}`,
+      );
+    return Object.freeze({ sort, term: endpoint.term });
+  }
+  if (leaf.form !== "rule")
+    throw new ProfileError(`${where}: a rule endpoint on a ${leaf.form} dimension; endpoints take its leaf form`);
+  const identifierClass = sorts[leaf.classes].identifierClass;
+  if (identifierClass !== null && !identifierClass.matches(endpoint.classes[0]))
+    throw new ProfileError(`${where}: class ${JSON.stringify(endpoint.classes[0])} is outside the identifier class`);
+  return endpoint;
+}
+
+/** Qualify a relation and check its endpoints against the dimension's leaf form, as Python does. */
+function compileScopeRelation(
+  contract: DomainContract,
+  decl: ScopeRelationDecl,
+  sorts: Readonly<Record<string, CompiledSort>>,
+  dimensions: Readonly<Record<string, CompiledDimension>>,
+): CompiledScopeRelation {
+  const where = `${contract.namespace}: scope_relations.${decl.name}`;
+  const dimensionTerm = localTerm(contract, decl.dimension);
+  const dimension = Object.hasOwn(dimensions, dimensionTerm) ? dimensions[dimensionTerm] : undefined;
+  if (dimension === undefined)
+    throw new ProfileError(`${where}: names dimension ${dimensionTerm}, which no activated contract declares`);
+  const form = dimension.restriction;
+  if (dimension.placement !== "applicability" || form === null)
+    throw new ProfileError(`${where}: ${dimensionTerm} is not an applicability dimension with a typed restriction`);
+  const leaf = form.form === "union" ? form.of : form;
+  if (leaf.form !== "term" && leaf.form !== "rule")
+    throw new ProfileError(
+      `${where}: ${dimensionTerm} restricts by ${form.form}; only term and rule scopes are related`,
+    );
+  return Object.freeze({
+    term: term(contract.namespace, decl.name),
+    contract: contract.namespace,
+    declaration: Object.freeze({
+      name: decl.name,
+      dimension: dimensionTerm,
+      relation: decl.relation,
+      left: compileScopeEndpoint(contract, decl.left, leaf, sorts, `${where}: left`),
+      right: compileScopeEndpoint(contract, decl.right, leaf, sorts, `${where}: right`),
+      retired: decl.retired,
+    }),
   });
 }
 

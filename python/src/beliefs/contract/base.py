@@ -69,6 +69,7 @@ __all__ = [
     "SUPPORTED_PLACEMENTS",
     "SUPPORTED_ROLE_CATEGORIES",
     "SUPPORTED_SCALE_ORIENTATIONS",
+    "SUPPORTED_SCOPE_RELATIONS",
     "SUPPORTED_TRANSFORMATION_DOMAINS",
     "SUPPORTED_TRANSFORMATION_KINDS",
     "SUPPORTED_UNCERTAINTY_KINDS",
@@ -82,6 +83,7 @@ __all__ = [
     "MeasurementGrammar",
     "RelationDecl",
     "ReservedRole",
+    "ScopeGrammar",
     "TimeRoles",
     "load_base_contract",
     "parse_base_contract",
@@ -121,6 +123,7 @@ _CONTRACT_FIELDS = frozenset(
         "estimand_grammar",
         "measurement_grammar",
         "composite_grammar",
+        "scope_grammar",
         "kinds",
         "relations",
         "facets",
@@ -255,6 +258,13 @@ SUPPORTED_ESTIMAND_RESTRICTION_FORMS = ("term", "interval", "union", "time-inter
 SUPPORTED_ESTIMAND_STANDING_CLASSES = ("empirical", "model", "calibrated-model")
 
 _COMPOSITE_GRAMMAR_FIELDS = frozenset({"version", "shapes"})
+_SCOPE_GRAMMAR_FIELDS = frozenset({"version", "relations"})
+SCOPE_GRAMMAR_VERSION = 1
+SUPPORTED_SCOPE_RELATIONS = ("equal", "narrower")
+"""The relations a domain may declare between two leaf scopes (scope
+containment design §4). `broader` is the inverse comparison result, never a
+second declaration spelling; any other tag would route a relation no comparison
+operates."""
 SUPPORTED_SHAPES = ("dag",)
 """The shapes this implementation derives. A contract naming a
 shape outside this set is refused at parse: a profile carrying `pag` would
@@ -404,6 +414,17 @@ class CompositeGrammar:
 
 
 @dataclass(frozen=True)
+class ScopeGrammar:
+    """The closed set of scope relations a domain contract may declare."""
+
+    version: int
+    relations: tuple[str, ...]
+
+    def projection(self) -> dict[str, object]:
+        return {"version": self.version, "relations": sorted(self.relations)}
+
+
+@dataclass(frozen=True)
 class FacetUse:
     required: bool
     covered: bool
@@ -474,6 +495,7 @@ class BaseContract:
     estimand_grammar: EstimandGrammar
     measurement_grammar: MeasurementGrammar
     composite_grammar: CompositeGrammar
+    scope_grammar: ScopeGrammar
     kinds: Mapping[str, KindDecl]
     relations: Mapping[str, RelationDecl]
     facets: Mapping[str, FacetDecl]
@@ -663,6 +685,20 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
             "a later grammar version arrives with its classification, never ahead of it"
         )
 
+    scope_where = f"{source}: scope_grammar"
+    scope = _mapping(root["scope_grammar"], scope_where)
+    _exact_fields(scope, _SCOPE_GRAMMAR_FIELDS, scope_where)
+    scope_version = _positive_int(scope["version"], f"{scope_where}: version")
+    if scope_version != SCOPE_GRAMMAR_VERSION:
+        raise MalformedContract(
+            f"{scope_where}: version is {scope_version}, and this implementation reads scope grammar version "
+            f"{SCOPE_GRAMMAR_VERSION} only"
+        )
+    scope_grammar = ScopeGrammar(
+        version=scope_version, relations=_closed_set(scope["relations"], f"{scope_where}: relations")
+    )
+    _require_operated(scope_grammar.relations, SUPPORTED_SCOPE_RELATIONS, f"{scope_where}: relations")
+
     estimand_where = f"{source}: estimand_grammar"
     estimand = _mapping(root["estimand_grammar"], estimand_where)
     _exact_fields(estimand, _ESTIMAND_GRAMMAR_FIELDS, estimand_where)
@@ -811,6 +847,7 @@ def parse_base_contract(document: object, *, source: str) -> BaseContract:
         estimand_grammar=estimand_grammar,
         measurement_grammar=measurement_grammar,
         composite_grammar=composite_grammar,
+        scope_grammar=scope_grammar,
         kinds=MappingProxyType(kinds),
         relations=MappingProxyType(relations),
         facets=MappingProxyType(facets),

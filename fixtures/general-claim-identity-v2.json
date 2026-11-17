@@ -8,7 +8,7 @@
     "domains/general/DOMAIN.yaml",
     "fixtures/contracts/general-consumer.yaml"
   ],
-  "profile_compiled_identity": "7db6b0d3d1afcdf5a1075c9e0c2ab9c0966b58aac849111cf1d01fbfc29fa0b2",
+  "profile_compiled_identity": "45c778a223675490ade39c87ad9c73a9370747f7f5717367981cc1d2bf7fd31e",
   "vector": [
     {
       "name": "same-sort-parties-forward",

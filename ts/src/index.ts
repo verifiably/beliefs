@@ -91,6 +91,17 @@ export {
   templateOf,
 } from "./profile.js";
 export {
+  type CompiledScopeRelation,
+  type RuleScopeEndpoint,
+  type ScopeEndpoint,
+  type ScopeGrammar,
+  type ScopeRelation,
+  type ScopeRelationDecl,
+  type TermScopeEndpoint,
+  scopeRelationProjection,
+  scopeRelationSchema,
+} from "./scope-relations.js";
+export {
   CLAIM_DOMAIN,
   type ClaimProjection,
   claimIdentity,

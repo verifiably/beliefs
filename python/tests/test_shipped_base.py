@@ -127,6 +127,36 @@ def test_previous_base_generation_refused_by_name():
     from beliefs.contract import load_base_contract
     from beliefs.errors import MalformedContract
 
-    previous = Path(__file__).parent / "fixtures/science-v4.yaml"
-    with pytest.raises(MalformedContract, match="estimand_grammar: expected version 4"):
-        load_base_contract(previous)
+    # Base v6 adds `scope_grammar`; each earlier generation is refused by that field's absence, by
+    # name, and never read as an implicit upgrade.
+    for generation in ("science-v4.yaml", "science-v5.yaml"):
+        with pytest.raises(MalformedContract, match=r"missing field\(s\) scope_grammar"):
+            load_base_contract(Path(__file__).parent / "fixtures" / generation)
+
+
+def test_base_cutover_refuses_v5_corpus(tmp_path):
+    from pathlib import Path
+
+    import pytest
+    from test_read_side import seed
+
+    from beliefs.contract.document import parse_document
+    from beliefs.errors import ContractMismatch, MountPinUnresolved
+    from beliefs.identity import v1
+    from beliefs.mount import compile_mount_profile
+    from beliefs.profile import shipped_domain_contract
+
+    document = parse_document((Path(__file__).parent / "fixtures/science-v5.yaml").read_text(), source="<original v5>")
+    old_identity = v1.digest("science.contract.v1", document)
+    assert old_identity == "08f0b96b11a9bb54eb20a52fb90a8cc647cedfc78375a64f2c0039ea4b9df52b"
+    assert shipped_base_contract().content_identity != old_identity
+    node = stored.proposition_node("historical", title="Untouched v5 claim", claim={"operator": "affects"})
+    view = seed(tmp_path, node, science_contract="science:" + old_identity)
+    before = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert [n.id for n in view.iter_stored()] == [node.id]
+    with pytest.raises(ContractMismatch, match="science_contract"):
+        view.get(node.id)
+    with pytest.raises(MountPinUnresolved):
+        compile_mount_profile(tmp_path, available=(shipped_domain_contract("general"),))
+    after = {p.relative_to(tmp_path): p.read_bytes() for p in tmp_path.rglob("*") if p.is_file()}
+    assert after == before

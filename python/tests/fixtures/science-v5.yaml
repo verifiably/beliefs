@@ -1,0 +1,227 @@
+# The `science` base contract — the kernel-owned structure of a Claim.
+#
+# Authored data, never a constant compiled into an implementation: the claim
+# grammar lives here, which is why it is a contract and not a constant. Domain
+# contracts declare operators, dimensions and sorts; this document declares
+# only what a domain may not choose.
+#
+# Editing a closed set below re-identifies every claim in every corpus. That is
+# not a migration — there is no path that preserves identities across a tag
+# change, because the identities *are* the bytes.
+
+contract: science
+version: 5
+
+# Candidate time-role coupling; external vocabulary admission is separate.
+time_roles:
+  source: urn:beliefs:source:bipm-si-brochure
+  duration: si-brochure/duration
+  frequency: si-brochure/frequency
+  second: si-brochure/second
+  hertz: si-brochure/hertz
+
+claim_grammar:
+  version: 2
+
+  # A kernel tag's canonical bytes are its symbol, encoded as a string under the
+  # named contract. Declared rather than assumed so that no implementation can
+  # choose its own serialization for a tag — the incidental re-encoding this
+  # exists to make impossible.
+  tag_encoding: science.identity.v1
+
+  quantifiers: [generic, universal, existential]
+
+  # The polarities a claim may assert. `inapt` is deliberately not among them:
+  # `unsigned` says the operator has a sign and this claim asserts none, while
+  # `inapt` says the operator has no sign to assert. Collapsing the two
+  # would lose a distinction the projection exists to carry.
+  polarities: [positive, negative, unsigned]
+  sign_inapt_tag: inapt
+
+  # A claim's form. `null` asserts the effect absent within a margin and carries
+  # the inapt tag. The tag is the *string* "null", quoted here and in every
+  # document: a bare `null` is a YAML null value, which no closed set admits.
+  forms: [polar, "null"]
+
+  layers: [causal, structural, statistical, methodological]
+
+  # The closed sets base v2 adds. Each is one the kernel operates on: role
+  # categories and binding kinds in compile and resolution, mapping types in the
+  # bridge check, placements in typing. A parser refuses any set that is not
+  # exactly the one its implementation operates.
+  role_categories: [set, temporal, class, pattern]
+  binding_kinds: [release, dataset, scheme, selection, run-output, world-kind]
+  mapping_types: [exact, narrower, broader, contextual]
+  placements: [claim, applicability]
+
+  # Role names the kernel reserves beside every template's own roles. A reserved
+  # role's referent is a record of the named world kind; no pack may declare it.
+  reserved_roles:
+    within-model: { world_kind: procedure }
+
+# --- estimand grammar ---------------------------------------------------------
+# Three closed *structural* sets: each member is defined by an operation the
+# kernel performs — a `levels` contrast requires two bound levels, an
+# `additive` scale compares by difference, an `interval` carries bounds and a
+# level. Identification classes and measured quantities are vocabulary and are
+# declared by domain contracts, never here.
+estimand_grammar:
+  version: 4
+  tag_encoding: science.identity.v1
+  forms: [contrast, quantity, law-parameters, event-locked, association, enrichment]
+  arities: [one, two, k, n, not-applicable]
+  response_transformations: [invariant-strictly-increasing, equivariant-positive-affine,
+                             equivariant-affine, invariant-positive-scaling, fixed, none, by-parameters]
+  reversals: [invariant, complement, negate, reciprocal, undefined, not-applicable]
+  response_reversals: [invariant, complement, negate, undefined, not-applicable]
+  exchanges: [symmetric, directed, not-applicable]
+  ties: [undefined, midrank, ignored, not-applicable]
+  outputs: [response-difference, response-level, response-log-level, dimensionless, declared]
+  parameter_typings: [independent, response-level, response-difference, response-log-level, dimensionless]
+  domains: [real, nonnegative, positive, unit-interval, signed-unit-interval, not-applicable]
+  nulls: [zero, one, half, none]
+  increments: [linear, none, not-applicable]
+  uncertainty_propagation: [exact, recompute, none]
+  uncertainty_kinds: [interval, standard-error, covariance]
+  level_sources: [role-terms, rule-classes, axis, roles]
+  reference_kinds: [value, "null"]
+  restriction_forms: [term, interval, union, time-interval, rule]
+  standing_classes: [empirical, model, calibrated-model]
+
+measurement_grammar:
+  version: 1
+  tag_encoding: science.identity.v1
+  value_types: [level, difference, ratio]
+  levels_of_measurement: [nominal, ordinal, interval, ratio]
+  scale_orientations: [higher-is-more, higher-is-less]
+  transformation_kinds: [identity, affine, logarithm, monotone]
+  monotone_directions: [increasing, decreasing]
+  transformation_domains: [real, nonnegative, positive, unit-interval]
+  conversion_kinds: [multiplicative, affine]
+  cardinalities: [one-to-one, many-to-one, one-to-many, many-to-many]
+  evidence_modes: [observation, annotation, simulation, derivation, literature-extraction]
+
+# --- composite grammar --------------------------------------------------------
+# A shape is a thing the kernel does — for `dag`, derive directed edges from the
+# members' claims and refuse a cycle — so the set is kernel-owned and closed.
+composite_grammar:
+  version: 1
+  shapes: [dag]
+
+# --- kinds, relations and facets ----------------------------------------------
+kinds:
+  proposition:
+    domain: science.proposition.v1
+    facets:
+      proposition: { required: true, covered: true }
+      display: { required: false, covered: false }
+  source-assertion: { domain: science.source-assertion.v1, facets: { source-assertion: { required: true, covered: true } } }
+  assessment: { domain: science.assessment.v2, facets: { assessment: { required: true, covered: true } } }
+  analysis-spec: { domain: science.analysis-spec.v1, facets: { analysis-spec: { required: true, covered: true } } }
+  run:
+    domain: science.run.v1
+    facets: { run: { required: true, covered: true }, run-closure: { required: false, covered: true } }
+  verification: { domain: science.verification.v1, facets: { verification: { required: true, covered: true } } }
+  dataset:
+    domain: science.dataset.v1
+    facets:
+      dataset: { required: true, covered: true }
+      empirical-observation: { required: false, covered: true }
+      lineage-basis: { required: false, covered: true }
+      display: { required: false, covered: false }
+  source:
+    domain: science.source.v1
+    facets:
+      source: { required: true, covered: true }
+      identifier-correction: { required: false, covered: false }
+  holdings-observation: { domain: science.holdings-observation.v1, facets: { holdings-observation: { required: true, covered: true } } }
+  retraction: { domain: science.retraction.v1, facets: { retraction: { required: true, covered: true } } }
+  instrument-certification: {}
+  coreference-attestation:
+    domain: science.coreference-attestation.v1
+    facets: { coreference-attestation: { required: true, covered: true } }
+  act-report: { domain: science.act-report.v1, facets: { act-report: { required: true, covered: true } } }
+  composite:
+    domain: science.composite.v1
+    facets:
+      composite: { required: true, covered: true }
+      display: { required: false, covered: false }
+  exposure-event:
+    domain: science.exposure-event.v1
+    facets:
+      exposure-event: { required: true, covered: true }
+      display: { required: false, covered: false }
+  reservation-assignment:
+    domain: science.reservation-assignment.v1
+    facets:
+      reservation-assignment: { required: true, covered: true }
+      display: { required: false, covered: false }
+  assumptions-register:
+    domain: science.assumptions-register.v2
+    facets: { assumptions-register: { required: true, covered: true } }
+  procedure: { domain: science.procedure.v1, facets: { procedure: { required: true, covered: true } } }
+  referent-mapping: { domain: science.referent-mapping.v1, facets: { referent-mapping: { required: true, covered: true } } }
+  proxy-model: { domain: science.proxy-model.v1, facets: { proxy-model: { required: true, covered: true } } }
+  classification-rule: { domain: science.classification-rule.v1, facets: { classification-rule: { required: true, covered: true } } }
+  interpretation: { role: prose, facets: { display: { required: false, covered: false } } }
+  discussion: { role: prose, facets: { display: { required: false, covered: false } } }
+  story: { role: prose, facets: { display: { required: false, covered: false } } }
+
+relations:
+  assesses: { group: world, sources: [assessment], targets: [proposition] }
+  observes: { group: world, sources: [run], targets: [dataset] }
+  reads: { group: world, sources: [run], targets: [dataset] }
+  transforms: { group: world, sources: [run], targets: [dataset] }
+  produces: { group: world, sources: [run], targets: [dataset] }
+  produced_by: { group: world, sources: [assessment], targets: [run] }
+  executes: { group: world, sources: [run], targets: [analysis-spec] }
+  targets: { group: world, sources: [analysis-spec], targets: [proposition] }
+  verifies: { group: world, sources: [verification], targets: [assessment] }
+  member_of: { group: world, sources: [source], targets: [dataset] }
+  grounded-in: { group: world, sources: [retraction], targets: [retraction, verification, source] }
+  composes: { group: world, sources: [composite], targets: [proposition] }
+  exposes: { group: world, sources: [exposure-event], targets: [dataset, source] }
+  concerns: { group: world, sources: [exposure-event, reservation-assignment], targets: [proposition] }
+  attested-by: { group: world, sources: [exposure-event], targets: [act-report, run, holdings-observation] }
+  considers: { group: world, sources: [reservation-assignment], targets: [exposure-event] }
+  evidenced-by: { group: world, sources: [reservation-assignment], targets: [exposure-event] }
+  flags: { group: world, sources: [reservation-assignment], targets: [assessment] }
+  reports: { group: world, sources: [reservation-assignment], targets: [run] }
+  applies: { group: world, sources: [reservation-assignment], targets: [reservation-assignment] }
+  supersedes: { group: lifecycle, sources: [proposition, composite, reservation-assignment], targets: [proposition, composite, reservation-assignment], same_kind: true }
+  retracts: { group: lifecycle, sources: [retraction], targets: [assessment, retraction, verification, procedure, referent-mapping, proxy-model, classification-rule, assumptions-register] }
+  succeeded-by: { group: lifecycle, sources: [retraction], targets: [retraction] }
+  anchored_in: { group: lifecycle, sources: [source-assertion], targets: [source] }
+
+facets:
+  proposition: { shape: reader, reader: decode.claim_from_stored }
+  display: { shape: reader, reader: stored.display_facet_malformed }
+  source-assertion: { shape: reader, reader: stored.source_assertion_value }
+  assessment: { shape: reader, reader: stored.assessment_value }
+  analysis-spec: { shape: reader, reader: stored.analysis_spec_value }
+  run: { shape: reader, reader: stored.run_spec }
+  run-closure: { shape: reader, reader: runrecord.projection_of }
+  verification: { shape: reader, reader: verify.decode_verification }
+  dataset: { shape: reader, reader: stored.dataset_declaration }
+  lineage-basis: { shape: reader, reader: stored.lineage_basis }
+  source: { shape: reader, reader: stored.external_identifiers }
+  identifier-correction: { shape: reader, reader: stored.identifier_corrections }
+  holdings-observation: { shape: reader, reader: stored.holdings_observation_value }
+  retraction: { shape: reader, reader: corpus.CorpusWriter._validated_retraction }
+  coreference-attestation: { shape: reader, reader: stored.coreference_attestation_value }
+  act-report: { shape: reader, reader: stored.act_report_facet }
+  composite: { shape: reader, reader: stored.composite_value }
+  exposure-event: { shape: reader, reader: stored.exposure_event_value }
+  reservation-assignment: { shape: reader, reader: stored.reservation_assignment_value }
+  assumptions-register: { shape: reader, reader: register.register_from_stored }
+  procedure: { shape: reader, reader: procedure.procedure_from_stored }
+  referent-mapping: { shape: reader, reader: referent_mapping.mapping_from_stored }
+  proxy-model: { shape: reader, reader: proxy_model.proxy_from_stored }
+  classification-rule: { shape: reader, reader: classification_rule.rule_from_stored }
+  empirical-observation:
+    shape: schema
+    description: The declared acquisition boundary (design §6). `locator` names the most upstream form outside the held boundary; `attested_by` is bound to the writer's actor at mint; `retrieval` is the boundary-minted acquisition report when one exists.
+    fields:
+      locator: { type: locator, required: true, schemes: [accession, url, instrument] }
+      attested_by: { type: actor, required: true }
+      retrieval: { type: ref, required: false, kinds: [act-report] }

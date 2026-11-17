@@ -33,6 +33,13 @@ import {
 } from "./errors.js";
 import { type IdentityValue, digest, encode } from "./identity/v1.js";
 import { IdentifierClass } from "./patterns.js";
+import {
+  SCOPE_GRAMMAR_VERSION,
+  SUPPORTED_SCOPE_RELATIONS,
+  type ScopeGrammar,
+  type ScopeRelationDecl,
+  parseScopeRelations,
+} from "./scope-relations.js";
 
 const TAG_ENCODING = "science.identity.v1";
 const NAME = /^[a-z][a-z0-9-]*$/;
@@ -243,6 +250,7 @@ export class BaseContract {
   readonly timeRoles: TimeRoles;
   readonly measurementGrammar: MeasurementGrammar;
   readonly compositeGrammar: CompositeGrammar;
+  readonly scopeGrammar: ScopeGrammar;
   readonly kinds: DeclarationTable<KindDecl>;
   readonly relations: DeclarationTable<RelationDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
@@ -256,6 +264,7 @@ export class BaseContract {
       timeRoles: TimeRoles;
       measurementGrammar: MeasurementGrammar;
       compositeGrammar: CompositeGrammar;
+      scopeGrammar: ScopeGrammar;
       kinds?: DeclarationTable<KindDecl>;
       relations?: DeclarationTable<RelationDecl>;
       facets?: DeclarationTable<FacetDecl>;
@@ -329,6 +338,10 @@ export class BaseContract {
     this.compositeGrammar = Object.freeze({
       version: parts.compositeGrammar.version,
       shapes: Object.freeze([...parts.compositeGrammar.shapes]),
+    });
+    this.scopeGrammar = Object.freeze({
+      version: parts.scopeGrammar.version,
+      relations: Object.freeze([...parts.scopeGrammar.relations]),
     });
     this.kinds = parts.kinds;
     this.relations = parts.relations;
@@ -665,6 +678,8 @@ export class DomainContract {
   readonly constants: DeclarationTable<ConstantDecl>;
   readonly conversions: DeclarationTable<ConversionDecl>;
   readonly transformations: DeclarationTable<TransformationDecl>;
+  /** Declared scope relations (scope containment design §4), retired ones included. */
+  readonly scopeRelations: DeclarationTable<ScopeRelationDecl>;
   readonly facets: DeclarationTable<FacetDecl>;
 
   /**
@@ -716,6 +731,7 @@ export class DomainContract {
       constants: DeclarationTable<ConstantDecl>;
       conversions: DeclarationTable<ConversionDecl>;
       transformations: DeclarationTable<TransformationDecl>;
+      scopeRelations: DeclarationTable<ScopeRelationDecl>;
       facets: DeclarationTable<FacetDecl>;
       base: BaseContract;
     },
@@ -755,6 +771,7 @@ export class DomainContract {
     this.constants = parts.constants;
     this.conversions = parts.conversions;
     this.transformations = parts.transformations;
+    this.scopeRelations = parts.scopeRelations;
     this.facets = parts.facets;
     this.base = parts.base;
     Object.freeze(this);
@@ -927,6 +944,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
       "estimand_grammar",
       "measurement_grammar",
       "composite_grammar",
+      "scope_grammar",
       "kinds",
       "relations",
       "facets",
@@ -1002,6 +1020,16 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     version: positiveInt(compositeDocument.version, `${source}.composite_grammar.version`),
     shapes: Object.freeze(shapes),
   });
+  const scopeDocument = mapping(document.scope_grammar, `${source}.scope_grammar`);
+  exactFields(scopeDocument, ["version", "relations"], [], `${source}.scope_grammar`);
+  const scopeVersion = positiveInt(scopeDocument.version, `${source}.scope_grammar.version`);
+  if (scopeVersion !== SCOPE_GRAMMAR_VERSION)
+    throw new MalformedContract(
+      `${source}.scope_grammar.version: ${scopeVersion}, and this implementation reads scope grammar version ${SCOPE_GRAMMAR_VERSION} only`,
+    );
+  const scopeRelationTags = closedSet(scopeDocument.relations, `${source}.scope_grammar.relations`);
+  requireOperated(scopeRelationTags, SUPPORTED_SCOPE_RELATIONS, `${source}.scope_grammar.relations`);
+  const scopeGrammar: ScopeGrammar = Object.freeze({ version: scopeVersion, relations: scopeRelationTags });
   const estimandDocument = mapping(document.estimand_grammar, `${source}.estimand_grammar`);
   exactFields(
     estimandDocument,
@@ -1249,6 +1277,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
     timeRoles,
     measurementGrammar,
     compositeGrammar,
+    scopeGrammar,
     kinds,
     relations,
     facets,
@@ -2144,6 +2173,7 @@ export function parseDomainContract(
       "constants",
       "conversions",
       "transformations",
+      "scope_relations",
     ],
     source,
   );
@@ -2462,6 +2492,21 @@ export function parseDomainContract(
   const definingSource = Object.hasOwn(document, "defining_source")
     ? parseDefiningSource(document.defining_source, `${source}: defining_source`)
     : null;
+  const scopeRelations = frozenTable(
+    parseScopeRelations(document.scope_relations, `${source}.scope_relations`, {
+      relations: base.scopeGrammar.relations,
+      dimensionReference: (value, where) => {
+        const resolved = reference(value, where, namespace, base.name, "dimension");
+        if (!resolved.includes("/") && !Object.hasOwn(dimensions, resolved)) {
+          throw new MalformedContract(
+            `${where}: ${JSON.stringify(resolved)} is not a dimension this contract declares`,
+          );
+        }
+        return resolved;
+      },
+      sortReference: resolve,
+    }),
+  );
   const contract = new DomainContract(MINT, {
     namespace,
     version,
@@ -2489,6 +2534,7 @@ export function parseDomainContract(
     constants,
     conversions,
     transformations,
+    scopeRelations,
     facets,
     base,
   });
@@ -2517,6 +2563,13 @@ function checkSuccession(contract: DomainContract, predecessor?: DomainContract)
     if (value === undefined) throw new SuccessionViolation(`${contract.namespace}: drops declaration ${key}`);
     if (!Buffer.from(encode(value)).equals(Buffer.from(encode(previous)))) {
       throw new SuccessionViolation(`${contract.namespace}: ${key} has a different canonical schema projection`);
+    }
+  }
+  // Scope relations are the one family this side reads retirement for, so its
+  // one-way rule is checked here as Python checks it for every family.
+  for (const [name, previous] of Object.entries(predecessor.scopeRelations)) {
+    if (previous.retired && contract.scopeRelations[name]?.retired === false) {
+      throw new SuccessionViolation(`${contract.namespace}: un-retires scope-relation:${name}. Retirement is one-way.`);
     }
   }
 }

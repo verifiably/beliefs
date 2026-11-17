@@ -1,6 +1,6 @@
 # Contracts
 
-Type: standard, data model; document types 1. This is version 2 of the rules that
+Type: standard, data model; document types 1. This is version 3 of the rules that
 contract documents must satisfy. A contract is a YAML document that declares the
 vocabulary records may use. The Science base contract declares kinds, relations,
 facets and the closed grammars. A domain contract declares sorts, dimensions,
@@ -8,8 +8,8 @@ relation templates, instantiations, bridges, estimand declarations, measurement
 vocabulary and admissions, duration conventions and namespaced facets. The
 coordination contract declares view and coordination kinds. A compiled profile
 combines a base contract, a set of domain contracts and optionally a coordination
-contract. The shipped base is version 5, with claim grammar 2, estimand grammar 4, and
-measurement and composite grammars 1. Domain contract versions are positive
+contract. The shipped base is version 6, with claim grammar 2, estimand grammar 4, and
+measurement, composite and scope grammars 1. Domain contract versions are positive
 integers in a genesis or successor lineage. The code supports coordination
 contract versions 1 to 3 and corpus manifest version 2. The records these
 contracts govern are described in [records.md](records.md), and the writes that
@@ -33,7 +33,9 @@ whitespace set rather than Python's, so a value of only U+FEFF, or only U+0085 o
 U+001C–U+001F, is refused by one side and accepted by the other; and on a document
 with several faults the two sides can report different ones first. It computes contract content identities and checks successor lineage against an
 explicit predecessor through `parseDomainContract(text, source, base, predecessor?)`.
-A `retired` field on any declaration, even false, is refused with `UncheckableContract`. It
+A `retired` field on any declaration other than a scope relation, even false, is refused
+with `UncheckableContract`; scope relations carry retirement and its one-way succession rule
+in both languages. It
 also refuses `description` at a domain contract's top level and on a sort or a
 dimension, as an unknown field, and carries no package resource loader,
 `compiled_identity` calculation, assumptions-register reader or estimand
@@ -67,9 +69,12 @@ project claims.
 
 The base contract has exactly these fields: `contract` (always `science`),
 `version`, `claim_grammar`, `estimand_grammar`, `measurement_grammar`,
-`composite_grammar`, `time_roles`, `kinds`, `relations` and `facets`. The Python and TypeScript
-parsers require a positive integer for the base and composite versions. Claim grammar requires version 2; estimand grammar requires version 4 and
-measurement grammar requires version 1. The shipped base is version 5.
+`composite_grammar`, `scope_grammar`, `time_roles`, `kinds`, `relations` and `facets`. The
+Python and TypeScript parsers require a positive integer for the base and composite versions.
+Claim grammar requires version 2; estimand grammar requires version 4; measurement and scope
+grammars require version 1. The shipped base is version 6. A base document without
+`scope_grammar`, such as the version 4 and version 5 documents, is refused for that missing
+field rather than read as an implicit upgrade.
 
 - `claim_grammar` holds `version`, `tag_encoding` (`science.identity.v1`),
   `quantifiers`, `polarities`, `sign_inapt_tag`, `forms`, `layers`,
@@ -124,6 +129,11 @@ measurement grammar requires version 1. The shipped base is version 5.
   tag order is preserved in memory and does not affect that identity.
 - `composite_grammar` holds `version` and `shapes`. The only supported shape is
   `dag`.
+- `scope_grammar` holds `version` (exactly 1) and `relations`, which must equal
+  exactly `equal` and `narrower`: the relations a domain may declare between two
+  leaf scopes (see [scope relations](#scope-relations)). `broader` is the inverse
+  comparison result, never a declaration. The grammar enters compiled profile
+  identity with its set sorted.
 - Each kind has a `role` of `world` (the default) or `prose`, an identity `domain`
   of the form `science.<kind>.v<n>`, and `facets`, which map each facet key to
   `{required, covered}`. A prose kind has no domain and no facet except `display`.
@@ -144,16 +154,17 @@ measurement grammar requires version 1. The shipped base is version 5.
   seconds uses identity or one explicitly licensed exact multiplicative
   conversion; affine and approximate conversions refuse.
 
-A writer requires the identity of the shipped base contract. Base-v3 corpora
-refuse validated reads under v4. There is no compatibility reader or in-place
+A writer requires the identity of the shipped base contract. A corpus pinned to an
+earlier base refuses validated reads under the shipped one: base-v5 corpora refuse under
+v6, as base-v3 corpora did under v4. There is no compatibility reader or in-place
 migration tool; changing a manifest pin does not recreate a corpus's records.
 
 ## Kernel commitments (Layer 0 register)
 
 The kernel separates field vocabulary from structural grammar, with an explicit
 coupling to external time-role names at the series and lag boundaries.
-This register describes shipped base version 5 and its operations: claim grammar 2,
-estimand grammar 4, measurement and composite grammars 1. It records
+This register describes shipped base version 6 and its operations: claim grammar 2,
+estimand grammar 4, measurement, composite and scope grammars 1. It records
 what those choices preserve, what they leave unestablished, and the identity cost
 of changing them. Update it when the corresponding behavior changes.
 
@@ -223,10 +234,10 @@ integer), `lineage`, `sorts` and `dimensions`. It may add `description`,
 `templates`, `instantiations`, `bridges`, `estimands`, `duration_conventions`,
 `quantity_kinds`, `units`, `constants`, `conversions`, `transformations`,
 `procedure_kinds`, `aggregation_rules`, `assumption_kinds`, `functionals`,
-`identification_classes`, `designs`, `selection_mechanisms`, `measurements`, `aspects` and
-`facets`. Any other top-level field is refused, `kinds` and `relations` included,
-and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
-base v5. Its namespace may be neither `science` nor `coordination`. Each table is
+`identification_classes`, `designs`, `selection_mechanisms`, `measurements`, `aspects`,
+`scope_relations` and `facets`. Any other top-level field is refused, `kinds` and `relations`
+included, and so are the v1 fields `operators` and `edges`: a v1 document cannot parse under
+base v6. Its namespace may be neither `science` nor `coordination`. Each table is
 its own namespace, so a sort and a dimension, or an instantiation and a bridge, may
 share a local name; a bridge may not share a name with a template, since both are
 operators.
@@ -401,6 +412,29 @@ and a list of them may not repeat a value.
   every contribution independently of activation order.
 - **Facets.** A domain facet declares `attaches_to` (world kinds) and `fields`. Its
   key in a profile is `<namespace>/<name>`.
+- <a id="scope-relations"></a>**Scope relations.** A `scope_relations` entry declares
+  that two leaf scopes of one applicability dimension select exactly the same cases
+  (`equal`) or that the left scope is properly contained in the right (`narrower`:
+  every left case is a right case and the right admits a case the left does not),
+  for the dimension's full intended universe. It has exactly `dimension`, `relation`,
+  `left` and `right`, and may add `description` and `retired`. `relation` is one of
+  the base's `scope_grammar` relations; `within`, `subclass`, `part-of` and `broader`
+  are refused, and no ontology edge or label is interpreted. An endpoint is exactly
+  `{sort, term}` (one term of the dimension's restriction sort, a canonical
+  identifier) or `{rule, classes}` (an exact `classification-rule:` id and a list of
+  exactly one canonical class); both endpoints take one form, and interval,
+  time-interval, union, mixed and multi-class endpoints are refused. A local
+  `dimension` or `sort` must be one this contract declares; foreign references
+  resolve at compile. Compilation refuses a relation whose dimension no activated
+  contract declares, is not on the applicability side, or restricts by anything but
+  term or rule (a union dimension uses its `of` leaf form); a term endpoint whose
+  sort is not the dimension's restriction sort or whose term is outside that sort's
+  identifier class; and a rule endpoint whose class is outside the identifier class
+  of the dimension's classes sort. A profile reads no record, so a rule endpoint's
+  kind, body and classes sort are checked where a comparison uses it. Parsing cannot
+  check whether a declared proper containment is scientifically justified; its
+  assumptions-register entry carries that justification. A relation's compiled
+  projection is its qualified `dimension`, `relation`, endpoints and `retired`.
 
 Estimand declarations, duration conventions, the five numerical measurement tables,
 the vocabulary tables and the two pack tables carry no `retired`. Templates
@@ -506,26 +540,30 @@ any of the following holds:
 - the successor changes the schema projection of a claim-vocabulary declaration;
 - the successor un-retires a claim-vocabulary declaration.
 
-Both languages check additive succession; TypeScript continues to refuse retirement
-fields. Parsed TypeScript domains expose `contentIdentity` and `predecessor` metadata.
+Both languages check additive succession; TypeScript refuses retirement fields
+except on scope relations, where both languages admit retirement and refuse
+un-retirement. Parsed TypeScript domains expose `contentIdentity` and `predecessor` metadata.
 Schema equality does not validate the scientific meaning of changed editorial prose.
 
-The claim vocabulary covers all 21 domain declaration families: sorts, dimensions,
+The claim vocabulary covers all 22 domain declaration families: sorts, dimensions,
 templates, instantiations, bridges, estimand declarations, duration conventions,
 the seven methodological tables (`functionals`, `identification_classes`, `designs`,
 `selection_mechanisms`, `procedure_kinds`, `aggregation_rules` and
-`assumption_kinds`), the two pack tables (`measurements` and `aspects`) and the
+`assumption_kinds`), the two pack tables (`measurements` and `aspects`), the
 five numerical measurement tables (`quantity_kinds`, `units`, `constants`,
-`conversions` and `transformations`). Under succession each declaration is keyed by
+`conversions` and `transformations`) and `scope_relations`. Under succession each declaration is keyed by
 its local typed address: `sort:<name>`, `dimension:<name>`, `template:<name>`,
 `instantiation:<name>`, `bridge:<name>`, `estimand:instantiation:<name>` or
 `estimand:bridge:<name>`, `duration-convention:<name>`, `functional:<name>`,
 `identification-class:<name>`, `design:<name>`, `selection-mechanism:<name>`,
 `procedure-kind:<name>`, `aggregation-rule:<name>`, `assumption-kind:<name>`,
 `measurement:<key>`, `aspect:<key>`, `quantity-kind:<name>`, `unit:<name>`,
-`constant:<name>`, `conversion:<name>` and `transformation:<name>`.
+`constant:<name>`, `conversion:<name>`, `transformation:<name>` and
+`scope-relation:<name>`. A scope relation's schema projection is its `dimension`,
+`relation`, `left` and `right` as authored; a corrected relation takes a new name and
+the old one is retired.
 Assumptions-register coverage (`register_entry_keys`, see
-[records.md](records.md#assumptions-registers)) uses the same 21 family tags but
+[records.md](records.md#assumptions-registers)) uses the same 22 family tags but
 qualifies every target (`<kind>:<namespace>/<name>`, nested
 `estimand:instantiation:<namespace>/<name>` or `estimand:bridge:<namespace>/<name>`,
 each declared `measurement` sort, and each sort listed in `aspects`, with empty
@@ -678,6 +716,8 @@ A practice carries procedure only. It never compiles into a profile.
 
 ## Versions
 
+- **3 — 2026-11-17:** Base v6 adds `scope_grammar`; domain contracts may declare
+  `scope_relations`, the 22nd declaration family and assumptions-register key kind.
 - **2 — 2026-11-13:** Base v4, estimand grammar 3, explicit time-role names and
   finite series boundaries; assessment identity tags stay v2.
 - **1 — 2026-11-02:** First public statement of the contract document rules, as

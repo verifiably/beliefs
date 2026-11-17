@@ -38,7 +38,7 @@ the beliefs documents use, each linking the document that specifies or explains 
   record (`science.assumptions-register.v2`) of what a domain contract's
   declarations collapse, license and leave unestablished, together with each
   entry's `status` (`established` or `provisional`), keyed by typed declaration
-  address across all 21 domain-contract declaration families (`sort:<ns>/<name>`,
+  address across all 22 domain-contract declaration families (`sort:<ns>/<name>`,
   `template:<ns>/<name>`, …). A spec cites the registers it relies on, and each
   must be current at the write door. ([records](records.md#assumptions-registers))
 - <a id="authority"></a>**Authority** — A write permit bound to an actor.
