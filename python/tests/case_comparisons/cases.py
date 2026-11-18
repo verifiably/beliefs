@@ -173,6 +173,12 @@ def source(n: int) -> Node:
 def passages(n: int) -> tuple[str, ...]:
     if n == 1:
         return VISITS
+    if n == 5:
+        return tuple(
+            f"SYNTHETIC: at visit {visit}, the analyte measured in {specimen} "
+            "was higher in the syndrome class than in the return-to-health class."
+            for visit, specimen in (("alpha", "serum"), ("beta", "serum"), ("alpha", "plasma"))
+        )
     return (
         f"SYNTHETIC: report {n} states that the analyte was higher in the syndrome class than in the comparison class.",
     )

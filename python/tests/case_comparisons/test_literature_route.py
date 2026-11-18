@@ -139,7 +139,7 @@ def test_assertions_move_no_belief_output(tmp_path, profile):
 
 
 def test_fixture_sources_and_quotes_are_synthetic():
-    for n in range(1, 5):
+    for n in range(1, 6):
         assert source(n).facets["source"]["identifiers"]["doi"].startswith("10.5555/")
         for i, passage in enumerate(passages(n)):
             assert passage.startswith("SYNTHETIC")
@@ -148,7 +148,7 @@ def test_fixture_sources_and_quotes_are_synthetic():
 
 def test_each_quote_occurs_in_its_representation():
     # The kernel cannot check the span against these bytes. The fixture can.
-    for n in range(1, 5):
+    for n in range(1, 6):
         document = report_text(n)
         assert all(passage.encode() in document for passage in passages(n))
         assert representation(n).sha256 == sha256(document).hexdigest()
@@ -282,3 +282,24 @@ def test_a_facet_reference_to_a_dataset_does_not_reach_independence(tmp_path, ba
     node = stored.stamp_semantic_identity(src.model_copy(update={"facets": {**src.facets, **facet}}))
     assert writer.add(node).id == src.id
     assert writer.read_view.get(src.id).facets["probe-cohorts/cohort-link"] == facet["probe-cohorts/cohort-link"]
+
+
+@pytest.mark.parametrize(
+    ("index", "visit", "specimen"),
+    [(1, "visit beta", "serum"), (2, "visit alpha", "plasma")],
+    ids=["time-only", "specimen-only"],
+)
+def test_literature_claim_identity_ignores_visit_and_specimen(profile, index, visit, specimen):
+    src = source(5)
+    first, second = (_rule_proposition(profile) for _ in range(2))
+    a = assertion(src, first, n=5, index=0)
+    b = assertion(src, second, n=5, index=index)
+    assert "visit alpha" in a.read.span.quote and "in serum" in a.read.span.quote
+    assert visit in b.read.span.quote and f"in {specimen}" in b.read.span.quote
+    assert a.read.span != b.read.span
+    assert a.read.representation == b.read.representation
+    assert a.id != b.id
+    assert a.bears_on.proposition == b.bears_on.proposition
+    resolution = build_snapshot(readable={})
+    claims = [claim_from_stored(prop, profile=profile, snapshot=resolution)[0] for prop in (first, second)]
+    assert claim_identity(claims[0]) == claim_identity(claims[1])
