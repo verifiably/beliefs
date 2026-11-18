@@ -273,12 +273,12 @@ def test_whole_target_verdicts(profile):
     records, _, _ = held(THRESHOLD, RECOVERED)
     snap = comparison_snapshot(records, profile=profile)
     original = AssessedProposition(claim, case_c(profile, claim), "rule")
-    for change, expected_type, expected_reason in (
-        ({"window": (720, 4320)}, TargetConvertible, None),
-        ({"procedure": "muscle"}, TargetNotConvertible, "no conversion between scales"),
-        ({"rule": RECOVERED}, TargetNotConvertible, "target"),
+    for variant, expected_type, expected_reason in (
+        (case_c(profile, claim, window=(720, 4320)), TargetConvertible, None),
+        (case_c(profile, claim, procedure="muscle"), TargetNotConvertible, "no conversion between scales"),
+        (case_c(profile, claim, rule=RECOVERED), TargetNotConvertible, "target"),
     ):
-        other = AssessedProposition(claim, case_c(profile, claim, **change), "rule")
+        other = AssessedProposition(claim, variant, "rule")
         result = convertibility(original, other, profile=profile, snapshot=snap, snapshot_identity="synthetic")
         assert isinstance(result, expected_type)
         if isinstance(result, TargetNotConvertible):

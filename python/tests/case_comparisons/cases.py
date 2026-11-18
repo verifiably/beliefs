@@ -153,10 +153,14 @@ def _association(profile: ProfileSpec, a: Referent, b: Referent, qualifiers: Map
 
 
 VISITS = (
-    "SYNTHETIC: at the second visit after treatment the analyte was higher "
-    "in the syndrome class than in the return-to-health class.",
-    "SYNTHETIC: at the fourth visit after treatment the analyte was higher "
-    "in the syndrome class than in the return-to-health class.",
+    (
+        "SYNTHETIC: at the second visit after treatment the analyte was higher "
+        "in the syndrome class than in the return-to-health class."
+    ),
+    (
+        "SYNTHETIC: at the fourth visit after treatment the analyte was higher "
+        "in the syndrome class than in the return-to-health class."
+    ),
 )
 
 
