@@ -1,7 +1,8 @@
 # Unshipped consumer candidates
 
 These are synthetic representation fixtures for beliefs-b86fa2 (solar-wind
-event targets) and beliefs-f484a7 (spectral quantities). Nothing here is admitted,
+event targets), beliefs-f484a7 (spectral quantities) and beliefs-b1d0ee
+(post-infection comparison declarations). Nothing here is admitted,
 packaged, inventoried or activated by a production corpus. Nominated names and
 source ids reserve nothing. Parsing and compilation give no ownership verdict.
 The JSON registers carry this notice by reference.
@@ -13,6 +14,14 @@ The JSON registers carry this notice by reference.
 | si-brochure-speed fragment | Existing SI source; synthetic speed use in the joint solar profile | beliefs-8bfa5d owns held-source/mapping/receipt evidence and authorized successor admission |
 | plasma-populations / catalogue-anchors | Synthetic population and catalogue admissions from the solar example | Speed and general admission plus separate source/consumer review; the former denotes a conceptual population, not a held-record view |
 | spectral-example | Synthetic finite amplitude and has-spectral-summary accommodation | Test apparatus only; beliefs-226df6 owns faithful descriptive/reference-free targets and retirement of the template |
+| mondo | External disease ontology at release 2026-05-05 with one disease sort | Governed release hold, complete status-preserving member derivation with recorded spelling conversion, external-admission receipt and pins, and membership in science's reader. beliefs-b90e35 owns the admission follow-up |
+| case-comparisons | Authored comparison admissions with a rule-class carrier, a case-definition sort, seven dimensions, two instantiations of general/covaries-with and two contrast admissions | A typed analysis that needs the declarations, plus resolution of the rule-to-concept, class-attribute, origin and analyte gaps. Every row is provisional |
+
+
+The tests in `python/tests/case_comparisons/` use synthetic records. The
+gene-for-protein claims demonstrate what the literature route accepts unchecked.
+The measured routes stop at target admission and comparison, before any
+analysis or assessment.
 
 The helpers in `python/tests/candidate_contracts.py` derive additive successors
 from the current tree. Their default remains event-only; spectral-only and joint
