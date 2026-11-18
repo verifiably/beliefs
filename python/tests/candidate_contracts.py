@@ -19,6 +19,7 @@ from beliefs.register import AssumptionsRegister, register_from_projection, regi
 ROOT = Path(__file__).resolve().parents[2]
 CANDIDATES = ROOT / "fixtures/contracts/candidates"
 STATIC = ("plasma-populations", "catalogue-anchors")
+CASE_CANDIDATES = ("mondo", "case-comparisons")
 GENERAL_SOURCE_ID = "urn:beliefs:definitions:shared-scientific-commitments"
 
 
@@ -147,3 +148,28 @@ def spectral_profile(
         if name not in omit:
             domains.append(candidate_history(name, base).contract)
     return compile_profile(base, [*domains, *extra])
+
+
+def candidate_document(namespace: str) -> dict[str, Any]:
+    path = CANDIDATES / namespace / "DOMAIN.yaml"
+    return cast(dict[str, Any], load_document(path, source=str(path)))
+
+
+def case_profile(
+    base: BaseContract, *, omit: tuple[str, ...] = (), replace: Mapping[str, DomainContract] | None = None
+) -> ProfileSpec:
+    from beliefs.profile import compile_profile
+
+    replacements = {} if replace is None else replace
+    shipped = ("general", "biology", "si-brochure")
+    domains = [
+        replacements[name] if name in replacements else shipped_domain_contract(name)
+        for name in shipped
+        if name not in omit
+    ]
+    domains.extend(
+        replacements[name] if name in replacements else candidate_history(name, base).contract
+        for name in CASE_CANDIDATES
+        if name not in omit
+    )
+    return compile_profile(base, domains)

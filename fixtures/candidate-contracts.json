@@ -8,6 +8,14 @@
     {
       "contract_path": "fixtures/contracts/candidates/catalogue-anchors/DOMAIN.yaml",
       "contract_identity": "153fcedae48cbc60995d84f18b09d731507df0bfdc01dc3ea71469976f49f2f6"
+    },
+    {
+      "contract_path": "fixtures/contracts/candidates/mondo/DOMAIN.yaml",
+      "contract_identity": "e9932170088ddd1d7f1112850cdf8442ebae81baf5e7240f77d8d1c4557e6ebe"
+    },
+    {
+      "contract_path": "fixtures/contracts/candidates/case-comparisons/DOMAIN.yaml",
+      "contract_identity": "043bb3f7234d4a484decf07cdd1fc986526d11bf1c8c8d39bf1866f73cc6d469"
     }
   ],
   "general_successor": {

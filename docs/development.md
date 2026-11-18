@@ -393,8 +393,8 @@ tables but implements no scope comparison.
 `fixtures/candidate-contracts.json` pins the content identities of the unshipped
 candidate documents under `fixtures/contracts/candidates/` and of the successor
 that tests derive from the shipped `general` document plus
-`fragments/general-event-locked.yaml`. `tests/test_candidate_contracts.py` and
-`ts/tests/candidate-contracts.test.ts` read it. The candidates are test fixtures:
+`fragments/general-event-locked.yaml`. `tests/test_candidate_contracts.py`,
+`tests/case_comparisons/test_candidates.py` and `ts/tests/candidate-contracts.test.ts` read it. The candidates are test fixtures:
 they have no inventory row, no packaged copy and no source-ownership verdict.
 A `general` revision moves the derived identity; recompute the row, or retire the
 fragment when its rows ship.

@@ -1,0 +1,11 @@
+{
+  "describes": "mondo:e9932170088ddd1d7f1112850cdf8442ebae81baf5e7240f77d8d1c4557e6ebe",
+  "entries": {
+    "sort:mondo/disease": {
+      "collapses": "Everything the ontology says about a concept (definition, synonyms, subclass edges, cross-references, deprecation) is collapsed to one identifier at release 2026-05-05.",
+      "licenses": "Naming a disease concept of the Mondo Disease Ontology as a claim party or as a scope value. The kernel always checks identifier syntax (mondo: and seven digits, lower case) where a referent is typed, and checks membership only against a member list the caller supplies.",
+      "not_established": "That a term is a member when no list was supplied, that a supplied list is the complete release, or that a member is fit for new use (the release holds deprecated terms). A disease concept is not a case definition, a patient or a cohort. No kernel comparison reads subclass edges or synonyms, so a broader neighbouring term such as mondo:0100320 is a different term and no substitute. The upstream spelling MONDO: is outside the identifier class; converting it is a recorded step of any member derivation, and a member list left in the upstream spelling makes every canonical term a non-member without any refusal.",
+      "status": "provisional"
+    }
+  }
+}

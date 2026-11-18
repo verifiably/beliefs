@@ -1,0 +1,61 @@
+# UNSHIPPED CANDIDATE (beliefs-b1d0ee). Not admitted, not packaged, no inventory row. The namespace and source id are nominated and reserve nothing.
+contract: case-comparisons
+version: 1
+lineage: genesis
+defining_source:
+  id: urn:beliefs:definitions:case-outcome-comparison-admissions
+sorts:
+  outcome-class:
+    binding: {kind: scheme, scheme: outcome-class, version: "1"}
+    identifier_class: {prefix: outcome-class, pattern: 'outcome-class:[a-z][a-z0-9\-]*'}
+    categories: [class]
+  case-definition:
+    binding: {kind: world-kind, world_kind: classification-rule}
+dimensions:
+  outcome:
+    restriction_sort: outcome-class
+    placement: claim
+    applies_to: [general/covaries-with]
+  comparator:
+    restriction_sort: outcome-class
+    placement: claim
+    applies_to: [general/covaries-with]
+  condition:
+    restriction_sort: mondo/disease
+    restriction: {form: term, sort: mondo/disease}
+    placement: applicability
+    applies_to: [general/covaries-with]
+  case-definition-scope:
+    restriction_sort: outcome-class
+    restriction: {form: rule, classes: outcome-class}
+    placement: applicability
+    applies_to: [general/covaries-with]
+  since-infection-onset:
+    restriction_sort: outcome-class
+    restriction: {form: interval, quantity_kind: si-brochure/duration}
+    placement: applicability
+    applies_to: [general/covaries-with]
+  since-symptom-onset:
+    restriction_sort: outcome-class
+    restriction: {form: interval, quantity_kind: si-brochure/duration}
+    placement: applicability
+    applies_to: [general/covaries-with]
+  since-treatment-completion:
+    restriction_sort: outcome-class
+    restriction: {form: interval, quantity_kind: si-brochure/duration}
+    placement: applicability
+    applies_to: [general/covaries-with]
+instantiations:
+  concept-covaries-with-gene:
+    template: general/covaries-with
+    roles: {parties: [mondo/disease, biology/gene]}
+  rule-outcome-covaries-with-gene:
+    template: general/covaries-with
+    roles: {parties: [case-definition, biology/gene]}
+estimands:
+  instantiation:concept-covaries-with-gene:
+    forms: [contrast]
+    conditioning_sorts: []
+  instantiation:rule-outcome-covaries-with-gene:
+    forms: [contrast]
+    conditioning_sorts: []

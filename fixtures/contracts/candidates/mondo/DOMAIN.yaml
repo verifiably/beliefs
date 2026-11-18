@@ -1,0 +1,11 @@
+# UNSHIPPED CANDIDATE (beliefs-b1d0ee). Not admitted, not packaged, no inventory row. The namespace and source id are nominated and reserve nothing.
+contract: mondo
+version: 1
+lineage: genesis
+defining_source:
+  id: urn:beliefs:source:mondo-disease-ontology
+sorts:
+  disease:
+    binding: {kind: release, namespace: mondo, release: "2026-05-05"}
+    identifier_class: {prefix: mondo, pattern: 'mondo:[0-9]{7}'}
+dimensions: {}

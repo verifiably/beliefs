@@ -1,0 +1,83 @@
+{
+  "describes": "case-comparisons:043bb3f7234d4a484decf07cdd1fc986526d11bf1c8c8d39bf1866f73cc6d469",
+  "entries": {
+    "dimension:case-comparisons/case-definition-scope": {
+      "collapses": "The cases a target concerns are summarized by a rule record and a set of its class labels.",
+      "licenses": "Restricting a target to cases that a named classification rule places in the named classes. Class sets of one rule compare by inclusion. A successor contract can declare that one class of one rule is narrower than, or equal to, one class of another.",
+      "not_established": "Any undeclared relation between two rules (they compare unknown); that two classes of one rule exclude each other or partition a group (equal and narrower are the only declared relations, and two single classes of one rule compare unknown); or any link from a rule to a disease concept (a relation with one term endpoint and one rule endpoint is refused).",
+      "status": "provisional"
+    },
+    "dimension:case-comparisons/comparator": {
+      "collapses": "The comparison group is named by one label. Whether its members recovered without the syndrome, recovered after it, or sit below a threshold is not typed.",
+      "licenses": "Stating on a claim the class the claim compares against.",
+      "not_established": "That the label is one the claim's rule defines, that the claim supplies it, or that the claim names a rule at all. A comparator label on a concept-level claim types and means nothing. The comparator's history is not carried.",
+      "status": "provisional"
+    },
+    "dimension:case-comparisons/condition": {
+      "collapses": "The people a target concerns are summarized by one disease concept.",
+      "licenses": "Scoping a target of general/covaries-with to one mondo/disease term. Two targets with the same term compare equal on this dimension; two different terms compare unknown.",
+      "not_established": "Which rule selected the cases, or any relation between two terms: ontology subclass edges are not read. The dimension may be left unstated, and two targets that both leave it unstated compare equal without having been shown to concern the same people.",
+      "status": "provisional"
+    },
+    "dimension:case-comparisons/outcome": {
+      "collapses": "The class is named by its label alone, apart from the rule that defines it.",
+      "licenses": "Stating on a claim the class of the named rule whose members the claim is about.",
+      "not_established": "That the label is one the claim's rule defines, or that a claim supplies it at all. The kernel validates a qualifier only when it is supplied, and the dimension applies to general/covaries-with as a whole, so a claim that names no rule can carry it.",
+      "status": "provisional"
+    },
+    "dimension:case-comparisons/since-infection-onset": {
+      "collapses": "The time of every measurement in a target is summarized by one interval of elapsed duration counted from infection onset. The origin is carried only by this dimension's name.",
+      "licenses": "Scoping a target to measurements taken within an interval of si-brochure/duration since infection onset. Intervals on this dimension compare by containment and overlap.",
+      "not_established": "A window per group or per measurement: one window covers the whole target, so groups sampled at different times are not distinguished. Any other origin: each origin needs its own dimension, and the same interval on two origin dimensions compares overlapping, never equal. An anchor record for the origin. A window in months or years: no calendar unit is shipped. The required restriction_sort names case-comparisons/outcome-class; it restricts nothing on an interval, no comparison or admission reads it, and it enters a target's consulted terms only because the grammar requires the field.",
+      "status": "provisional"
+    },
+    "dimension:case-comparisons/since-symptom-onset": {
+      "collapses": "The time of every measurement in a target is summarized by one interval of elapsed duration counted from symptom onset. The origin is carried only by this dimension's name.",
+      "licenses": "Scoping a target to measurements taken within an interval of si-brochure/duration since symptom onset. Intervals on this dimension compare by containment and overlap.",
+      "not_established": "A window per group or per measurement: one window covers the whole target, so groups sampled at different times are not distinguished. Any other origin: each origin needs its own dimension, and the same interval on two origin dimensions compares overlapping, never equal. An anchor record for the origin. A window in months or years: no calendar unit is shipped. The required restriction_sort names case-comparisons/outcome-class; it restricts nothing on an interval, no comparison or admission reads it, and it enters a target's consulted terms only because the grammar requires the field.",
+      "status": "provisional"
+    },
+    "dimension:case-comparisons/since-treatment-completion": {
+      "collapses": "The time of every measurement in a target is summarized by one interval of elapsed duration counted from treatment completion. The origin is carried only by this dimension's name.",
+      "licenses": "Scoping a target to measurements taken within an interval of si-brochure/duration since treatment completion. Intervals on this dimension compare by containment and overlap.",
+      "not_established": "A window per group or per measurement: one window covers the whole target, so groups sampled at different times are not distinguished. Any other origin: each origin needs its own dimension, and the same interval on two origin dimensions compares overlapping, never equal. An anchor record for the origin. A window in months or years: no calendar unit is shipped. The required restriction_sort names case-comparisons/outcome-class; it restricts nothing on an interval, no comparison or admission reads it, and it enters a target's consulted terms only because the grammar requires the field.",
+      "status": "provisional"
+    },
+    "estimand:instantiation:case-comparisons/concept-covaries-with-gene": {
+      "collapses": "Only the contrast form is admitted, with no conditioning sorts.",
+      "licenses": "Contrast targets for this instantiation: a grouping, a measured response borne by a claim party, a control and typed applicability. The response Case C uses is relative abundance of the gene party with the rna aspect. The kernel admits gene relative abundance with or without that aspect, when the assay yields the declared observable.",
+      "not_established": "That a target's grouping agrees with the claim: a concept-level claim names no rule, and each rule's analysis is a separately keyed target. A protein, cell-fraction or stimulated-response measurement has no admissible observable; gene relative abundance does. No matched or within-person design is shipped, and the one admitted contrast functional is a stand-in, not a recommended effect measure. Same-sort claims are covered by this row, and only a claim with a gene party can carry the admitted response.",
+      "status": "provisional"
+    },
+    "estimand:instantiation:case-comparisons/rule-outcome-covaries-with-gene": {
+      "collapses": "Only the contrast form is admitted, with no conditioning sorts.",
+      "licenses": "Contrast targets for this instantiation: a rule-class grouping, a measured response borne by the gene party, a control and typed applicability. The response Case C uses is relative abundance of the gene party with the rna aspect. The kernel admits gene relative abundance with or without that aspect, when the assay yields the declared observable.",
+      "not_established": "That a target's grouping names the claim's rule or its outcome and comparator classes: a target whose grouping names another rule, or labels the rule never defines, is admitted against the claim. A protein, cell-fraction or stimulated-response measurement has no admissible observable; gene relative abundance does. No matched or within-person design is shipped, and the one admitted contrast functional is a stand-in, not a recommended effect measure.",
+      "status": "provisional"
+    },
+    "instantiation:case-comparisons/concept-covaries-with-gene": {
+      "collapses": "The rule that selected cases, the comparison group, the specimen, the assay and the time of measurement are all collapsed: the claim names a disease concept and a gene and nothing else. The gene term stands for whatever feature was measured; where an immunoassay measured a protein, the claim names the gene instead.",
+      "licenses": "Statistical-layer claims of general/covaries-with between a mondo/disease term and a biology/gene term: the coarse form in which literature and gene-disease resources speak.",
+      "not_established": "Which people, rule, comparator, specimen or time the association concerns, and any mechanism or direction of cause. A gene term that names an assayed protein does not make the assay a measurement of the gene, and a source assertion on such a claim attributes to the source a claim it did not make. Gene membership was not consulted for the fixtures. The instantiation admits every combination of its two sorts, so a gene with a gene and a disease with a disease also type; those pairs are no part of this definition.",
+      "status": "provisional"
+    },
+    "instantiation:case-comparisons/rule-outcome-covaries-with-gene": {
+      "collapses": "Specimen, assay and time of measurement are collapsed; the comparison is carried by a rule record and two class labels. The gene term stands for the measured feature, as in the concept-level form.",
+      "licenses": "Statistical-layer claims of general/covaries-with between a held classification rule and a biology/gene term, qualified by outcome and comparator. Sign convention: positive means higher in the outcome class than in the comparator class of the named rule.",
+      "not_established": "The sign convention is the author's to keep. The author must supply both qualifiers and take both labels from the claim's rule; the kernel requires neither. A claim with no qualifiers types and leaves \"positive\" with no ordered comparison, and a label the rule never defines types. A target's grouping is not held to the claim's rule or classes. A gene with a gene and a rule with a rule also type under this instantiation; a rule with a disease does not. A gene term naming an assayed protein is a different claim from the one the source makes.",
+      "status": "provisional"
+    },
+    "sort:case-comparisons/case-definition": {
+      "collapses": "A case definition is taken as one held record; its prose, its published source and how it was applied are not typed.",
+      "licenses": "Naming a held classification-rule record, as itself, as a claim party. The kernel checks that the id has the record kind's form and, against a supplied kinds inventory, that the record is listed.",
+      "not_established": "What the rule's prose means, that it was applied as written, which disease concept it operationalizes (nothing binds a rule to a concept), or which classes it defines (a rule record does not enumerate them).",
+      "status": "provisional"
+    },
+    "sort:case-comparisons/outcome-class": {
+      "collapses": "The rule that gives a class its meaning is collapsed away from the term; the term is a bare label.",
+      "licenses": "Carrying the label of a class named in a classification rule's definition: on the outcome and comparator qualifiers, in a rule scope and as a contrast level. The kernel checks identifier syntax only.",
+      "not_established": "That the rule cited beside a label defines it, or that one label under two rules means one thing. What makes two classes the same is the pair of rule record and label. The kernel does not tie a class to its rule, so any well-formed label resolves as a member beside any rule, including a rule whose definition never mentions it. A class has no attributes: a comparator's history, a threshold and \"unreported\" have no typed carrier.",
+      "status": "provisional"
+    }
+  }
+}
