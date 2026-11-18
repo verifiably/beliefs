@@ -1,6 +1,8 @@
 """Synthetic records for Cases A, B and C of the post-infection comparison design."""
 
 from collections.abc import Mapping
+from decimal import Decimal
+from fractions import Fraction
 from hashlib import sha256
 from pathlib import Path
 
@@ -8,16 +10,32 @@ from authority import ACTOR, FULL
 from nodes.core.node import Node
 from profiles import pins_for
 from test_corpus_write import OperationRecorder
+from test_dependencies import Records
 from test_stored import DefaultExecutor
 
 from beliefs import stored
+from beliefs.applicability import Applicability, ScopedRestriction, build_applicability
 from beliefs.claim import Claim, Member, Qualifier, Referent, build_claim
 from beliefs.classification_rule import ClassificationRule, rule_identity
 from beliefs.corpus import CorpusWriter
-from beliefs.procedure import External
+from beliefs.dependencies import dependency_closure
+from beliefs.estimand import (
+    Control,
+    Estimand,
+    MeasuredBinding,
+    OutputSpec,
+    RuleClassLevels,
+    ValueReference,
+    build_estimand,
+)
+from beliefs.measurement import Aspect, Measure, Observable
+from beliefs.procedure import External, Procedure, Scale
 from beliefs.profile import ProfileSpec
 from beliefs.projection import project_claim
+from beliefs.resolution import ResolutionSnapshot, build_snapshot
+from beliefs.restriction import IntervalRestriction, TermRestriction
 from beliefs.source_assertion import Bearing, Reading, Representation, SourceAssertion, Span
+from beliefs.target import AssessedTarget
 
 CLASS = "case-comparisons/outcome-class"
 RULE_SORT = "case-comparisons/case-definition"
@@ -198,3 +216,100 @@ def portable_writer(path: Path, profile: ProfileSpec) -> CorpusWriter:
     writer = CorpusWriter(path, DefaultExecutor, authority=FULL, profile=profile, operation_port=port)
     writer.adopt_manifest(profile=pins_for(profile))
     return writer
+
+
+RNA = Observable("general/relative-abundance", "biology/gene", Aspect("biology/molecular-aspect", "biology-aspect:rna"))
+
+
+def assay(tissue: str | None, *, yields: tuple[Observable, ...] = (RNA,)) -> Procedure:
+    if tissue is None:
+        name = "SYNTHETIC RNA assay"
+        definition = "SYNTHETIC: gene-level RNA relative abundance; the specimen is not recorded."
+        parameters = {}
+    else:
+        name = f"SYNTHETIC {tissue} RNA assay"
+        definition = f"SYNTHETIC: gene-level RNA relative abundance in {tissue}."
+        parameters = {"tissue": tissue}
+    return Procedure(
+        kind="general/assay",
+        name=name,
+        definition=definition,
+        yields=yields,
+        scale=Scale(Fraction(0), Fraction(1000000), "higher-is-more"),
+        validated_in="unknown",
+        parameters=parameters,
+        compatible_with=(),
+        evidence=(),
+        implementation=None,
+        inputs=None,
+        external=None,
+    )
+
+
+def held(
+    *rule_names: str, tissues: tuple[str, ...] = ("blood", "muscle")
+) -> tuple[Records, ResolutionSnapshot, dict[str, str]]:
+    records = Records()
+    rules = [records.put(RULES[name]) for name in rule_names]
+    assays = {tissue: records.put(assay(tissue)) for tissue in tissues}
+    assays["shared"] = records.put(assay(None))
+    return records, build_snapshot(readable={}, kinds={"classification-rule": rules}), assays
+
+
+def scope(
+    profile: ProfileSpec,
+    claim: Claim,
+    snapshot: ResolutionSnapshot,
+    *,
+    condition: Referent | None = LONG_COVID,
+    origin: str | None = "infection",
+    window: tuple[int, int] = (720, 2160),
+) -> Applicability:
+    values = {}
+    if condition is not None:
+        values[CONDITION] = ScopedRestriction("generic", TermRestriction(condition.sort, condition.term))
+    if origin is not None:
+        # Invented hours, independent of any study's timing.
+        interval = IntervalRestriction("si-brochure/hour", Fraction(window[0]), Fraction(window[1]), True, False)
+        values[ORIGINS[origin]] = ScopedRestriction("generic", interval)
+    return build_applicability(profile, claim, values, snapshot=snapshot)[0]
+
+
+def contrast(
+    profile: ProfileSpec,
+    claim: Claim,
+    applicability: Applicability,
+    *,
+    records: Records,
+    snapshot: ResolutionSnapshot,
+    assay_id: str,
+    rule: str,
+    classes: tuple[str, str] = ("comparison-group", "long-covid"),
+    observable: Observable = RNA,
+    member: Referent = GENE,
+) -> Estimand:
+    measure = Measure(observable, None, assay_id, "ratio", "level", "general/identity", assay_id)
+    return build_estimand(
+        profile,
+        claim,
+        form="contrast",
+        functional="general/probability-of-superiority",
+        bindings={
+            "response": MeasuredBinding("parties", member, measure, None, None),
+            "grouping": RuleClassLevels(rule_id(rule), tuple(label(name) for name in classes)),
+        },
+        outputs={"estimate": OutputSpec("dimensionless", "unit-interval")},
+        reference=ValueReference(Decimal("0.5")),
+        control=Control("general/observational", (), "general/independent-groups", "general/cohort-enrolment"),
+        uncertainty="interval",
+        assumptions=(),
+        calibration=None,
+        applicability=applicability,
+        snapshot=snapshot,
+        records=records,
+    )[0]
+
+
+def target(profile: ProfileSpec, estimand: Estimand, applicability: Applicability, records: Records) -> AssessedTarget:
+    roots = [*(entry.id for entry in estimand.dependencies), *applicability.rule_ids()]
+    return AssessedTarget(estimand, applicability, dependency_closure(roots, records, profile), None, "empirical")
