@@ -1,11 +1,23 @@
 """Synthetic records for Cases A, B and C of the post-infection comparison design."""
 
 from collections.abc import Mapping
+from hashlib import sha256
+from pathlib import Path
 
+from authority import ACTOR, FULL
+from nodes.core.node import Node
+from profiles import pins_for
+from test_corpus_write import OperationRecorder
+from test_stored import DefaultExecutor
+
+from beliefs import stored
 from beliefs.claim import Claim, Member, Qualifier, Referent, build_claim
 from beliefs.classification_rule import ClassificationRule, rule_identity
+from beliefs.corpus import CorpusWriter
 from beliefs.procedure import External
 from beliefs.profile import ProfileSpec
+from beliefs.projection import project_claim
+from beliefs.source_assertion import Bearing, Reading, Representation, SourceAssertion, Span
 
 CLASS = "case-comparisons/outcome-class"
 RULE_SORT = "case-comparisons/case-definition"
@@ -120,3 +132,69 @@ def _association(profile: ProfileSpec, a: Referent, b: Referent, qualifiers: Map
         polarity="positive",
         qualifiers=qualifiers,
     )
+
+
+VISITS = (
+    "SYNTHETIC: at the second visit after treatment the analyte was higher "
+    "in the syndrome class than in the return-to-health class.",
+    "SYNTHETIC: at the fourth visit after treatment the analyte was higher "
+    "in the syndrome class than in the return-to-health class.",
+)
+
+
+def source(n: int) -> Node:
+    return stored.source_node(
+        title=f"SYNTHETIC report {n} (invented)", identifiers={"doi": f"10.5555/pais-synthetic-{n:04d}"}
+    )
+
+
+def passages(n: int) -> tuple[str, ...]:
+    if n == 1:
+        return VISITS
+    return (
+        f"SYNTHETIC: report {n} states that the analyte was higher in the syndrome class than in the comparison class.",
+    )
+
+
+def report_text(n: int) -> bytes:
+    return "\n".join((f"SYNTHETIC report {n} (invented). Results.", *passages(n))).encode("utf-8")
+
+
+def locator(n: int, index: int) -> str:
+    return f"SYNTHETIC report {n}, results, passage {index + 1}"
+
+
+def representation(n: int) -> Representation:
+    return Representation(sha256(report_text(n)).hexdigest(), "text/plain", "full")
+
+
+def proposition(slug: str, claim: Claim) -> Node:
+    return stored.proposition_node(slug, title=f"SYNTHETIC {slug}", claim=project_claim(claim))
+
+
+def assertion(
+    source: Node,
+    proposition: Node,
+    *,
+    n: int,
+    index: int = 0,
+    sign: str = "asserts",
+    extent: str = "full",
+    quote: str | None = None,
+) -> SourceAssertion:
+    report = representation(n)
+    if extent != report.extent:
+        report = Representation(report.sha256, report.media_type, extent)
+    return SourceAssertion(
+        source.id,
+        Reading(report, Span(passages(n)[index] if quote is None else quote, locator(n, index)), ACTOR),
+        Bearing(sign, proposition.id),
+        ACTOR,
+    )
+
+
+def portable_writer(path: Path, profile: ProfileSpec) -> CorpusWriter:
+    port = OperationRecorder(path, authority=FULL, profile=profile)
+    writer = CorpusWriter(path, DefaultExecutor, authority=FULL, profile=profile, operation_port=port)
+    writer.adopt_manifest(profile=pins_for(profile))
+    return writer
