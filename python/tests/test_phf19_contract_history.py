@@ -66,3 +66,24 @@ def test_successor_advances_the_documentary_version(tmp_path):
 
     with pytest.raises(ProfileError, match=r"mm30-phf19\.yaml: .*version"):
         load_phf19_history(head.contract_path, base=base)
+
+
+def test_fixture_seeds_from_the_adopted_pair_after_the_source_advances(tmp_path):
+    source_root = tmp_path / "source"
+    genesis, head = phf19_history(source_root / "python/tools/reproduction")
+    inventory = source_root / "contracts/source-ownership/INVENTORY.json"
+    inventory.parent.mkdir(parents=True)
+    rows = [
+        {
+            "contract_path": pair.contract_path.relative_to(source_root).as_posix(),
+            "register_path": pair.register_path.relative_to(source_root).as_posix(),
+        }
+        for pair in (genesis, head)
+    ]
+    inventory.write_text(json.dumps({"lineages": {"mm30": {"revisions": rows}}}))
+
+    (seed,) = phf19_history(tmp_path / "seeded", source_root=source_root, successors=0)
+    assert seed.contract_path.read_bytes() == genesis.contract_path.read_bytes()
+    assert seed.register_path.read_bytes() == genesis.register_path.read_bytes()
+    assert seed.contract.content_identity == genesis.contract.content_identity
+    assert seed.contract.content_identity != head.contract.content_identity

@@ -18,7 +18,7 @@ from beliefs.register import (
 
 __all__ = ["Pair", "phf19_history"]
 
-_SOURCE = Path(__file__).resolve().parents[2] / "tools/reproduction"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 _CONTRACT = "mm30-phf19.yaml"
 _REGISTER = "mm30-phf19-register.json"
 
@@ -34,14 +34,17 @@ class Pair:
 def phf19_history(
     directory: Path,
     *,
+    source_root: Path = _REPO_ROOT,
     successors: int = 1,
     template_layer: str | None = None,
 ) -> tuple[Pair, ...]:
     directory.mkdir(parents=True, exist_ok=True)
     head = directory / _CONTRACT
     register_path = directory / _REGISTER
-    head.write_bytes((_SOURCE / _CONTRACT).read_bytes())
-    register_path.write_bytes((_SOURCE / _REGISTER).read_bytes())
+    inventory = json.loads((source_root / "contracts/source-ownership/INVENTORY.json").read_bytes())
+    genesis = inventory["lineages"]["mm30"]["revisions"][0]
+    head.write_bytes((source_root / genesis["contract_path"]).read_bytes())
+    register_path.write_bytes((source_root / genesis["register_path"]).read_bytes())
     base = shipped_base_contract()
     document = yaml.safe_load(head.read_bytes())
     contract = parse_domain_contract(document, source=head.as_posix(), base=base, predecessor=None)
