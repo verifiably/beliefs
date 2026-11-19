@@ -9,8 +9,15 @@ import os
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from beliefs.claim import Claim
+    from beliefs.estimand import Estimand
+    from reproduction.analysis_inputs import PHF19Inputs
 
 REQUIRED = {
     "source_closure": True,
@@ -68,6 +75,20 @@ def _work(value: str, *, existing: bool) -> Path:
 
 def readback() -> dict[str, object]:
     """Read stored recovery and recompute its estimand; never call spec.frozen()."""
+    report, _ = _readback()
+    return report
+
+
+@dataclass(frozen=True)
+class _StoredTarget:
+    corpus_id: str
+    proposition_id: str
+    claim: Claim
+    estimand: Estimand
+    inputs: PHF19Inputs
+
+
+def _readback() -> tuple[dict[str, object], _StoredTarget]:
     import csv
 
     from beliefs import stored
@@ -93,7 +114,8 @@ def readback() -> dict[str, object]:
     inputs = hold.recover_inputs()
     snapshot = vocabulary.snapshot()
     frozen = stored.analysis_spec_value(view.get(st["spec_ref"]), profile=profile)
-    claim, _ = claim_from_stored(view.get(st["proposition_ref"]), profile=profile, snapshot=snapshot)
+    proposition = view.get(st["proposition_ref"])
+    claim, _ = claim_from_stored(proposition, profile=profile, snapshot=snapshot)
     parser, estimator = type_target.implementation_digests(spec.code_root())
     if (parser, estimator) != type_target.implementation_digests():
         raise RuntimeError("bundle parser/estimator differs from reviewed code")
@@ -197,7 +219,7 @@ def readback() -> dict[str, object]:
         == spec.snakefile_bytes(Path(st["held_file"]).name, inputs.feature, inputs.separator)
     )
     verification = stored.verification_value(view.get(st["verification_ref"]))
-    return {
+    report = {
         "source_closure": True,
         "authored_identities": authored,
         "dependency_closure": closure,
@@ -216,6 +238,8 @@ def readback() -> dict[str, object]:
         "answer": answer,
         "limitation": "Engineering demonstration; source pairing is unmodeled, independence and assay validity are unestablished.",
     }
+
+    return report, _StoredTarget(view.corpus_id, proposition.id, claim, frozen.estimand, inputs)
 
 
 def main(argv: list[str]) -> int:
@@ -310,7 +334,7 @@ def main(argv: list[str]) -> int:
         if child.returncode not in (0, 1):
             raise RuntimeError(child.stderr)
         recovered = json.loads(child.stdout)
-        report = {**local, "fresh_process_equal": local == recovered}
+        report = {**local, "fresh_process_equal": child.returncode == 0 and local == recovered}
         rows = [json.loads(line) for line in paths.FINDINGS.read_text().splitlines()]
         failures = verdict(report, rows)
         state.save(phf19_report=report, phf19_failures=failures)

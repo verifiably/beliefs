@@ -93,13 +93,38 @@ def test_bad_destination_or_declaration_is_refused_before_corpus_write(tmp_path,
         assert (work / "keep").read_text() == "keep"
 
 
-def test_legacy_recipe_refuses_without_modifying_destination(tmp_path):
+def test_mm30_recreate_requires_both_release_file_arguments(tmp_path):
+    result = invoke_recreate(tmp_path, tmp_path / "legacy", FIXTURE / "predecessor")
+    assert result.returncode != 0
+    assert "hgnc" in result.stderr.lower() and "ensembl" in result.stderr.lower()
+    assert not (tmp_path / "legacy").exists()
+
+
+def invoke_recreate(tmp_path, *arguments):
     home = tmp_path / "home"
     home.mkdir()
-    env = {"PATH": os.environ["PATH"], "HOME": str(home), "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_NOSYSTEM": "1"}
-    work = tmp_path / "legacy"
-    result = subprocess.run(
-        ["just", "mm30-recreate", str(work), str(FIXTURE / "predecessor")],
+    binaries = tmp_path / "bin"
+    binaries.mkdir()
+    # Run the checked-out module with pytest's already hydrated Python and record
+    # what the recipe passes across the cd. No tool install or network is needed.
+    uv = binaries / "uv"
+    uv.write_text(
+        "#!/bin/sh\n"
+        'printf "%s\\n" "$@" > "$TEST_RECREATE_ARGV"\n'
+        'test "$1:$2:$3" = "run:--frozen:python" || exit 99\n'
+        "shift 3\n"
+        'exec "$TEST_RECREATE_PYTHON" "$@"\n'
+    )
+    uv.chmod(0o700)
+    env = {
+        "PATH": f"{binaries}:{os.environ['PATH']}",
+        "HOME": str(home),
+        "WORK_ROOT": str(tmp_path),
+        "TEST_RECREATE_ARGV": str(tmp_path / "argv"),
+        "TEST_RECREATE_PYTHON": sys.executable,
+    }
+    return subprocess.run(
+        ["just", "mm30-recreate", *map(str, arguments)],
         cwd=REPO_ROOT,
         env=env,
         capture_output=True,
@@ -107,9 +132,30 @@ def test_legacy_recipe_refuses_without_modifying_destination(tmp_path):
         check=False,
         timeout=30,
     )
+
+
+def test_mm30_recreate_dispatches_all_four_arguments_and_refuses_archives(tmp_path):
+    work = tmp_path / "new mm30"
+    cut22 = tmp_path / "cut 22"
+    cut31 = tmp_path / "cut 31"
+    cut22.mkdir()
+    cut31.mkdir()
+    result = invoke_recreate(tmp_path, work, "fixtures/phf19/predecessor", cut22, cut31)
     assert result.returncode != 0
-    assert "beliefs-6f039b" in result.stderr
+    assert "HGNC/Ensembl release files" in result.stderr
+    assert "cut archives are no longer accepted" in result.stderr
     assert not work.exists()
+    assert (tmp_path / "argv").read_text().splitlines() == [
+        "run",
+        "--frozen",
+        "python",
+        "-m",
+        "reproduction.heritage",
+        str(work),
+        str(FIXTURE / "predecessor"),
+        str(cut22),
+        str(cut31),
+    ]
 
 
 def test_analysis_loads_the_bundled_parser_with_safe_python_paths(tmp_path):

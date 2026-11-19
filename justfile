@@ -180,11 +180,16 @@ ci-python:
 ci-typescript:
     {{tt}} ci-typescript -- sh -c '{{ci_evidence_cmd}} && {{ci_ts_test_cmd}} && {{ts_check_cmd}}'
 
-# The full legacy route remains separately owned and cannot run under the current pack.
-mm30-recreate work predecessor cut22="" cut31="":
+# One fresh PHF19 demonstration plus a pinned refusal of the historical causal composite.
+mm30-recreate work predecessor hgnc ensembl:
     #!/usr/bin/env bash
-    echo 'mm30-recreate: unsupported legacy composite/cut route; beliefs-6f039b owns restoration. Use mm30-phf19 for the selected RNA demonstration.' >&2
-    exit 2
+    set -euo pipefail
+    work=$1
+    predecessor=$(realpath -m "$2")
+    hgnc=$(realpath -m "$3")
+    ensembl=$(realpath -m "$4")
+    cd python
+    PYTHONPATH=tools uv run --frozen python -m reproduction.heritage "$work" "$predecessor" "$hgnc" "$ensembl"
 
 # One explicitly declared gene RNA engineering demonstration; no ranking or old cuts.
 mm30-phf19 work predecessor hgnc ensembl declaration="python/tools/reproduction/phf19-inputs.json":

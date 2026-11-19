@@ -227,10 +227,10 @@ computation and recovery, not those scientific assumptions.
 
 The driver is `python/tools/reproduction/phf19.py`;
 [development.md](development.md#recreating-the-mm30-corpus) gives the command and
-required pinned inputs. It creates a new question and target; the old
-`protein:PHF19` causal proposition remains provenance. The five legacy contract
-wrappers retain their exact bytes. The full legacy composite/cut route refuses
-explicitly and remains owned by beliefs-6f039b.
+required pinned inputs. The old `protein:PHF19` causal proposition remains
+provenance for the new RNA target. The mm30 recreation adds a heritage report
+explaining why that statistical contrast and the pinned observational survival
+sources cannot support the historical two-member causal composite.
 
 1. **Check the sources.** An explicit declaration selects the original proposition,
    matrix and crosswalk, HGNC 2025-09-05 and human Ensembl 115/GRCh38.p14. All six

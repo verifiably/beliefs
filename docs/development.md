@@ -279,10 +279,26 @@ It does not certify independence, upstream assay validation or biological reuse.
 The assay's unknown validation remains an explicit frozen assumption. A full real
 recreation is separately owned by beliefs-dcce70, with renewed pre-mint inventory
 and a smallest end-to-end pilot before any extended run; beliefs-9cbde6 owns its
-independence assessment. `just mm30-recreate` now refuses before creating work and
-names beliefs-6f039b, which owns the remaining legacy relations/composite/cuts.
-The five historical YAML wrappers remain SHA-pinned and unchanged. The new
-`mm30-phf19.yaml` is ordinary current grammar and participates in distribution checks.
+independence assessment.
+
+`just mm30-recreate WORK PREDECESSOR HGNC ENSEMBL` runs one fresh PHF19
+demonstration under `WORK/phf19` and records the refusal of the historical causal
+composite in `WORK/heritage-report.json`. It uses the packaged declaration and
+additionally checks the pinned survival proposition and prognostic narrative
+under `PREDECESSOR/entities/propositions/`. Both texts are retained under
+`WORK/evidence/`. The HGNC and Ensembl arguments must be the release files.
+Supplying historical cut directories in those positions fails before WORK is
+created.
+
+A successful exit requires the verified PHF19 report and fresh-process recovery.
+The heritage report gives the two grounds for refusal, the source pins, and the
+stored corpus and claim identities. The first proposed edge needs a causal
+stage effect on protein, while the stored target measures a statistical
+gene-RNA contrast. The second needs a causal effect on overall survival, while
+the pinned source records an observational association with patient survival
+and the narrative describes prognostic information. To repeat ordinary PHF19
+readback after recreation, pass `WORK/phf19` to `--readback`. A failed run may
+leave partial files for diagnosis. Every retry requires a fresh WORK.
 
 ## Working with series evidence
 
