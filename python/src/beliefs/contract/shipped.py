@@ -16,6 +16,8 @@ from beliefs.register import (
     register_identity,
 )
 
+__all__ = ["ShippedDomainRevision", "load_domain_history"]
+
 
 @dataclass(frozen=True)
 class ShippedDomainRevision:
@@ -34,23 +36,32 @@ def _strict_json_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
 
 
 def load_domain_history(
-    namespace: str, *, base: BaseContract, read_text: Callable[[str], str]
+    namespace: str,
+    *,
+    base: BaseContract,
+    read_text: Callable[[str], str],
+    source_label: Callable[[str], str] | None = None,
 ) -> tuple[ShippedDomainRevision, ...]:
     """Read only declared ancestors; return oldest first after checking every pair.
 
     Paths passed to the reader are relative to this namespace. Inventory and byte
     equality between source and packaged resources belong to the source checker.
+    Supply source_label when the logical member names differ from their display paths.
     """
     try:
         _name(namespace, "shipped domain namespace")
     except MalformedContract as exc:
         raise ProfileError(str(exc)) from exc
+
+    def label(path: str) -> str:
+        return source_label(path) if source_label is not None else f"domains/{namespace}/{path}"
+
     pending: list[tuple[str, dict[str, object]]] = []
     visited: set[str] = set()
     directory = ""
     while True:
         path = f"{directory}/DOMAIN.yaml" if directory else "DOMAIN.yaml"
-        source = f"domains/{namespace}/{path}"
+        source = label(path)
         try:
             document = parse_document(read_text(path), source=source)
             if not isinstance(document, dict):
@@ -71,7 +82,7 @@ def load_domain_history(
     checked: list[ShippedDomainRevision] = []
     for directory, document in reversed(pending):
         prefix = f"{directory}/" if directory else ""
-        source = f"domains/{namespace}/{prefix}DOMAIN.yaml"
+        source = label(f"{prefix}DOMAIN.yaml")
         try:
             contract = parse_domain_contract(
                 document, source=source, base=base, predecessor=checked[-1].contract if checked else None
@@ -83,7 +94,7 @@ def load_domain_history(
         except ScienceError as exc:
             raise ProfileError(f"{source}: {exc}") from exc
         path = f"{prefix}REGISTER.json"
-        source = f"domains/{namespace}/{path}"
+        source = label(path)
         try:
             payload = json.loads(read_text(path), object_pairs_hook=_strict_json_object)
             register = register_from_projection(payload, source=source)
