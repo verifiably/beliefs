@@ -757,6 +757,10 @@ class ProfileError(ScienceError):
     """A profile refused — at compilation, at construction, or at resolution."""
 
 
+class ShippedDomainNotFound(ProfileError):
+    """The shipped namespace or requested revision is absent, not corrupt."""
+
+
 class MountPinUnresolved(ProfileError):
     """A manifest pin is carried by no shipped or available contract."""
 

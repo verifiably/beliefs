@@ -152,3 +152,80 @@ def test_package_apis_return_checked_current_pair_without_activating_it(tmp_path
         profile_module._shipped_domain_history.cache_clear()
         profile_module.shipped_domain_contract.cache_clear()
         profile_module.shipped_assumptions_register.cache_clear()
+
+
+@pytest.fixture
+def shipped_sample(tmp_path, monkeypatch):
+    resources, contracts, registers = history_resources(3, namespace="sample")
+    for relative, text in resources.items():
+        path = tmp_path / "domains/sample" / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+    shipped_base_contract()
+    monkeypatch.setattr(profile_module.resources, "files", lambda _: tmp_path)
+
+    def clear():
+        profile_module._shipped_domain_history.cache_clear()
+        profile_module.shipped_domain_contract.cache_clear()
+        profile_module.shipped_assumptions_register.cache_clear()
+
+    clear()
+    yield tmp_path, contracts, registers
+    clear()
+
+
+@pytest.mark.parametrize("index", [None, 0, 1, 2])
+def test_exact_pair_selection(shipped_sample, index):
+    _, contracts, registers = shipped_sample
+    selected = -1 if index is None else index
+    identity = None if index is None else contracts[index].content_identity
+    contract = profile_module.shipped_domain_contract("sample", content_identity=identity)
+    register = profile_module.shipped_assumptions_register("sample", content_identity=identity)
+    assert contract.content_identity == contracts[selected].content_identity
+    assert register_identity(register) == register_identity(registers[selected])
+    assert profile_module.shipped_domain_contract("sample", content_identity=identity) is contract
+    assert not profile_module.shipped_base().activated_contracts
+
+
+@pytest.mark.parametrize("selector", ["", "A" * 64, "../outside", "abc", 1, True])
+@pytest.mark.parametrize("api", ["shipped_domain_contract", "shipped_assumptions_register"])
+def test_invalid_exact_selector_is_not_not_found(shipped_sample, selector, api):
+    with pytest.raises(ProfileError) as caught:
+        getattr(profile_module, api)("sample", content_identity=selector)
+    assert type(caught.value).__name__ != "ShippedDomainNotFound"
+
+
+@pytest.mark.parametrize("namespace, identity", [("absent", None), ("sample", "0" * 64)])
+@pytest.mark.parametrize("api", ["shipped_domain_contract", "shipped_assumptions_register"])
+def test_absent_exact_selection_is_narrowly_typed(shipped_sample, namespace, identity, api):
+    with pytest.raises(ProfileError) as caught:
+        getattr(profile_module, api)(namespace, content_identity=identity)
+    assert type(caught.value).__name__ == "ShippedDomainNotFound"
+
+
+@pytest.mark.parametrize("missing", ["DOMAIN.yaml", "REGISTER.json", "ancestor"])
+def test_exact_old_pin_still_checks_broken_history(shipped_sample, missing):
+    root, contracts, _ = shipped_sample
+    relative = f"history/{contracts[1].content_identity}/DOMAIN.yaml" if missing == "ancestor" else missing
+    (root / "domains/sample" / relative).unlink()
+    for api in (profile_module.shipped_domain_contract, profile_module.shipped_assumptions_register):
+        with pytest.raises(ProfileError) as caught:
+            api("sample", content_identity=contracts[0].content_identity)
+        assert type(caught.value).__name__ != "ShippedDomainNotFound"
+
+
+def test_missing_shipped_root_file_never_uses_available(shipped_sample):
+    from profiles import pins_for
+
+    from beliefs.mount import compile_mount_profile
+    from beliefs.profile import compile_profile
+    from beliefs.world import CorpusManifest, manifest_bytes
+
+    root, contracts, _ = shipped_sample
+    profile = compile_profile(shipped_base_contract(), [contracts[0]])
+    corpus = root / "corpus"
+    corpus.mkdir()
+    (corpus / "corpus.yaml").write_bytes(manifest_bytes(CorpusManifest(2, "a" * 32, pins_for(profile))))
+    (root / "domains/sample/DOMAIN.yaml").unlink()
+    with pytest.raises(ProfileError):
+        compile_mount_profile(corpus, available=(contracts[0],))

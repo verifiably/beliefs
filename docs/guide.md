@@ -299,3 +299,15 @@ pairs provide authored definitions and justified-use limits. Local compilation
 and a corpus manifest do not certify that admission verdict. Unshipped candidates
 and semantic equivalence require review; external defining sources remain
 unsupported. See [source ownership admission](contracts.md#source-ownership-admission).
+
+
+## Exact domain pins
+
+`compile_mount_profile(root, available=...)` compiles the domain revisions named
+by the corpus manifest, including ancestors retained in shipped history. For a
+specific checked domain/register pair, pass the same `content_identity=` to
+`shipped_domain_contract(namespace, ...)` and
+`shipped_assumptions_register(namespace, ...)`. Omitting the keyword selects the
+current shipped pair. Supplied contracts resolve absent namespaces or revisions;
+they do not conceal corrupt shipped history. These reads do not change a corpus
+pin. See [the contract history rules](contracts.md) for the checks and limits.

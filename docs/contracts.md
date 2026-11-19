@@ -687,6 +687,17 @@ activate `general` explicitly in `compile_profile`. Distribution validation
 the complete pinned source inventory independently of activated profiles. Numerical
 and methodological tables have the same ownership requirements as other declarations.
 
+Both Python APIs accept `content_identity=` to select an exact reachable domain
+revision by its 64-character lowercase hexadecimal identity; the register API
+returns that revision's paired register. Omitting it selects the current pair.
+The complete reachable history is checked even for an older selection.
+`ShippedDomainNotFound` distinguishes an absent namespace or revision from an
+invalid selector or damaged history. `compile_mount_profile` resolves manifest
+pins this way, falling back to an exact caller-supplied document only for
+not-found results. A missing `DOMAIN.yaml` inside an existing namespace is
+corruption and never triggers that fallback. An older shipped base is still
+unresolved; historical domain selection does not change the manifest.
+
 The human biology genesis ships alongside `general`: [DOMAIN.yaml](../domains/biology/DOMAIN.yaml)
 and [REGISTER.json](../domains/biology/REGISTER.json), with identical packaged copies.
 Activate both explicitly. Its five sorts distinguish HGNC gene nomenclature (2025-09-05),

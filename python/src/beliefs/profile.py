@@ -30,6 +30,7 @@ identity and leaves this one still. It is not an input to any claim.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from fractions import Fraction
@@ -79,7 +80,7 @@ from beliefs.errors import (
     DuplicateContribution,
     MalformedContract,
     ProfileError,
-    ScienceError,
+    ShippedDomainNotFound,
     UnparsedContract,
     WithdrawnFromAuthoring,
 )
@@ -188,27 +189,37 @@ def _shipped_domain_history(namespace: str) -> tuple[ShippedDomainRevision, ...]
     except MalformedContract as exc:
         raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}") from exc
     root = resources.files("beliefs").joinpath(f"domains/{namespace}")
-    if not root.joinpath("DOMAIN.yaml").is_file():
-        raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}")
+    if not root.is_dir():
+        raise ShippedDomainNotFound(f"this package ships no domain contract for namespace {namespace!r}")
     return load_domain_history(
         namespace, base=shipped_base_contract(), read_text=lambda path: root.joinpath(path).read_text(encoding="utf-8")
     )
 
 
-@cache
-def shipped_domain_contract(namespace: str) -> DomainContract:
-    """Return the current domain after checking its entire shipped contract/register history."""
-    return _shipped_domain_history(namespace)[-1].contract
+def _select_shipped_domain(namespace: str, content_identity: str | None) -> ShippedDomainRevision:
+    if content_identity is not None and (
+        type(content_identity) is not str or re.fullmatch(r"[0-9a-f]{64}", content_identity) is None
+    ):
+        raise ProfileError("a domain content_identity must be 64 lowercase hexadecimal characters")
+    history = _shipped_domain_history(namespace)
+    if content_identity is None:
+        return history[-1]
+    for revision in history:
+        if revision.contract.content_identity == content_identity:
+            return revision
+    raise ShippedDomainNotFound(f"no shipped revision {content_identity!r} for namespace {namespace!r}")
 
 
 @cache
-def shipped_assumptions_register(namespace: str) -> AssumptionsRegister:
-    """Return the current register from the same checked history as its contract."""
-    source = f"beliefs/domains/{namespace}/REGISTER.json"
-    try:
-        return _shipped_domain_history(namespace)[-1].register
-    except (OSError, UnicodeDecodeError, ScienceError) as exc:
-        raise ProfileError(f"{source}: broken domain/register history for {namespace!r}: {exc}") from exc
+def shipped_domain_contract(namespace: str, *, content_identity: str | None = None) -> DomainContract:
+    """Select the current or exact revision after checking the entire shipped history."""
+    return _select_shipped_domain(namespace, content_identity).contract
+
+
+@cache
+def shipped_assumptions_register(namespace: str, *, content_identity: str | None = None) -> AssumptionsRegister:
+    """Select the register paired with the current or exact checked domain revision."""
+    return _select_shipped_domain(namespace, content_identity).register
 
 
 @cache

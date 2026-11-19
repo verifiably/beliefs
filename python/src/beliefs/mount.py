@@ -7,7 +7,7 @@ from pathlib import Path
 
 from beliefs.contract.coordination import CoordinationContract
 from beliefs.contract.domain import DomainContract
-from beliefs.errors import MountPinUnresolved, ProfileError, UnparsedContract
+from beliefs.errors import MountPinUnresolved, ShippedDomainNotFound, UnparsedContract
 from beliefs.profile import (
     ProfileSpec,
     compile_profile,
@@ -49,7 +49,7 @@ def compile_mount_profile(root: Path, *, available: Iterable[DomainContract] = (
             if coordination is None:
                 raise MountPinUnresolved(root, namespace, pin)
             continue
-        candidates = (*_shipped(namespace), *(d for d in documents if d.namespace == namespace))
+        candidates = (*_shipped(namespace, identity), *(d for d in documents if d.namespace == namespace))
         match = next((c for c in candidates if c.content_identity == identity), None)
         if match is None:
             raise MountPinUnresolved(root, namespace, pin)
@@ -57,8 +57,8 @@ def compile_mount_profile(root: Path, *, available: Iterable[DomainContract] = (
     return compile_profile(base, domains, coordination=coordination)
 
 
-def _shipped(namespace: str) -> tuple[DomainContract, ...]:
+def _shipped(namespace: str, identity: str | None) -> tuple[DomainContract, ...]:
     try:
-        return (shipped_domain_contract(namespace),)
-    except ProfileError:
+        return (shipped_domain_contract(namespace, content_identity=identity),)
+    except ShippedDomainNotFound:
         return ()

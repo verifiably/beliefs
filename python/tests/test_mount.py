@@ -119,7 +119,7 @@ def test_arguments_are_typed(tmp_path):
         compile_mount_profile(root, available=(object(),))  # type: ignore[arg-type]
 
 
-def test_general_genesis_pin_requires_explicit_predecessor_despite_shipped_history(tmp_path):
+def test_general_genesis_pin_resolves_exact_shipped_history(tmp_path):
     from conftest import REPO_ROOT
 
     from beliefs.contract.domain import load_domain_contract
@@ -134,9 +134,7 @@ def test_general_genesis_pin_requires_explicit_predecessor_despite_shipped_histo
     expected = compile_profile(base, [genesis])
     root = _root(tmp_path, "old-general", pins_for(expected))
     assert shipped_domain_contract("general").predecessor == genesis.content_identity
-    with pytest.raises(MountPinUnresolved) as caught:
-        compile_mount_profile(root)
-    assert caught.value.pin == "general:" + genesis.content_identity
+    assert compile_mount_profile(root).compiled_identity == expected.compiled_identity
     assert compile_mount_profile(root, available=(genesis,)).compiled_identity == expected.compiled_identity
 
 
