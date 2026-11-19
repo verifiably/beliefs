@@ -87,6 +87,111 @@ def test_mm30_register_covers_its_six_declarations():
 
 
 def test_source_adoption_keeps_phf19_contract_and_profile_identity():
+    import json
+
+    from beliefs.register import register_identity
+
+    row = json.loads((REPO_ROOT / "contracts/source-ownership/INVENTORY.json").read_bytes())["lineages"]["mm30"][
+        "revisions"
+    ][0]
+    selected = vocabulary.revision()
+    assert sha256((REPO_ROOT / row["contract_path"]).read_bytes()).hexdigest() == row["contract_sha256"]
+    assert sha256((REPO_ROOT / row["register_path"]).read_bytes()).hexdigest() == row["register_sha256"]
+    assert selected.contract.content_identity == row["contract_identity"]
+    assert register_identity(selected.register) == row["register_identity"]
+    assert selected.register.describes == vocabulary.pins().domains["mm30"]
     assert vocabulary.contract().defining_source is None
     assert vocabulary.contract().content_identity == "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
     assert vocabulary.profile().compiled_identity == "080fd67b17a99384bf0e0ad5638aaa09b4902d71d885e9ec22ed5e9d47c2eb8b"
+
+
+def test_successor_head_and_historical_mount(tmp_path):
+    from fixtures.phf19_history import phf19_history
+
+    from beliefs.mount import compile_mount_profile
+    from beliefs.profile import compile_profile, shipped_domain_contract
+    from beliefs.register import register_identity
+    from beliefs.world import CorpusManifest, manifest_bytes
+
+    (original,) = phf19_history(tmp_path / "original", successors=0)
+    genesis_profile = vocabulary.profile(original.contract_path)
+    manifest = CorpusManifest(2, "a" * 32, vocabulary.pins(original.contract_path))
+    (tmp_path / "corpus.yaml").write_bytes(manifest_bytes(manifest))
+
+    genesis, head = phf19_history(tmp_path / "updated")
+    selected = vocabulary.revision(head.contract_path)
+    assert vocabulary.contract(head.contract_path).content_identity == head.contract.content_identity
+    assert selected.register.describes == vocabulary.pins(head.contract_path).domains["mm30"]
+    assert register_identity(selected.register) == register_identity(head.register)
+
+    old = vocabulary.revision(head.contract_path, content_identity=genesis.contract.content_identity)
+    peers = [shipped_domain_contract(ns) for ns in ("general", "biology")]
+    recovered = compile_profile(vocabulary.base(), [*peers, old.contract])
+    assert recovered.compiled_identity == genesis_profile.compiled_identity
+    assert register_identity(old.register) == register_identity(original.register)
+    assert compile_mount_profile(tmp_path, available=(old.contract,)).compiled_identity == recovered.compiled_identity
+
+
+@pytest.mark.parametrize("selector", ["f" * 64, "../outside", "A" * 64, ""])
+def test_exact_selection_refuses_a_missing_or_malformed_identity(tmp_path, selector):
+    from fixtures.phf19_history import phf19_history
+
+    from beliefs.errors import ProfileError
+
+    _, head = phf19_history(tmp_path)
+    with pytest.raises(ProfileError, match=r"mm30-phf19\.yaml: .*identity"):
+        vocabulary.revision(head.contract_path, content_identity=selector)
+
+
+def test_old_selection_checks_head_under_the_requested_base(tmp_path):
+    import yaml
+    from fixtures.phf19_history import phf19_history
+
+    from beliefs.contract.base import parse_base_contract
+    from beliefs.errors import ProfileError
+
+    document = yaml.safe_load((REPO_ROOT / "contracts/science/CONTRACT.yaml").read_bytes())
+    document["claim_grammar"]["layers"].remove("methodological")
+    base = parse_base_contract(document, source="restricted fixture base")
+    (original,) = phf19_history(tmp_path / "original", successors=0)
+    old = vocabulary.revision(original.contract_path, content_identity=original.contract.content_identity, base=base)
+    assert old.contract.base_identity == base.content_identity
+
+    _, head = phf19_history(tmp_path / "updated", template_layer="methodological")
+    assert vocabulary.revision(head.contract_path).contract.content_identity == head.contract.content_identity
+    with pytest.raises(ProfileError, match=r"mm30-phf19\.yaml: .*fixture-template.*methodological"):
+        vocabulary.revision(head.contract_path, content_identity=old.contract.content_identity, base=base)
+
+
+def test_hold_stores_the_selected_register(certified_work, monkeypatch):
+    import json
+    from dataclasses import replace
+
+    from phf19_fixtures import FIXTURE, initialize
+    from reproduction import hold, paths, state
+
+    from beliefs.contract.shipped import ShippedDomainRevision
+    from beliefs.register import register_from_projection, register_from_stored, register_identity
+    from beliefs.world import load_manifest
+
+    writer = initialize(monkeypatch, certified_work / "phf19-checked-register")
+    current = register_from_projection(
+        json.loads(vocabulary.DOCUMENT.with_name("mm30-phf19-register.json").read_bytes()),
+        source="shipped PHF19 register",
+    )
+    key = "sort:mm30/cohort"
+    selected = replace(current, entries={**current.entries, key: replace(current.entries[key], licenses="fixture")})
+    choice = ShippedDomainRevision("", vocabulary.contract(), selected)
+    monkeypatch.setattr(vocabulary, "revision", lambda: choice, raising=False)
+    hold.prepare_phf19(
+        json.loads((FIXTURE / "declaration.json").read_bytes()),
+        predecessor=FIXTURE / "predecessor",
+        hgnc=FIXTURE / "hgnc.tsv",
+        ensembl=FIXTURE / "ensembl.gtf.gz",
+    )
+    stored_id = state.load()["registers"][-1]
+    assert stored_id == register_identity(selected)
+    assert (
+        register_from_stored(writer.read_view.get(stored_id)).describes
+        == (load_manifest(paths.CORPUS_ROOT).profile.domains["mm30"])
+    )

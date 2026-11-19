@@ -28,6 +28,8 @@ from reproduction import findings, paths, state, world
 from reproduction.authority import AUTHORITY
 from reproduction.vocabulary import profile
 
+__all__ = ["dataset_record", "main", "prepare_phf19", "recover_inputs", "restore", "source", "verify_sources"]
+
 OBSERVER = "mm30-reproduction-observer"
 INSTRUMENT = "mm30-reproduction/hold.v1"
 
@@ -180,7 +182,6 @@ def prepare_phf19(declaration, *, predecessor: Path, hgnc: Path, ensembl: Path) 
     import json
 
     from beliefs.profile import shipped_assumptions_register
-    from beliefs.register import register_from_projection
     from reproduction import analysis_inputs, type_target, vocabulary
 
     checked = analysis_inputs.resolve_phf19(declaration, predecessor=predecessor, hgnc=hgnc, ensembl=ensembl)
@@ -203,12 +204,7 @@ def prepare_phf19(declaration, *, predecessor: Path, hgnc: Path, ensembl: Path) 
     estimator_node = writer.add(stored.procedure_node(estimate))
     rule_node = writer.add(stored.classification_rule_node(rule))
     registers = [shipped_assumptions_register(ns) for ns in ("general", "biology")]
-    registers.append(
-        register_from_projection(
-            json.loads(Path(__file__).with_name("mm30-phf19-register.json").read_text()),
-            source="mm30-phf19-register.json",
-        )
-    )
+    registers.append(vocabulary.revision().register)
     register_ids = [writer.add(stored.assumptions_register_node(r)).id for r in registers]
     state.save(
         sources=sources,

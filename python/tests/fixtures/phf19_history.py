@@ -8,7 +8,13 @@ import yaml
 
 from beliefs.contract.domain import DomainContract, parse_domain_contract
 from beliefs.profile import shipped_base_contract
-from beliefs.register import AssumptionsRegister, register_from_projection, register_identity, register_projection
+from beliefs.register import (
+    AssumptionsRegister,
+    RegisterEntry,
+    register_from_projection,
+    register_identity,
+    register_projection,
+)
 
 __all__ = ["Pair", "phf19_history"]
 
@@ -29,6 +35,7 @@ def phf19_history(
     directory: Path,
     *,
     successors: int = 1,
+    template_layer: str | None = None,
 ) -> tuple[Pair, ...]:
     directory.mkdir(parents=True, exist_ok=True)
     head = directory / _CONTRACT
@@ -50,11 +57,25 @@ def phf19_history(
         document["version"] += 1
         document["lineage"] = {"successor": contract.content_identity}
         document["defining_source"] = {"id": "urn:beliefs:definitions:phf19-stage-contrast-admissions"}
+        entries = dict(register.entries)
+        if template_layer is not None:
+            document["templates"] = {
+                "fixture-template": {
+                    "roles": {"subject": {"arity": "one"}},
+                    "sign_apt": False,
+                    "layers": [template_layer],
+                    "forms": ["polar"],
+                }
+            }
+            entries["template:mm30/fixture-template"] = RegisterEntry(
+                "fixture only", "fixture only", "fixture only", status="provisional"
+            )
         contract = parse_domain_contract(document, source=head.as_posix(), base=base, predecessor=contract)
         register = replace(
             register,
             describes=f"mm30:{contract.content_identity}",
             previous=register_identity(register),
+            entries=entries,
         )
         head.write_text(yaml.safe_dump(document), encoding="utf-8")
         register_path.write_text(json.dumps(register_projection(register)), encoding="utf-8")

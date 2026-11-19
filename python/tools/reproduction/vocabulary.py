@@ -2,19 +2,38 @@
 
 from __future__ import annotations
 
+import re
 from functools import cache
 from hashlib import sha256
 from pathlib import Path
 
 from beliefs import stored
 from beliefs.consulted import CorpusPins
-from beliefs.contract import load_domain_contract
+from beliefs.contract.base import BaseContract
 from beliefs.contract.domain import DatasetBinding, DomainContract
+from beliefs.contract.shipped import ShippedDomainRevision
 from beliefs.dataset import DatasetDeclaration, dataset_address
 from beliefs.errors import ProfileError
 from beliefs.profile import CompiledSort, ProfileSpec, compile_profile, shipped_base_contract, shipped_domain_contract
 from beliefs.resolution import ResolutionSnapshot, build_snapshot
 from reproduction import paths, state
+from reproduction.contract_history import load_phf19_history
+
+__all__ = [
+    "DOCUMENT",
+    "HELD_SORTS",
+    "base",
+    "binding_for",
+    "biology",
+    "check_members",
+    "checked_lines",
+    "contract",
+    "pins",
+    "profile",
+    "revision",
+    "snapshot",
+    "snapshot_over",
+]
 
 DOCUMENT = Path(__file__).with_name("mm30-phf19.yaml")
 HELD_SORTS = {"clinical-factors": "clinical-factor", "stage-levels": "stage-level", "cohorts": "cohort"}
@@ -31,19 +50,50 @@ def biology() -> DomainContract:
 
 
 @cache
+def _default_history() -> tuple[ShippedDomainRevision, ...]:
+    return load_phf19_history(DOCUMENT, base=base())
+
+
+def revision(
+    path: Path = DOCUMENT, *, content_identity: str | None = None, base: BaseContract | None = None
+) -> ShippedDomainRevision:
+    """Select the head or an exact pair from a fully checked PHF19 history."""
+    if content_identity is not None and (
+        not isinstance(content_identity, str) or re.fullmatch(r"[0-9a-f]{64}", content_identity) is None
+    ):
+        raise ProfileError(f"{path}: content identity must be 64 lowercase hexadecimal characters")
+    history = (
+        _default_history()
+        if path == DOCUMENT and base is None
+        else load_phf19_history(path, base=shipped_base_contract() if base is None else base)
+    )
+    if content_identity is None:
+        return history[-1]
+    for selected in history:
+        if selected.contract.content_identity == content_identity:
+            return selected
+    raise ProfileError(f"{path}: no PHF19 revision with content identity {content_identity!r}")
+
+
 def contract(path: Path = DOCUMENT) -> DomainContract:
-    if path.name != DOCUMENT.name:
-        raise ProfileError("unsupported reproduction contract; use mm30-phf19.yaml")
-    return load_domain_contract(path, base=base(), predecessor=None)
+    return revision(path).contract
+
+
+def _compile(contract: DomainContract) -> ProfileSpec:
+    return compile_profile(base(), [shipped_domain_contract("general"), biology(), contract])
 
 
 @cache
+def _default_profile() -> ProfileSpec:
+    return _compile(contract())
+
+
 def profile(path: Path = DOCUMENT) -> ProfileSpec:
-    return compile_profile(base(), [shipped_domain_contract("general"), biology(), contract(path)])
+    return _default_profile() if path == DOCUMENT else _compile(contract(path))
 
 
-def pins() -> CorpusPins:
-    p = profile()
+def pins(path: Path = DOCUMENT) -> CorpusPins:
+    p = profile(path)
     return CorpusPins(
         science_contract=f"science:{p.base_contract_identity}",
         domains={ns: f"{ns}:{identity}" for ns, identity in p.activated_contracts.items()},
