@@ -7,7 +7,8 @@ Checks offline and without corpus writes:
    parses under the current base contract and carries a canonical assumptions register whose `describes`
    digest and typed key coverage match `register_entry_keys(contract)` exactly.
 3. Every YAML file under `python/tools/reproduction/` whose top-level mapping carries
-   `contract` passes current parsing and pinned source ownership admission.
+   `contract` passes current parsing and pinned source ownership admission. The standalone
+   PHF19 pair has a checked history under its reserved reproduction subtree.
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ if str(_SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(_SRC_ROOT))
 
 import yaml
+from reproduction.contract_history import load_phf19_history, phf19_member_path
 from source_admission import metadata
 
 from beliefs.contract.base import BaseContract, parse_base_contract
@@ -37,6 +39,16 @@ from beliefs.contract.domain import DomainContract, _defining_source_id, _name, 
 from beliefs.contract.shipped import _strict_json_object, load_domain_history
 from beliefs.errors import ScienceError
 from beliefs.register import AssumptionsRegister, register_entry_keys, register_from_projection, register_identity
+
+__all__ = [
+    "ADOPTED_SOURCE_REVISIONS",
+    "RECEIPT_SHA256",
+    "REPO_ROOT",
+    "SOURCE_INVENTORY_SHA256",
+    "check",
+    "inspect_candidate",
+    "main",
+]
 
 SOURCE_INVENTORY_SHA256 = "d38916d218ebe19f7a0df691df23835445ef495aa556edbabb1d0cd01cc35405"
 
@@ -214,20 +226,75 @@ def _discover_shipped_domains(root: Path, base: BaseContract) -> tuple[tuple[_Ad
     return tuple(discovered), errors
 
 
+def _discover_phf19(
+    root: Path, head: Path, history_dir: Path, base: BaseContract
+) -> tuple[tuple[_AdmissionRevision, ...], list[str]]:
+    try:
+        revisions = load_phf19_history(head, base=base, root=root)
+    except ScienceError as exc:
+        return (), [str(exc)]
+
+    errors: list[str] = []
+    discovered: list[_AdmissionRevision] = []
+    expected_dirs: set[Path] = set()
+    expected_files: set[Path] = set()
+    for revision in revisions:
+        prefix = f"{revision.directory}/" if revision.directory else ""
+        contract_path = head.parent / phf19_member_path(f"{prefix}DOMAIN.yaml")
+        register_path = head.parent / phf19_member_path(f"{prefix}REGISTER.json")
+        if revision.directory:
+            expected_dirs.update((history_dir, contract_path.parent))
+            expected_files.update((contract_path, register_path))
+        relative = contract_path.relative_to(root).as_posix()
+        errors.extend(_check_shadow_general(revision.contract, relative))
+        discovered.append(
+            _AdmissionRevision(
+                relative,
+                register_path.relative_to(root).as_posix(),
+                revision.contract,
+                revision.register,
+                revisions[0].contract.content_identity,
+                not revision.directory,
+            )
+        )
+
+    present = {history_dir, *history_dir.rglob("*")} if history_dir.exists() else set()
+    expected_history = expected_dirs | expected_files
+    for extra in sorted(present - expected_history):
+        errors.append(f"{extra.relative_to(root)}: unexpected or unreachable PHF19 history entry")
+    for missing in sorted(expected_history - present):
+        errors.append(f"{missing.relative_to(root)}: missing required PHF19 history entry")
+    bad_types = {path for path in present & expected_dirs if not path.is_dir()} | {
+        path for path in present & expected_files if not path.is_file()
+    }
+    for path in sorted(bad_types):
+        errors.append(f"{path.relative_to(root)}: invalid PHF19 history member type")
+    return tuple(discovered), errors
+
+
 def _discover_reproduction_sources(
     root: Path,
     base: BaseContract,
     *,
     register_paths: Mapping[str, str],
 ) -> tuple[tuple[_AdmissionRevision, ...], list[str]]:
-    errors: list[str] = []
-    discovered: list[_AdmissionRevision] = []
     repro_dir = root / "python/tools/reproduction"
     if not repro_dir.is_dir():
-        return (), errors
+        return (), []
 
+    head = repro_dir / phf19_member_path("DOMAIN.yaml")
+    history_dir = repro_dir / phf19_member_path("history")
+    phf19, errors = _discover_phf19(root, head, history_dir, base)
+    discovered = list(phf19)
     yaml_paths = sorted({*repro_dir.rglob("*.yaml"), *repro_dir.rglob("*.yml")})
     for path in yaml_paths:
+        # Keep reserved pair slots out of genesis discovery, even if pair validation failed.
+        if path == head or (
+            path.name == "DOMAIN.yaml"
+            and path.parent.parent == history_dir
+            and re.fullmatch(r"[0-9a-f]{64}", path.parent.name) is not None
+        ):
+            continue
         if not path.is_file():
             continue
         rel_path = path.relative_to(root).as_posix()

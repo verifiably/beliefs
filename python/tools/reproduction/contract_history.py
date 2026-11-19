@@ -1,5 +1,7 @@
 """Map the standalone PHF19 files into the shared domain history reader."""
 
+import re
+from itertools import pairwise
 from pathlib import Path
 
 from beliefs.contract.base import BaseContract
@@ -13,10 +15,15 @@ _HISTORY = "mm30-phf19-history"
 
 
 def phf19_member_path(logical: str) -> Path:
-    """Translate a checked loader member relative to the PHF19 head's directory."""
+    """Translate a checked logical history path relative to the PHF19 head's directory."""
     if logical in _HEAD_MEMBERS:
         return Path(_HEAD_MEMBERS[logical])
-    return Path(_HISTORY) / logical.removeprefix("history/")
+    if logical == "history":
+        return Path(_HISTORY)
+    match = re.fullmatch(r"history/([0-9a-f]{64})/(DOMAIN\.yaml|REGISTER\.json)", logical)
+    if match is None:
+        raise ValueError(f"unknown PHF19 history member {logical!r}")
+    return Path(_HISTORY, *match.groups())
 
 
 def load_phf19_history(
@@ -39,4 +46,9 @@ def load_phf19_history(
         selected = member(logical)
         return (selected if root is None else selected.relative_to(root)).as_posix()
 
-    return load_domain_history("mm30", base=base, read_text=read_text, source_label=label)
+    history = load_domain_history("mm30", base=base, read_text=read_text, source_label=label)
+    for predecessor, successor in pairwise(history):
+        if successor.contract.version <= predecessor.contract.version:
+            logical = f"{successor.directory}/DOMAIN.yaml" if successor.directory else "DOMAIN.yaml"
+            raise ProfileError(f"{label(logical)}: version must advance past {predecessor.contract.version}")
+    return history

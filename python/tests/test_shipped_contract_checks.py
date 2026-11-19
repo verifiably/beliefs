@@ -810,3 +810,326 @@ def test_inventory_selected_register_refuses_symlinks_before_outside_read(tmp_pa
     monkeypatch.setattr(Path, "open", guarded_open)
     errors = checker.check(root)
     assert any("symlink" in e and row["register_path"].split("/")[0] in e for e in errors), errors
+
+
+_MM30 = "python/tools/reproduction"
+_MM30_HISTORY = f"{_MM30}/mm30-phf19-history"
+
+
+def _mm30_successors(root, checker, *, successors=1, template_layer=None):
+    from fixtures.phf19_history import phf19_history
+
+    pairs = phf19_history(root / _MM30, successors=successors, template_layer=template_layer)
+    inventory = _inventory(root)
+    old, *new = pairs
+    rows = inventory["lineages"]["mm30"]["revisions"]
+    rows[0].update(
+        contract_path=old.contract_path.relative_to(root).as_posix(),
+        register_path=old.register_path.relative_to(root).as_posix(),
+    )
+    for pair in new:
+        cp = pair.contract_path.relative_to(root).as_posix()
+        rp = pair.register_path.relative_to(root).as_posix()
+        rows.append(_row(root, cp, rp, pair.contract, pair.register))
+    _save_inventory(root, inventory)
+    _repin(checker, root)
+    return pairs
+
+
+@pytest.mark.parametrize("successors", [1, 2])
+def test_standalone_successors_admit_with_historical_pins_and_receipts(tmp_path, successors):
+    from reproduction import vocabulary
+    from source_admission.metadata import check_continuity
+
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    baseline = _inventory(root)
+    *_, head = _mm30_successors(root, checker, successors=successors)
+    candidate = _inventory(root)
+    check_continuity(baseline, candidate)
+    assert checker.check(root) == []
+    errors, revisions = checker._inspect(root, checker._validate_inventory(candidate))
+    assert not errors
+    mm30 = [r for r in revisions if r.contract.namespace == "mm30"]
+    rows = candidate["lineages"]["mm30"]["revisions"]
+    assert [r.contract_path for r in mm30] == [row["contract_path"] for row in rows]
+    assert [r.register_path for r in mm30] == [row["register_path"] for row in rows]
+    assert [r.current for r in mm30] == [False] * successors + [True]
+    assert {r.genesis for r in mm30} == {baseline["lineages"]["mm30"]["genesis"]}
+    selected = vocabulary.revision(head.contract_path)
+    assert selected.contract.content_identity == mm30[-1].contract.content_identity
+    assert register_identity(selected.register) == rows[-1]["register_identity"]
+    assert selected.register.describes == vocabulary.pins(head.contract_path).domains["mm30"]
+
+
+@pytest.mark.parametrize("kind", ["absent", "empty", "file"])
+def test_mm30_reserved_history_root_at_genesis(tmp_path, kind):
+    root = _copy_fixture_root(tmp_path)
+    history = root / _MM30_HISTORY
+    if kind == "empty":
+        history.mkdir()
+    elif kind == "file":
+        history.write_text("not a directory")
+    errors = _load_checker().check(root)
+    if kind == "absent":
+        assert errors == []
+    else:
+        assert any(error.startswith(f"{_MM30_HISTORY}:") for error in errors)
+
+
+@pytest.mark.parametrize("extra", ["orphan", "malformed", "empty", "stray", "symlink"])
+def test_mm30_unexpected_archive_members_refuse(tmp_path, extra):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    old, _ = _mm30_successors(root, checker)
+    history = root / _MM30_HISTORY
+    if extra == "orphan":
+        path = history / ("f" * 64)
+        shutil.copytree(old.contract_path.parent, path)
+    elif extra == "malformed":
+        path = history / "misspelled"
+        path.mkdir()
+        (path / "DOMAIN.yaml").write_text("contract: [")
+    elif extra == "empty":
+        path = old.contract_path.parent / "empty"
+        path.mkdir()
+    elif extra == "stray":
+        path = history / ".stray"
+        path.write_text("extraneous")
+    else:
+        path = old.register_path
+        target = tmp_path / "register.json"
+        path.rename(target)
+        path.symlink_to(target)
+    errors = checker.check(root)
+    assert any(path.relative_to(root).as_posix() in error for error in errors)
+    if extra == "malformed":
+        assert any("misspelled/DOMAIN.yaml: invalid YAML" in error for error in errors)
+    if extra == "symlink":
+        assert any("symlink admission member refused" in error for error in errors)
+
+
+@pytest.mark.parametrize("defect", ["json", "duplicates", "describes", "coverage", "skipped", "absent"])
+def test_mm30_broken_register_fails_closed_after_a_successful_check(tmp_path, defect):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    genesis, prior, head = _mm30_successors(root, checker, successors=2)
+    assert checker.check(root) == []
+    register = head.register_path
+    payload = json.loads(register.read_bytes())
+    if defect == "skipped":
+        payload["previous"] = register_identity(genesis.register)
+    elif defect == "describes":
+        payload["describes"] = genesis.register.describes
+    elif defect == "coverage":
+        del payload["entries"]["sort:mm30/cohort"]
+    elif defect == "absent":
+        register = prior.register_path
+        register.unlink()
+    if defect == "json":
+        register.write_text("{")
+    elif defect == "duplicates":
+        register.write_text('{"describes":"mm30:duplicate",' + json.dumps(payload)[1:])
+    elif defect != "absent":
+        register.write_text(json.dumps(payload))
+
+    relative = register.relative_to(root).as_posix()
+    errors = checker.check(root)
+    assert any(error.startswith(f"{relative}:") for error in errors)
+    assert not any("no predecessor was supplied" in error for error in errors)
+    _, revisions = checker._inspect(root, checker._validate_inventory(_inventory(root)))
+    assert not any(revision.contract.namespace == "mm30" for revision in revisions)
+
+
+@pytest.mark.parametrize(
+    ("defect", "diagnostic"),
+    [
+        ("cycle", "lineage cycle"),
+        ("absent", "required regular file is missing"),
+        ("directory-identity", "content identity differs from its history directory"),
+        ("wrong-link", "required regular file is missing"),
+        ("wrong-namespace", "namespace"),
+        ("drop", "drops claim-vocabulary"),
+        ("redefine", "different canonical schema projection"),
+    ],
+)
+def test_mm30_broken_contract_chain_names_physical_member(tmp_path, defect, diagnostic):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    genesis, head = _mm30_successors(root, checker)
+    target = head.contract_path
+    if defect in {"cycle", "absent", "directory-identity"}:
+        target = genesis.contract_path
+    doc = yaml.safe_load(target.read_bytes())
+    if defect == "cycle":
+        doc["lineage"] = {"successor": genesis.contract.content_identity}
+    elif defect == "directory-identity":
+        doc["version"] += 1
+    elif defect == "wrong-link":
+        digest = "0" * 64
+        doc["lineage"] = {"successor": digest}
+    elif defect == "wrong-namespace":
+        doc["contract"] = "other"
+    elif defect == "drop":
+        del doc["sorts"]["stage-level"]
+    elif defect == "redefine":
+        doc["sorts"]["stage-level"]["identifier_class"]["pattern"] = "level:[a-z]+"
+    if defect == "absent":
+        target.unlink()
+    else:
+        target.write_text(yaml.safe_dump(doc))
+    if defect == "wrong-link":
+        target = root / _MM30_HISTORY / digest / "DOMAIN.yaml"
+    relative = target.relative_to(root).as_posix()
+    assert any(error.startswith(f"{relative}:") and diagnostic in error for error in checker.check(root))
+
+
+def test_mm30_cannot_resurrect_an_archived_tombstone(tmp_path):
+    from dataclasses import replace
+
+    from beliefs.contract.domain import parse_domain_contract
+
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    genesis, prior, head = _mm30_successors(root, checker, successors=2)
+    doc = yaml.safe_load(prior.contract_path.read_bytes())
+    doc["sorts"]["stage-level"]["retired"] = True
+    retired = parse_domain_contract(doc, source="fixture", base=shipped_base_contract(), predecessor=genesis.contract)
+    prior.contract_path.write_text(yaml.safe_dump(doc))
+    prior.register_path.write_text(
+        json.dumps(register_projection(replace(prior.register, describes=f"mm30:{retired.content_identity}")))
+    )
+    prior.contract_path.parent.rename(root / _MM30_HISTORY / retired.content_identity)
+    doc = yaml.safe_load(head.contract_path.read_bytes())
+    doc["lineage"] = {"successor": retired.content_identity}
+    head.contract_path.write_text(yaml.safe_dump(doc))
+    errors = checker.check(root)
+    assert any(f"{_MM30}/mm30-phf19.yaml" in error and "un-retires" in error for error in errors)
+
+
+@pytest.mark.parametrize("source_id", [None, "urn:test:phf19-alias", "urn:test:wrong-source"])
+def test_mm30_successor_requires_canonical_defining_source(tmp_path, source_id):
+    from dataclasses import replace
+
+    from beliefs.contract.domain import parse_domain_contract
+
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    old, head = _mm30_successors(root, checker)
+    inv = _inventory(root)
+    lineage = inv["lineages"]["mm30"]
+    inv["sources"][lineage["source_id"]]["aliases"].append("urn:test:phf19-alias")
+    doc = yaml.safe_load(head.contract_path.read_bytes())
+    if source_id is None:
+        del doc["defining_source"]
+    else:
+        doc["defining_source"]["id"] = source_id
+    cp = head.contract_path.relative_to(root).as_posix()
+    rp = head.register_path.relative_to(root).as_posix()
+    contract = parse_domain_contract(doc, source=cp, base=shipped_base_contract(), predecessor=old.contract)
+    register = replace(head.register, describes=f"mm30:{contract.content_identity}")
+    head.contract_path.write_text(yaml.safe_dump(doc))
+    head.register_path.write_text(json.dumps(register_projection(register)))
+    lineage["revisions"][-1] = _row(root, cp, rp, contract, register)
+    _save_inventory(root, inv)
+    _repin(checker, root)
+    message = "missing defining_source" if source_id is None else "must use canonical"
+    assert any(error.startswith(f"{cp}:") and message in error for error in checker.check(root))
+
+
+@pytest.mark.parametrize("mutation", ["changed-contract", "changed-register", "fresh-genesis", "stale", "reversed"])
+def test_mm30_history_cannot_be_rewritten_or_omitted_by_repinning(tmp_path, mutation):
+    from dataclasses import replace
+
+    from beliefs.contract.domain import parse_domain_contract
+
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    old, head = _mm30_successors(root, checker)
+    inv = _inventory(root)
+    lineage = inv["lineages"]["mm30"]
+    rows = lineage["revisions"]
+    message = "order/coverage"
+    if mutation.startswith("changed-"):
+        target = mutation.removeprefix("changed-")
+        path = root / rows[0][f"{target}_path"]
+        path.write_bytes(path.read_bytes() + b"\n")
+        rows[0][f"{target}_sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
+        message = "missing defining_source outside exact adopted source revisions"
+    elif mutation == "fresh-genesis":
+        doc = yaml.safe_load(head.contract_path.read_bytes())
+        doc["lineage"] = "genesis"
+        cp, rp = rows[-1]["contract_path"], rows[-1]["register_path"]
+        contract = parse_domain_contract(doc, source=cp, base=shipped_base_contract(), predecessor=None)
+        register = replace(head.register, describes=f"mm30:{contract.content_identity}", previous=None)
+        head.contract_path.write_text(yaml.safe_dump(doc))
+        head.register_path.write_text(json.dumps(register_projection(register)))
+        shutil.rmtree(old.contract_path.parent.parent)
+        lineage["genesis"] = contract.content_identity
+        inv["sources"][lineage["source_id"]]["owner"]["genesis"] = contract.content_identity
+        lineage["revisions"] = [_row(root, cp, rp, contract, register)]
+        message = "required adopted revision missing"
+    elif mutation == "stale":
+        rows.pop()
+    else:
+        rows.reverse()
+    _save_inventory(root, inv)
+    _repin(checker, root)
+    assert any(message in error for error in checker.check(root))
+
+
+def test_mm30_checker_rejects_a_head_incompatible_with_the_candidate_base(tmp_path):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    _mm30_successors(root, checker, template_layer="methodological")
+    relative = "contracts/science/CONTRACT.yaml"
+    doc = yaml.safe_load((root / relative).read_bytes())
+    doc["claim_grammar"]["layers"].remove("methodological")
+    restricted = yaml.safe_dump(doc)
+    (root / relative).write_text(restricted)
+    (root / "python/src/beliefs" / relative).write_text(restricted)
+    errors = checker.check(root)
+    assert any(f"{_MM30}/mm30-phf19.yaml" in error and "methodological" in error for error in errors)
+
+
+def test_nested_contract_outside_phf19_history_still_needs_admission(tmp_path):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    _mm30_successors(root, checker)
+    relative = f"{_MM30}/bundle/nested/other.yml"
+    path = root / relative
+    path.parent.mkdir(parents=True)
+    path.write_text("contract: other\nversion: 1\nlineage: genesis\nsorts: {}\ndimensions: {}\n")
+    assert any(error.startswith(f"{relative}: unlisted reproduction contract") for error in checker.check(root))
+
+
+def test_checker_import_needs_no_reproduction_state_or_checkout(tmp_path):
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(tmp_path),
+        "PYTHONPATH": str(_TOOL_PATH.parent),
+    }
+    script = """
+import importlib.abc
+import sys
+
+class BlockState(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in {'reproduction.paths', 'reproduction.state', 'checkout'}:
+            raise AssertionError(fullname)
+
+sys.meta_path.insert(0, BlockState())
+from check_shipped_contracts import main
+
+raise SystemExit(main(sys.argv[1:]))
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script, str(REPO_ROOT)],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr

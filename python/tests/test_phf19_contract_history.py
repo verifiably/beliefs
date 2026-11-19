@@ -44,3 +44,25 @@ def test_third_pair_requires_immediate_register_predecessor(tmp_path):
     head.register_path.write_text(json.dumps(payload))
     with pytest.raises(ProfileError, match=r"mm30-phf19-register\.json: previous .*immediate"):
         load_phf19_history(head.contract_path, base=shipped_base_contract())
+
+
+def test_successor_advances_the_documentary_version(tmp_path):
+    from dataclasses import replace
+
+    import yaml
+    from reproduction.contract_history import load_phf19_history
+
+    from beliefs.contract.domain import parse_domain_contract
+    from beliefs.register import register_projection
+
+    predecessor, head = phf19_history(tmp_path)
+    document = yaml.safe_load(head.contract_path.read_bytes())
+    document["version"] = predecessor.contract.version
+    base = shipped_base_contract()
+    contract = parse_domain_contract(document, source="fixture", base=base, predecessor=predecessor.contract)
+    register = replace(head.register, describes=f"mm30:{contract.content_identity}")
+    head.contract_path.write_text(yaml.safe_dump(document))
+    head.register_path.write_text(json.dumps(register_projection(register)))
+
+    with pytest.raises(ProfileError, match=r"mm30-phf19\.yaml: .*version"):
+        load_phf19_history(head.contract_path, base=base)

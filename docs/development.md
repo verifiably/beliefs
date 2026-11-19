@@ -274,6 +274,26 @@ reproduction.phf19 --readback WORK` with the same WORK_ROOT. Missing closure, ch
 bundle/parser, mismatched pins, a step defect or differing recovery fails the
 command. It creates no composite or legacy cut output.
 
+PHF19 readback checks the current head's pins. To reconstruct a historical
+profile from a checkout that can parse the full chain, select the exact mm30
+pair. Use the digest after `mm30:` in the original corpus manifest. The example
+uses the Python API from `python/` with `PYTHONPATH=tools`.
+
+```python
+from beliefs.mount import compile_mount_profile
+from reproduction import vocabulary
+
+selected = vocabulary.revision(content_identity=mm30_digest)
+profile = compile_mount_profile(corpus_root, available=(selected.contract,))
+register = selected.register
+```
+
+Here `corpus_root` is a `Path` to the corpus with the original manifest.
+The manifest must pin the shipped base and the original peer contracts must
+be available. If the original base or peers are unavailable, or the head requires grammar
+unavailable under the original base, recover from the original source revision
+with its pinned peers.
+
 The result is an unpaired computational demonstration over paired source inputs.
 It does not certify independence, upstream assay validation or biological reuse.
 The assay's unknown validation remains an explicit frozen assumption. A full real
@@ -508,7 +528,7 @@ corresponding `domains/biology/` paths with identical packaged copies. Its gener
 loaders use the same checks; unknown namespaces refuse with `ProfileError`. Field packs keep sorts,
 instantiations and bridges in their own namespace and activate `general` explicitly;
 `python/tools/check_shipped_contracts.py` verifies source ownership across all
-shipped histories and current reproduction contracts. Before admission, add the
+shipped histories, the full standalone PHF19 chain and other reproduction contracts. Before admission, add the
 canonical pair and exact hashes to `contracts/source-ownership/INVENTORY.json` and
 update the checker's `SOURCE_INVENTORY_SHA256` in the same reviewed change. Compare
 all existing reservations and historical pins; a coordinated pin edit does not
@@ -521,9 +541,24 @@ limits; semantic consistency and known equivalent meanings require review. The
 inventory is repository-only; the offline admission command supports the SI Brochure
 lineage with held evidence, human semantic review and a pinned success receipt. It
 does not add a runtime inventory or acquire publisher data.
-Unshipped candidates retain joint ownership review outside this checker. The
-unchanged mm30 PHF19 pair is frozen until its loader gains checked succession;
-even formatting or register-prose edits require that support.
+Unshipped candidates retain joint ownership review outside this checker.
+
+To revise the standalone PHF19 pair, work under `python/tools/reproduction/`.
+Move the exact previous `mm30-phf19.yaml` and `mm30-phf19-register.json` bytes to
+`mm30-phf19-history/<previous-contract-content-identity>/DOMAIN.yaml` and
+`mm30-phf19-history/<previous-contract-content-identity>/REGISTER.json`.
+Install the successor at the two head paths with an increased version,
+`lineage: {successor: <previous-contract-content-identity>}` and
+`defining_source.id` set to `urn:beliefs:definitions:phf19-stage-contrast-admissions`.
+Its register describes the successor, covers its declarations and names the
+immediate prior register identity in `previous`. Keep every earlier pair and
+retained tombstone. Formatting and register prose in adopted files are
+part of their exact-byte pins.
+
+Relocate the previous inventory row's two paths and append the new authored
+pair's row. Update `SOURCE_INVENTORY_SHA256` in the same reviewed change.
+Compare both revisions of the inventory for reservation, alias, owner, adoption
+and historical-pin continuity. Run `just check-hygiene` against the resulting tree.
 
 ## When a check fails
 

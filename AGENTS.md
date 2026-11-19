@@ -52,5 +52,6 @@ Two architecture rules are tested; carry both into every plan that touches the k
   `SOURCE_INVENTORY_SHA256`. Review every coordinated update against its base for
   reservation, alias, owner, adoption and historical-pin continuity. No runtime
   inventory or production external source is installed. Root-only external receipt
-  validation checks repository metadata without held payloads. Existing mm30 bytes are
-  frozen until checked succession support lands.
+  validation checks repository metadata without held payloads. Preserve the exact
+  adopted mm30 pair and archive each preceding pair through the checked standalone
+  succession procedure in `docs/development.md`.

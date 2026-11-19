@@ -746,7 +746,7 @@ manifest. TypeScript reads the six supported retirement families and enforces
 their withdrawal at claim authoring.
 
 The current reproduction source `python/tools/reproduction/mm30-phf19.yaml` is
-an ordinary corpus-local genesis, with its six-entry canonical register. Its three
+the corpus-local genesis, with its six-entry canonical register. Its three
 literal dataset bindings are reproduced from the exact shipped local-list bytes.
 Its covariance instantiation admits the Cartesian set of gene/factor sorts;
 the driver alone enforces the selected heterogeneous PHF19 pair and exact
@@ -758,6 +758,19 @@ provenance and license no RNA-to-protein interpretation. The workflow's explicit
 unknown procedure validation freezes a conditional general assumption, and
 aggregation supplies neither assay validity nor independence. See the
 [authored route](development.md#recreating-the-mm30-corpus) for custody and recovery.
+
+The standalone head uses `mm30-phf19.yaml` and `mm30-phf19-register.json`
+in `python/tools/reproduction/`. A successor keeps those head names and
+archives the preceding exact bytes in
+`mm30-phf19-history/<contract-content-identity>/DOMAIN.yaml` and
+`mm30-phf19-history/<contract-content-identity>/REGISTER.json` beside them.
+The history directory is absent at genesis. The reader checks the complete
+chain under the supplied base, including contract succession, increasing
+versions, each register's `describes` and coverage, and immediate register
+predecessors. The
+reproduction uses one checked head for the profile, manifest pins and register.
+An explicit content identity selects an older pair only after the complete
+chain passes under that base.
 
 ## Coordination contract
 
@@ -823,9 +836,11 @@ justified use. A contradiction requires semantic review and resolution, rather
 than silently preferring either text. Aliases reserve spellings and appear in
 collision diagnostics; contracts must use the canonical id.
 
-The checker covers canonical and packaged domain histories plus contract-bearing
-reproduction YAML. All sources and
-owners are checked together, including owners never activated in the same profile.
+The checker covers canonical and packaged domain histories, the complete standalone
+PHF19 chain and other contract-bearing reproduction YAML. It checks the reserved
+PHF19 history directory against the members the chain requires. An extra,
+misplaced or unreachable member fails admission. All sources and owners are
+checked together, including owners never activated in the same profile.
 Unknown sources, second owners, parallel genesis, unlisted revisions, missing
 ancestors, malformed evidence and stale registers refuse. Shadow `general`
 contracts remain forbidden outside the canonical general paths.
@@ -835,9 +850,11 @@ bytes and absent metadata through an independent immutable adoption map in the
 checker. This exception follows exact historical bytes; a changed file or a new
 metadata-free revision cannot qualify by updating the inventory. Their next
 substantive successor must add the source field and preserve checked history.
-The mm30 pair is frozen, including formatting and register prose, until checked
-succession support is delivered; its current reproduction loader accepts genesis.
-No immediate successor or corpus re-pin is required by this adoption.
+For a PHF19 successor, relocate only the previous row's two paths and append
+the new head row. Preserve the historical file hashes, identities and source pins,
+and use the canonical source id `urn:beliefs:definitions:phf19-stage-contrast-admissions`
+in the successor. The checker continues to require the exact adopted mm30 genesis,
+including formatting and register prose.
 
 Every admission edit requires a coordinated inventory and checker
 `SOURCE_INVENTORY_SHA256` update. The checker verifies this exact-byte pin before
