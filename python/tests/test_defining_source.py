@@ -57,14 +57,17 @@ def test_source_is_immutable_and_outside_projections(base_contract):
 
 
 def test_unchanged_production_profiles(base_contract):
+    inventory = json.loads((ROOT / "contracts/source-ownership/INVENTORY.json").read_bytes())
     parsed = {}
     for row in sorted(
         VECTOR["production"],
         key=lambda r: r["contract_identity"] != "cd89bb6dbf4d28a13b04ca89ddd35d9a4da83bace06e8265ee60048fd0dec48f",
     ):
-        doc = yaml.safe_load((ROOT / row["contract_path"]).read_text())
+        revisions = inventory["lineages"][row["namespace"]]["revisions"]
+        path = next(r["contract_path"] for r in revisions if r["contract_identity"] == row["contract_identity"])
+        doc = yaml.safe_load((ROOT / path).read_text())
         prior = parsed.get(row["namespace"])
-        c = parse_domain_contract(doc, source=row["contract_path"], base=base_contract, predecessor=prior)
+        c = parse_domain_contract(doc, source=path, base=base_contract, predecessor=prior)
         assert c.content_identity == row["contract_identity"]
         parsed[c.namespace] = c
     for names, identity in VECTOR["profiles"].items():

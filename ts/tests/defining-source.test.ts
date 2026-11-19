@@ -24,11 +24,18 @@ function parse(row: Case): ReturnType<typeof parseDomainContract> {
   const prior = row.previous ? parse(vector.cases.find((c) => c.name === row.previous) as Case) : undefined;
   return parseDomainContract(stringify(row.document), row.name, base, prior);
 }
-it("unchanged production contracts parse and all current profiles compile", () => {
+it("adopted production contracts parse and their profiles compile", () => {
+  const inventory = JSON.parse(read("contracts/source-ownership/INVENTORY.json")) as {
+    lineages: Record<string, { revisions: { contract_path: string; contract_identity: string }[] }>;
+  };
   const parsed = new Map<string, ReturnType<typeof parseDomainContract>>();
   const rows = [...vector.production].sort((a) => (a.contract_path.includes("history/") ? -1 : 1));
   for (const row of rows) {
-    const c = parseDomainContract(read(row.contract_path), row.contract_path, base, parsed.get(row.namespace));
+    const path = inventory.lineages[row.namespace]?.revisions.find(
+      (revision) => revision.contract_identity === row.contract_identity,
+    )?.contract_path;
+    if (!path) throw new Error(`Missing inventory path for ${row.namespace}/${row.contract_identity}`);
+    const c = parseDomainContract(read(path), path, base, parsed.get(row.namespace));
     expect(c.contentIdentity).toBe(row.contract_identity);
     parsed.set(row.namespace, c);
   }

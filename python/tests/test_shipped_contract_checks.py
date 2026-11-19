@@ -768,14 +768,22 @@ def test_source_metadata_does_not_waive_unit_checks(external):
 def test_plan_base_adoption_is_exact():
     vector = json.loads((REPO_ROOT / "fixtures/defining-source.json").read_text())
     checker = _load_checker()
+    inventory = _inventory(REPO_ROOT)
     for row in vector["production"]:
+        current = next(
+            r
+            for r in inventory["lineages"][row["namespace"]]["revisions"]
+            if r["contract_identity"] == row["contract_identity"]
+        )
         reg = register_from_projection(
-            json.loads((REPO_ROOT / row["register_path"]).read_text()), source=row["register_path"]
+            json.loads((REPO_ROOT / current["register_path"]).read_text()), source=current["register_path"]
         )
         assert register_identity(reg) == row["register_identity"]
         assert all(e.status == "provisional" for e in reg.entries.values())
         for part in ("contract", "register"):
-            assert hashlib.sha256((REPO_ROOT / row[part + "_path"]).read_bytes()).hexdigest() == row[part + "_sha256"]
+            assert (
+                hashlib.sha256((REPO_ROOT / current[part + "_path"]).read_bytes()).hexdigest() == row[part + "_sha256"]
+            )
         assert checker.ADOPTED_SOURCE_REVISIONS[(row["namespace"], row["contract_identity"])] == tuple(
             row[k] for k in ("register_identity", "contract_sha256", "register_sha256", "source_id")
         )
@@ -819,10 +827,14 @@ _MM30_HISTORY = f"{_MM30}/mm30-phf19-history"
 def _mm30_successors(root, checker, *, successors=1, template_layer=None):
     from fixtures.phf19_history import phf19_history
 
+    history = root / _MM30_HISTORY
+    if history.exists():
+        shutil.rmtree(history)
     pairs = phf19_history(root / _MM30, successors=successors, template_layer=template_layer)
     inventory = _inventory(root)
     old, *new = pairs
     rows = inventory["lineages"]["mm30"]["revisions"]
+    del rows[1:]
     rows[0].update(
         contract_path=old.contract_path.relative_to(root).as_posix(),
         register_path=old.register_path.relative_to(root).as_posix(),
@@ -843,6 +855,7 @@ def test_standalone_successors_admit_with_historical_pins_and_receipts(tmp_path,
 
     root = _copy_fixture_root(tmp_path)
     checker = _load_checker()
+    _mm30_successors(root, checker, successors=0)
     baseline = _inventory(root)
     *_, head = _mm30_successors(root, checker, successors=successors)
     candidate = _inventory(root)
@@ -865,12 +878,14 @@ def test_standalone_successors_admit_with_historical_pins_and_receipts(tmp_path,
 @pytest.mark.parametrize("kind", ["absent", "empty", "file"])
 def test_mm30_reserved_history_root_at_genesis(tmp_path, kind):
     root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    _mm30_successors(root, checker, successors=0)
     history = root / _MM30_HISTORY
     if kind == "empty":
         history.mkdir()
     elif kind == "file":
         history.write_text("not a directory")
-    errors = _load_checker().check(root)
+    errors = checker.check(root)
     if kind == "absent":
         assert errors == []
     else:
@@ -1133,3 +1148,15 @@ raise SystemExit(main(sys.argv[1:]))
         timeout=30,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def test_synthetic_fixture_resets_a_copy_with_an_admitted_history(tmp_path):
+    root = _copy_fixture_root(tmp_path)
+    checker = _load_checker()
+    adopted, _, advanced = _mm30_successors(root, checker, successors=2)
+    assert checker.check(root) == []
+
+    genesis, successor = _mm30_successors(root, checker)
+    assert genesis.contract.content_identity == adopted.contract.content_identity
+    assert successor.contract.content_identity != advanced.contract.content_identity
+    assert checker.check(root) == []
