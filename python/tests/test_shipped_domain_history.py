@@ -229,3 +229,24 @@ def test_missing_shipped_root_file_never_uses_available(shipped_sample):
     (root / "domains/sample/DOMAIN.yaml").unlink()
     with pytest.raises(ProfileError):
         compile_mount_profile(corpus, available=(contracts[0],))
+
+
+def test_wrong_kind_namespace_never_uses_available(shipped_sample):
+    import shutil
+
+    from profiles import pins_for
+
+    from beliefs.mount import compile_mount_profile
+    from beliefs.profile import compile_profile
+    from beliefs.world import CorpusManifest, manifest_bytes
+
+    root, contracts, _ = shipped_sample
+    profile = compile_profile(shipped_base_contract(), [contracts[0]])
+    corpus = root / "corpus"
+    corpus.mkdir()
+    (corpus / "corpus.yaml").write_bytes(manifest_bytes(CorpusManifest(2, "a" * 32, pins_for(profile))))
+    namespace = root / "domains/sample"
+    shutil.rmtree(namespace)
+    namespace.write_text("damaged package entry")
+    with pytest.raises(ProfileError, match="directory"):
+        compile_mount_profile(corpus, available=(contracts[0],))

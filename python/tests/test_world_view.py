@@ -1326,14 +1326,29 @@ def test_old_epoch_after_repin_reports_live_pin_drift(tmp_path, testing_document
     old_view = open_world_view(world, published)
     old_result = evaluate_over(old_view, "proposition:p", **arguments(old_view, profiles[0]))
     assert isinstance(old_result, Belief)
-    old_result_bytes = repr(old_result).encode()
+    import json
+
+    result_path = tmp_path / "prior-consumer-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "value": old_result.value,
+                "belief_input_digest": old_result.belief_input_digest,
+                "policy_binding": {
+                    "rule": old_result.policy_binding.rule,
+                    "implementation": old_result.policy_binding.implementation,
+                },
+            }
+        )
+    )
+    old_result_bytes = result_path.read_bytes()
     writer.repin_domain(predecessor=contracts[0], successor=contracts[1], profile=profiles[1])
     assert world.registry().admissions == admitted
     fresh = open_world_view(world, published)
     assert len(fresh.drift()) == 1 and fresh.drift()[0].corpus_id == manifest.corpus_id
     assert fresh.absent() == ()
     stale_result = evaluate_over(fresh, "proposition:p", **arguments(fresh, profiles[0]))
-    assert isinstance(stale_result, Refused)
+    assert isinstance(stale_result, Refused) and stale_result.reason.startswith("profile-pin-mismatch: testing ")
     kwargs = arguments(fresh, profiles[1])
     result = evaluate_over(fresh, "proposition:p", **kwargs)
     assert isinstance(result, Belief) and result.value == old_result.value
@@ -1350,7 +1365,7 @@ def test_old_epoch_after_repin_reports_live_pin_drift(tmp_path, testing_document
     )
     assert ("testing", pins_for(profiles[1]).domains["testing"]) in inputs.consulted
     assert dict(open_epoch(world, published.packaging_identity).members) == epoch_bytes
-    assert repr(old_result).encode() == old_result_bytes
+    assert result_path.read_bytes() == old_result_bytes
     assert {path.relative_to(root): path.read_bytes() for path in root.rglob("*.md")} == stored_bytes
     new_epoch = publish(world, (manifest.corpus_id,), bindings)
     assert new_epoch.packaging_identity != published.packaging_identity

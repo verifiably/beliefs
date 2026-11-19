@@ -742,7 +742,8 @@ This layout has no independent register-only revision chain: a replacement citin
 the prior register for the same contract as `previous` is refused. Prose-only
 register history needs a separate route; the checker cannot infer an omitted
 history from overwritten bytes. Loading a successor does not re-pin any corpus
-manifest, and TypeScript still refuses retirement fields.
+manifest. TypeScript reads the six supported retirement families and enforces
+their withdrawal at claim authoring.
 
 The current reproduction source `python/tools/reproduction/mm30-phf19.yaml` is
 an ordinary corpus-local genesis, with its six-entry canonical register. Its three

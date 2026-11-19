@@ -3468,10 +3468,13 @@ class CorpusWriter:
             path = self.root / "corpus.yaml"
             try:
                 fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
-                with os.fdopen(fd, "rb") as stream:
-                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
-                        raise ManifestMalformed(f"{path}: manifest is not a regular file")
-                    old_bytes = stream.read()
+                try:
+                    with os.fdopen(fd, "rb", closefd=False) as stream:
+                        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                            raise ManifestMalformed(f"{path}: manifest is not a regular file")
+                        old_bytes = stream.read()
+                finally:
+                    os.close(fd)
             except FileNotFoundError as caught:
                 raise ManifestMissing(f"{path}: manifest is missing") from caught
             except OSError as caught:

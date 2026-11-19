@@ -188,8 +188,11 @@ def _shipped_domain_history(namespace: str) -> tuple[ShippedDomainRevision, ...]
         _name(namespace, "namespace")
     except MalformedContract as exc:
         raise ProfileError(f"this package ships no domain contract for namespace {namespace!r}") from exc
-    root = resources.files("beliefs").joinpath(f"domains/{namespace}")
+    domains = resources.files("beliefs").joinpath("domains")
+    root = domains.joinpath(namespace)
     if not root.is_dir():
+        if any(entry.name == namespace for entry in domains.iterdir()):
+            raise ProfileError(f"shipped namespace {namespace!r} is not a directory")
         raise ShippedDomainNotFound(f"this package ships no domain contract for namespace {namespace!r}")
     return load_domain_history(
         namespace, base=shipped_base_contract(), read_text=lambda path: root.joinpath(path).read_text(encoding="utf-8")

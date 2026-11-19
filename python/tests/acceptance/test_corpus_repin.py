@@ -10,7 +10,7 @@ from profiles import pins_for
 from beliefs import root as composition
 from beliefs import stored
 from beliefs.claim import Referent, build_claim
-from beliefs.decode import WireClaim, decode_claim
+from beliefs.decode import claim_from_stored
 from beliefs.errors import ContractMismatch
 from beliefs.projection import project_claim
 from beliefs.resolution import build_snapshot
@@ -59,8 +59,14 @@ def test_repin_real_engine_journey(durable_root):
         entries = [entry for entry in chain(durable_root).entries if isinstance(entry, RegisteredEntryView)]
         entry = entries[-1]
         assert entry.fulfills is None
-        assert dict(entry.initial)["corpus.yaml"].content_hash == "sha256:" + sha256(before).hexdigest()
-        assert dict(entry.final)["corpus.yaml"].content_hash == "sha256:" + sha256(after).hexdigest()
+        assert (
+            getattr(dict(entry.initial)["corpus.yaml"], "content_hash", None) == "sha256:" + sha256(before).hexdigest()
+        )
+        assert getattr(dict(entry.final)["corpus.yaml"], "content_hash", None) == "sha256:" + sha256(after).hexdigest()
+        with pytest.raises(ContractMismatch):
+            writer.repin_domain(predecessor=contracts[index - 1], successor=contracts[index], profile=profiles[index])
+        assert load_manifest(durable_root).profile == pins_for(profiles[index])
+        assert [entry for entry in chain(durable_root).entries if isinstance(entry, RegisteredEntryView)] == entries
         with pytest.raises(ContractMismatch):
             writer.add(stored.proposition_node("stale", title="stale", claim=project_claim(claim(profiles[index - 1]))))
         with pytest.raises(ContractMismatch):
@@ -69,9 +75,7 @@ def test_repin_real_engine_journey(durable_root):
         read = writer.read_view.get(minted.id)
         assert (read.id, read.uid, read.facets) == (minted.id, minted.uid, minted.facets)
         assert path.read_bytes() == record_bytes
-        decoded, _ = decode_claim(
-            WireClaim(**project_claim(claim(profiles[0]))), profile=profiles[index], snapshot=build_snapshot()
-        )
+        decoded, _ = claim_from_stored(read, profile=profiles[index], snapshot=build_snapshot())
         assert project_claim(decoded) == project_claim(claim(profiles[0]))
         writer.add(
             stored.proposition_node(
@@ -122,7 +126,7 @@ def test_manifest_publish_trace(durable_root, monkeypatch):
 
 @pytest.mark.parametrize("stop,visible", [(8, "old"), (9, "target")])
 def test_repin_interrupted_then_recovered(durable_root, monkeypatch, stop, visible):
-    from nodes.core.write_plan import ExecutionError
+    from nodes.core.errors import ExecutionError
 
     _, contracts, profiles, _ = repin_chain()
     writer = composition.open_corpus(durable_root, authority=FULL, profile=profiles[0])
@@ -151,7 +155,8 @@ def test_repin_interrupted_then_recovered(durable_root, monkeypatch, stop, visib
 
 
 def test_manifest_stale_preimage_refused(durable_root):
-    from nodes.core.write_plan import ExecutionError, ReplaceOp
+    from nodes.core.errors import ExecutionError
+    from nodes.core.write_plan import ReplaceOp
 
     _, _, profiles, _ = repin_chain()
     writer = composition.open_corpus(durable_root, authority=FULL, profile=profiles[0])

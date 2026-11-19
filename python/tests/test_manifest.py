@@ -386,7 +386,10 @@ def test_repin_unsupported_transition_has_no_effect(repin_setup, base_contract_p
         document = yaml.safe_load(base_contract_path.read_text())
         document["claim_grammar"]["layers"].append("speculative")
         base = parse_base_contract(document, source="wide")
-        args["successor"] = parse_domain_contract(documents[0], source="other base", base=base, predecessor=None)
+        other_predecessor = parse_domain_contract(documents[0], source="other base", base=base, predecessor=None)
+        args["successor"] = parse_domain_contract(
+            documents[1], source="other base successor", base=base, predecessor=other_predecessor
+        )
     elif fault == "activation":
         args["profile"] = compile_profile(shipped_base_contract(), [contracts[1], other])
     elif fault == "unrelated":
@@ -395,7 +398,39 @@ def test_repin_unsupported_transition_has_no_effect(repin_setup, base_contract_p
         args["predecessor"] = shipped_coordination(2)
         args["successor"] = shipped_coordination(3)
     before = (writer.root / "corpus.yaml").read_bytes()
-    with pytest.raises(ScienceError):
+    with pytest.raises(ScienceError, match="cannot change the base contract" if fault == "base" else None):
         writer.repin_domain(**args)
     assert (writer.root / "corpus.yaml").read_bytes() == before
     assert not factory.plans and not factory.recoveries
+
+
+def test_repin_directory_refusal_closes_descriptor(repin_setup, monkeypatch):
+    import errno
+    import os
+
+    writer, _, (_, contracts, profiles, _) = repin_setup
+    path = writer.root / "corpus.yaml"
+    path.unlink()
+    path.mkdir()
+    opened = []
+    original_open = os.open
+
+    def observe(*args, **kwargs):
+        fd = original_open(*args, **kwargs)
+        opened.append(fd)
+        return fd
+
+    monkeypatch.setattr(os, "open", observe)
+    with pytest.raises(ManifestMalformed):
+        writer.repin_domain(predecessor=contracts[0], successor=contracts[1], profile=profiles[1])
+    assert len(opened) == 1
+    try:
+        with pytest.raises(OSError) as refused:
+            os.fstat(opened[0])
+        assert refused.value.errno == errno.EBADF
+    finally:
+        # Keep the regression's RED run from leaking the descriptor it detects.
+        try:
+            os.close(opened[0])
+        except OSError as closed:
+            assert closed.errno == errno.EBADF
