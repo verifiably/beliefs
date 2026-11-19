@@ -757,6 +757,10 @@ class ProfileError(ScienceError):
     """A profile refused — at compilation, at construction, or at resolution."""
 
 
+class RepinRefused(ScienceError):
+    """A re-pin requires an unsupported transition or lacks recovery capability."""
+
+
 class ShippedDomainNotFound(ProfileError):
     """The shipped namespace or requested revision is absent, not corrupt."""
 

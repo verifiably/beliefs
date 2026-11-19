@@ -311,3 +311,14 @@ specific checked domain/register pair, pass the same `content_identity=` to
 current shipped pair. Supplied contracts resolve absent namespaces or revisions;
 they do not conceal corrupt shipped history. These reads do not change a corpus
 pin. See [the contract history rules](contracts.md) for the checks and limits.
+
+
+### Moving a corpus to a domain successor
+
+Load the parsed predecessor and immediate successor, compile the target profile,
+and call `repin_domain` through a lifecycle-authorized writer bound to the old
+profile. Then reopen the writer with the target profile. Stored records remain
+unchanged; separately admit the successor assumptions register. Repeat one hop at
+a time for a longer chain. Review scientific meaning before selecting a successor.
+See the [recovery and provenance limits](writes.md#re-pinning-a-domain), especially
+before retrying a call whose outcome was not observed.

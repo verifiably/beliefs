@@ -498,18 +498,26 @@ def _parse_manifest(value: object) -> CorpusManifest:
     return CorpusManifest(manifest_version=2, corpus_id=corpus_id, profile=profile, forked_from=forked_from)
 
 
+def _decode_manifest(data: bytes, *, source: Path) -> CorpusManifest:
+    """Validate the one byte observation held by a manifest reader."""
+    try:
+        return _parse_manifest(yaml.load(data.decode("utf-8"), Loader=_ManifestLoader))
+    except ManifestMalformed:
+        raise
+    except Exception as caught:
+        raise ManifestMalformed(f"{source}: malformed manifest: {caught}") from caught
+
+
 def load_manifest(root: Path) -> CorpusManifest:
     """Load the exact closed manifest at a corpus root."""
     path = Path(root) / "corpus.yaml"
     try:
-        document = yaml.load(path.read_text(encoding="utf-8"), Loader=_ManifestLoader)
-        return _parse_manifest(document)
+        data = path.read_bytes()
     except FileNotFoundError as caught:
         raise ManifestMissing(f"{path}: manifest is missing") from caught
-    except ManifestMalformed:
-        raise
-    except Exception as caught:
+    except OSError as caught:
         raise ManifestMalformed(f"{path}: malformed manifest: {caught}") from caught
+    return _decode_manifest(data, source=path)
 
 
 def manifest_projection(manifest: CorpusManifest) -> dict[str, object]:

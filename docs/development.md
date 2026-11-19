@@ -521,3 +521,14 @@ even formatting or register-prose edits require that support.
   caller or stale entry; see [Two rules the tests hold closed](#two-rules-the-tests-hold-closed).
 - **A shipped-copy test fails.** A root contract and its packaged copy differ; copy
   the root file over the packaged one.
+
+
+### Domain re-pin checks
+
+Run `just test-one tests/acceptance/test_corpus_repin.py` on the certified tuple
+for manifest replacement and recovery evidence. Its fault backend delegates to
+the real engine and interrupts both old-visible and target-visible transactions;
+portable doubles do not establish those guarantees. Start with the module's
+`test_repin_real_engine_journey` case when checking a new host setup. The focused
+manifest, permit, capability and pin-recheck inventory tests cover the write
+boundary, while world-view, consulted-contract and register tests cover readers.

@@ -450,3 +450,30 @@ def test_foreign_ownership_and_register_entry_keys_expansion():
         if f.code == "register-entry-unknown"
     }
     assert unknown_on_testing == set(foreign_on_testing)
+
+
+def test_repin_register_chain_and_predecessor_bridge_citation(tmp_path, testing_document):
+    from authority import FULL
+    from fixtures.repin import PortableFactory, repin_chain
+    from profiles import pins_for
+    from test_audit import _promotes_spec
+
+    from beliefs.corpus import CorpusWriter
+
+    _, contracts, profiles, registers = repin_chain(testing_document)
+    factory = PortableFactory()
+    writer = CorpusWriter(tmp_path, factory, authority=FULL, profile=profiles[0])
+    writer.adopt_manifest(profile=pins_for(profiles[0]))
+    old = writer.add(stored.assumptions_register_node(registers[0]))
+    spec_id = _promotes_spec(writer, [old.id])
+    spec_bytes = writer.read_view.get(spec_id).model_dump()
+    writer.repin_domain(predecessor=contracts[0], successor=contracts[1], profile=profiles[1])
+    writer = CorpusWriter(tmp_path, factory, authority=FULL, profile=profiles[1])
+    codes = {f.code for f in corpus_check(writer.read_view, profile=profiles[1])}
+    assert "register-stale" in codes
+    assert "bridging-register-uncited" not in codes
+    writer.add(stored.assumptions_register_node(registers[1]))
+    codes = {f.code for f in corpus_check(writer.read_view, profile=profiles[1])}
+    assert "register-stale" not in codes and "bridging-register-uncited" not in codes
+    assert writer.read_view.get(spec_id).model_dump() == spec_bytes
+    assert writer.read_view.get(old.id).facets["assumptions-register"]["describes"] == registers[0].describes

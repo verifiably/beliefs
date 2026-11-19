@@ -124,6 +124,42 @@ def violations(module, tree):
                 ):
                     failures.append("corpus.py:__enter__: recovery lacks prior check under raw lock")
                 continue
+            if parent.name == "CorpusWriter" and fn.name == "repin_domain":
+                holds = [
+                    node
+                    for node in fn.body
+                    if isinstance(node, ast.With)
+                    and any(ast.unparse(item.context_expr) == "state.lock" for item in node.items)
+                ]
+                valid = False
+                if len(holds) == 1:
+                    hold = holds[0]
+                    statements = [ast.unparse(node) for node in hold.body]
+                    recover = [call for call in calls(hold) if name(call) == "recover"]
+                    execute = [call for call in calls(hold) if name(call) == "execute"]
+                    reads = [call for call in calls(hold) if name(call) == "_decode_manifest"]
+                    checks = [call for call in calls(hold) if name(call) == "_pins_mismatch"]
+                    refusals = [
+                        node
+                        for node in hold.body
+                        if isinstance(node, ast.If)
+                        and ast.unparse(node.test) == "scope != 'none'"
+                        and len(node.body) == 1
+                        and isinstance(node.body[0], ast.Raise)
+                    ]
+                    valid = (
+                        statements[:2] == ["state.unresolved = True", "state.recover(self.root)"]
+                        and len(recover) == len(execute) == len(reads) == len(checks) == len(refusals) == 1
+                        and all(effect in calls(hold) for effect in effects)
+                        and recover[0].lineno
+                        < reads[0].lineno
+                        < checks[0].lineno
+                        < refusals[0].lineno
+                        < execute[0].lineno
+                    )
+                if not valid:
+                    failures.append("corpus.py:repin_domain: lock, invalidation, recovery or settled-pin guard missing")
+                continue
             if parent.name == "CorpusWriter" and fn.name == "_settle":
                 # The only caller is the checked context entry. Recovery can
                 # change pins; its result must be checked before rebuilding or
@@ -259,3 +295,24 @@ def test_context_entry_and_recovery_are_in_the_effect_inventory():
     )
     recover = next(node for node in factory.body if isinstance(node, ast.FunctionDef) and node.name == "recover")
     assert any(name(call) == "read_chain" for call in calls(recover))
+
+
+def test_repin_guard_detects_each_removed_or_reordered_boundary():
+    source = (SRC / "corpus.py").read_text()
+    start = source.index("    def repin_domain(")
+    end = source.index("    def _stage_record(", start)
+    method = source[start:end]
+    for before, after in (
+        ("with state.lock:", "with other_lock:"),
+        ("state.unresolved = True", "state.unresolved = False"),
+        ("            state.recover(self.root)\n", ""),
+        ("_pins_mismatch(manifest.profile, self._profile)", "ignored_check(manifest.profile, self._profile)"),
+        ('if scope != "none":', "if False:"),
+        (
+            "            state.unresolved = True\n            state.recover(self.root)",
+            "            state.recover(self.root)\n            state.unresolved = True",
+        ),
+    ):
+        assert before in method
+        altered = source[:start] + method.replace(before, after) + source[end:]
+        assert violations("corpus.py", ast.parse(altered)), before

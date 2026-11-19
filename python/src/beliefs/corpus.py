@@ -32,11 +32,13 @@ from __future__ import annotations
 import os
 import re
 import secrets
+import stat
 import threading
 from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import ExitStack, contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
+from hashlib import sha256
 from itertools import pairwise
 from pathlib import Path
 from types import MappingProxyType
@@ -63,7 +65,7 @@ from beliefs.acquisition import ProducerView, ReportView, bearer_refusal, validi
 from beliefs.assumptions import check_instance
 from beliefs.classification_rule import RULE_FACET, RULE_KIND, rule_from_stored
 from beliefs.consulted import CorpusPins
-from beliefs.contract.domain import DECLARATION_FAMILIES
+from beliefs.contract.domain import DECLARATION_FAMILIES, DomainContract, check_succession
 from beliefs.coordination import (
     COORDINATION_KINDS,
     PUBLICATION_KINDS,
@@ -122,6 +124,7 @@ from beliefs.errors import (
     RecordError,
     RegisterNotCurrent,
     RelocationTargetMissing,
+    RepinRefused,
     ReservationRefused,
     RetractionCycleMalformed,
     RetractionGroundsMissing,
@@ -139,6 +142,7 @@ from beliefs.errors import (
     SourceAssertionRefused,
     SupersedeIdentityUnchanged,
     UnfreezableSpec,
+    UnparsedContract,
     ValidationRefused,
     VerificationTargetMismatch,
     WriteRefused,
@@ -3414,6 +3418,79 @@ class CorpusWriter:
             manifest = CorpusManifest(2, secrets.token_hex(16), checked_profile)
             self._state.executors(self._corpus.store.root).execute([CreateOp("corpus.yaml", manifest_bytes(manifest))])
             return manifest
+
+    def repin_domain(
+        self, *, predecessor: DomainContract, successor: DomainContract, profile: ProfileSpec
+    ) -> CorpusManifest:
+        """Replace one immediate same-base pin; reopen with the target profile afterward.
+
+        Recovery may settle earlier work before this call refuses stale pins.
+        The chain retains content digests, not attributed manifest history.
+        """
+        self._authority.require("lifecycle")
+        if not isinstance(predecessor, DomainContract) or not isinstance(successor, DomainContract):
+            raise UnparsedContract("re-pin requires parsed predecessor and successor contracts")
+        if not isinstance(profile, ProfileSpec):
+            raise TypeError("re-pin requires a compiled target ProfileSpec")
+        namespace = predecessor.namespace
+        if namespace in {"science", "coordination"} or namespace not in self._profile.activated_contracts:
+            raise RepinRefused("re-pin requires an existing non-coordination domain namespace")
+        if self._profile.activated_contracts[namespace] != predecessor.content_identity:
+            raise ContractMismatch("the writer is not bound to the supplied predecessor")
+        if successor.namespace != namespace or successor.content_identity == predecessor.content_identity:
+            raise RepinRefused("re-pin requires a different successor in the same namespace")
+        if not (
+            predecessor.base_identity
+            == successor.base_identity
+            == self._profile.base_contract_identity
+            == profile.base_contract_identity
+        ):
+            raise RepinRefused("re-pin cannot change the base contract")
+        check_succession(successor, predecessor)
+        for key, facet in predecessor.facets.items():
+            if key not in successor.facets or facet.projection() != successor.facets[key].projection():
+                raise RepinRefused(f"re-pin cannot change or remove facet {key!r}")
+        target = dict(self._profile.activated_contracts)
+        target[namespace] = successor.content_identity
+        if dict(profile.activated_contracts) != target:
+            raise ContractMismatch("target profile must change exactly the selected domain pin")
+        state = self._state
+        if state.recover is None:
+            raise RepinRefused("re-pin requires an explicit recovery callback")
+        from beliefs.world import manifest_bytes
+        from beliefs.world.registry import _decode_manifest
+
+        # The ordinary hold checks old pins before recovery; an interrupted
+        # replacement can already expose the target pin, so use the raw lock.
+        with state.lock:
+            state.unresolved = True
+            state.recover(self.root)
+            path = self.root / "corpus.yaml"
+            try:
+                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+                with os.fdopen(fd, "rb") as stream:
+                    if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                        raise ManifestMalformed(f"{path}: manifest is not a regular file")
+                    old_bytes = stream.read()
+            except FileNotFoundError as caught:
+                raise ManifestMissing(f"{path}: manifest is missing") from caught
+            except OSError as caught:
+                raise ManifestMalformed(f"{path}: manifest cannot be read: {caught}") from caught
+            manifest = _decode_manifest(old_bytes, source=path)
+            scope, detail, _ = _pins_mismatch(manifest.profile, self._profile)
+            if scope != "none":
+                raise ContractMismatch(f"{path}: {detail}")
+            updated = replace(
+                manifest,
+                profile=CorpusPins(
+                    manifest.profile.science_contract,
+                    {**manifest.profile.domains, namespace: f"{namespace}:{successor.content_identity}"},
+                ),
+            )
+            state.executors(self.root).execute(
+                [ReplaceOp("corpus.yaml", manifest_bytes(updated), sha256(old_bytes).hexdigest())]
+            )
+            return updated
 
     def _stage_record(self, text: str) -> Node:
         """One snapshot record, written into a staging corpus

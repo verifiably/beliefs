@@ -48,6 +48,38 @@ the empty permit, so every act through it is refused.
    `corpus.yaml` with a fresh corpus id. It refuses when a manifest is already
    present, or when the pins it is given disagree with the writer's profile.
 
+## Re-pinning a domain
+
+`writer.repin_domain(predecessor=old, successor=new, profile=target)` requires
+`lifecycle` authority. The writer holds the old profile; the arguments are parsed
+domain contracts and a compiled target profile. It permits one immediate successor
+in an already activated domain, on the same base, preserving all other pins and
+every existing facet declaration's full projection. It refuses coordination,
+namespace activation/removal, jumps, changed facets and unsupported manifests.
+New facet keys are allowed. Scientific equivalence of changed prose still requires
+review before choosing a successor for a real corpus.
+
+Pure argument checks run before I/O. Under the raw root lock, an explicit recovery
+callback settles pending engine work **before** the regular, non-symlink
+`corpus.yaml` is read and checked against the old profile. The replacement checks
+the SHA-256 digest of those exact bytes. Epoch capture cannot overlap the lock.
+The call preserves corpus identity and fork provenance and changes no stored record
+or register. Reopen with the target profile afterward; old writers and ports refuse.
+
+After a lost reply, retrying the same call first recovers. Settled old pins allow
+the replacement; settled target pins raise `ContractMismatch`, after which inspect
+the manifest explicitly. An unrelated settled state also refuses. This is not an
+idempotent request protocol, and recovery refusal never proves completion. A root
+without a recovery callback raises `RepinRefused`; portable test doubles must
+provide an explicit callback. State remains unresolved until the next ordinary
+writer settles and reconstructs it.
+
+The atoms chain retains the pre/post `corpus.yaml` SHA-256 digests and the write
+intent digest, **not** the replaced manifest text, actor or wall-clock time.
+An admission record retains its admission-time manifest, but intermediate re-pins
+have no complete attributed history. No new operation intent or second log is
+created; independently held manifest bytes are needed to interpret old digests.
+
 ## An ordinary write
 
 `add`, `supersede`, `revise`, `retract`, `attest_coreference`,

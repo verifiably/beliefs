@@ -783,3 +783,24 @@ def test_claimless_bridge_target_reads_its_template_contract(base_contract, test
 
     assert profile.template_of(profile.operator(e.operator)).contract in assessed_target_contracts(target, profile)
     assert assessed_target_contracts(target, profile) == {"testing", "crossing"}
+
+
+def test_successor_pins_agree_only_across_consulted_corpora(testing_document):
+    from fixtures.repin import repin_chain
+
+    _, _, profiles, _ = repin_chain(testing_document)
+    old, new = profiles[:2]
+    value = _affects(new)
+    identity = claim_identity(value)
+    kwargs = {
+        "claims": {identity: value},
+        "profile": new,
+        "node_corpus": {identity: ("a", "b")},
+        "closure_nodes": (identity,),
+    }
+    with pytest.raises(ContractDisagreement):
+        consulted_contracts(**kwargs, pins={"a": pins_for(old), "b": pins_for(new)})
+    agreed = consulted_contracts(**kwargs, pins={"a": pins_for(new), "b": pins_for(new), "unread": pins_for(old)})
+    assert ("testing", pins_for(new).domains["testing"]) in agreed
+    base_only = consulted_contracts(claims={}, profile=new, node_corpus={}, closure_nodes=(), pins={"a": pins_for(old)})
+    assert dict(base_only) == {"science": pins_for(new).science_contract}

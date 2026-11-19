@@ -1278,3 +1278,81 @@ class TestServedSurface:
         make_absent(roots, ALPHA)
         gone = open_world_view(world, published)
         assert type(gone.locate(shared.id)) is read.NotPresent and _absence_of(gone, shared.id) == ALPHA
+
+
+def test_old_epoch_after_repin_reports_live_pin_drift(tmp_path, testing_document):
+    from domain_facet_fixtures import seed_nodes
+    from fixtures.repin import PortableFactory, repin_chain
+    from profiles import biology
+    from test_world_receipts import ChainHeads
+
+    from beliefs.belief import Belief, Refused
+    from beliefs.evaluation import evaluate_over, gather
+    from beliefs.profile import compile_profile, shipped_base_contract
+    from beliefs.world import Fresh, World, WorldConfig, open_epoch
+
+    _, contracts, _, _ = repin_chain(testing_document)
+    profiles = [compile_profile(shipped_base_contract(), [contract, biology("fixture")]) for contract in contracts]
+    factory = PortableFactory()
+    root = tmp_path / "corpus"
+    writer = CorpusWriter(root, factory, authority=FULL, profile=profiles[0])
+    manifest = writer.adopt_manifest(profile=pins_for(profiles[0]))
+    for node in seed_nodes():
+        writer.add(node)
+    world = World(
+        WorldConfig(tmp_path / "world", "f" * 32, (root,)),
+        DefaultExecutor,
+        chain_head=ChainHeads(),
+        corpus_executor_factory=factory,
+        authority=FULL,
+    )
+    world.admit(root, provenance=Fresh())
+    admitted = world.registry().admissions
+    bindings = hold_shipped(world)
+    published = publish(world, (manifest.corpus_id,), bindings)
+    epoch_bytes = dict(published.members)
+    stored_bytes = {path.relative_to(root): path.read_bytes() for path in root.rglob("*.md")}
+
+    def arguments(view, profile):
+        kwargs = kwargs_for(view, profile)
+        kwargs["context"] = replace(
+            kwargs["context"],
+            node_corpus={},
+            pins={manifest.corpus_id: view.captured_manifest(manifest.corpus_id).profile},
+            producer_snapshot_identity=view.producer_snapshot_identity(),
+        )
+        return over_kwargs(kwargs)
+
+    old_view = open_world_view(world, published)
+    old_result = evaluate_over(old_view, "proposition:p", **arguments(old_view, profiles[0]))
+    assert isinstance(old_result, Belief)
+    old_result_bytes = repr(old_result).encode()
+    writer.repin_domain(predecessor=contracts[0], successor=contracts[1], profile=profiles[1])
+    assert world.registry().admissions == admitted
+    fresh = open_world_view(world, published)
+    assert len(fresh.drift()) == 1 and fresh.drift()[0].corpus_id == manifest.corpus_id
+    assert fresh.absent() == ()
+    stale_result = evaluate_over(fresh, "proposition:p", **arguments(fresh, profiles[0]))
+    assert isinstance(stale_result, Refused)
+    kwargs = arguments(fresh, profiles[1])
+    result = evaluate_over(fresh, "proposition:p", **kwargs)
+    assert isinstance(result, Belief) and result.value == old_result.value
+    assert result.belief_input_digest != old_result.belief_input_digest
+    inputs = gather(
+        fresh,
+        "proposition:p",
+        key=only_assessed_key(fresh, "proposition:p", profile=profiles[1]),
+        observations={},
+        context=kwargs["context"],
+        profile=profiles[1],
+        resolution=kwargs["resolution"],
+        binding=kwargs["binding"],
+    )
+    assert ("testing", pins_for(profiles[1]).domains["testing"]) in inputs.consulted
+    assert dict(open_epoch(world, published.packaging_identity).members) == epoch_bytes
+    assert repr(old_result).encode() == old_result_bytes
+    assert {path.relative_to(root): path.read_bytes() for path in root.rglob("*.md")} == stored_bytes
+    new_epoch = publish(world, (manifest.corpus_id,), bindings)
+    assert new_epoch.packaging_identity != published.packaging_identity
+    assert open_world_view(world, new_epoch).drift() == ()
+    assert world.registry().admissions == admitted

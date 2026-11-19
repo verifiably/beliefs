@@ -1736,3 +1736,26 @@ model therefore shares a source. Missing calibration records or model inputs ref
 `lineage.certify` reports `not-certified` with `no-roots` whenever either side is
 empty; an empty source set cannot establish independence. Its existing lineage and
 absence findings remain present.
+
+
+## Corpus domain re-pinning
+
+A [re-pin](writes.md#re-pinning-a-domain) changes one immediate same-base domain
+pin without rewriting stored records, their ids, uids or semantic-identity stamps.
+It preserves corpus identity and existing world admission. The engine records
+pre/post manifest content digests, not old manifest text, actor or wall-clock time;
+an admission-time manifest is not a history of intermediate re-pins.
+
+Published epochs and previously recorded results remain immutable. Opening an old
+epoch again captures live manifests and reports drift; it does not reconstruct the
+old scientific context. Evaluation supplied with those captured pins must agree
+with the selected profile. A new evaluation uses the successor identity when its
+domain is consulted; an activated but unconsulted domain is not added merely for
+being activated. A new epoch can be built without readmitting the corpus.
+
+Re-pinning does not update assumptions registers. A held chain head describing the
+predecessor is stale until a current successor register is separately admitted;
+existing specs may still cite the predecessor. The audit checks missing namespaces
+and stale chain heads, not universal exact-pin coverage or scientific equivalence.
+Typed claim constructors enforce retirement; generic corpus writes gain no blanket
+retirement guard, and existing non-claim retirement rules remain in force.

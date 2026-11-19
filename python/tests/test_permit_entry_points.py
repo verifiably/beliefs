@@ -333,6 +333,32 @@ def _import_probe(work: Path):
     return (list(FakePort.intents), list(FakePort.executed), list(FakePort.fulfilling), _corpus_probe(work))
 
 
+def _prepare_repin(work, request):
+    from authority import FULL
+    from fixtures.repin import PortableFactory, repin_chain
+
+    _, contracts, profiles, _ = repin_chain()
+    factory = PortableFactory()
+    writer = CorpusWriter(work / "corpus", factory, authority=FULL, profile=profiles[0])
+    writer.adopt_manifest(profile=pins_for(profiles[0]))
+    factory.plans.clear()
+    factory.recoveries.clear()
+    _STATE[work] = {"factory": factory, "contracts": contracts, "profiles": profiles}
+
+
+def _repin(authority, work):
+    state = _STATE[work]
+    writer = CorpusWriter(work / "corpus", state["factory"], authority=authority, profile=state["profiles"][0])
+    return writer.repin_domain(
+        predecessor=state["contracts"][0], successor=state["contracts"][1], profile=state["profiles"][1]
+    )
+
+
+def _repin_probe(work):
+    factory = _STATE[work]["factory"]
+    return _tree(work), list(factory.plans), list(factory.recoveries)
+
+
 def _adopt_manifest(authority, work):
 
     return _writer(authority, work).adopt_manifest(profile=pins_for(BASE))
@@ -918,6 +944,7 @@ CASES = (
         _import_bundle,
         _import_probe,
     ),
+    Case("corpus.py:CorpusWriter.repin_domain", "lifecycle", (), False, _prepare_repin, _repin, _repin_probe),
     Case(
         "corpus.py:CorpusWriter.adopt_manifest",
         "lifecycle",
