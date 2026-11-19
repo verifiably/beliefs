@@ -73,36 +73,33 @@ def test_complete_hgnc_membership_does_not_manufacture_absence():
     )
 
 
-def test_mm30_register_covers_its_six_declarations():
+def test_source_adoption_preserves_the_phf19_genesis_and_current_pin():
     import json
 
-    from beliefs.register import register_entry_keys, register_from_projection
+    from beliefs.profile import compile_profile, shipped_domain_contract
+    from beliefs.register import register_entry_keys, register_identity
 
-    value = register_from_projection(
-        json.loads((REPO_ROOT / "python/tools/reproduction/mm30-phf19-register.json").read_text()),
-        source="mm30-register",
-    )
-    assert set(value.entries) == register_entry_keys(vocabulary.contract())
-    assert len(value.entries) == 6
-
-
-def test_source_adoption_keeps_phf19_contract_and_profile_identity():
-    import json
-
-    from beliefs.register import register_identity
-
-    row = json.loads((REPO_ROOT / "contracts/source-ownership/INVENTORY.json").read_bytes())["lineages"]["mm30"][
+    rows = json.loads((REPO_ROOT / "contracts/source-ownership/INVENTORY.json").read_bytes())["lineages"]["mm30"][
         "revisions"
-    ][0]
-    selected = vocabulary.revision()
-    assert sha256((REPO_ROOT / row["contract_path"]).read_bytes()).hexdigest() == row["contract_sha256"]
-    assert sha256((REPO_ROOT / row["register_path"]).read_bytes()).hexdigest() == row["register_sha256"]
-    assert selected.contract.content_identity == row["contract_identity"]
-    assert register_identity(selected.register) == row["register_identity"]
-    assert selected.register.describes == vocabulary.pins().domains["mm30"]
-    assert vocabulary.contract().defining_source is None
-    assert vocabulary.contract().content_identity == "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
-    assert vocabulary.profile().compiled_identity == "080fd67b17a99384bf0e0ad5638aaa09b4902d71d885e9ec22ed5e9d47c2eb8b"
+    ]
+    genesis, head = rows[0], rows[-1]
+    identity = "5d3f0b25bc6173e9321de2f3d020ff0e110fa00b1eebf2d5c5a3b2666a734c2d"
+    selected = vocabulary.revision(content_identity=identity)
+    assert genesis["contract_identity"] == selected.contract.content_identity == identity
+    assert sha256((REPO_ROOT / genesis["contract_path"]).read_bytes()).hexdigest() == genesis["contract_sha256"]
+    assert sha256((REPO_ROOT / genesis["register_path"]).read_bytes()).hexdigest() == genesis["register_sha256"]
+    assert register_identity(selected.register) == genesis["register_identity"]
+    assert selected.contract.defining_source is None
+    assert set(selected.register.entries) == register_entry_keys(selected.contract)
+    assert len(selected.register.entries) == 6
+    peers = [shipped_domain_contract(ns) for ns in ("general", "biology")]
+    original = compile_profile(vocabulary.base(), [*peers, selected.contract])
+    assert original.compiled_identity == "080fd67b17a99384bf0e0ad5638aaa09b4902d71d885e9ec22ed5e9d47c2eb8b"
+
+    current = vocabulary.revision()
+    assert current.contract.content_identity == head["contract_identity"]
+    assert register_identity(current.register) == head["register_identity"]
+    assert current.register.describes == vocabulary.pins().domains["mm30"]
 
 
 def test_successor_head_and_historical_mount(tmp_path):
@@ -170,18 +167,16 @@ def test_hold_stores_the_selected_register(certified_work, monkeypatch):
     from phf19_fixtures import FIXTURE, initialize
     from reproduction import hold, paths, state
 
-    from beliefs.contract.shipped import ShippedDomainRevision
-    from beliefs.register import register_from_projection, register_from_stored, register_identity
+    from beliefs.register import register_from_stored, register_identity
     from beliefs.world import load_manifest
 
     writer = initialize(monkeypatch, certified_work / "phf19-checked-register")
-    current = register_from_projection(
-        json.loads(vocabulary.DOCUMENT.with_name("mm30-phf19-register.json").read_bytes()),
-        source="shipped PHF19 register",
-    )
+    current = vocabulary.revision()
+    entries = dict(current.register.entries)
     key = "sort:mm30/cohort"
-    selected = replace(current, entries={**current.entries, key: replace(current.entries[key], licenses="fixture")})
-    choice = ShippedDomainRevision("", vocabulary.contract(), selected)
+    entries[key] = replace(entries[key], licenses=entries[key].licenses + " Fixture change.")
+    selected = replace(current.register, entries=entries)
+    choice = replace(current, register=selected)
     monkeypatch.setattr(vocabulary, "revision", lambda: choice, raising=False)
     hold.prepare_phf19(
         json.loads((FIXTURE / "declaration.json").read_bytes()),
