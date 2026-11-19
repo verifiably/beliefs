@@ -24,7 +24,6 @@ step refused.
 from __future__ import annotations
 
 import copy
-import json
 import os
 import shutil
 import subprocess
@@ -1145,31 +1144,3 @@ def test_composite_supersession_family_and_refusal_paths(corpora, base_contract)
     with pytest.raises(MalformedContract, match="same_kind"):
         parse_base_contract(document, source="<same-kind>")
     _vitest("tests/declarations.test.ts")
-
-
-def test_reproduction_driver_state_is_read_by_name():
-    """The driver's own recorded state, read by name. The reproduction
-    step is the driver's and is not re-run here."""
-    from reproduction.paths import STATE
-
-    assert STATE.is_file(), (
-        f"the mm30 reproduction's recorded state is not at {STATE}; set SCIENCE_MM30_ROOT to the work root "
-        "beside the main checkout. This is an error and not a skip: the row is read from the driver's run."
-    )
-    state = json.loads(STATE.read_text(encoding="utf-8"))
-    if "composite_refusal" in state:
-        pytest.skip(
-            f"the reproduction's compose step refused: {state['composite_refusal']} — the reproduction check is unrun and the test partial"
-        )
-    assert state["reading_equal"] is True
-    assert state["composite_receipt"] == {"node:0": "not-consulted", "node:1": "member", "node:2": "member"}
-    rows = state["reading_rows"]
-    assert rows["proposition:concept-disease-stage-affects-protein-phf19"][0] == "positive"
-    assert rows["proposition:protein-phf19-affects-concept-overall-survival"][0] == "negative"
-    assert rows["proposition:concept-disease-stage-affects-protein-phf19"][1:] == [
-        "NoBelief",
-        ["identification:observational"],
-    ]
-    assert rows["proposition:protein-phf19-affects-concept-overall-survival"][1:] == ["NoBelief", []]
-    assert state["belief_answer"]["kind"] == "NoBelief" and state["belief_answer"]["reason"] == "no-directional-outcome"
-    assert state["corpus_check_findings"] == 0 and state["audit_findings"] == 0

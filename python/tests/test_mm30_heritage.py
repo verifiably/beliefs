@@ -115,16 +115,15 @@ def _invocation(tmp_path, monkeypatch):
     import shutil
     from pathlib import Path
 
-    # Modules in this test process may share the default path bindings; only the
-    # certified subprocess relies on paths binding to the fresh child on import.
-    from reproduction import analysis_inputs, phf19
+    from reproduction import paths, phf19
 
-    assert callable(analysis_inputs.resolve_phf19)
     fixture = Path(__file__).resolve().parents[2] / "fixtures/phf19"
     predecessor = tmp_path / "predecessor"
     shutil.copytree(fixture / "predecessor", predecessor)
     heritage, source, narrative = _survival(predecessor, monkeypatch)
     work = tmp_path / "missing" / "also-missing" / "fresh"
+    monkeypatch.setattr(paths, "WORK", work / "phf19")
+    monkeypatch.setattr(paths, "PREDECESSOR", predecessor)
     monkeypatch.setenv("WORK_ROOT", str(tmp_path))
     monkeypatch.setenv("SCIENCE_MM30_ROOT", "uninitialized")
     monkeypatch.setenv("MM30_PREDECESSOR", "uninitialized")
@@ -252,3 +251,123 @@ def test_final_directory_sync_failure_leaves_no_terminal_report(tmp_path, monkey
     assert heritage.main(argv) != 0
     assert "terminal directory sync failed" in capsys.readouterr().err
     assert not terminal.exists()
+
+
+@pytest.mark.parametrize("slot", [0, 1])
+def test_fifo_survival_input_refuses_without_a_writer(tmp_path, monkeypatch, slot):
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    _, source, narrative = _survival(tmp_path, monkeypatch)
+    fifo = (source, narrative)[slot]
+    fifo.unlink()
+    os.mkfifo(fifo)
+    home = tmp_path / "home"
+    home.mkdir()
+    env = {
+        "PATH": os.environ["PATH"],
+        "HOME": str(home),
+        "PYTHONPATH": str(Path(__file__).resolve().parents[1] / "tools"),
+    }
+    script = """
+import sys
+from pathlib import Path
+from reproduction import heritage
+
+heritage._SURVIVAL_SHA256, heritage._NARRATIVE_SHA256 = sys.argv[2:]
+try:
+    heritage.read_survival(Path(sys.argv[1]))
+except ValueError as error:
+    raise SystemExit(str(error)) from None
+"""
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            script,
+            str(tmp_path),
+            sha256(SOURCE_TEXT).hexdigest(),
+            sha256(NARRATIVE_TEXT).hexdigest(),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+    assert result.returncode != 0
+    assert "regular file" in result.stderr and fifo.stem in result.stderr
+
+
+def test_interrupted_report_rename_is_rolled_back_and_synced(tmp_path, monkeypatch):
+    import os
+
+    heritage, phf19, work, argv, _, _ = _invocation(tmp_path, monkeypatch)
+    terminal = work / "heritage-report.json"
+    sync = os.fsync
+    interrupted = []
+
+    def interrupt(fd):
+        if os.readlink(f"/proc/self/fd/{fd}") == str(work):
+            if terminal.exists():
+                interrupted.append("after rename")
+                raise KeyboardInterrupt
+            if interrupted:
+                interrupted.append("after unlink")
+        sync(fd)
+
+    monkeypatch.setattr(phf19, "main", lambda _: 0)
+    monkeypatch.setattr(heritage, "_report", lambda *_: {"verdict": "refused"})
+    monkeypatch.setattr(os, "fsync", interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        heritage.main(argv)
+    assert not terminal.exists()
+    assert interrupted == ["after rename", "after unlink"]
+
+
+@pytest.mark.parametrize("fail", [False, True])
+def test_outer_claim_syncs_new_directory_entries_before_phf19(tmp_path, monkeypatch, fail):
+    import os
+
+    heritage, phf19, work, argv, _, _ = _invocation(tmp_path, monkeypatch)
+    recorded = []
+    expected = [str(work.parent), str(work.parent.parent), str(tmp_path)]
+    sync = os.fsync
+
+    def observe(fd):
+        directory = os.readlink(f"/proc/self/fd/{fd}")
+        recorded.append(directory)
+        if fail and directory == expected[-1]:
+            raise OSError("ancestor sync failed")
+        sync(fd)
+
+    def child(_):
+        if fail:
+            pytest.fail("PHF19 started after a failed ancestor sync")
+        assert work.is_dir() and not (work / "phf19").exists()
+        assert recorded == expected
+        return 17
+
+    monkeypatch.setattr(os, "fsync", observe)
+    monkeypatch.setattr(phf19, "main", child)
+    assert heritage.main(argv) == (2 if fail else 17)
+    assert recorded == expected
+    assert not (work / "heritage-report.json").exists()
+
+
+@pytest.mark.parametrize("binding", ["WORK", "PREDECESSOR"])
+def test_cached_path_bindings_fail_before_the_claim(tmp_path, monkeypatch, capsys, binding):
+    from reproduction import paths
+
+    heritage, phf19, work, argv, _, _ = _invocation(tmp_path, monkeypatch)
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "sentinel").write_text("retained")
+    monkeypatch.setattr(paths, binding, other)
+    monkeypatch.setattr(phf19, "main", lambda _: pytest.fail("using a cached path would invoke PHF19"))
+    assert heritage.main(argv) != 0
+    assert "bound to different paths" in capsys.readouterr().err
+    assert not work.parent.exists()
+    assert [(p.name, p.read_text()) for p in other.iterdir()] == [("sentinel", "retained")]

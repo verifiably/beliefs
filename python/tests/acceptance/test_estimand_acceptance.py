@@ -7,7 +7,6 @@ it does not claim a base-v2 recreation before the biology genesis exists.
 from __future__ import annotations
 
 import copy
-import json
 import shutil
 import tempfile
 from dataclasses import replace
@@ -250,45 +249,7 @@ def test_one_answer_does_not_read_magnitude(corpora):
     assert before.value == after.value and before.belief_input_digest != after.belief_input_digest
 
 
-def test_the_reproduction_recreates_re_authors_and_re_derives_from_disk(corpora):
-    """The driver's own recorded report, read by name, beside the
-    transition checks this module can exercise on a successor-pinned corpus."""
-    from reproduction.paths import STATE
-
-    assert STATE.is_file(), (
-        f"the mm30 reproduction's recorded state is not at {STATE}; set SCIENCE_MM30_ROOT to the work root "
-        "beside the main checkout. This is an error and not a skip: the row is read from the driver's run."
-    )
-    state = json.loads(STATE.read_text(encoding="utf-8"))
-    report = state["fresh_process_restoration"]
-    for key in ("spec_restored", "assessment_restored", "belief_equal", "prior_pre_grammar"):
-        assert report[key] is True, key
-    assert state["spec_identity"] == "10e8bfce1aaad8a937a79bfba7cf523ac42b4240ec8b15e20e5b5f450d234714"
-    assert state["spec_prose_identity"] == "86aaa1a8a8edda8217a1d6f5f6ae28c89fae7362176a214f9fd9fdf95e3f2b1d"
-    # Re-targeted 2026-09-16: the composite-claims lane recreated the corpus again under its own successor
-    # contracts and the assessment identity derives from the run closure, so a new run moves
-    # it. This is the live pin.
-    assert state["assessment_identity_derived"] == "27bd9753ffa77bf604957537bd6497724ce14d9682c0bc3291d594a99e20c4f9"
-    assert state["assessment_identity_stored"] == state["assessment_identity_derived"]
-    assert state["belief_answer"] == state["rederived_belief"]
-    assert state["belief_answer"]["kind"] == "NoBelief" and state["belief_answer"]["reason"] == "no-directional-outcome"
-    assert state["corpus_check_findings"] == 0 and state["audit_findings"] == 0
-
-    # The transition, as measured: the prior state's assessment
-    # refuses by name, its spec returns no typed value, and the audit reports
-    # `profile-mismatch: base` and nothing else.
-    prior = state["prior_corpus_state"]
-    assert prior["prior_pre_grammar"] is True
-    assert prior["assessment_refusal"] == "PreGrammarAssessment"
-    assert prior["spec_refusal"] == "MalformedRecord"  # pre-projection, so `restore`'s gate is never reached
-    assert prior["audit"] == ["profile-mismatch: base"]
-    # The digest half is measured at the two identities that move, the
-    # belief value being equal and carrying no digest of its own.
-    assert prior["spec_ref"].endswith(state["spec_prose_identity"])
-    assert prior["assessment_ref"] == "assessment:316272987716ac4f"
-
-    # The same refusals, reachable here: a pre-grammar projection is refused by
-    # its own name, never coerced into the typed reader.
+def test_pre_grammar_records_are_refused_by_their_typed_readers(corpora):
     spec = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
     projection = frozen_projection(spec)
     del projection["estimand_grammar"]

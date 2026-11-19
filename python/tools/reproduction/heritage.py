@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import stat
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -45,7 +46,11 @@ def _pinned_source(directory: Path, root: Path, slug: str, digest: str) -> tuple
     path = (directory / f"{slug}.md").resolve()
     if not path.is_relative_to(root):
         raise ValueError(f"{slug}: source resolves outside {root}")
-    content = path.read_bytes()
+    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+    with os.fdopen(fd, "rb") as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError(f"{slug}: source must be a regular file")
+        content = stream.read()
     if sha256(content).hexdigest() != digest:
         raise ValueError(f"{slug}: digest differs from the pinned source")
     try:
@@ -116,16 +121,28 @@ def _publish(path: Path, content: bytes) -> None:
             stream.write(content)
             stream.flush()
             os.fsync(stream.fileno())
-        os.replace(temporary, path)
-        temporary = None
         try:
+            os.replace(temporary, path)
             _sync_directory(path.parent)
-        except OSError:
-            path.unlink()
+        except (OSError, KeyboardInterrupt):
+            # A moved temporary name means this invocation published the file.
+            if not temporary.exists():
+                path.unlink()
+                _sync_directory(path.parent)
             raise
+        temporary = None
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
+
+
+def _claim_work(work: Path) -> None:
+    parents = [work.parent]
+    while not parents[-1].exists():
+        parents.append(parents[-1].parent)
+    work.mkdir(parents=True, exist_ok=False)
+    for parent in parents:
+        _sync_directory(parent)
 
 
 def _report(work: Path, evidence: SurvivalEvidence) -> dict[str, object]:
@@ -219,14 +236,16 @@ def main(argv: list[str]) -> int:
             raise ValueError("PREDECESSOR must contain science.yaml")
         os.environ["SCIENCE_MM30_ROOT"] = str(child)
         os.environ["MM30_PREDECESSOR"] = str(predecessor)
-        from reproduction import analysis_inputs
+        from reproduction import analysis_inputs, paths
 
+        if (paths.WORK, paths.PREDECESSOR) != (child, predecessor):
+            raise RuntimeError("reproduction is already bound to different paths; start a fresh process")
         declaration = json.loads(_DECLARATION.read_text())
         if not isinstance(declaration, dict):
             raise TypeError("PHF19 declaration must be a mapping")
         analysis_inputs.resolve_phf19(declaration, predecessor=predecessor, hgnc=hgnc, ensembl=ensembl)
         evidence = read_survival(predecessor)
-        work.mkdir(parents=True, exist_ok=False)
+        _claim_work(work)
         status = phf19.main([str(child), str(predecessor), str(hgnc), str(ensembl), "--declaration", str(_DECLARATION)])
         if status != 0:
             return status

@@ -297,8 +297,9 @@ stage effect on protein, while the stored target measures a statistical
 gene-RNA contrast. The second needs a causal effect on overall survival, while
 the pinned source records an observational association with patient survival
 and the narrative describes prognostic information. To repeat ordinary PHF19
-readback after recreation, pass `WORK/phf19` to `--readback`. A failed run may
-leave partial files for diagnosis. Every retry requires a fresh WORK.
+readback after recreation, pass `WORK/phf19` to `--readback`. Treat files from a failed or interrupted command as diagnostic. An interruption
+before the final directory sync can leave an unacknowledged report. Every retry
+requires a fresh WORK.
 
 ## Working with series evidence
 
