@@ -824,7 +824,7 @@ than silently preferring either text. Aliases reserve spellings and appear in
 collision diagnostics; contracts must use the canonical id.
 
 The checker covers canonical and packaged domain histories plus contract-bearing
-reproduction YAML, retaining five exact heritage exclusions. All sources and
+reproduction YAML. All sources and
 owners are checked together, including owners never activated in the same profile.
 Unknown sources, second owners, parallel genesis, unlisted revisions, missing
 ancestors, malformed evidence and stale registers refuse. Shadow `general`

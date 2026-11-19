@@ -112,7 +112,7 @@ def _staged(candidate: Path, receipt_path: Path) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(payload)
         inventory = _inventory(data)
-        errors, revisions = checker._inspect(root, inventory, checker.HERITAGE_REPRODUCTION_EXCLUSIONS)
+        errors, revisions = checker._inspect(root, inventory)
         if errors:
             raise ValueError("; ".join(errors))
         checker._check_receipts(root, inventory, revisions, pins=state["pins"]["RECEIPT_SHA256"])

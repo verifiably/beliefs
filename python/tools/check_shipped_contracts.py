@@ -7,9 +7,7 @@ Checks offline and without corpus writes:
    parses under the current base contract and carries a canonical assumptions register whose `describes`
    digest and typed key coverage match `register_entry_keys(contract)` exactly.
 3. Every YAML file under `python/tools/reproduction/` whose top-level mapping carries
-   `contract` either matches one of the five SHA-256-pinned pre-v2 heritage exclusions
-   unchanged or passes current parsing and pinned source ownership admission. Changed,
-   missing or renamed listed heritage files fail naming their owning tasks.
+   `contract` passes current parsing and pinned source ownership admission.
 """
 
 from __future__ import annotations
@@ -39,32 +37,6 @@ from beliefs.contract.domain import DomainContract, _defining_source_id, _name, 
 from beliefs.contract.shipped import _strict_json_object, load_domain_history
 from beliefs.errors import ScienceError
 from beliefs.register import AssumptionsRegister, register_entry_keys, register_from_projection, register_identity
-
-HERITAGE_REPRODUCTION_EXCLUSIONS: Mapping[str, tuple[str, str]] = MappingProxyType(
-    {
-        "python/tools/reproduction/mm30.yaml": (
-            "365db8e3d852f2d41dcf30586ff802323b1904e4992afdf1586f1cfb3bd6cd62",
-            "beliefs-709bd9 and beliefs-dcce70",
-        ),
-        "python/tools/reproduction/mm30-reproduction.yaml": (
-            "33bd70148c5793df5e7b9e2f26c236ff64ed40a5b9ed88622039c195aeae29b4",
-            "beliefs-709bd9 and beliefs-dcce70",
-        ),
-        "python/tools/reproduction/mm30-cut22.yaml": (
-            "284c8bd375ce0b725208971e2174ebce185b03a4c3f52a05458d0fd685cd8569",
-            "beliefs-709bd9 and beliefs-dcce70",
-        ),
-        "python/tools/reproduction/mm30-cut31.yaml": (
-            "f077671ff7520caacd2100b9084b46d8f04d1432249fa7f5206c398fdb15432e",
-            "beliefs-709bd9 and beliefs-dcce70",
-        ),
-        "python/tools/reproduction/mm30-modal-sorted.yaml": (
-            "d59574a68d5518f9a8e90ea13202dba1843867a5fa0cf3114a344918866aa2d7",
-            "beliefs-709bd9 and beliefs-dcce70",
-        ),
-    }
-)
-"""Closed `(relative_path -> (sha256_hex, owner_tasks))` exclusion map for pre-v2 heritage inputs."""
 
 SOURCE_INVENTORY_SHA256 = "d38916d218ebe19f7a0df691df23835445ef495aa556edbabb1d0cd01cc35405"
 
@@ -246,27 +218,10 @@ def _discover_reproduction_sources(
     root: Path,
     base: BaseContract,
     *,
-    exclusions: Mapping[str, tuple[str, str]],
     register_paths: Mapping[str, str],
 ) -> tuple[tuple[_AdmissionRevision, ...], list[str]]:
     errors: list[str] = []
     discovered: list[_AdmissionRevision] = []
-    for rel_path, (expected_sha256, owner) in sorted(exclusions.items()):
-        path = root / rel_path
-        if not path.is_file():
-            errors.append(
-                f"{rel_path}: listed pre-v2 heritage source is missing or renamed (owned by {owner}); "
-                "restore the unchanged heritage file or update/remove its exclusion entry in the replacement change"
-            )
-            continue
-        actual_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
-        if actual_sha256 != expected_sha256:
-            errors.append(
-                f"{rel_path}: listed pre-v2 heritage source bytes changed (expected {expected_sha256}, "
-                f"found {actual_sha256}; owned by {owner}); remove its exclusion entry so the replacement "
-                "enters current contract validation, or restore unchanged heritage bytes"
-            )
-
     repro_dir = root / "python/tools/reproduction"
     if not repro_dir.is_dir():
         return (), errors
@@ -276,8 +231,6 @@ def _discover_reproduction_sources(
         if not path.is_file():
             continue
         rel_path = path.relative_to(root).as_posix()
-        if rel_path in exclusions:
-            continue
         try:
             text = path.read_text(encoding="utf-8")
             probed = yaml.safe_load(text)
@@ -519,9 +472,7 @@ def _check_source_ownership(
     return errors
 
 
-def _inspect(
-    root: Path, inventory: dict, exclusions: Mapping[str, tuple[str, str]]
-) -> tuple[list[str], tuple[_AdmissionRevision, ...]]:
+def _inspect(root: Path, inventory: dict) -> tuple[list[str], tuple[_AdmissionRevision, ...]]:
     _reject_symlinks(root)
     for lineage in inventory["lineages"].values():
         for row in lineage["revisions"]:
@@ -537,9 +488,7 @@ def _inspect(
         for lineage in inventory["lineages"].values()
         for r in lineage["revisions"]
     }
-    repro, repro_errors = _discover_reproduction_sources(
-        root, base, exclusions=exclusions, register_paths=register_paths
-    )
+    repro, repro_errors = _discover_reproduction_sources(root, base, register_paths=register_paths)
     revisions = shipped + repro
     return errors + shipped_errors + repro_errors + _check_source_ownership(root, inventory, revisions), revisions
 
@@ -548,7 +497,7 @@ def inspect_candidate(root: Path, inventory_bytes: bytes) -> list[str]:
     """Inspect structure only; never grants standing admission or executes candidate code."""
     try:
         inventory = _validate_inventory(metadata.decode(inventory_bytes))
-        return _inspect(Path(root).resolve(), inventory, HERITAGE_REPRODUCTION_EXCLUSIONS)[0]
+        return _inspect(Path(root).resolve(), inventory)[0]
     except (OSError, UnicodeDecodeError, ValueError, TypeError, ScienceError) as exc:
         return [f"source admission: {exc}"]
 
@@ -618,7 +567,7 @@ def _check_receipts(
                 raise ValueError("external receipt coverage projection mismatch")
 
 
-def check(root: Path, *, exclusions: Mapping[str, tuple[str, str]] = HERITAGE_REPRODUCTION_EXCLUSIONS) -> list[str]:
+def check(root: Path) -> list[str]:
     root = Path(root).resolve()
     try:
         _reject_symlinks(root)
@@ -626,7 +575,7 @@ def check(root: Path, *, exclusions: Mapping[str, tuple[str, str]] = HERITAGE_RE
         if hashlib.sha256(data).hexdigest() != SOURCE_INVENTORY_SHA256:
             raise ValueError("source inventory SHA-256 pin mismatch")
         inventory = _validate_inventory(metadata.decode(data))
-        errors, revisions = _inspect(root, inventory, exclusions)
+        errors, revisions = _inspect(root, inventory)
         if not errors:
             _check_receipts(root, inventory, revisions)
         return errors

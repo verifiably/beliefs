@@ -35,7 +35,7 @@ def test_literal_dataset_bindings_are_minted_from_exact_list_bytes():
 
 
 def test_legacy_contract_path_fails_explicitly():
-    with pytest.raises(ScienceError, match="beliefs-6f039b"):
+    with pytest.raises(ScienceError, match=r"use mm30-phf19\.yaml"):
         vocabulary.contract(REPO_ROOT / "python/tools/reproduction/mm30.yaml")
 
 

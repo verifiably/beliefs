@@ -74,9 +74,13 @@ def _write_shipped_pack(root: Path, namespace: str, yaml_text: str) -> None:
     (root / "python/src/beliefs/domains" / namespace / "REGISTER.json").write_bytes(reg_bytes)
 
 
-def test_real_repository_passes_with_zero_findings_and_empty_exceptions(tmp_path: Path) -> None:
+def test_real_repository_passes_with_current_phf19_and_no_heritage_sources(tmp_path: Path) -> None:
     checker = _load_checker()
-    assert len(checker.HERITAGE_REPRODUCTION_EXCLUSIONS) == 5
+    reproduction = REPO_ROOT / "python/tools/reproduction"
+    for name in ("mm30.yaml", "mm30-cut22.yaml", "mm30-cut31.yaml", "mm30-reproduction.yaml", "mm30-modal-sorted.yaml"):
+        assert not (reproduction / name).exists()
+    assert (reproduction / "mm30-phf19.yaml").is_file()
+    assert (reproduction / "mm30-phf19-register.json").is_file()
     assert checker.check(REPO_ROOT) == []
     assert checker.main([str(REPO_ROOT)]) == 0
 
@@ -96,7 +100,7 @@ def test_real_repository_passes_with_zero_findings_and_empty_exceptions(tmp_path
     assert completed.returncode == 0, completed.stderr
 
 
-def test_all_five_heritage_files_and_plain_workflow_yaml_pass_unchanged(tmp_path: Path) -> None:
+def test_plain_workflow_yaml_passes_unchanged(tmp_path: Path) -> None:
     checker = _load_checker()
     root = _copy_fixture_root(tmp_path)
     # Plain workflow YAML without top-level `contract` may even hold floats/arbitrary keys.
@@ -106,55 +110,39 @@ def test_all_five_heritage_files_and_plain_workflow_yaml_pass_unchanged(tmp_path
     assert checker.check(root) == []
 
 
-def test_unlisted_old_wrapper_changed_bytes_and_missing_heritage_file_fail(tmp_path: Path) -> None:
-    checker = _load_checker()
-
-    # Unlisted v1 contract wrapper under reproduction/ fails visibly.
-    root_unlisted = _copy_fixture_root(tmp_path / "unlisted")
-    shutil.copyfile(
-        root_unlisted / "python/tools/reproduction/mm30.yaml",
-        root_unlisted / "python/tools/reproduction/mm30-unlisted.yaml",
-    )
-    errors = checker.check(root_unlisted)
-    assert any("python/tools/reproduction/mm30-unlisted.yaml" in err for err in errors)
-    assert checker.main([str(root_unlisted)]) == 1
-
-    # Listed heritage file with modified bytes fails naming its owner tasks.
-    root_changed = _copy_fixture_root(tmp_path / "changed")
-    target = root_changed / "python/tools/reproduction/mm30.yaml"
-    target.write_text(target.read_text(encoding="utf-8") + "# edited\n", encoding="utf-8")
-    errors = checker.check(root_changed)
-    assert len(errors) == 1
-    assert "python/tools/reproduction/mm30.yaml" in errors[0]
-    assert "beliefs-709bd9" in errors[0] and "beliefs-dcce70" in errors[0]
-
-    # Listed heritage file missing/renamed fails naming its owner tasks.
-    root_missing = _copy_fixture_root(tmp_path / "missing")
-    (root_missing / "python/tools/reproduction/mm30-cut22.yaml").rename(
-        root_missing / "python/tools/reproduction/mm30-cut22-renamed.yaml"
-    )
-    errors = checker.check(root_missing)
-    assert any("python/tools/reproduction/mm30-cut22.yaml" in err and "beliefs-dcce70" in err for err in errors)
-    assert any("python/tools/reproduction/mm30-cut22-renamed.yaml" in err for err in errors)
-
-
-def test_current_replacement_at_formerly_excluded_path_enters_full_validation(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("content", "diagnostic"),
+    [
+        ("also: [biology]\ncontract:\n  contract: mm30\n  version: 1\n", "unknown field(s) also"),
+        ("contract: [\n", "invalid YAML"),
+    ],
+)
+def test_old_contract_location_is_parsed_and_invalid_sources_refuse(tmp_path: Path, content: str, diagnostic: str):
     checker = _load_checker()
     root = _copy_fixture_root(tmp_path)
-    reduced_exclusions = {
-        path: meta
-        for path, meta in checker.HERITAGE_REPRODUCTION_EXCLUSIONS.items()
-        if path != "python/tools/reproduction/mm30.yaml"
-    }
+    target = root / "python/tools/reproduction/mm30.yaml"
+    target.write_text(content)
+    errors = checker.check(root)
+    assert len(errors) == 1
+    assert "mm30.yaml" in errors[0] and diagnostic in errors[0]
+    assert checker.main([str(root)]) == 1
 
+
+def test_current_replacement_at_formerly_excluded_path_requires_admission(tmp_path: Path) -> None:
+    checker = _load_checker()
+    root = _copy_fixture_root(tmp_path)
     text = "contract: consumer\nversion: 1\nlineage: genesis\nsorts: {}\ndimensions: {}\ndefining_source: {id: urn:test:consumer}\n"
     target = root / "python/tools/reproduction/mm30.yaml"
     target.write_text(text)
+    errors = checker.check(root)
+    assert errors == [
+        "python/tools/reproduction/mm30.yaml: unlisted reproduction contract; missing inventory register mapping"
+    ]
     _admit(root, "consumer", target.relative_to(root).as_posix(), "python/tools/reproduction/consumer-register.json")
     _repin(checker, root)
-    assert checker.check(root, exclusions=reduced_exclusions) == []
+    assert checker.check(root) == []
     target.write_text(text + "designs: {local-design: {definition: A design.}}\n")
-    assert any("mm30.yaml" in e for e in checker.check(root, exclusions=reduced_exclusions))
+    assert any("mm30.yaml" in error for error in checker.check(root))
 
 
 @pytest.mark.parametrize(

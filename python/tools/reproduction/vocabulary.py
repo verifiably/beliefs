@@ -33,7 +33,7 @@ def biology() -> DomainContract:
 @cache
 def contract(path: Path = DOCUMENT) -> DomainContract:
     if path.name != DOCUMENT.name:
-        raise ProfileError("legacy reproduction contracts are unsupported; beliefs-6f039b owns restoration")
+        raise ProfileError("unsupported reproduction contract; use mm30-phf19.yaml")
     return load_domain_contract(path, base=base(), predecessor=None)
 
 

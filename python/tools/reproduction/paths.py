@@ -18,14 +18,5 @@ WORK = Path(os.environ.get("SCIENCE_MM30_ROOT", MAIN_CHECKOUT / ".work" / "repro
 PREDECESSOR = Path(
     os.environ.get("MM30_PREDECESSOR", Path.home() / "d" / "cancer" / "cancer-types" / "multiple-myeloma")
 )
-# The prior corpus state, moved aside when the corpus was recreated under the
-# successor contracts. Read-only: the transition check presents it to the successor readers. A fresh work directory
-# has no such sibling, so `MM30_CUT22_ARCHIVE` names the archive explicitly; a
-# missing archive raises at `rederive.prior_state` either way.
-PRIOR = Path(os.environ.get("MM30_CUT22_ARCHIVE", WORK.with_name(WORK.name + ".cut22")))
-# The estimand-era corpus state, moved aside the same way when the corpus was
-# recreated under the composite grammar.
-# Read-only: the transition step audits it under the successor profile.
-CUT31 = WORK.with_name(WORK.name + ".cut31")
 WORLD_ROOT, CORPUS_ROOT, STORE_ROOT, SCRATCH = WORK / "world", WORK / "corpus", WORK / "store", WORK / "scratch"
 STATE, FINDINGS, TARGET = WORK / "state.json", WORK / "findings.jsonl", WORK / "target.yaml"
