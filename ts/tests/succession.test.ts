@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { stringify } from "yaml";
+import { parse as parseYaml, stringify } from "yaml";
 import { claimVocabulary } from "../src/contract-succession.js";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
 import { MalformedContract, SuccessionViolation, UnparsedContract } from "../src/errors.js";
@@ -143,4 +143,59 @@ describe("permanent unit mappings", () => {
       SuccessionViolation,
     );
   });
+});
+const retirement = JSON.parse(read("fixtures/retirement.json")) as {
+  families: { table: string; name: string }[];
+  non_retirable: { table: string; name: string }[];
+  invalid_values: unknown[];
+  base_paths: string[][];
+};
+const field = (name: string) => (name === "scope_relations" ? "scopeRelations" : name);
+
+describe("shared retirement grammar", () => {
+  it.each(retirement.families)("flags and one-way succession: $table", ({ table, name }) => {
+    const old = genesis();
+    for (const retired of [false, true]) {
+      const document = structuredClone(vector.genesis);
+      document.lineage = { successor: old.contentIdentity };
+      document[table][name].retired = retired;
+      const current = parseDomainContract(stringify(document), table, base, old);
+      const parsed = (current as unknown as Document)[field(table)][name];
+      expect(parsed.retired).toBe(retired);
+      expect(Object.isFrozen(parsed)).toBe(true);
+      const compiled = (compileProfile(base, [current]) as unknown as Document)[field(table)][
+        `${current.namespace}/${name}`
+      ];
+      expect(table === "scope_relations" ? compiled.declaration.retired : compiled.retired).toBe(retired);
+      expect(Object.isFrozen(compiled)).toBe(true);
+      if (retired) {
+        document.lineage = { successor: current.contentIdentity };
+        document[table][name].retired = false;
+        expect(() => parseDomainContract(stringify(document), table, base, current)).toThrow(SuccessionViolation);
+        const { retired: _retired, ...unretired } = document[table][name];
+        document[table][name] = unretired;
+        expect(() => parseDomainContract(stringify(document), table, base, current)).toThrow(SuccessionViolation);
+      }
+    }
+    for (const value of retirement.invalid_values) {
+      const document = structuredClone(vector.genesis);
+      document[table][name].retired = value;
+      expect(() => parseDomainContract(stringify(document), table, base)).toThrow(MalformedContract);
+    }
+  });
+
+  it.each(retirement.non_retirable)("refuses even false on $table", ({ table, name }) => {
+    const document = structuredClone(vector.genesis);
+    const body = document[table][name];
+    document[table][name] = Array.isArray(body) ? { retired: false } : { ...body, retired: false };
+    expect(() => parseDomainContract(stringify(document), table, base)).toThrow(MalformedContract);
+  });
+});
+
+it.each(retirement.base_paths)("base grammar refuses retired at %j", (...path) => {
+  const document = parseYaml(baseText);
+  let target = document;
+  for (const key of path) target = target[key];
+  target.retired = false;
+  expect(() => parseBaseContract(stringify(document), "base retired")).toThrow(MalformedContract);
 });

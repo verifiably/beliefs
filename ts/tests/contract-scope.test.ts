@@ -1,15 +1,8 @@
 /**
  * What this implementation refuses to read, and why refusing is the point.
  *
- * `ts/` carries the shared-encoding path, so there are contract features
- * it cannot validate: retirement is an authoring-boundary rule this side
- * has no authoring boundary to enforce.
- *
- * The failure mode this file exists to prevent is **quiet divergence**. A
- * reduced parser that ignored `retired` would accept
- * documents the normative reading refuses, and would look like agreement — two
- * implementations reading one SSOT differently, with nothing to notice it. So
- * the unimplemented rules are refusals, not omissions.
+ * Domain retirement is typed at parse time and enforced on authoring; unknown
+ * fields and unsupported declarations still refuse rather than being ignored.
  *
  * The domain grammar's own refusals are mirrored from the Python parser
  * (`python/tests/test_domain_contract.py`), one case each, against the shared
@@ -20,7 +13,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse, stringify } from "yaml";
 import { parseBaseContract, parseDomainContract } from "../src/contract.js";
-import { MalformedContract, ProfileError, SuccessionViolation, UncheckableContract } from "../src/errors.js";
+import { MalformedContract, ProfileError, SuccessionViolation } from "../src/errors.js";
 import { IdentifierClass } from "../src/patterns.js";
 import { compileProfile } from "../src/profile.js";
 
@@ -58,11 +51,11 @@ describe("the rules this implementation does not carry are refused, not skipped"
     ["templates", "affects"],
     ["instantiations", "affects-entity-outcome"],
     ["bridges", "promotes"],
-  ])("refuses a retired declaration in %s, because retirement lives in authoring", (table, name) => {
+  ])("preserves a retired declaration in %s for historical validation", (table, name) => {
     const retired = mutated((document) => {
       document[table][name].retired = true;
     });
-    expect(() => parseTesting(retired)).toThrow(UncheckableContract);
+    expect(parseTesting(retired)).toBeDefined();
   });
 
   it.each([
@@ -172,6 +165,7 @@ describe("the v2 testing document", () => {
   it("reads dimensions on one side, with the operators they apply to", () => {
     expect(contract.dimensions.population).toEqual({
       name: "population",
+      retired: false,
       restrictionSort: "cohort",
       restriction: null,
       placement: "claim",
@@ -215,11 +209,13 @@ describe("the v2 testing document", () => {
   it("reads instantiations, the bridge and the typed estimand keys", () => {
     expect(contract.instantiations["affects-entity-entity"]).toEqual({
       name: "affects-entity-entity",
+      retired: false,
       template: "affects",
       roles: { cause: ["entity"], effect: ["entity", "outcome"] },
     });
     expect(contract.bridges.promotes).toEqual({
       name: "promotes",
+      retired: false,
       template: "affects",
       mapping: "narrower",
       roles: { cause: ["entity"], effect: ["outcome"] },
@@ -591,6 +587,7 @@ describe("a cross-contract reference", () => {
     const contract = crossing();
     expect(contract.instantiations["affects-local-entity"]).toEqual({
       name: "affects-local-entity",
+      retired: false,
       template: "testing/affects",
       roles: { cause: ["testing/entity"], effect: ["local-entity"] },
     });

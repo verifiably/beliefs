@@ -10,6 +10,7 @@
 
 export {
   buildClaim,
+  validateClaim,
   Claim,
   type ClaimParts,
   canonicalMembers,

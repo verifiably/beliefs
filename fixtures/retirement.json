@@ -1,0 +1,220 @@
+{
+  "schema_document": "contract-succession.json",
+  "schema_section": "genesis",
+  "claim_document": "contracts/testing.yaml",
+  "families": [
+    {
+      "table": "sorts",
+      "name": "entity"
+    },
+    {
+      "table": "dimensions",
+      "name": "population"
+    },
+    {
+      "table": "templates",
+      "name": "affects"
+    },
+    {
+      "table": "instantiations",
+      "name": "affects-entity-outcome"
+    },
+    {
+      "table": "bridges",
+      "name": "promotes"
+    },
+    {
+      "table": "scope_relations",
+      "name": "early-within-late"
+    }
+  ],
+  "invalid_values": [
+    null,
+    0,
+    1,
+    "true",
+    [],
+    {}
+  ],
+  "non_retirable": [
+    {
+      "table": "estimands",
+      "name": "instantiation:affects-entity-outcome"
+    },
+    {
+      "table": "duration_conventions",
+      "name": "mean-month"
+    },
+    {
+      "table": "quantity_kinds",
+      "name": "duration"
+    },
+    {
+      "table": "units",
+      "name": "second"
+    },
+    {
+      "table": "constants",
+      "name": "avogadro"
+    },
+    {
+      "table": "conversions",
+      "name": "hour-to-second"
+    },
+    {
+      "table": "transformations",
+      "name": "identity"
+    },
+    {
+      "table": "facets",
+      "name": "axis"
+    },
+    {
+      "table": "procedure_kinds",
+      "name": "assay"
+    },
+    {
+      "table": "aggregation_rules",
+      "name": "sum"
+    },
+    {
+      "table": "assumption_kinds",
+      "name": "transport-exchangeability"
+    },
+    {
+      "table": "measurements",
+      "name": "entity"
+    },
+    {
+      "table": "aspects",
+      "name": "energy"
+    },
+    {
+      "table": "functionals",
+      "name": "difference-of-means"
+    },
+    {
+      "table": "identification_classes",
+      "name": "observational"
+    },
+    {
+      "table": "designs",
+      "name": "independent-groups"
+    },
+    {
+      "table": "selection_mechanisms",
+      "name": "cohort-enrolment"
+    }
+  ],
+  "base_paths": [
+    [],
+    [
+      "claim_grammar"
+    ],
+    [
+      "scope_grammar"
+    ]
+  ],
+  "claims": [
+    {
+      "name": "operator",
+      "table": "templates",
+      "key": "affects",
+      "operator": "testing/affects",
+      "qualifier": false,
+      "live_alternative": false,
+      "authoring": "WithdrawnFromAuthoring",
+      "retire_additional": [],
+      "identity": "8d86547d83e5e5fce56948eede09d7d031dfb1f28b26ef38c86f146093b6eb54",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f61666665637473222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    },
+    {
+      "name": "bridge-template",
+      "table": "templates",
+      "key": "affects",
+      "operator": "testing/promotes",
+      "qualifier": false,
+      "live_alternative": false,
+      "authoring": "WithdrawnFromAuthoring",
+      "retire_additional": [],
+      "identity": "d6bfc70a866b885d8729279dc2e23a1822e2af26449c78536a2c12eab359c95d",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f70726f6d6f746573222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    },
+    {
+      "name": "bridge",
+      "table": "bridges",
+      "key": "promotes",
+      "operator": "testing/promotes",
+      "qualifier": false,
+      "live_alternative": false,
+      "authoring": "WithdrawnFromAuthoring",
+      "retire_additional": [],
+      "identity": "d6bfc70a866b885d8729279dc2e23a1822e2af26449c78536a2c12eab359c95d",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f70726f6d6f746573222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    },
+    {
+      "name": "sort",
+      "table": "sorts",
+      "key": "entity",
+      "operator": "testing/affects",
+      "qualifier": false,
+      "live_alternative": false,
+      "authoring": "WithdrawnFromAuthoring",
+      "retire_additional": [],
+      "identity": "8d86547d83e5e5fce56948eede09d7d031dfb1f28b26ef38c86f146093b6eb54",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f61666665637473222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    },
+    {
+      "name": "dimension",
+      "table": "dimensions",
+      "key": "population",
+      "operator": "testing/affects",
+      "qualifier": true,
+      "live_alternative": false,
+      "authoring": "WithdrawnFromAuthoring",
+      "retire_additional": [],
+      "identity": "9f2c266e8273bd7d346d0c197ac897fca4e74e96d9f9b664f74ed5de62fd7aa3",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f61666665637473222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b2274657374696e672f706f70756c6174696f6e223a7b227175616e746966696572223a2267656e65726963222c227265737472696374696f6e223a7b22736f7274223a2274657374696e672f636f686f7274222c227465726d223a2245583a6164756c7473227d7d7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    },
+    {
+      "name": "restriction-sort",
+      "table": "sorts",
+      "key": "cohort",
+      "operator": "testing/affects",
+      "qualifier": true,
+      "live_alternative": false,
+      "authoring": "WithdrawnFromAuthoring",
+      "retire_additional": [],
+      "identity": "9f2c266e8273bd7d346d0c197ac897fca4e74e96d9f9b664f74ed5de62fd7aa3",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f61666665637473222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b2274657374696e672f706f70756c6174696f6e223a7b227175616e746966696572223a2267656e65726963222c227265737472696374696f6e223a7b22736f7274223a2274657374696e672f636f686f7274222c227465726d223a2245583a6164756c7473227d7d7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    },
+    {
+      "name": "all-retired-admissions",
+      "table": "instantiations",
+      "key": "affects-entity-outcome",
+      "operator": "testing/affects",
+      "qualifier": false,
+      "live_alternative": false,
+      "authoring": "WithdrawnFromAuthoring",
+      "retire_additional": [
+        "affects-entity-entity"
+      ],
+      "identity": "8d86547d83e5e5fce56948eede09d7d031dfb1f28b26ef38c86f146093b6eb54",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f61666665637473222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    },
+    {
+      "name": "one-live-route",
+      "table": "instantiations",
+      "key": "affects-entity-outcome",
+      "operator": "testing/affects",
+      "qualifier": false,
+      "live_alternative": true,
+      "authoring": "accept",
+      "retire_additional": [
+        "affects-entity-entity"
+      ],
+      "identity": "8d86547d83e5e5fce56948eede09d7d031dfb1f28b26ef38c86f146093b6eb54",
+      "canonical_hex": "7b22666f726d223a22706f6c6172222c226c61796572223a2263617573616c222c226f70657261746f72223a2274657374696e672f61666665637473222c22706f6c6172697479223a22706f736974697665222c227175616c696669657273223a7b7d2c22726f6c6573223a7b226361757365223a7b22736f7274223a2274657374696e672f656e74697479222c227465726d223a2245583a67656e652d78227d2c22656666656374223a7b22736f7274223a2274657374696e672f6f7574636f6d65222c227465726d223a2245583a6f7574636f6d652d79227d7d7d"
+    }
+  ]
+}

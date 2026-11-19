@@ -20,13 +20,16 @@ components to identity.
 It computes contract content identities and checks additive succession against an
 explicit predecessor. It computes no compiled profile identity.
 
-It reads base contracts and genesis or checked successor domain contracts. It
-**refuses** every `retired` field, including false, rather than parsing past it ([contracts.md](../docs/contracts.md#scope)),
-except on a scope relation, whose retirement and one-way succession it checks as Python does.
-It compiles scope-relation tables and their endpoint checks but implements no scope
-comparison. A reduced parser that quietly
-accepted what the Python reading refuses would be a second, weaker reading of the same
-contract, and it would look like agreement.
+It reads base contracts and genesis or checked successor domain contracts.
+Boolean `retired` metadata is supported on sorts, dimensions, templates,
+instantiations, bridges and scope relations, with irreversible succession.
+Other declarations and the base grammar reject the field, including false.
+`buildClaim` is the authoring route and refuses withdrawn declarations;
+`validateClaim(profile, parts)` checks historical claim structure and preserves
+canonical identity while allowing retirement. Neither constructor resolves world
+or ontology membership. The package exports `WithdrawnFromAuthoring` for authoring
+refusals. It compiles scope-relation tables and endpoint checks but implements no
+scope comparison.
 
 It parses `kinds`, `relations` and `facets` declarations with the same structural
 refusals and validates no facet payload; validation is Python-only, done where

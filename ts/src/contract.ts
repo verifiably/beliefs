@@ -8,8 +8,8 @@
  *
  * This side computes contract content identity and checks additive succession
  * against a supplied predecessor. Compiled profile identity remains Python-only.
- * Retirement semantics remain unsupported: every `retired` field is refused,
- * never silently ignored.
+ * Domain retirement is preserved for historical validation and enforced on
+ * authoring; non-retirable declarations and the base grammar refuse the field.
  *
  * **The parsed contracts are branded and deeply frozen**, and that is the root
  * of the trust chain rather than a detail of it. `compileProfile` promises that
@@ -24,13 +24,7 @@
 
 import { claimVocabulary } from "./contract-succession.js";
 import { readDocument } from "./document.js";
-import {
-  MalformedContract,
-  SubclassRefused,
-  SuccessionViolation,
-  UncheckableContract,
-  UnparsedContract,
-} from "./errors.js";
+import { MalformedContract, SubclassRefused, SuccessionViolation, UnparsedContract } from "./errors.js";
 import { type IdentityValue, digest, encode } from "./identity/v1.js";
 import { IdentifierClass } from "./patterns.js";
 import {
@@ -378,6 +372,7 @@ export type SortBinding =
   | { readonly kind: "world-kind"; readonly worldKind: string };
 
 export interface SortDecl {
+  readonly retired: boolean;
   readonly name: string;
   readonly binding: SortBinding;
   /** `null` exactly when the binding is `world-kind`, whose class is the kernel's record-id grammar. */
@@ -417,6 +412,7 @@ export interface AspectsDecl {
 }
 
 export interface DimensionDecl {
+  readonly retired: boolean;
   readonly name: string;
   readonly restrictionSort?: string;
   readonly restriction: RestrictionForm | null;
@@ -442,6 +438,7 @@ export type EventAnchorDecl = { readonly role: string } | { readonly independent
 
 /** A relation template: an operator issued as `<namespace>/<name>`. */
 export interface TemplateDecl {
+  readonly retired: boolean;
   readonly eventAnchor?: EventAnchorDecl;
   readonly name: string;
   readonly roles: DeclarationTable<RoleDecl>;
@@ -456,6 +453,7 @@ export interface TemplateDecl {
 
 /** Which sorts may fill each role of a template. Its name is bookkeeping and never enters claim identity. */
 export interface InstantiationDecl {
+  readonly retired: boolean;
   readonly name: string;
   readonly template: string;
   readonly roles: Readonly<Record<string, readonly string[]>>;
@@ -467,6 +465,7 @@ export interface InstantiationDecl {
  * the template's.
  */
 export interface BridgeDecl {
+  readonly retired: boolean;
   readonly name: string;
   readonly template: string;
   readonly mapping: string;
@@ -1291,7 +1290,7 @@ export function parseBaseContract(text: string, source: string): BaseContract {
 // Mirrored from the Python parser (`beliefs.contract.domain`), refusal for
 // refusal: both implementations read one document, and a case one refuses and
 // the other reads is the divergence the parity obligation exists to prevent.
-// The remaining retirement boundary is explicit in `refuseRetired`.
+// Retirement is typed here and enforced by the claim authoring constructor.
 
 /** The v1 grammar's top-level tables, refused by name under base v2. */
 const V1_FIELDS = ["operators", "edges"];
@@ -1312,12 +1311,8 @@ const BINDING_ARMS: Readonly<Record<string, readonly string[]>> = Object.freeze(
   "world-kind": ["world_kind"],
 });
 
-function refuseRetired(body: Record<string, unknown>, where: string): void {
-  if ("retired" in body) {
-    throw new UncheckableContract(
-      `${where}: retirement is an authoring-boundary property and this implementation carries the shared-encoding path only. It refuses rather than reading past a rule it cannot enforce.`,
-    );
-  }
+function retired(body: Record<string, unknown>, where: string): boolean {
+  return "retired" in body ? bool(body.retired, `${where}.retired`) : false;
 }
 
 function declarations(value: unknown, where: string): Record<string, unknown> {
@@ -1515,7 +1510,6 @@ function parseIdentifierClass(value: unknown, where: string): IdentifierClass {
 function parseSort(name: string, value: unknown, where: string, base: BaseContract): SortDecl {
   const body = mapping(value, where);
   exactFields(body, ["binding"], ["identifier_class", "categories", "retired"], where);
-  refuseRetired(body, where);
   const binding = parseBinding(body.binding, `${where}.binding`, base);
   let identifierClass: IdentifierClass | null = null;
   if (binding.kind === "world-kind") {
@@ -1540,7 +1534,7 @@ function parseSort(name: string, value: unknown, where: string, base: BaseContra
     "role category",
     true,
   );
-  return Object.freeze({ name, binding, identifierClass, categories });
+  return Object.freeze({ name, binding, identifierClass, categories, retired: retired(body, where) });
 }
 
 function parseRole(name: string, value: unknown, where: string, base: BaseContract): RoleDecl {
@@ -1614,7 +1608,6 @@ function parseTemplate(name: string, value: unknown, where: string, base: BaseCo
     ["event_anchor", "edge", "definition", "external", "description", "retired"],
     where,
   );
-  refuseRetired(body, where);
   const grammar = base.claimGrammar;
 
   const roleEntries: [string, RoleDecl][] = [];
@@ -1682,6 +1675,7 @@ function parseTemplate(name: string, value: unknown, where: string, base: BaseCo
   }
   return Object.freeze({
     name,
+    retired: retired(body, where),
     roles,
     signApt,
     layers,
@@ -2220,7 +2214,6 @@ export function parseDomainContract(
     const where = `${source}.dimensions.${name}`;
     const decl = mapping(body, where);
     exactFields(decl, ["placement", "applies_to"], ["restriction_sort", "retired", "restriction"], where);
-    refuseRetired(decl, where);
     const placement = decl.placement;
     if (typeof placement !== "string" || !grammar.placements.includes(placement)) {
       throw new MalformedContract(
@@ -2255,6 +2248,7 @@ export function parseDomainContract(
       name,
       Object.freeze({
         name,
+        retired: retired(decl, where),
         ...(timeInterval ? {} : { restrictionSort: resolve(decl.restriction_sort, `${where}.restriction_sort`) }),
         restriction,
         placement,
@@ -2275,11 +2269,11 @@ export function parseDomainContract(
     const where = `${source}.instantiations.${name}`;
     const decl = mapping(body, where);
     exactFields(decl, ["template", "roles"], ["description", "retired"], where);
-    refuseRetired(decl, where);
     instantiationEntries.push([
       name,
       Object.freeze({
         name,
+        retired: retired(decl, where),
         template: reference(decl.template, `${where}.template`, namespace, base.name, "template"),
         roles: parseRoleSorts(decl.roles, `${where}.roles`, resolve),
       }),
@@ -2292,7 +2286,6 @@ export function parseDomainContract(
     const where = `${source}.bridges.${name}`;
     const decl = mapping(body, where);
     exactFields(decl, ["template", "mapping", "roles"], ["layers", "description", "retired"], where);
-    refuseRetired(decl, where);
     if (Object.hasOwn(templates, name)) {
       throw new MalformedContract(
         `${where}: ${JSON.stringify(name)} is also a template of this contract. Templates and bridges are both operators, identified only as \`${namespace}/${name}\`, so the two would collide on one operator identifier.`,
@@ -2313,6 +2306,7 @@ export function parseDomainContract(
       name,
       Object.freeze({
         name,
+        retired: retired(decl, where),
         template: reference(decl.template, `${where}.template`, namespace, base.name, "template"),
         mapping: mappingType,
         roles: parseRoleSorts(decl.roles, `${where}.roles`, resolve),
@@ -2565,11 +2559,11 @@ function checkSuccession(contract: DomainContract, predecessor?: DomainContract)
       throw new SuccessionViolation(`${contract.namespace}: ${key} has a different canonical schema projection`);
     }
   }
-  // Scope relations are the one family this side reads retirement for, so its
-  // one-way rule is checked here as Python checks it for every family.
-  for (const [name, previous] of Object.entries(predecessor.scopeRelations)) {
-    if (previous.retired && contract.scopeRelations[name]?.retired === false) {
-      throw new SuccessionViolation(`${contract.namespace}: un-retires scope-relation:${name}. Retirement is one-way.`);
+  for (const table of ["sorts", "dimensions", "templates", "instantiations", "bridges", "scopeRelations"] as const) {
+    for (const [name, previous] of Object.entries(predecessor[table])) {
+      if (previous.retired && !contract[table][name].retired) {
+        throw new SuccessionViolation(`${contract.namespace}: un-retires ${table}:${name}. Retirement is one-way.`);
+      }
     }
   }
 }

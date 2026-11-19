@@ -61,7 +61,9 @@ export function projectClaim(claim: Claim): ClaimProjection {
     // The brand, not `instanceof`: an object given `Claim.prototype` satisfies
     // the latter without a constructor ever having run on it, and would arrive
     // here holding whatever its author put in it.
-    throw new ClaimError("projectClaim takes a Claim built by buildClaim; this value never went through it");
+    throw new ClaimError(
+      "projectClaim takes a Claim built by buildClaim or validateClaim; this value never went through either",
+    );
   }
   const roles: Record<string, ProjectedReferent | ProjectedMember[]> = {};
   for (const [name, value] of Object.entries(claim.roles)) roles[name] = projectRole(value);

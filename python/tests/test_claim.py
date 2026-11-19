@@ -880,3 +880,50 @@ def test_procedure_world_kind_preserves_its_grammar(profile, cause_effect):
             polarity="positive",
             layer="causal",
         )
+
+
+def test_shared_retirement_authoring_and_historical_identity(base_contract, fixtures_dir):
+    import json
+
+    import yaml
+
+    from beliefs.identity import v1
+    from beliefs.projection import claim_identity, project_claim
+
+    vector = json.loads((fixtures_dir / "retirement.json").read_text())
+    source = yaml.safe_load((fixtures_dir / vector["claim_document"]).read_text())
+    old = domain.parse_domain_contract(source, source="old", base=base_contract, predecessor=None)
+    old_profile = compile_profile(base_contract, [old])
+    for row in vector["claims"]:
+        document = copy.deepcopy(source)
+        document["lineage"] = {"successor": old.content_identity}
+        if row["live_alternative"]:
+            document["instantiations"]["alternative"] = copy.deepcopy(document["instantiations"][row["key"]])
+        document[row["table"]][row["key"]]["retired"] = True
+        for name in row["retire_additional"]:
+            document["instantiations"][name]["retired"] = True
+        current = domain.parse_domain_contract(document, source=row["name"], base=base_contract, predecessor=old)
+        current_profile = compile_profile(base_contract, [current])
+        parts = {
+            "operator": row["operator"],
+            "roles": {
+                "cause": Referent("testing/entity", "EX:gene-x"),
+                "effect": Referent("testing/outcome", "EX:outcome-y"),
+            },
+            "polarity": "positive",
+            "layer": "causal",
+            "form": "polar",
+            "qualifiers": {"testing/population": Qualifier("generic", Referent("testing/cohort", "EX:adults"))}
+            if row["qualifier"]
+            else {},
+        }
+        original = build_claim(old_profile, **parts)
+        historical = Claim._checked(current_profile, **parts)
+        assert project_claim(historical) == project_claim(original)
+        assert claim_identity(historical) == claim_identity(original) == row["identity"]
+        assert v1.encode(project_claim(historical)).hex() == row["canonical_hex"]
+        if row["authoring"] == "accept":
+            assert claim_identity(build_claim(current_profile, **parts)) == claim_identity(original)
+        else:
+            with pytest.raises(WithdrawnFromAuthoring):
+                build_claim(current_profile, **parts)

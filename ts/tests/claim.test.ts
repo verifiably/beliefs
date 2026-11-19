@@ -565,3 +565,50 @@ describe("dataset world-kind identity", () => {
     ).toThrow(IdentifierClassMismatch);
   });
 });
+// Public-index imports also establish that both authoring and historical routes are exported.
+import { WithdrawnFromAuthoring, validateClaim } from "../src/index.js";
+const retirement = JSON.parse(read("fixtures/retirement.json")) as {
+  claim_document: string;
+  claims: {
+    name: string;
+    table: string;
+    key: string;
+    operator: string;
+    qualifier: boolean;
+    live_alternative: boolean;
+    authoring: string;
+    retire_additional: string[];
+    identity: string;
+    canonical_hex: string;
+  }[];
+};
+
+describe("shared authoring and historical retirement", () => {
+  it.each(retirement.claims)("$name", (row) => {
+    const document = parse(read(`fixtures/${retirement.claim_document}`));
+    document.lineage = { successor: testing.contentIdentity };
+    if (row.live_alternative) document.instantiations.alternative = structuredClone(document.instantiations[row.key]);
+    document[row.table][row.key].retired = true;
+    for (const name of row.retire_additional) document.instantiations[name].retired = true;
+    const successor = parseDomainContract(stringify(document), row.name, base, testing);
+    const current = compileProfile(base, [successor]);
+    const parts = toParts({
+      operator: row.operator,
+      qualifiers: row.qualifier ? { [POPULATION]: new Qualifier("generic", adults) } : {},
+    });
+    const original = buildClaim(profile, parts);
+    expect(projectClaim(validateClaim(current, parts))).toEqual(projectClaim(original));
+    expect(claimIdentity(validateClaim(current, parts))).toBe(claimIdentity(original));
+    expect(claimIdentity(validateClaim(current, parts))).toBe(row.identity);
+    expect(Buffer.from(encode(projectClaim(validateClaim(current, parts)))).toString("hex")).toBe(row.canonical_hex);
+    if (row.authoring === "accept") expect(claimIdentity(buildClaim(current, parts))).toBe(claimIdentity(original));
+    else expect(() => buildClaim(current, parts)).toThrow(WithdrawnFromAuthoring);
+    expect(() => validateClaim(current, { ...parts, roles: new Map() })).toThrow(RoleRefused);
+    expect(() =>
+      validateClaim(current, {
+        ...parts,
+        qualifiers: new Map([["testing/absent", new Qualifier("generic", adults)]]),
+      }),
+    ).toThrow(UndeclaredDimension);
+  });
+});

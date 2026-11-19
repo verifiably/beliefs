@@ -43,6 +43,7 @@ import {
   UnknownQuantifier,
   UntypedQualifier,
   UntypedReferent,
+  WithdrawnFromAuthoring,
   WithinModelRefused,
 } from "./errors.js";
 import { compareByCodePoint } from "./identity/v1.js";
@@ -52,6 +53,7 @@ import {
   ProfileSpec,
   admitting,
   claimDimensions,
+  declarationAt,
   resolveOperator,
   templateOf,
 } from "./profile.js";
@@ -210,7 +212,7 @@ export class Claim {
     }
     if (token !== MINT) {
       throw new ClaimError(
-        "Claim is validated at construction — use buildClaim(profile, parts). A field-wise constructor " +
+        "Claim is validated at construction — use buildClaim(profile, parts) or validateClaim(profile, parts). A field-wise constructor " +
           "would put an unchecked claim downstream of the one boundary that checks, and every reader " +
           "that trusts a Claim unconditionally would then be wrong.",
       );
@@ -259,14 +261,21 @@ const HEX64 = /^[0-9a-f]{64}$/;
  * in it invented by whoever wrote the object. The contracts are the normative
  * SSOT; a profile that did not come from them is not a profile.
  *
- * Retirement is not among the checks: retirement lives in authoring, and this
- * implementation refuses a contract carrying a retired declaration outright
- * rather than half-enforcing an authoring boundary it does not own. Membership
- * is not either: it needs a resolution snapshot, which only the Python side
+ * This authoring path refuses retired declarations; validateClaim retains their
+ * historical structural validation. Membership is outside these checks: it needs a resolution snapshot, which only the Python side
  * holds, so a referent bound to a `world-kind` sort is checked for record-id
  * syntax only.
  */
 export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
+  return checkedClaim(profile, parts, true);
+}
+
+/** Validate historical claim structure, including retired declarations; no membership resolution. */
+export function validateClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
+  return checkedClaim(profile, parts, false);
+}
+
+function checkedClaim(profile: ProfileSpec, parts: ClaimParts, authoring: boolean): Claim {
   if (!ProfileSpec.is(profile)) {
     throw new ProfileError(
       "the profile was not compiled from contracts — use compileProfile(base, domains). A structurally " +
@@ -279,6 +288,12 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
   // (1) The operator.
   const declaration = resolveOperator(profile, operator);
   const template = templateOf(profile, declaration);
+
+  if (authoring && (declaration.retired || template.retired)) {
+    throw new WithdrawnFromAuthoring(
+      `operator ${operator} or its template is retired; historical validation remains available`,
+    );
+  }
 
   // (2) The roles present.
   const roles = parts.roles as unknown;
@@ -326,7 +341,7 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
   for (const [name, value] of held) {
     const worldKind = isReserved(name) ? grammar.reservedRoles[name].worldKind : null;
     for (const referent of referentsOf(value))
-      checkReferent(profile, referent, `role ${name} of ${operator}`, worldKind);
+      checkReferent(profile, referent, `role ${name} of ${operator}`, worldKind, authoring);
   }
   for (const [dimension, qualifier] of parts.qualifiers) {
     if (!Qualifier.is(qualifier)) {
@@ -335,7 +350,7 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
       );
     }
     // The restriction needs no type check here: `Qualifier` owns that invariant.
-    checkReferent(profile, qualifier.restriction, `the restriction on ${dimension}`, null);
+    checkReferent(profile, qualifier.restriction, `the restriction on ${dimension}`, null, authoring);
   }
 
   // (5) Admission: some declaration lists every referent's sort for its role.
@@ -343,7 +358,8 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
   for (const [name, value] of held) {
     if (!isReserved(name)) assignment.set(name, new Set(referentsOf(value).map((referent) => referent.sort)));
   }
-  if (admitting(profile, operator, assignment).length === 0) {
+  const routes = admitting(profile, operator, assignment);
+  if (routes.length === 0) {
     if (declaration.kind === "bridge") {
       throw new UninstantiatedTemplate(
         `bridge ${operator} admits the role sorts ${routeSorts(declaration.roles)}; a claim with sorts ` +
@@ -353,6 +369,10 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
     throw new UninstantiatedTemplate(
       `no instantiation of ${operator} admits a claim with sorts ${routeSorts(assignment)}. Each role's referents must have sorts that one instantiation lists for that role.`,
     );
+  }
+
+  if (authoring && routes.every((address) => declarationAt(profile, address).retired)) {
+    throw new WithdrawnFromAuthoring(`all matching admission routes of ${operator} are retired`);
   }
 
   // (6) Qualifiers: claim-side dimensions applying to this operator.
@@ -382,6 +402,9 @@ export function buildClaim(profile: ProfileSpec, parts: ClaimParts): Claim {
         `${dimension} restricts to sort ${dimensionDecl.restrictionSort}; ${qualifier.restriction.term} is of sort ` +
           `${qualifier.restriction.sort}.`,
       );
+    }
+    if (authoring && dimensionDecl.retired) {
+      throw new WithdrawnFromAuthoring(`dimension ${dimension} is retired`);
     }
   }
 
@@ -476,7 +499,13 @@ function members(value: unknown, role: CompiledRole, where: string): readonly Me
  * Step (4) for one referent: a declared sort, the reserved world kind where one
  * is required, and a term in the sort's identifier class.
  */
-function checkReferent(profile: ProfileSpec, referent: Referent, where: string, worldKind: string | null): void {
+function checkReferent(
+  profile: ProfileSpec,
+  referent: Referent,
+  where: string,
+  worldKind: string | null,
+  authoring: boolean,
+): void {
   if (!Object.hasOwn(profile.sorts, referent.sort)) {
     throw new UndeclaredSort(`${where}: no sort ${referent.sort} in this profile.`);
   }
@@ -492,6 +521,9 @@ function checkReferent(profile: ProfileSpec, referent: Referent, where: string, 
       `${where}: ${JSON.stringify(referent.term)} is outside the identifier class of ${referent.sort} ` +
         `(${classText(sort)}), after NFC normalization.`,
     );
+  }
+  if (authoring && sort.retired) {
+    throw new WithdrawnFromAuthoring(`${where}: sort ${referent.sort} is retired`);
   }
 }
 

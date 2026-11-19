@@ -33,9 +33,11 @@ whitespace set rather than Python's, so a value of only U+FEFF, or only U+0085 o
 U+001C–U+001F, is refused by one side and accepted by the other; and on a document
 with several faults the two sides can report different ones first. It computes contract content identities and checks successor lineage against an
 explicit predecessor through `parseDomainContract(text, source, base, predecessor?)`.
-A `retired` field on any declaration other than a scope relation, even false, is refused
-with `UncheckableContract`; scope relations carry retirement and its one-way succession rule
-in both languages. It
+Both languages accept boolean retirement on sorts, dimensions, templates,
+instantiations, bridges and scope relations, and refuse un-retirement. Other
+declarations and the base grammar reject the field, even false. TypeScript
+`buildClaim` enforces authoring retirement; `validateClaim` preserves historical
+structural validation without membership resolution. It
 also refuses `description` at a domain contract's top level and on a sort or a
 dimension, as an unknown field, and carries no package resource loader,
 `compiled_identity` calculation, assumptions-register reader or estimand
@@ -588,9 +590,8 @@ any of the following holds:
 - the successor changes the schema projection of a claim-vocabulary declaration;
 - the successor un-retires a claim-vocabulary declaration.
 
-Both languages check additive succession; TypeScript refuses retirement fields
-except on scope relations, where both languages admit retirement and refuse
-un-retirement. Parsed TypeScript domains expose `contentIdentity` and `predecessor` metadata.
+Both languages check additive succession and irreversible retirement on the six
+retirable domain families. Parsed TypeScript domains expose `contentIdentity` and `predecessor` metadata.
 Schema equality does not validate the scientific meaning of changed editorial prose.
 
 The claim vocabulary covers all 22 domain declaration families: sorts, dimensions,
@@ -732,10 +733,10 @@ conditional acceptance of an unknown validation domain or recorded scope gap; it
 does not establish procedure validity. The procedure record distinguishes unknown
 validation from a known map whose restrictions cannot be compared.
 
-Mounting resolves domain pins against the current shipped contract only. A corpus
-pinned to general v1 therefore raises `MountPinUnresolved` from the package alone;
-the caller must supply that exact predecessor through `available`. Shipping history
-does not automatically make archived contracts candidates for mount resolution.
+Mounting resolves each domain pin by exact identity from its validated shipped
+history, including general v1. An absent shipped namespace or identity may use an
+exact caller-supplied contract from `available`; corrupt shipped history refuses
+rather than falling back. Selection never re-pins the corpus.
 
 This layout has no independent register-only revision chain: a replacement citing
 the prior register for the same contract as `previous` is refused. Prose-only

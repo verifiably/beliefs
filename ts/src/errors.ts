@@ -2,14 +2,6 @@
  * The error hierarchy, mirroring the Python side's shape for the surface this
  * implementation carries.
  *
- * One class has no Python counterpart and is the more important one:
- * `UncheckableContract`. `ts/` implements the **shared-encoding path** and not a
- * second system, so there are contract
- * features it cannot validate — retirement's authoring
- * semantics. It **refuses** those inputs rather than parsing past them. A
- * reduced parser that quietly accepted what the other implementation refuses
- * would be a second, weaker reading of the normative source, which is exactly
- * the divergence a parity obligation exists to prevent.
  */
 
 export class ScienceError extends Error {
@@ -80,14 +72,8 @@ export class MalformedContract extends ContractError {}
  */
 export class UnparsedContract extends ContractError {}
 
-/**
- * A contract using a feature this implementation cannot check.
- *
- * Refused rather than ignored. `ts/` carries the shared encoding; succession
- * validation and retirement's authoring boundary are Python's, and a document
- * that depends on either is not one this side may claim to have read.
- */
-export class UncheckableContract extends ContractError {}
+/** A declared term remains readable but cannot authorize a new claim. */
+export class WithdrawnFromAuthoring extends ScienceError {}
 
 export class SuccessionViolation extends ContractError {}
 

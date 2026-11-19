@@ -74,3 +74,53 @@ def test_unit_external_mapping_set_is_permanent(base_contract, change):
         successor["units"]["second"]["external"]["ucum"] = "h"
     with pytest.raises(errors.SuccessionViolation, match="si-brochure: unit:second"):
         parse_domain_contract(successor, source="changed synthetic mapping", base=base_contract, predecessor=prior)
+
+
+RETIREMENT = json.loads((Path(__file__).resolve().parents[2] / "fixtures/retirement.json").read_text())
+
+
+@pytest.mark.parametrize("row", RETIREMENT["families"], ids=lambda row: row["table"])
+def test_shared_retirement_flags_and_irreversibility(base_contract, row):
+    table, name = row["table"], row["name"]
+    document = copy.deepcopy(VECTOR[RETIREMENT["schema_section"]])
+    previous = parse_domain_contract(document, source="old", base=base_contract, predecessor=None)
+    for value in (False, True):
+        changed = copy.deepcopy(document)
+        changed[table][name]["retired"] = value
+        changed["lineage"] = {"successor": previous.content_identity}
+        current = parse_domain_contract(changed, source="changed", base=base_contract, predecessor=previous)
+        assert getattr(current, table)[name].retired is value
+        if value:
+            changed[table][name]["retired"] = False
+            changed["lineage"] = {"successor": current.content_identity}
+            with pytest.raises(errors.SuccessionViolation):
+                parse_domain_contract(changed, source="unretire", base=base_contract, predecessor=current)
+    for value in RETIREMENT["invalid_values"]:
+        changed = copy.deepcopy(document)
+        changed[table][name]["retired"] = value
+        with pytest.raises(errors.MalformedContract):
+            parse_domain_contract(changed, source="invalid", base=base_contract, predecessor=None)
+
+
+@pytest.mark.parametrize("row", RETIREMENT["non_retirable"], ids=lambda row: row["table"])
+def test_shared_non_retirable_declarations(base_contract, row):
+    document = copy.deepcopy(VECTOR[RETIREMENT["schema_section"]])
+    body = document[row["table"]][row["name"]]
+    document[row["table"]][row["name"]] = {**body, "retired": False} if isinstance(body, dict) else {"retired": False}
+    with pytest.raises(errors.MalformedContract):
+        parse_domain_contract(document, source="nonretirable", base=base_contract, predecessor=None)
+
+
+@pytest.mark.parametrize("path", RETIREMENT["base_paths"])
+def test_shared_base_grammar_refuses_retired(base_contract_path, path):
+    import yaml
+
+    from beliefs.contract import parse_base_contract
+
+    document = yaml.safe_load(base_contract_path.read_text())
+    target = document
+    for key in path:
+        target = target[key]
+    target["retired"] = False
+    with pytest.raises(errors.MalformedContract):
+        parse_base_contract(document, source="base retired")

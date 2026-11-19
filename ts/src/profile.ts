@@ -65,6 +65,7 @@ import {
 } from "./scope-relations.js";
 
 export interface CompiledSort {
+  readonly retired: boolean;
   readonly term: string;
   readonly binding: SortBinding;
   readonly identifierClass: IdentifierClass | null;
@@ -118,6 +119,7 @@ export interface CompiledAspects {
 }
 
 export interface CompiledDimension {
+  readonly retired: boolean;
   readonly term: string;
   readonly restrictionSort?: string;
   readonly restriction: CompiledRestrictionForm | null;
@@ -138,6 +140,7 @@ export interface CompiledRole {
 
 /** A template, under its operator term `<namespace>/<name>`. Its external reference activates nothing and is not compiled. */
 export interface CompiledTemplate {
+  readonly retired: boolean;
   readonly eventAnchor?: TemplateDecl["eventAnchor"];
   readonly kind: "template";
   readonly term: string;
@@ -150,6 +153,7 @@ export interface CompiledTemplate {
 
 /** An instantiation with its template and every listed sort resolved to term identifiers (each role's sorted). */
 export interface CompiledInstantiation {
+  readonly retired: boolean;
   readonly kind: "instantiation";
   readonly term: string;
   readonly template: string;
@@ -162,6 +166,7 @@ export interface CompiledInstantiation {
  * when it declares none.
  */
 export interface CompiledBridge {
+  readonly retired: boolean;
   readonly kind: "bridge";
   readonly term: string;
   readonly template: string;
@@ -459,6 +464,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
   for (const contract of contracts) {
     for (const [name, decl] of Object.entries(contract.sorts)) {
       sorts[term(contract.namespace, name)] = Object.freeze({
+        retired: decl.retired,
         term: term(contract.namespace, name),
         binding: decl.binding,
         identifierClass: decl.identifierClass,
@@ -478,6 +484,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
         }),
       ]);
       templates[term(contract.namespace, name)] = Object.freeze({
+        retired: decl.retired,
         kind: "template",
         term: term(contract.namespace, name),
         roles: frozenTable(roles),
@@ -774,6 +781,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
         layers = decl.layers;
       }
       bridges[term(contract.namespace, name)] = Object.freeze({
+        retired: decl.retired,
         kind: "bridge",
         term: term(contract.namespace, name),
         template: template.term,
@@ -803,6 +811,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
         return resolved;
       });
       dimensions[term(contract.namespace, name)] = Object.freeze({
+        retired: decl.retired,
         term: term(contract.namespace, name),
         ...(restrictionSort === undefined ? {} : { restrictionSort }),
         restriction: decl.restriction ? compileRestriction(contract, decl.restriction) : null,
@@ -814,6 +823,7 @@ export function compileProfile(base: BaseContract, domains: readonly DomainContr
       const where = `instantiations.${name}`;
       const template = resolveTemplate(contract, decl.template, `${where}: template`);
       instantiations[term(contract.namespace, name)] = Object.freeze({
+        retired: decl.retired,
         kind: "instantiation",
         term: term(contract.namespace, name),
         template: template.term,
@@ -1040,8 +1050,8 @@ export function templateOf(profile: ProfileSpec, operator: CompiledOperator): Co
  * whose sort set for every role contains every sort the claim puts in that role;
  * for a bridge, the bridge itself when its own sort sets do. A reserved role
  * (`within-model`) is admitted on every operator by the kernel, so it reaches no
- * declaration; a role the template does not declare refuses. No authoring flag:
- * this side refuses `retired` at parse, so no declaration here is retired.
+ * declaration; a role the template does not declare refuses. Historical inventories
+ * retain retired routes; buildClaim filters them at the authoring boundary.
  */
 export function admitting(
   profile: ProfileSpec,

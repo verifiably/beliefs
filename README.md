@@ -74,7 +74,7 @@ whole walk from held data to a belief, see the guide's
 
 ```
 python/     the implementation, package `beliefs`
-ts/         the TypeScript mirror of the shared identity encoding and claim projection
+ts/         the TypeScript mirror: contract succession, claim typing and shared encoding
 fixtures/   the cross-language parity corpus both test suites read
 contracts/  the Science base contract
 domains/    the packaged domain contracts and registers (`general` ships with the package)

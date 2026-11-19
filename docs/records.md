@@ -247,7 +247,7 @@ order, each refused with its own error:
 8. the layer is one the operator admits: the template's layers, or the bridge's own
    narrowing of them (`InadmissibleLayer`).
 
-Authoring a claim (`build_claim`) also refuses, with `WithdrawnFromAuthoring`, a
+Authoring a claim (`build_claim`, or TypeScript `buildClaim`) also refuses, with `WithdrawnFromAuthoring`, a
 retired operator, a bridge whose template is retired, a referent of a retired sort, a claim that only retired
 instantiations admit, and a qualifier on a retired dimension or with a restriction
 of a retired sort. Typing a stored claim refuses none of them.
@@ -1678,8 +1678,13 @@ both test suites read and neither writes:
   the shipped `general` contract and `fixtures/contracts/general-consumer.yaml`,
   with their projections, canonical bytes and `science.claim.v2` digests.
 
-The TypeScript side computes neither contract nor profile identity. It refuses any
-contract that declares a predecessor or a retired identifier.
+The TypeScript side computes contract content identity and checks additive
+succession against an explicit predecessor. It computes no compiled profile
+identity. `buildClaim` enforces the same claim-authoring retirement rules as
+Python; `validateClaim` shares structural validation while accepting retired
+declarations. Both produce the same canonical claim identity for accepted parts.
+`fixtures/retirement.json` supplies shared retirement decisions and historical
+identity vectors. Neither TypeScript constructor resolves membership.
 
 Only the Python side resolves referents. A binding-check receipt's identity is a
 digest under `science.receipt.v2` of the claim identity, the snapshot identity and

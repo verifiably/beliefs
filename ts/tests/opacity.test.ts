@@ -310,6 +310,7 @@ describe("a profile that did not come from the contracts is not a profile", () =
     templates: {
       "forged/op": {
         kind: "template",
+        retired: false,
         term: "forged/op",
         roles: {},
         signApt: true,
@@ -561,6 +562,7 @@ describe("neither a compiled profile nor its source contract can be edited after
     expect(() => {
       (profile.templates as Record<string, CompiledTemplate>)["injected/op"] = {
         kind: "template",
+        retired: false,
         term: "injected/op",
         roles: {},
         signApt: true,
