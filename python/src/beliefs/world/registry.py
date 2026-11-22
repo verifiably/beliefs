@@ -7,7 +7,7 @@ import os
 import re
 import threading
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager, nullcontext
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -221,11 +221,10 @@ def _require_lower_hex(value: object, length: int, location: str) -> str:
 class World:
     """One world root, its registry, and the two capabilities a build needs.
 
-    `chain_head` is the whole of Science's access to the engine's chain: it is
-    handed a root and answers `(genesis_digest, tip)`, having completed
-    recovery first. Nothing engine-shaped crosses this boundary — no
-    `ChainView`, no backend, no storage profile — which is what keeps
-    `beliefs.root` the one module that imports `atoms`.
+    A build's `chain_head` callback recovers a root and returns its genesis
+    digest and tip. A detached reader instead holds `read_guard` across
+    world reads to check for pending transactions without recovering them.
+    Both callbacks keep the engine types inside `beliefs.root`.
 
     `corpus_executor_factory` is the factory the *corpus* write API is built
     with, and it is here because a coherent capture must take the same
@@ -244,23 +243,25 @@ class World:
         chain_head: Callable[[Path], tuple[str, str]],
         corpus_executor_factory: Callable[[Path], WritePlanExecutor],
         authority: Authority,
+        read_guard: Callable[[], AbstractContextManager[None]] | None = None,
     ) -> None:
         if type(authority) is not Authority:
             raise TypeError("a world binds an Authority")
         self.config = config
         self.authority = authority
         self._executor_factory = executor_factory
+        self._read_guard = read_guard
         self._chain_head = chain_head
         self._corpus_executor_factory = corpus_executor_factory
         self._state = _world_state_for(config.world_root)
 
     def registry(self) -> RegistryView:
-        with self._state.lock:
+        with self._state.lock, self._read_guard() if self._read_guard else nullcontext():
             self._state.registry = _scan_registry(self.config.world_root)
             return self._state.registry
 
     def status(self, corpus_id: str) -> CorpusStatus:
-        with self._state.lock:
+        with self._state.lock, self._read_guard() if self._read_guard else nullcontext():
             self._state.registry = _scan_registry(self.config.world_root)
             _require_lower_hex(corpus_id, 32, "corpus_id")
             return _reduce_status(self.config, self._state.registry, corpus_id)
@@ -376,16 +377,11 @@ def _locked_admit(
 
 @contextmanager
 def _locked_barrier(world: World) -> Iterator[Path]:
-    """The one world-lock acquisition and the recovery barrier, in that order.
+    """Serialize epoch operations on this world.
 
-    Every act over ``epochs/`` — opening one, following ``current``, resolving
-    an address, publishing, deleting — begins the same way: take
-    `_WorldState.lock`, then hand the world root to the injected chain callback
-    so recovery of any interrupted transaction completes *inside* the critical
-    section. The order is the whole point. Taking the lock second would
-    let a reader cross a barrier that a publication then invalidated; crossing
-    the barrier second, but outside the lock, would let two acts recover at
-    once.
+    Take the process-local lock first. Attended handles cross the recovering
+    chain barrier. Detached readers hold their existing engine lock from the
+    settlement check through the caller's last read of world files.
 
     The lock is not reentrant, so everything the body calls must be a
     `_locked_*` helper that assumes the hold rather than taking it again. The
@@ -394,8 +390,12 @@ def _locked_barrier(world: World) -> Iterator[Path]:
     """
     with world._state.lock:
         world_root = world.config.world_root
-        world._chain_head(world_root)
-        yield world_root
+        if world._read_guard is None:
+            world._chain_head(world_root)
+            yield world_root
+        else:
+            with world._read_guard():
+                yield world_root
 
 
 class _ManifestLoader(yaml.SafeLoader):

@@ -34,7 +34,16 @@ effect. If the family or any kind falls outside the permit, the call raises
 `PermitExceeded` and writes nothing. A kind outside the kernel and coordination
 inventory is admitted only by an `ungoverned` permit, and only for `corpus-write`.
 `WritePermit.full()` is the full permit. The read door, `open_world_read`, binds
-the empty permit, so every act through it is refused.
+the empty permit, so every act through it is refused. Opening this door and
+reading an epoch may settle an interrupted world transaction.
+
+Use `open_world_detached(config)` for callers whose reads must preserve pending
+recovery. It binds the same empty permit. Registry, status and epoch reads
+recheck the world mirror and genesis under the existing engine lock and hold
+the lock while reading the world files. A busy lock, an unreadable chain or
+an unsettled registration refuses the observation. An already-open reader
+makes the check again on its next read. The operator can still recover the
+world through the ordinary read door.
 
 ## Opening a corpus
 

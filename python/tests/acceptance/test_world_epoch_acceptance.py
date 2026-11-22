@@ -762,3 +762,59 @@ def test_world_transactions_register_every_path(durable_world):
         if rules.binding_for(bundle) == removed.binding
         for path, _content in rules._member_bytes(bundle, removed.binding)
     }
+
+
+def test_detached_world_keeps_a_pending_publication_for_the_operator(durable_world, monkeypatch):
+    from atoms.coordinator import commit
+
+    from beliefs.errors import WorldReadUnavailable
+    from beliefs.world.view import open_world_view
+
+    case = durable_world
+    world = case["world"]
+    bindings = shipped_bindings(world)
+    published = epoch.build_epoch(world, coverage=frozenset({case["corpus_id"]}), bindings=bindings)
+    reader = root.open_world_detached(case["config"])
+    assert read.current_epoch(reader).packaging_identity == published.packaging_identity
+    assert read.open_epoch(reader, published.packaging_identity).members == published.members
+    assert not open_world_view(reader, published).absent()
+    assert reader.status(case["corpus_id"]).live
+
+    def interrupt(*args, **kwargs):
+        raise OSError("interrupted settlement append")
+
+    with monkeypatch.context() as fault:
+        fault.setattr(commit, "append_entry", interrupt)
+        with pytest.raises(Exception, match="interrupted settlement append"):
+            world.retire(case["corpus_id"])
+    before = root.log_seam().inspect_detached(case["world_root"])
+    assert isinstance(before, root.WellFormedView) and before.pending
+    for observe in (
+        lambda: root.open_world_detached(case["config"]),
+        reader.registry,
+        lambda: read.current_epoch(reader),
+        lambda: open_world_view(reader, published),
+    ):
+        with pytest.raises(WorldReadUnavailable, match="pending"):
+            observe()
+        assert root.log_seam().inspect_detached(case["world_root"]) == before
+    root.open_world_read(case["config"])
+    assert not reader.status(case["corpus_id"]).live
+
+
+def test_detached_epoch_holds_engine_lock_through_pointer_read(durable_world, monkeypatch):
+    from beliefs.errors import EpochUnknown, WorldReadUnavailable
+
+    config = durable_world["config"]
+    reader = root.open_world_detached(config)
+    current = epoch._locked_current_identity
+
+    def observe_pointer(path):
+        with pytest.raises(WorldReadUnavailable, match="busy"):
+            root.open_world_detached(config)
+        return current(path)
+
+    monkeypatch.setattr(epoch, "_locked_current_identity", observe_pointer)
+    with pytest.raises(EpochUnknown, match="no epoch"):
+        read.current_epoch(reader)
+    assert root.open_world_detached(config).registry() == reader.registry()

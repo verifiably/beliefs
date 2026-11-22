@@ -124,6 +124,7 @@ from atoms.core.paths import require_rel_path
 from atoms.core.scratch import SCRATCH_SIGIL
 from atoms.core.spec import TransactionSpec, build_spec
 from atoms.fs.backend import Backend
+from atoms.fs.lock import acquire_existing_project_lock
 from atoms.fs.platform import select_backend
 from atoms.fs.volume import StorageProfile
 from atoms.store.errors import MetadataStoreInvalid
@@ -138,7 +139,14 @@ from beliefs.corpus import (
     mark_root_unresolved,
     require_pins_agree,
 )
-from beliefs.errors import CorpusRootRefused, LogEvidenceRefused, StoreWriteRefused, WorldIdMismatch, WorldUninitialized
+from beliefs.errors import (
+    CorpusRootRefused,
+    LogEvidenceRefused,
+    StoreWriteRefused,
+    WorldIdMismatch,
+    WorldReadUnavailable,
+    WorldUninitialized,
+)
 from beliefs.holdings.records import require_store_relative_path
 from beliefs.holdings.seam import (
     AbsentStateView,
@@ -258,6 +266,7 @@ __all__ = [
     "open_corpus",
     "open_series_store",
     "open_world",
+    "open_world_detached",
     "open_world_read",
     "plan_preflight",
     "read_lifecycle_state",
@@ -2148,6 +2157,63 @@ def open_world(config: WorldConfig, *, authority: Authority) -> World:
         corpus_executor_factory=durable_executor_factory(),
         authority=authority,
     )
+
+
+@contextmanager
+def _detached_world_read(config: WorldConfig) -> Iterator[WellFormedView]:
+    root = config.world_root
+    try:
+        lock = acquire_existing_project_lock(_PRODUCTION_BACKEND, str(metadata_root_for(root)), blocking=False)
+    except (OSError, AtomsError) as error:
+        raise WorldReadUnavailable(f"{root}: cannot acquire the existing world lock: {error}") from error
+    if lock is None:
+        raise WorldReadUnavailable(f"{root}: the world is busy")
+    with lock:
+        try:
+            chain = _inspect_detached(root)
+        except (AtomsError, OSError, LogEvidenceRefused) as error:
+            raise WorldReadUnavailable(f"{root}: cannot inspect the world chain: {error}") from error
+        if isinstance(chain, AbsentView):
+            raise WorldUninitialized(f"{root}: no world chain is registered")
+        if not isinstance(chain, WellFormedView):
+            raise WorldReadUnavailable(f"{root}: malformed world chain")
+        if chain.pending:
+            raise WorldReadUnavailable(f"{root}: the world chain has a pending registration")
+        if _load_world_mirror(root) != config.world_id:
+            raise WorldIdMismatch(f"{root / 'world.yaml'}: world_id does not match configuration")
+        _require_world_genesis(root, chain.genesis.payload, config.world_id)
+        yield chain
+
+
+def open_world_detached(config: WorldConfig) -> World:
+    """Open a read-only world without settling transactions.
+
+    Recheck the identity and chain under the existing engine lock on every
+    registry or epoch read. A registration precedes application of its effects
+    and its settlement follows them. Holding the lock from that check until
+    the files have been read excludes a publication in between.
+    """
+
+    @contextmanager
+    def guard() -> Iterator[None]:
+        with _detached_world_read(config):
+            yield
+
+    def head(path: Path) -> tuple[str, str]:
+        if path != config.world_root:
+            raise WorldReadUnavailable(f"{path}: a detached world cannot open a build input")
+        with _detached_world_read(config) as chain:
+            return chain.genesis.digest, chain.tip
+
+    with guard():
+        return World(
+            config,
+            _world_executor_factory(),
+            chain_head=head,
+            corpus_executor_factory=durable_executor_factory(),
+            authority=READ_ONLY,
+            read_guard=guard,
+        )
 
 
 def open_world_read(config: WorldConfig) -> World:

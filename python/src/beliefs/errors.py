@@ -134,6 +134,10 @@ class StoreIdMismatch(ScienceError):
     """
 
 
+class WorldReadUnavailable(ScienceError):
+    """A world read could not establish a settled observation without recovery."""
+
+
 class WorldUninitialized(ScienceError):
     """A world operation needs initialization that has not occurred."""
 

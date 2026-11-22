@@ -443,3 +443,46 @@ class TestOpenWorldRead:
             root.open_world_read(config)
 
         assert calls == []
+
+
+@pytest.mark.parametrize("operation", ["open", "registry", "status", "epoch"])
+def test_detached_world_checks_pending_at_each_read(tmp_path, monkeypatch, operation):
+    from contextlib import nullcontext
+
+    from beliefs.errors import WorldReadUnavailable
+    from beliefs.world.logmodel import GenesisEntryView, WellFormedView
+    from beliefs.world.read import current_epoch
+
+    config = WorldConfig(tmp_path, "1" * 32, ())
+    (tmp_path / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+    genesis = GenesisEntryView("0" * 64, root._world_genesis_payload(config.world_id), ())
+    clean = WellFormedView(genesis, (genesis,), genesis.digest, ())
+    pending = WellFormedView(genesis, (genesis,), genesis.digest, (("tx", "2" * 64),))
+    observation = pending if operation == "open" else clean
+    monkeypatch.setattr(root, "acquire_existing_project_lock", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(root, "_inspect_detached", lambda path: observation)
+    monkeypatch.setattr(root, "read_chain", lambda *args: pytest.fail("recovering read"))
+    with pytest.raises(WorldReadUnavailable, match="pending"):
+        world = root.open_world_detached(config)
+        observation = pending
+        if operation == "registry":
+            world.registry()
+        elif operation == "status":
+            world.status("2" * 32)
+        elif operation == "epoch":
+            current_epoch(world)
+
+
+@pytest.mark.parametrize("mirror, genesis", [("2", "1"), ("1", "2")])
+def test_detached_world_checks_both_identity_bindings(tmp_path, monkeypatch, mirror, genesis):
+    from contextlib import nullcontext
+
+    from beliefs.world.logmodel import GenesisEntryView, WellFormedView
+
+    config = WorldConfig(tmp_path, "1" * 32, ())
+    (tmp_path / "world.yaml").write_bytes(_world_mirror_bytes(mirror * 32))
+    entry = GenesisEntryView("0" * 64, root._world_genesis_payload(genesis * 32), ())
+    monkeypatch.setattr(root, "acquire_existing_project_lock", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(root, "_inspect_detached", lambda path: WellFormedView(entry, (entry,), entry.digest, ()))
+    with pytest.raises(WorldIdMismatch):
+        root.open_world_detached(config)
