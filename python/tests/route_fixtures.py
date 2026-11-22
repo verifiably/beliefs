@@ -29,7 +29,14 @@ if name == "uv" and args[:4] == ["run", "--frozen", "python", "tools/check_shipp
     name = "check-shipped-contracts"
 root = pathlib.Path(os.environ["FIXTURE_ROOT"])
 if name == "tasks" and args != ["check"]:
-    print(json.dumps({"project": {"root": str(root), "prefix": "fixture", "linked": False}}))
+    print(json.dumps({"project": {
+        "root": str(root),
+        "prefix": "fixture",
+        "linked": False,
+        "registered": True,
+        "retired": False,
+        "stage": "supported",
+    }}))
     sys.exit(0)
 with open(os.environ["EVENTS"], "a") as f:
     f.write(json.dumps([name, args, os.getcwd(), os.environ.get("GIT_DIR")]) + "\n")

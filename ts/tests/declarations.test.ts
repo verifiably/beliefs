@@ -320,6 +320,7 @@ describe("compileProfile resolves the v2 declarations", () => {
 
   it("resolves local names to term identifiers", () => {
     expect(compiled.instantiations["testing/affects-entity-entity"]).toEqual({
+      retired: false,
       kind: "instantiation",
       term: "testing/affects-entity-entity",
       template: "testing/affects",
@@ -329,6 +330,7 @@ describe("compileProfile resolves the v2 declarations", () => {
     expect([bridge.template, bridge.mapping, bridge.layers]).toEqual(["testing/affects", "narrower", ["causal"]]);
     expect(bridge.roles).toEqual({ cause: ["testing/entity"], effect: ["testing/outcome"] });
     expect(compiled.dimensions["testing/population"]).toEqual({
+      retired: false,
       term: "testing/population",
       restrictionSort: "testing/cohort",
       restriction: null,

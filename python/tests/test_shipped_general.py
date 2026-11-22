@@ -14,7 +14,7 @@ import beliefs
 from beliefs import profile as profile_module
 from beliefs import stored
 from beliefs.contract.document import parse_document
-from beliefs.errors import CanonicalTextRefused, MalformedContract, ProfileError
+from beliefs.errors import MalformedContract, ProfileError, ShippedDomainNotFound
 from beliefs.profile import (
     compile_profile,
     shipped_base,
@@ -307,38 +307,48 @@ def test_general_activation_is_explicit_and_compiles_alone() -> None:
 
 
 @pytest.mark.parametrize(
-    "namespace",
-    ["", "unknown", "testing", "../general", "general/sub", "general.bad"],
+    ("namespace", "error"),
+    [
+        ("", ProfileError),
+        ("unknown", ShippedDomainNotFound),
+        ("testing", ShippedDomainNotFound),
+        ("../general", ProfileError),
+        ("general/sub", ProfileError),
+        ("general.bad", ProfileError),
+    ],
 )
-def test_unknown_and_traversal_namespaces_refuse_with_resource_path(namespace: str) -> None:
-    with pytest.raises(ProfileError, match="domains/.*/REGISTER\\.json"):
-        profile_module.shipped_assumptions_register(namespace)
-    with pytest.raises(ProfileError, match="ships no domain contract"):
-        shipped_domain_contract(namespace)
+def test_unknown_and_invalid_namespaces_have_distinct_refusals(namespace: str, error: type[ProfileError]) -> None:
+    for load in (shipped_domain_contract, profile_module.shipped_assumptions_register):
+        with pytest.raises(error, match="ships no domain contract") as caught:
+            load(namespace)
+        assert type(caught.value) is error
 
 
 @pytest.mark.parametrize(
-    "cause",
+    ("content", "cause_type"),
     [
-        OSError("cannot read domain resource"),
-        UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
-        CanonicalTextRefused("invalid canonical domain text"),
-        MalformedContract("invalid domain contract"),
-        ProfileError("missing domain contract"),
+        (None, FileNotFoundError),
+        (b"\xff", UnicodeDecodeError),
+        (b"[]\n", MalformedContract),
     ],
 )
-def test_domain_binding_errors_name_the_register_resource(monkeypatch: pytest.MonkeyPatch, cause: Exception) -> None:
-    def broken_domain(namespace: str) -> None:
-        assert namespace == "general"
-        raise cause
-
-    monkeypatch.setattr(profile_module, "_shipped_domain_history", broken_domain)
+def test_register_load_reports_the_damaged_domain_resource(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: bytes | None, cause_type: type[Exception]
+) -> None:
+    domain = tmp_path / "domains" / "general" / "DOMAIN.yaml"
+    domain.parent.mkdir(parents=True)
+    if content is not None:
+        domain.write_bytes(content)
+    shipped_base_contract()
+    monkeypatch.setattr(resources, "files", lambda _pkg: tmp_path)
+    profile_module._shipped_domain_history.cache_clear()
     profile_module.shipped_assumptions_register.cache_clear()
     try:
-        with pytest.raises(ProfileError, match=r"beliefs/domains/general/REGISTER\.json") as caught:
+        with pytest.raises(ProfileError, match=r"^domains/general/DOMAIN\.yaml:") as caught:
             profile_module.shipped_assumptions_register("general")
-        assert caught.value.__cause__ is cause
+        assert isinstance(caught.value.__cause__, cause_type)
     finally:
+        profile_module._shipped_domain_history.cache_clear()
         profile_module.shipped_assumptions_register.cache_clear()
 
 
