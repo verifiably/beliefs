@@ -426,8 +426,10 @@ def _no_host() -> None:
     raise ConfinementUnavailable(_NO_HOST)
 
 
-# Every refusal the executors reach before their intent other than the permit and
-# run-staging refusals: (case, reason, call). Each call takes the work directory, the
+# The refusals the executors reach before their intent under both session kinds,
+# past the permit and run-staging refusals (`boundary-policy-unsupported`, which a
+# run session refuses earlier as `policy-unconfined`, has its own test below):
+# (case, reason, call). Each call takes the work directory, the
 # port, and the staging keywords its session kind needs, under the confined policy.
 PRE_INTENT_REFUSALS = [
     (
@@ -492,6 +494,26 @@ def test_a_session_port_returns_every_pre_intent_refusal_with_no_report(tmp_path
         assert refused.detail == _NO_HOST
     assert inner.calls == []  # no intent, no chain entry
     assert session.invocation_acts("A") == ()
+    session.close()
+    assert open_ledger_reader(session.operations_root, session.session_id).acts() == ()
+
+
+UNSUPPORTED_POLICY = replace(CONFINED_POLICY, scope_rule="scope-derivation/v2")
+
+
+@pytest.mark.parametrize(
+    ("run", "reason"),
+    [(False, "boundary-policy-unsupported"), (True, "policy-unconfined")],
+    ids=["attended", "run-session"],
+)
+@pytest.mark.parametrize("execute", [run_assessment, run_production], ids=["assessment", "production"])
+def test_a_session_port_returns_an_unsupported_policy_refusal_with_no_report(tmp_path, run, reason, execute):
+    session, port, inner = _run_session_port(tmp_path, run=run)
+    staging = {"kernel_scratch": True} if run else {"scratch_base": tmp_path / "scratch"}
+    refused = execute(tmp_path / "w", port=port, boundary_policy=UNSUPPORTED_POLICY, **staging)
+    assert type(refused) is RunRefused and refused.reason == reason
+    assert refused.report is None and refused.intent is None and refused.registration is None
+    assert inner.calls == []
     session.close()
     assert open_ledger_reader(session.operations_root, session.session_id).acts() == ()
 
