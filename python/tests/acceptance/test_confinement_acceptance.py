@@ -5,7 +5,10 @@ module (`shared_scratch`), so the closure is materialized once."""
 
 from __future__ import annotations
 
+import os
 import socket
+import stat
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
@@ -125,6 +128,51 @@ def test_a_confined_run_attests_both_launches_over_one_snapshot(tmp_path):
     assert receipt.planning.instance.mount_plan_identity == receipt.execution.instance.mount_plan_identity
     assert receipt.planning.mounts != receipt.execution.mounts
     assert receipt.confined is True
+
+
+def test_confined_reports_use_the_directory_held_across_their_launch(tmp_path, monkeypatch):
+    from beliefs import adapter
+
+    active = []
+    observations = []
+    pin = boundary_module.pinned_directory
+    launch = boundary_module.launch_confined
+    events = adapter.event_lines
+    seeds = adapter.seed_reports
+
+    @contextmanager
+    def observe_pin(root):
+        with pin(root) as fd:
+            active.append(fd)
+            try:
+                yield fd
+            finally:
+                assert active.pop() == fd
+
+    def observe_launch(*, plan, **kwargs):
+        output = {target: source for target, source, _ in plan.binds}[boundary_module.OUTPUT_ROOT]
+        assert len(active) == 1 and os.path.samestat(os.stat(output), os.fstat(active[0]))
+        observations.append("launch")
+        return launch(plan=plan, **kwargs)
+
+    def observe_events(path, *, output_fd):
+        assert active == [output_fd] and stat.S_ISDIR(os.fstat(output_fd).st_mode)
+        observations.append("events")
+        return events(path, output_fd=output_fd)
+
+    def observe_seeds(fd):
+        assert active == [fd] and stat.S_ISDIR(os.fstat(fd).st_mode)
+        observations.append("seeds")
+        yield from seeds(fd)
+
+    monkeypatch.setattr(boundary_module, "pinned_directory", observe_pin)
+    monkeypatch.setattr(boundary_module, "launch_confined", observe_launch)
+    monkeypatch.setattr(adapter, "event_lines", observe_events)
+    monkeypatch.setattr(adapter, "seed_reports", observe_seeds)
+    result = run_production(tmp_path, port=MEMORY_PORT, boundary_policy=CONFINED_POLICY)
+    assert isinstance(result, RunMinted)
+    assert observations == ["launch", "events", "launch", "events", "seeds"]
+    assert not active
 
 
 def test_each_confined_launch_executes_exactly_one_engine_argv(tmp_path):
