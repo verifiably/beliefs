@@ -577,7 +577,7 @@ def test_combined_seed_bytes_are_bounded(tmp_path, monkeypatch):
     seeds = tmp_path / ".seeds"
     _write_claim(seeds, _claim())
     _write_claim(seeds, _claim(stream="second"))
-    monkeypatch.setattr(_job_reports, "RECORD_CEILING", sum(p.stat().st_size for p in seeds.iterdir()) - 1)
+    monkeypatch.setattr(_job_reports, "_REPORT_BYTES", sum(p.stat().st_size for p in seeds.iterdir()) - 1)
     with pytest.raises(MalformedClosure):
         read_realized_seeds(tmp_path)
 
@@ -592,6 +592,6 @@ def test_reports_refuse_special_or_oversized_entries(tmp_path, reader, error, mo
         reader(events)
     events.unlink()
     events.write_text(_plan_event(1, "fit", {}, ["out"]) + "\n")
-    monkeypatch.setattr(_job_reports, "RECORD_CEILING", events.stat().st_size - 1)
+    monkeypatch.setattr(_job_reports, "_REPORT_BYTES", events.stat().st_size - 1)
     with pytest.raises(error):
         reader(events)

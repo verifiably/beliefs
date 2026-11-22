@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from beliefs.world.records import RECORD_CEILING
+_REPORT_BYTES = 8 * 1024 * 1024
 
 _DIRECTORY = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 _MAX_SEED_ENTRIES = 65536
@@ -42,13 +42,13 @@ def _regular_bytes(parent: int, name: str, limit: int) -> bytes:
 def event_lines(path: Path, *, output_fd: int | None) -> list[str]:
     if output_fd is None:
         with pinned_directory(path.parent) as directory:
-            data = _regular_bytes(directory, path.name, RECORD_CEILING)
+            data = _regular_bytes(directory, path.name, _REPORT_BYTES)
     else:
         if path.is_absolute() or len(path.parts) != 2 or ".." in path.parts:
             raise ValueError("expected a report in a direct child of the pinned output directory")
         directory = os.open(path.parts[0], _DIRECTORY, dir_fd=output_fd)
         try:
-            data = _regular_bytes(directory, path.name, RECORD_CEILING)
+            data = _regular_bytes(directory, path.name, _REPORT_BYTES)
         finally:
             os.close(directory)
     return data.decode("utf-8").splitlines()
@@ -68,7 +68,7 @@ def seed_reports(scratch: Path | int) -> Iterator[tuple[Path, bytes]]:
                         raise OSError("too many seed directory entries")
                     if entry.name.endswith(".json"):
                         names.append(entry.name)
-            remaining = RECORD_CEILING
+            remaining = _REPORT_BYTES
             for name in sorted(names):
                 data = _regular_bytes(directory, name, remaining)
                 remaining -= len(data)
