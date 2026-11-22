@@ -41,7 +41,9 @@ Use `open_world_detached(config)` for callers whose reads must preserve pending
 recovery. It binds the same empty permit. Registry, status and epoch reads
 recheck the world mirror and genesis under the existing engine lock and hold
 the lock while reading the world files. A busy lock, an unreadable chain or
-an unsettled registration refuses the observation. An already-open reader
+an unsettled registration refuses the observation. A missing current pointer
+means the world has no current epoch. A malformed pointer or a pointer to a
+missing epoch makes that observation unavailable. An already-open reader
 makes the check again on its next read. The operator can still recover the
 world through the ordinary read door.
 

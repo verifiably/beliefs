@@ -94,6 +94,7 @@ from beliefs.errors import (
     CorpusStateMalformed,
     DeprecatedKeyCollision,
     EdgeIndeterminate,
+    EpochMalformed,
     EpochUnknown,
     ManifestMalformed,
     ResolutionRefused,
@@ -214,7 +215,12 @@ def current_epoch(world: registry.World) -> epoch.Epoch:
                 f"{world_root / 'epochs' / epoch.CURRENT_POINTER}: "
                 "this world has published no epoch, so it selects none"
             )
-        return epoch._locked_open_epoch(world_root, named)
+        try:
+            return epoch._locked_open_epoch(world_root, named)
+        except EpochUnknown as error:
+            if world._read_guard is None:
+                raise
+            raise EpochMalformed(f"{world_root}: the current pointer names a missing epoch {named}") from error
 
 
 # --- receipt validation ------------------------------------------

@@ -141,7 +141,11 @@ from beliefs.corpus import (
 )
 from beliefs.errors import (
     CorpusRootRefused,
+    CorpusStateMalformed,
+    EpochMalformed,
     LogEvidenceRefused,
+    ManifestMalformed,
+    RegistryMalformed,
     StoreWriteRefused,
     WorldIdMismatch,
     WorldReadUnavailable,
@@ -2197,7 +2201,10 @@ def open_world_detached(config: WorldConfig) -> World:
     @contextmanager
     def guard() -> Iterator[None]:
         with _detached_world_read(config):
-            yield
+            try:
+                yield
+            except (CorpusStateMalformed, EpochMalformed, ManifestMalformed, RegistryMalformed, OSError) as error:
+                raise WorldReadUnavailable(str(error)) from error
 
     def head(path: Path) -> tuple[str, str]:
         if path != config.world_root:

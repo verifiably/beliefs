@@ -486,3 +486,25 @@ def test_detached_world_checks_both_identity_bindings(tmp_path, monkeypatch, mir
     monkeypatch.setattr(root, "_inspect_detached", lambda path: WellFormedView(entry, (entry,), entry.digest, ()))
     with pytest.raises(WorldIdMismatch):
         root.open_world_detached(config)
+
+
+@pytest.mark.parametrize("contents", [b"malformed", b"a" * 64 + b"\n"], ids=["malformed", "dangling"])
+def test_detached_epoch_refuses_an_unusable_current_pointer(tmp_path, monkeypatch, contents):
+    from contextlib import nullcontext
+
+    from beliefs.errors import EpochUnknown, WorldReadUnavailable
+    from beliefs.world.logmodel import GenesisEntryView, WellFormedView
+    from beliefs.world.read import current_epoch
+
+    config = WorldConfig(tmp_path, "1" * 32, ())
+    (tmp_path / "world.yaml").write_bytes(_world_mirror_bytes(config.world_id))
+    entry = GenesisEntryView("0" * 64, root._world_genesis_payload(config.world_id), ())
+    monkeypatch.setattr(root, "acquire_existing_project_lock", lambda *args, **kwargs: nullcontext())
+    monkeypatch.setattr(root, "_inspect_detached", lambda path: WellFormedView(entry, (entry,), entry.digest, ()))
+    reader = root.open_world_detached(config)
+    with pytest.raises(EpochUnknown):
+        current_epoch(reader)
+    (tmp_path / "epochs").mkdir()
+    (tmp_path / "epochs/current").write_bytes(contents)
+    with pytest.raises(WorldReadUnavailable):
+        current_epoch(reader)
