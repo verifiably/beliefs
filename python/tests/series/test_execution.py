@@ -242,7 +242,7 @@ def test_execution_rechecks_the_original_staged_copy_after_planning(portable, tm
         return SimpleNamespace(returncode=0, output="") if confined else (0, "")
 
     monkeypatch.setattr(boundary, "_stage_inputs", stage_inputs)
-    monkeypatch.setattr(boundary, "read_plan", lambda path: ())
+    monkeypatch.setattr(boundary, "read_plan", lambda path, **kwargs: ())
     monkeypatch.setattr(boundary, "check_checkpoint_declaration", lambda *a: None)
     monkeypatch.setattr(boundary, "resolve_targets", lambda *a: ())
     if confined:

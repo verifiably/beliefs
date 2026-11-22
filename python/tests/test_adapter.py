@@ -534,3 +534,64 @@ def test_the_definition_keeps_strict_immutable_members():
         WorkflowDefinition(snakefile="not bytes", family_streams={})  # type: ignore[arg-type]
     with pytest.raises(MalformedClosure):
         WorkflowDefinition(snakefile=b"", family_streams={"transform": ["mutable"]})  # type: ignore[dict-item]
+
+
+@pytest.mark.parametrize("reader", [read_plan, read_trace])
+def test_metadata_reader_accepts_only_a_single_linked_regular_file(tmp_path, reader):
+    events = tmp_path / "events.jsonl"
+    events.write_text(_plan_event(1, "fit", {}, ["result"]) + "\n")
+    os.link(events, tmp_path / "second-name")
+    error = PlanUnavailable if reader is read_plan else MalformedClosure
+    with pytest.raises(error):
+        reader(events)
+
+
+def test_seed_reader_requires_a_single_linked_regular_claim(tmp_path):
+    directory = tmp_path / ".seeds"
+    _write_claim(directory, _claim())
+    (report,) = directory.iterdir()
+    os.link(report, tmp_path / "other-name")
+    with pytest.raises(MalformedClosure):
+        read_realized_seeds(tmp_path)
+
+
+@pytest.mark.parametrize("reader", [read_plan, read_trace])
+def test_confined_events_use_the_original_pinned_output_directory(tmp_path, reader):
+    from beliefs._job_reports import pinned_directory
+
+    root = tmp_path / "output"
+    trace = root / ".trace"
+    trace.mkdir(parents=True)
+    report = Path(".trace/events.jsonl")
+    (root / report).write_text(_plan_event(1, "fit", {}, ["result"]) + "\n")
+    with pinned_directory(root) as fd:
+        root.rename(tmp_path / "original")
+        (root / ".trace").mkdir(parents=True)
+        (root / report).write_text("different directory")
+        assert len(reader(report, output_fd=fd)) == 1
+
+
+def test_combined_seed_bytes_are_bounded(tmp_path, monkeypatch):
+    from beliefs import _job_reports
+
+    seeds = tmp_path / ".seeds"
+    _write_claim(seeds, _claim())
+    _write_claim(seeds, _claim(stream="second"))
+    monkeypatch.setattr(_job_reports, "RECORD_CEILING", sum(p.stat().st_size for p in seeds.iterdir()) - 1)
+    with pytest.raises(MalformedClosure):
+        read_realized_seeds(tmp_path)
+
+
+@pytest.mark.parametrize("reader,error", [(read_plan, PlanUnavailable), (read_trace, MalformedClosure)])
+def test_reports_refuse_special_or_oversized_entries(tmp_path, reader, error, monkeypatch):
+    from beliefs import _job_reports
+
+    events = tmp_path / "events"
+    os.mkfifo(events)
+    with pytest.raises(error):
+        reader(events)
+    events.unlink()
+    events.write_text(_plan_event(1, "fit", {}, ["out"]) + "\n")
+    monkeypatch.setattr(_job_reports, "RECORD_CEILING", events.stat().st_size - 1)
+    with pytest.raises(error):
+        reader(events)

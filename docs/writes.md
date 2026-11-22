@@ -286,6 +286,13 @@ commits only writes that fulfil an intent, so through it the refusal returns
 `RunRefused` with no report, intent or registration, as `permit-exceeded` does
 through every port, and nothing reaches the chain or the session ledger.
 
+**Job reports.** Before each confined planning or execution launch, the host pins
+that launch's output directory. After exit it reads the event log and seed claims
+relative to that descriptor. The report directory must be a real directory and
+each report a single-linked regular file. An absent seed directory means no seed
+claims. An unreadable report refuses the run. Each event log and the combined seed
+claim files have an 8 MiB ceiling. The seed directory admits at most 65,536 entries.
+
 **Confined jobs under a run session.** Every bind a confined run makes (the loader
 and environment from the materialized snapshot, the code bundle, the output root and
 the staged inputs) lies beneath its scratch, so under a run session the kernel
@@ -298,7 +305,7 @@ report, intent or registration when:
 - the boundary policy is not the confined one (`policy-unconfined`): the minimal
   policy runs the workflow outside any sandbox.
 
-Otherwise each confined execution stages in
+Each confined execution stages in
 `<operations_root>/scratch/<session>/<invocation>`, the invocation the port is bound
 to, and snapshots materialize in `<operations_root>/scratch/environments`, a cache
 shared across sessions and never removed by a run. A run session opens its

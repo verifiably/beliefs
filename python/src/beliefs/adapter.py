@@ -24,6 +24,7 @@ from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import cast, final
 
+from beliefs._job_reports import event_lines, seed_reports
 from beliefs.errors import ClosureUnsupported, MalformedClosure, PlanUnavailable, SeedClaimMalformed, UnsafeInvocation
 from beliefs.recipe import WORKFLOW_DEFINITION_DOMAIN as _WORKFLOW_DEFINITION_DOMAIN
 from beliefs.recipe import (
@@ -916,9 +917,9 @@ def run_engine(argv: tuple[str, ...], cwd: Path, env: Mapping[str, str]) -> tupl
     return completed.returncode, completed.stdout + completed.stderr
 
 
-def read_trace(events_file: Path) -> tuple[TraceJob, ...]:
+def read_trace(events_file: Path, *, output_fd: int | None = None) -> tuple[TraceJob, ...]:
     try:
-        lines = events_file.read_text().splitlines()
+        lines = event_lines(events_file, output_fd=output_fd)
     except (OSError, UnicodeError) as error:
         raise MalformedClosure("the engine trace is missing or unreadable") from error
     if not lines:
@@ -929,7 +930,7 @@ def read_trace(events_file: Path) -> tuple[TraceJob, ...]:
     for line in lines:
         try:
             record = json.loads(line)
-        except (json.JSONDecodeError, UnicodeError) as error:
+        except (ValueError, RecursionError) as error:
             raise MalformedClosure("the engine trace contains an unparseable record") from error
         if not isinstance(record, dict) or record.get("level") != "job_info":
             raise MalformedClosure("the engine trace contains a non-job_info record")
@@ -967,9 +968,9 @@ def read_trace(events_file: Path) -> tuple[TraceJob, ...]:
     return tuple(trace)
 
 
-def read_plan(events_file: Path) -> tuple[PlannedJob, ...]:
+def read_plan(events_file: Path, *, output_fd: int | None = None) -> tuple[PlannedJob, ...]:
     try:
-        lines = events_file.read_text().splitlines()
+        lines = event_lines(events_file, output_fd=output_fd)
     except (OSError, UnicodeError) as error:
         raise PlanUnavailable("the engine plan is missing or unreadable") from error
     if not lines:
@@ -979,7 +980,7 @@ def read_plan(events_file: Path) -> tuple[PlannedJob, ...]:
     for line in lines:
         try:
             record = json.loads(line)
-        except (json.JSONDecodeError, UnicodeError) as error:
+        except (ValueError, RecursionError) as error:
             raise PlanUnavailable("the engine plan contains an unparseable record") from error
         required = {"level", "jobid", "name", "input", "output", "wildcards", "is_checkpoint"}
         if not isinstance(record, dict) or record.get("level") != "job_info" or not required <= set(record):
@@ -1006,21 +1007,20 @@ def read_plan(events_file: Path) -> tuple[PlannedJob, ...]:
     return tuple(jobs[key] for key in sorted(jobs))
 
 
-def read_realized_seeds(scratch: Path) -> RealizedSeeds:
-    reports = scratch / ".seeds"
-    if reports.is_symlink():
-        raise MalformedClosure("the seed-report path is a symlink, not a boundary-owned directory")
-    if not reports.exists():
-        return RealizedSeeds(seeds={})
-    if not reports.is_dir():
-        raise MalformedClosure("the seed-report path exists but is not a directory")
+def read_realized_seeds(scratch: Path | int) -> RealizedSeeds:
+    try:
+        return _merge_seed_reports(scratch)
+    except OSError as error:
+        raise MalformedClosure("the seed-report directory or a claim is unreadable") from error
 
+
+def _merge_seed_reports(scratch: Path | int) -> RealizedSeeds:
     merged: dict[str, dict[str, int]] = {}
     seen: set[tuple[str, str]] = set()
-    for report in sorted(reports.glob("*.json")):
+    for report, data in seed_reports(scratch):
         try:
-            record = json.loads(report.read_text(), object_pairs_hook=_object_without_duplicate_keys)
-        except (OSError, UnicodeError, json.JSONDecodeError) as error:
+            record = json.loads(data.decode("utf-8"), object_pairs_hook=_object_without_duplicate_keys)
+        except (ValueError, RecursionError) as error:
             raise MalformedClosure(f"seed report {report.name!r} is unreadable") from error
         if not isinstance(record, dict) or set(record) != {"rule", "wildcards", "job_key", "stream", "seed"}:
             raise SeedClaimMalformed(f"seed report {report.name!r} is not one exact claim")

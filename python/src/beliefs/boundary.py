@@ -28,6 +28,7 @@ from nodes.core.frontmatter import node_from_markdown, node_to_markdown
 from nodes.core.write_plan import CreateOp, WritePlan
 
 from beliefs import stored
+from beliefs._job_reports import pinned_directory
 from beliefs.acquisition import bearer_refusal
 from beliefs.adapter import (
     LOG_HANDLER_SCRIPT,
@@ -1354,23 +1355,24 @@ def _execute_confined(
         planning_inputs_before = fingerprint(planning_root / "inputs")
         if staging is not None:
             staging[0].check_binds(planning_plan, staging[1])
-        planning_result = launch_confined(
-            plan=planning_plan,
-            environment=environment,
-            inner_argv=planning_argv,
-            captured=captured,
-        )
-        check_closure_intact(
-            bundle=bundle,
-            code_identity=code_identity,
-            snapshot=snapshot,
-            captured=captured,
-            inputs=planning_root / "inputs",
-            inputs_fingerprint=planning_inputs_before,
-        )
-        if planning_result.returncode != 0:
-            raise PlanUnavailable(f"the confined planning launch exited {planning_result.returncode}")
-        planned_jobs = read_plan(planning_root / TRACE_DIR / "events.jsonl")
+        with pinned_directory(planning_root) as reports_fd:
+            planning_result = launch_confined(
+                plan=planning_plan,
+                environment=environment,
+                inner_argv=planning_argv,
+                captured=captured,
+            )
+            check_closure_intact(
+                bundle=bundle,
+                code_identity=code_identity,
+                snapshot=snapshot,
+                captured=captured,
+                inputs=planning_root / "inputs",
+                inputs_fingerprint=planning_inputs_before,
+            )
+            if planning_result.returncode != 0:
+                raise PlanUnavailable(f"the confined planning launch exited {planning_result.returncode}")
+            planned_jobs = read_plan(Path(TRACE_DIR) / "events.jsonl", output_fd=reports_fd)
         check_checkpoint_declaration(definition.snapshot(), planned_jobs)
         target_keys = resolve_targets(targets, planned_jobs)
         planning_launch = _confined_attestation(
@@ -1407,26 +1409,27 @@ def _execute_confined(
     if staging is not None:
         staging[0].check_binds(execution_plan, staging[1])
     _check_staged_series(spec, profile, records, series_evidence, output_root, held_inputs, staged)
-    launched = launch_confined(
-        plan=execution_plan,
-        environment=environment,
-        inner_argv=execution_argv,
-        captured=captured,
-    )
-    check_closure_intact(
-        bundle=bundle,
-        code_identity=code_identity,
-        snapshot=snapshot,
-        captured=captured,
-        inputs=output_root / "inputs",
-        inputs_fingerprint=inputs_before,
-    )
-    if launched.returncode != 0:
-        return _refused(
-            "execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:]
+    with pinned_directory(output_root) as reports_fd:
+        launched = launch_confined(
+            plan=execution_plan,
+            environment=environment,
+            inner_argv=execution_argv,
+            captured=captured,
         )
-    trace = read_trace(output_root / TRACE_DIR / "events.jsonl")
-    realized_seeds = read_realized_seeds(output_root)
+        check_closure_intact(
+            bundle=bundle,
+            code_identity=code_identity,
+            snapshot=snapshot,
+            captured=captured,
+            inputs=output_root / "inputs",
+            inputs_fingerprint=inputs_before,
+        )
+        if launched.returncode != 0:
+            return _refused(
+                "execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:]
+            )
+        trace = read_trace(Path(TRACE_DIR) / "events.jsonl", output_fd=reports_fd)
+        realized_seeds = read_realized_seeds(reports_fd)
     execution_launch = _confined_attestation(
         scratch_mapping=scratch,
         argv=execution_argv,
