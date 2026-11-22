@@ -272,6 +272,27 @@ def _report_plan(report: ActReport | None) -> tuple[CreateOp, ...]:
     )
 
 
+def _refused_before_intent(
+    port: OperationPort,
+    reason: str,
+    subject: str,
+    actor: str,
+    observer: str,
+    started_at: str,
+    *,
+    detail: str = "",
+) -> RunRefused:
+    """A refusal before the intent, shaped for `port`. A session port commits only
+    fulfilling writes, so there it carries no report, intent or registration, as
+    ``permit-exceeded`` does everywhere; through any other port it carries the
+    act-report its executor publishes."""
+    from beliefs.session.routes import is_session_port
+
+    if is_session_port(port):
+        return RunRefused(reason, None, None, None, detail)
+    return _refused(reason, subject, actor, observer, started_at, detail=detail)
+
+
 def acquisition_guard(run: RunClosure) -> Callable[[ReadView], str | None]:
     """Refuse a run that would produce a facet-bearing dataset."""
     _, _, (operation, *_) = publication_plan(run)
@@ -1463,19 +1484,20 @@ def execute_assessment_run(
     if type(staging) is RunRefused:
         return staging
     actor = port.authority.actor
+    refused: RunRefused | None = None
     if type(spec) is not FrozenSpec:
         subject = spec if type(spec) is str else "absent"
-        refused = _refused("no-frozen-spec", subject, actor, observer, started_at)
-        port.execute(_report_plan(refused.report))
+        refused = _refused_before_intent(port, "no-frozen-spec", subject, actor, observer, started_at)
+    elif reason := _preflight(tuple(entry.dataset for entry in spec.input_roles), held_inputs):
+        refused = _refused_before_intent(port, reason, spec.identity, actor, observer, started_at)
+    elif refusal := _policy_refusal(boundary_policy):
+        reason = getattr(refusal, "reason")  # noqa: B009
+        refused = _refused_before_intent(port, reason, spec.identity, actor, observer, started_at, detail=str(refusal))
+    if refused is not None:
+        if refused.report is not None:
+            port.execute(_report_plan(refused.report))
         return refused
-    if reason := _preflight(tuple(entry.dataset for entry in spec.input_roles), held_inputs):
-        refused = _refused(reason, spec.identity, actor, observer, started_at)
-        port.execute(_report_plan(refused.report))
-        return refused
-    if refusal := _policy_refusal(boundary_policy):
-        refused = _refused(getattr(refusal, "reason"), spec.identity, actor, observer, started_at, detail=str(refusal))  # noqa: B009
-        port.execute(_report_plan(refused.report))
-        return refused
+    assert type(spec) is FrozenSpec  # every other spec refused above
     intent = AssessmentRunIntent(spec.identity, secrets.token_hex(16), actor)
     fulfills = port.append_intent(_intent_wire(intent))
     staged_trees: list[Path] = []
@@ -1577,6 +1599,7 @@ def execute_production_run(
         if type(inputs) is tuple and all(type(entry) is RecipeInput for entry in inputs)
         else ()
     )
+    refused: RunRefused | None = None
     if (
         type(inputs) is not tuple
         or any(type(entry) is not RecipeInput for entry in inputs)
@@ -1588,16 +1611,15 @@ def execute_production_run(
             and (not isinstance(output_dir, Path) or output_dir.is_symlink() or not output_dir.is_dir())
         )
     ):
-        refused = _refused("malformed-inputs", "absent", actor, observer, started_at)
-        port.execute(_report_plan(refused.report))
-        return refused
-    if reason := _preflight(tuple(entry.dataset for entry in inputs), held_inputs):
-        refused = _refused(reason, "absent", actor, observer, started_at)
-        port.execute(_report_plan(refused.report))
-        return refused
-    if refusal := _policy_refusal(boundary_policy):
-        refused = _refused(getattr(refusal, "reason"), "absent", actor, observer, started_at, detail=str(refusal))  # noqa: B009
-        port.execute(_report_plan(refused.report))
+        refused = _refused_before_intent(port, "malformed-inputs", "absent", actor, observer, started_at)
+    elif reason := _preflight(tuple(entry.dataset for entry in inputs), held_inputs):
+        refused = _refused_before_intent(port, reason, "absent", actor, observer, started_at)
+    elif refusal := _policy_refusal(boundary_policy):
+        reason = getattr(refusal, "reason")  # noqa: B009
+        refused = _refused_before_intent(port, reason, "absent", actor, observer, started_at, detail=str(refusal))
+    if refused is not None:
+        if refused.report is not None:
+            port.execute(_report_plan(refused.report))
         return refused
     intent = OperationIntent("run-attempt", secrets.token_hex(16), actor)
     fulfills = port.append_intent(_intent_wire(intent))

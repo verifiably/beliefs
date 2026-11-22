@@ -273,6 +273,17 @@ it writes or releases anything, since the act would then commit past a completed
 ledger. After a `SealTimeout`, `close()` waits without limit for the hold the seal
 could not outwait.
 
+**Run refusals before the intent.** After the permit check and before their intent,
+`execute_assessment_run` and `execute_production_run` refuse a spec that is not frozen
+(`no-frozen-spec`), malformed production inputs (`malformed-inputs`), an input that is
+an acquisition (`acquisition-not-a-run`) or is not held (`input-not-held`), a
+boundary policy it does not support (`boundary-policy-unsupported`), and a confined
+policy on a host without the confinement substrate (`confinement-unavailable`). Through an
+ordinary operation port each such refusal publishes its act-report. A session's port,
+attended or run, commits only writes that fulfil an intent, so through it the refusal
+returns `RunRefused` with no report, intent or registration, as `permit-exceeded`
+does through every port, and nothing reaches the chain or the session ledger.
+
 **Confined jobs under a run session.** Every bind a confined run makes (the loader
 and environment from the materialized snapshot, the code bundle, the output root and
 the staged inputs) lies beneath its scratch, so under a run session the kernel

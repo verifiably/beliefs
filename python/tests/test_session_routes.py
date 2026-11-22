@@ -12,7 +12,15 @@ from typing import Any
 
 import pytest
 from authority import FULL
-from fixtures_cut3 import MEMORY_PORT, run_assessment, run_production
+from fixtures_cut3 import (
+    DATA_ADDRESS,
+    MEMORY_PORT,
+    freeze_context,
+    run_assessment,
+    run_production,
+    spec_draft,
+    spec_rules,
+)
 from holdings_transport_fixtures import Scripted, scripted_seam
 from nodes.core.errors import ExecutionError
 from nodes.core.frontmatter import node_from_markdown, node_to_markdown
@@ -22,11 +30,18 @@ from test_boundary import _assessment
 from test_operation_writes import proposition
 from test_session_writer import CORPUS, DIGEST, make_session
 
+import beliefs.boundary as boundary_module
 from beliefs import root as science_root
 from beliefs.boundary import RunMinted, RunRefused
 from beliefs.confinement import DEVICES, host_prerequisites
 from beliefs.corpus import _operation_lock_for
-from beliefs.errors import SessionLedgerFailed, SessionProtocolError, SessionRefused, StoreWriteRefused
+from beliefs.errors import (
+    ConfinementUnavailable,
+    SessionLedgerFailed,
+    SessionProtocolError,
+    SessionRefused,
+    StoreWriteRefused,
+)
 from beliefs.holdings.acquire import AcquisitionRequest, ResourceRequest
 from beliefs.holdings.boundary import ActContext, delete, move, recheck, tree_write, write
 from beliefs.holdings.records import StoreLocator, StoreTreeLocator, url_locator
@@ -39,12 +54,13 @@ from beliefs.holdings.seam import (
 )
 from beliefs.holdings.transport import RetrievalBounds
 from beliefs.permit import RequiredCapabilities, WritePermit
-from beliefs.recipe import CONFINED_POLICY, MINIMAL_POLICY
+from beliefs.recipe import CONFINED_POLICY, MINIMAL_POLICY, RecipeInput
 from beliefs.report import PublishedObservation
 from beliefs.root import init_corpus_root, init_store_root, init_world_root, open_corpus
 from beliefs.runrecord import GuardedCommit
 from beliefs.session import open_attended_session, open_ledger_reader, open_run_session, reconcile_sessions
 from beliefs.session.routes import LedgeredPort, plan_records, run_staging_of
+from beliefs.spec import SpecInput, freeze
 from beliefs.world.logmodel import RegisteredEntryView, SettledEntryView, WellFormedView
 from beliefs.world.registry import WorldConfig
 
@@ -391,11 +407,93 @@ def test_a_permit_below_run_is_refused_by_the_boundary_before_any_intent(tmp_pat
     assert ports[-1].calls == []
 
 
-def test_an_unheld_input_refusal_is_excluded_by_the_fulfilling_only_route(tmp_path):
-    _session, _writer, port, inner = _run_port(tmp_path)
-    with pytest.raises(SessionProtocolError, match="fulfilling writes"):
-        _assessment(tmp_path, port, held_inputs={})
-    assert inner.calls == []
+def _acquisition_spec():
+    return freeze(
+        spec_draft(input_roles=(SpecInput(role="observes", dataset="accession:GSE00001", mode="observation"),)),
+        held_rules=spec_rules(),
+        **freeze_context(),
+    )
+
+
+def _transforms(dataset: str) -> tuple[RecipeInput, ...]:
+    return (RecipeInput(role="transforms", dataset=dataset, content="sha256:" + "0" * 64),)
+
+
+_NO_HOST = "injected: no confinement substrate on this host"
+
+
+def _no_host() -> None:
+    raise ConfinementUnavailable(_NO_HOST)
+
+
+# Every refusal the executors reach before their intent other than the permit and
+# run-staging refusals: (case, reason, call). Each call takes the work directory, the
+# port, and the staging keywords its session kind needs, under the confined policy.
+PRE_INTENT_REFUSALS = [
+    (
+        "assessment-no-frozen-spec",
+        "no-frozen-spec",
+        lambda w, port, staging: run_assessment(w, port=port, spec="not-a-frozen-spec", **staging),
+    ),
+    (
+        "assessment-acquisition",
+        "acquisition-not-a-run",
+        lambda w, port, staging: run_assessment(w, port=port, spec=_acquisition_spec(), **staging),
+    ),
+    (
+        "assessment-unheld-input",
+        "input-not-held",
+        lambda w, port, staging: _assessment(
+            w, port, boundary_policy=CONFINED_POLICY, held_inputs={}, scratch_base=staging.get("scratch_base")
+        ),
+    ),
+    ("assessment-no-host", "confinement-unavailable", lambda w, port, staging: run_assessment(w, port=port, **staging)),
+    (
+        "production-malformed-inputs",
+        "malformed-inputs",
+        lambda w, port, staging: run_production(w, port=port, inputs=(), **staging),
+    ),
+    (
+        "production-acquisition",
+        "acquisition-not-a-run",
+        lambda w, port, staging: run_production(w, port=port, inputs=_transforms("accession:GSE00001"), **staging),
+    ),
+    (
+        "production-unheld-input",
+        "input-not-held",
+        lambda w, port, staging: run_production(
+            w, port=port, inputs=_transforms(DATA_ADDRESS), held_inputs={}, **staging
+        ),
+    ),
+    ("production-no-host", "confinement-unavailable", lambda w, port, staging: run_production(w, port=port, **staging)),
+]
+
+
+@pytest.mark.parametrize("run", [False, True], ids=["attended", "run-session"])
+@pytest.mark.parametrize(
+    ("reason", "call"), [case[1:] for case in PRE_INTENT_REFUSALS], ids=[case[0] for case in PRE_INTENT_REFUSALS]
+)
+def test_a_session_port_returns_every_pre_intent_refusal_with_no_report(tmp_path, monkeypatch, run, reason, call):
+    """A session port commits only fulfilling writes, so a refusal before the
+    intent returns `RunRefused` with no report, intent or registration, as
+    `permit-exceeded` does, and nothing reaches the chain or the ledger."""
+    if reason == "confinement-unavailable":
+        monkeypatch.setattr(boundary_module, "require_host", _no_host)
+    session, port, inner = _run_session_port(tmp_path, run=run)
+    staging = (
+        {"boundary_policy": CONFINED_POLICY, "kernel_scratch": True}
+        if run
+        else {"boundary_policy": CONFINED_POLICY, "scratch_base": tmp_path / "scratch"}
+    )
+    refused = call(tmp_path / "w", port, staging)
+    assert type(refused) is RunRefused and refused.reason == reason
+    assert refused.report is None and refused.intent is None and refused.registration is None
+    if reason == "confinement-unavailable":
+        assert refused.detail == _NO_HOST
+    assert inner.calls == []  # no intent, no chain entry
+    assert session.invocation_acts("A") == ()
+    session.close()
+    assert open_ledger_reader(session.operations_root, session.session_id).acts() == ()
 
 
 # --- the holdings route ---------------------------------------------

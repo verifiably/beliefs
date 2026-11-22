@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeGuard
 
 from nodes.core.frontmatter import node_from_markdown
 from nodes.core.write_plan import CreateOp, WritePlan
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from beliefs.session.staging import RunStaging
     from beliefs.session.writer import WriterSession
 
-__all__ = ["LedgeredPort", "ledgered_seam", "plan_records", "run_staging_of"]
+__all__ = ["LedgeredPort", "is_session_port", "ledgered_seam", "plan_records", "run_staging_of"]
 
 
 def plan_records(plan: Sequence[object]) -> tuple[tuple[str, str], ...]:
@@ -106,10 +106,16 @@ class LedgeredPort:
             return commit
 
 
+def is_session_port(port: object) -> TypeGuard[LedgeredPort]:
+    """Whether `port` is exactly a session's `LedgeredPort`, attended or run: a port
+    that commits only fulfilling writes."""
+    return type(port) is LedgeredPort
+
+
 def run_staging_of(port: object) -> tuple[RunStaging, str] | None:
     """`(staging, invocation)` when `port` is exactly a run session's `LedgeredPort`:
     the session's staging and the invocation the port is bound to. `None` otherwise."""
-    if type(port) is not LedgeredPort:
+    if not is_session_port(port):
         return None
     staging = port.run_staging
     return None if staging is None else (staging, port._invocation)
