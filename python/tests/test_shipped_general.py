@@ -6,6 +6,7 @@ import json
 import shutil
 from importlib import resources
 from pathlib import Path
+from typing import Literal
 
 import pytest
 from conftest import REPO_ROOT
@@ -328,16 +329,22 @@ def test_unknown_and_invalid_namespaces_have_distinct_refusals(namespace: str, e
     ("content", "cause_type"),
     [
         (None, FileNotFoundError),
+        ("directory", IsADirectoryError),
         (b"\xff", UnicodeDecodeError),
         (b"[]\n", MalformedContract),
     ],
 )
 def test_register_load_reports_the_damaged_domain_resource(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: bytes | None, cause_type: type[Exception]
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    content: bytes | Literal["directory"] | None,
+    cause_type: type[Exception],
 ) -> None:
     domain = tmp_path / "domains" / "general" / "DOMAIN.yaml"
     domain.parent.mkdir(parents=True)
-    if content is not None:
+    if content == "directory":
+        domain.mkdir()
+    elif content is not None:
         domain.write_bytes(content)
     shipped_base_contract()
     monkeypatch.setattr(resources, "files", lambda _pkg: tmp_path)
