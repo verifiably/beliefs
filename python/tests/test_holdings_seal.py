@@ -636,3 +636,35 @@ def test_an_inconclusive_repair_recheck_refuses_the_seal(sealing, certified_work
         token = json.loads(intent.payload)["event_token"]
         registrations = registrations_of(entries, intent.digest, "act-report:" + "0" * 64)
         assert completion(OperationIntent("acquisition", token, ctx.actor), registrations, {}) == UNFINISHED
+
+
+def test_seal_preserves_interrupted_retry_and_unattempted_abandonment(sealing):
+    ctx, store_id, writer, work = sealing
+    log = fetched_log(MEMBERS)
+    log = rewrite_line(
+        log,
+        1,
+        lambda row: row["attempts"].insert(
+            0,
+            {
+                "started_at": row["attempts"][0]["started_at"],
+                "outcome": "interrupted",
+            },
+        ),
+    )
+    log = rewrite_line(log, len(MEMBERS) + 1, lambda row: row.update(attempts=[], result="abandoned"))
+    outcome = seal_acquisition(ctx, writer, request_for(work, MEMBERS, log))
+    (entry,) = [e for e in outcome.entries if isinstance(e, AcquisitionSetEntry)]
+    assert entry.subject == tree_location(store_id, MEMBERS).canonical()
+    assert entry.outcome == SetSummary(
+        origin="fetched",
+        fetched_by=FETCHED_BY,
+        requests=len(MEMBERS) + 1,
+        fetched=len(MEMBERS),
+        failed=0,
+        abandoned=1,
+        traversal_complete=True,
+        log=digest(log),
+        tree=tree_digest(tree_of(MEMBERS)),
+    )
+    assert (ctx.store_root / digest(log).split(":")[1] / LOG_NAME).read_bytes() == log

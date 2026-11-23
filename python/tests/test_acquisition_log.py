@@ -377,3 +377,43 @@ def test_set_summary_refuses_counts_that_do_not_add_up():
         dataclasses.replace(good, traversal_complete=1)  # type: ignore[arg-type]
     with pytest.raises(MalformedRecord, match="fetched"):
         dataclasses.replace(good, fetched=True)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("result", "completed", "interrupted"),
+    [("abandoned", False, False), ("abandoned", False, True), ("fetched", True, True), ("failed", True, True)],
+)
+def test_fetched_origin_preserves_attempt_history_after_interruption(result, completed, interrupted):
+    attempts = [Attempt(_T0, None, "interrupted", None, (), None)] if interrupted else []
+    if completed:
+        attempts.append(got(result))
+    row = fetched_line(2, "https://example.org/b", "b") if result == "fetched" else failed_line(2, result)
+    log = AcquisitionLog(fetched_header(), (fetched_log().lines[0], dataclasses.replace(row, attempts=tuple(attempts))))
+    assert parse_acquisition_log(render_acquisition_log(log)) == log
+
+
+@pytest.mark.parametrize("extra", [{"completed_at": _T1}, {"failure": "timeout"}, {"status": 503}, {"headers": {}}])
+def test_interrupted_attempt_refuses_extra_fields(extra):
+    attempt = {"outcome": "interrupted", "started_at": _T0, **extra}
+    with pytest.raises(MalformedRecord):
+        parse_acquisition_log(edit(fetched_log(), 4, _set("attempts", to=[attempt])))
+
+
+@pytest.mark.parametrize("origin,row", [("imported", 1), ("fetched", 1), ("fetched", 3)])
+def test_interruptions_require_fetched_origin_and_cannot_end_a_success_or_failure(origin, row):
+    log = imported_log() if origin == "imported" else fetched_log()
+    with pytest.raises(MalformedRecord):
+        parse_acquisition_log(edit(log, row, _set("attempts", to=[{"started_at": _T0, "outcome": "interrupted"}])))
+
+
+def test_interruption_requires_a_recorded_start():
+    with pytest.raises(MalformedRecord):
+        parse_acquisition_log(edit(fetched_log(), 4, _set("attempts", to=[{"outcome": "interrupted"}])))
+
+
+def test_existing_log_digests_include_the_old_normalization_of_empty_headers():
+    data = edit(fetched_log(), 1, lambda row: row["attempts"][0].update(headers={}))
+    log = parse_acquisition_log(data)
+    assert render_acquisition_log(log) == render_acquisition_log(fetched_log())
+    assert log_summary(log).log == "sha256:8c38d9cb0474ec9fa9f3c5a5bd6b77dd0a44ee59153e6648fed4a78d42caf570"
+    assert log_summary(imported_log()).log == "sha256:31bfe4c113c89d9e1ab7840f56d18708ed6097c4117dcf4ff0eee58caedcac63"

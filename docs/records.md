@@ -756,16 +756,19 @@ Each later line is one request, in `seq` order from 1 with no gap:
 - optional `parent`, the `seq` of an earlier `fetched` line, and `expected`, a `sha256:` digest;
 - `digest`, `size` and `member` (the tree path), present if and only if `result` is `fetched`.
 
-An attempt is `{started_at, completed_at, outcome, status?, headers?, failure?}`. `outcome` is
+A completed attempt is `{started_at, completed_at, outcome, status?, headers?, failure?}`. `outcome` is
 `fetched`, `failed` or `not-attempted`. `failure` is present exactly when the outcome is not
 `fetched`: a refusal category for `not-attempted`, and a transport failure category or
 `expected-mismatch` for `failed`. `headers` allows only `content-type`, `content-length`,
 `last-modified` and `etag`. `result` is `fetched`, `failed` (its retry budget is spent) or
 `abandoned` (never fetched, given up at a partial seal).
 
-In a fetched-origin log every line has at least one attempt, each with `started_at` and
-`completed_at`; a `fetched` line's last attempt is `fetched`, and a `failed` or `abandoned` line
-has no `fetched` attempt. An imported log's lines carry only what the source journal recorded, so
+In a fetched-origin log, every completed attempt records its start and completion time.
+An open attempt recovered without its close is exactly `{outcome: interrupted, started_at}`.
+It stays in order when retrieval resumes. Only an abandoned request may have an empty
+attempts list. A fetched request ends in a fetched attempt, and a failed request ends
+in a completed unsuccessful attempt. Failed and abandoned requests contain no fetched
+attempt. Imported logs refuse the interrupted outcome. An imported log's lines carry only what the source journal recorded, so
 an attempt may lack either time and `attempts` may be empty; each imported line also has
 `recorded`, `{journal, line, digest?}`, naming the 0-based index into `source_journals`, the
 journal's line number and, when the journal recorded one, its own digest of the bytes, which must

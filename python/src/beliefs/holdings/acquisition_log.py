@@ -37,7 +37,7 @@ __all__ = [
 _T = TypeVar("_T")
 LOG_FORMAT = "science.acquisition-log.v1"
 LOG_FAILURES = FAILURE_CATEGORIES + REFUSAL_CATEGORIES + ("expected-mismatch",)
-_ATTEMPT_OUTCOMES = ("fetched", "failed", "not-attempted")
+_ATTEMPT_OUTCOMES = ("fetched", "failed", "not-attempted", "interrupted")
 _FAILED_CATEGORIES = FAILURE_CATEGORIES + ("expected-mismatch",)
 _RESULTS = ("fetched", "failed", "abandoned")
 _ORIGINS = ("fetched", "imported")
@@ -121,6 +121,16 @@ class Attempt:
         names = [name for name, _ in self.headers]
         if names != sorted(set(names)):
             raise MalformedRecord("an attempt's headers are sorted by name and name each header once")
+        if self.outcome == "interrupted":
+            if (
+                self.started_at is None
+                or self.completed_at is not None
+                or self.status is not None
+                or self.headers
+                or self.failure is not None
+            ):
+                raise MalformedRecord("an interrupted attempt carries only its recorded start")
+            return
         if (self.failure is None) != (self.outcome == "fetched"):
             raise MalformedRecord("an attempt carries a failure if and only if its outcome is not fetched")
         if self.failure is not None:
@@ -209,17 +219,23 @@ class AcquisitionLog:
                     raise MalformedRecord(f"{where}: recorded names a journal the header does not")
                 if line.recorded.digest is not None and line.recorded.digest != line.digest:
                     raise MalformedRecord(f"{where}: the recorded digest differs from the line's digest")
+            if imported and any(attempt.outcome == "interrupted" for attempt in line.attempts):
+                raise MalformedRecord(f"{where}: only fetched-origin logs record interrupted attempts")
             if not imported:
                 self._check_fetched_origin(line, where)
             results[line.seq] = line.result
 
     @staticmethod
     def _check_fetched_origin(line: RequestLine, where: str) -> None:
-        if not line.attempts:
-            raise MalformedRecord(f"{where}: a fetched-origin request has at least one attempt")
+        if not line.attempts and line.result != "abandoned":
+            raise MalformedRecord(f"{where}: only an abandoned fetched-origin request can have no attempts")
         for attempt in line.attempts:
+            if attempt.outcome == "interrupted":
+                continue
             if attempt.started_at is None or attempt.completed_at is None:
                 raise MalformedRecord(f"{where}: a fetched-origin attempt has started_at and completed_at")
+        if line.result == "failed" and line.attempts[-1].outcome == "interrupted":
+            raise MalformedRecord(f"{where}: a failed request ends in a completed unsuccessful attempt")
         got = [attempt.outcome == "fetched" for attempt in line.attempts]
         if line.result == "fetched" and not got[-1]:
             raise MalformedRecord(f"{where}: a fetched request's last attempt is fetched")
@@ -324,6 +340,8 @@ def _parse_attempt(value: object, where: str) -> Attempt:
         {"started_at", "completed_at", "status", "headers", "failure"},
         f"{where}: an attempt",
     )
+    if row["outcome"] == "interrupted" and set(row) != {"outcome", "started_at"}:
+        raise MalformedRecord(f"{where}: an interrupted attempt has exactly outcome and started_at")
     headers = row.get("headers", {})
     if type(headers) is not dict or any(type(v) is not str for v in headers.values()):  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
         raise MalformedRecord(f"{where}: an attempt's headers are an object of strings")
