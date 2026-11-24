@@ -2218,3 +2218,68 @@ def test_invalid_workflow_venv_with_confined_policy_refuses_closure_unsupported_
     assert len(port.appended) == 1 and len(port.fulfilled) == 1
     assert launches == []
     assert list(export_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("shape", ["assessment", "production"])
+def test_damaged_selected_venv_metadata_refuses_closure_unsupported_and_fulfills_intent(tmp_path, monkeypatch, shape):
+    import sys
+
+    from beliefs.recipe import CONFINED_POLICY
+
+    monkeypatch.setattr(boundary, "require_host", lambda: None)
+    launches: list[object] = []
+    monkeypatch.setattr(boundary, "launch_confined", lambda **kw: launches.append(kw))
+
+    class RecordingPort(MemoryPort):
+        authority = FULL
+        run_staging = None
+
+        def __init__(self) -> None:
+            self.appended: list[bytes] = []
+            self.fulfilled: list[object] = []
+
+        def append_intent(self, payload: bytes) -> str:
+            self.appended.append(payload)
+            return super().append_intent(payload)
+
+        def execute_fulfilling(self, plan, fulfills: str) -> str:
+            self.fulfilled.append((plan, fulfills))
+            return super().execute_fulfilling(plan, fulfills)
+
+    # Build a structurally valid selected workflow venv with non-UTF-8 RECORD metadata.
+    real_exe = Path(os.path.realpath(sys.executable))
+    version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
+    venv = tmp_path / "damaged-venv"
+    (venv / "bin").mkdir(parents=True)
+    site = venv / "lib" / version_dir / "site-packages"
+    site.mkdir(parents=True)
+    (venv / "pyvenv.cfg").write_text(
+        f"home = {real_exe.parent}\n"
+        "implementation = CPython\n"
+        f"version_info = {sys.version_info[0]}.{sys.version_info[1]}\n"
+        "include-system-site-packages = false\n",
+        encoding="utf-8",
+    )
+    (venv / "bin" / "python").symlink_to(real_exe)
+    dist_info = site / "snakemake-8.11.4.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: snakemake\nVersion: 8.11.4\n", encoding="utf-8")
+    (dist_info / "RECORD").write_bytes(b"\xff\xfe\xfd")
+
+    port = RecordingPort()
+    export_dir = tmp_path / "export"
+    export_dir.mkdir()
+    outcome = (
+        _assessment(tmp_path, port, boundary_policy=CONFINED_POLICY, workflow_venv=venv)
+        if shape == "assessment"
+        else _production_with(
+            tmp_path, port, boundary_policy=CONFINED_POLICY, workflow_venv=venv, output_dir=export_dir
+        )
+    )
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "closure-unsupported"
+    assert outcome.intent is not None and outcome.report is not None and outcome.registration is not None
+    assert completion(outcome.intent, (outcome.registration,), {outcome.report.identity(): outcome.report}) == CLOSED
+    assert len(port.appended) == 1 and len(port.fulfilled) == 1
+    assert launches == []
+    assert list(export_dir.iterdir()) == []

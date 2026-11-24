@@ -42,6 +42,7 @@ from beliefs.spec import RealizedSeeds
 _CONFIG_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 WORKFLOW_DEFINITION_DOMAIN = _WORKFLOW_DEFINITION_DOMAIN
 _PEP_503_RUN = re.compile(r"[-_.]+")
+_LOADER_RESOLVED_RE = re.compile(r"^(?P<path>/.+) \(0x[0-9a-fA-F]+\)$")
 SANDBOX_ENV = "/science/env"
 SANDBOX_PYTHON = "/science/env/python"
 SANDBOX_SITE = "/science/env/site"
@@ -506,7 +507,10 @@ class _Closure:
                 raw_base = Path(os.path.realpath(str(dist.locate_file(""))))
                 if not raw_base.is_relative_to(contained_root):
                     raise ClosureUnsupported(f"distribution root {raw_base} lies outside {contained_root}")
-                direct_url_text = dist.read_text("direct_url.json")
+                try:
+                    direct_url_text = dist.read_text("direct_url.json")
+                except (OSError, UnicodeError) as error:
+                    raise ClosureUnsupported(f"distribution has unreadable direct_url.json: {error}") from error
                 if direct_url_text is not None:
                     try:
                         direct_url = json.loads(direct_url_text)
@@ -515,10 +519,19 @@ class _Closure:
                     if isinstance(direct_url, dict):
                         dir_info = direct_url.get("dir_info")
                         if isinstance(dir_info, dict) and dir_info.get("editable") is True:
+                            try:
+                                editable_name = dist.metadata["Name"]
+                            except (OSError, UnicodeError) as error:
+                                raise ClosureUnsupported(f"distribution has unreadable METADATA: {error}") from error
                             raise ClosureUnsupported(
-                                f"selected venv distribution {dist.metadata['Name']!r} is an editable install"
+                                f"selected venv distribution {editable_name!r} is an editable install"
                             )
-            name = dist.metadata["Name"]
+            try:
+                metadata = dist.metadata
+                name = metadata["Name"]
+                dist_version = dist.version if contained_root is not None else None
+            except (OSError, UnicodeError) as error:
+                raise ClosureUnsupported(f"distribution has unreadable METADATA: {error}") from error
             if not name:
                 raise ClosureUnsupported("distribution metadata is missing Name")
             if contained_root is not None:
@@ -527,14 +540,21 @@ class _Closure:
                     raise ClosureUnsupported(f"selected venv contains duplicate distribution {canonical!r}")
                 seen_names.add(canonical)
                 if canonical == "snakemake":
-                    snakemake_version = dist.version
-            record = dist.read_text("RECORD")
+                    snakemake_version = dist_version
+            try:
+                record = dist.read_text("RECORD")
+            except (OSError, UnicodeError) as error:
+                raise ClosureUnsupported(f"distribution {name!r} has unreadable RECORD: {error}") from error
             if not record:
                 raise MalformedClosure(
                     f"distribution {name!r} has no readable RECORD — its inventory cannot be enumerated"
                 )
             base = str(dist.locate_file(""))
-            for row in csv.reader(record.splitlines()):
+            try:
+                record_rows = list(csv.reader(record.splitlines()))
+            except csv.Error as error:
+                raise ClosureUnsupported(f"distribution {name!r} has malformed CSV RECORD: {error}") from error
+            for row in record_rows:
                 if not row or not row[0]:
                     raise MalformedClosure(f"distribution {name!r} has a malformed RECORD entry")
                 entry = row[0]
@@ -618,11 +638,11 @@ class _Closure:
 
     def add_pth(self, purelib: Path) -> None:
         for pth in sorted(purelib.glob("*.pth")):
-            lines = [
-                line
-                for line in pth.read_text(encoding="utf-8").splitlines()
-                if line.strip() and not line.startswith("#")
-            ]
+            try:
+                text = pth.read_text(encoding="utf-8")
+            except UnicodeError as error:
+                raise ClosureUnsupported(f"{pth.name} is not valid UTF-8") from error
+            lines = [line for line in text.splitlines() if line.strip() and not line.startswith("#")]
             imports = [line for line in lines if line.startswith(("import ", "import\t"))]
             paths = [line for line in lines if line not in imports]
             if imports and paths:
@@ -910,14 +930,19 @@ def _parse_listing(text: str) -> dict[str, Path]:
         return {}
     listing: dict[str, Path] = {}
     for line in non_empty:
-        parts = line.split()
-        if not parts or parts[0].startswith(("linux-vdso", "linux-gate")) or parts[0].startswith("/"):
+        stripped = line.strip()
+        if stripped.startswith(("linux-vdso", "linux-gate", "/")):
             continue
-        if len(parts) < 3 or parts[1] != "=>":
+        soname, sep, rhs = stripped.partition(" => ")
+        if not sep or not soname or any(ch.isspace() for ch in soname):
             raise ClosureUnsupported(f"unparseable loader line {line!r}")
-        if parts[2] == "not":
-            raise ClosureUnsupported(f"{parts[0]} does not resolve on this host")
-        listing[parts[0]] = Path(parts[2])
+        target = rhs.strip()
+        if target == "not found" or target.startswith("not found "):
+            raise ClosureUnsupported(f"{soname} does not resolve on this host")
+        match = _LOADER_RESOLVED_RE.match(target)
+        if match is None:
+            raise ClosureUnsupported(f"unparseable loader line {line!r}")
+        listing[soname] = Path(match.group("path"))
     return listing
 
 
@@ -1003,8 +1028,8 @@ def _validate_selected_venv(workflow_venv: Path) -> tuple[Path, Path, Path, Path
     if prefix == base:
         raise ClosureUnsupported("selected workflow venv may not be the base Python installation")
     cfg = _parse_pyvenv_cfg(prefix / "pyvenv.cfg")
-    if cfg.get("include-system-site-packages", "false").lower() != "false":
-        raise ClosureUnsupported("selected workflow venv exposes system site-packages")
+    if cfg.get("include-system-site-packages", "").lower() != "false":
+        raise ClosureUnsupported("selected workflow venv must explicitly set include-system-site-packages = false")
     if "implementation" in cfg and cfg["implementation"].lower() != sys.implementation.name.lower():
         raise ClosureUnsupported(
             f"selected workflow venv implementation {cfg['implementation']!r} does not match {sys.implementation.name!r}"
@@ -1064,13 +1089,14 @@ def _validate_selected_venv(workflow_venv: Path) -> tuple[Path, Path, Path, Path
 
 
 def capture_closure(*, workflow_venv: Path | None = None) -> CapturedEnvironment:
-    """The closure walk; a host read that fails mid-walk is ClosureUnsupported,
-    never a raw OSError reaching the run boundary."""
+    """The closure walk; a host read or decode that fails mid-walk is
+    ClosureUnsupported, never a raw OSError or UnicodeError reaching the run
+    boundary."""
     try:
         if workflow_venv is None:
             return _walk_closure()
         return _walk_selected_closure(workflow_venv)
-    except OSError as error:
+    except (OSError, UnicodeError) as error:
         raise ClosureUnsupported(f"the runtime closure could not be read: {error}") from error
 
 

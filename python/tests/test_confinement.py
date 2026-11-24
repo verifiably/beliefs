@@ -760,3 +760,46 @@ def test_probe_listing_normalizes_dotdot_runpath_paths(tmp_path, monkeypatch):
     resolved = out["resolved"]
     assert isinstance(resolved, dict)
     assert resolved["libavif.so.16"][0] == str(lib.resolve())
+
+
+def test_probe_listing_preserves_paths_containing_spaces(tmp_path, monkeypatch):
+    import shutil
+    import subprocess
+    import sys
+
+    from beliefs import probe
+    from beliefs.adapter import elf_interpreter, loader_listing
+
+    spaced_dir = tmp_path / "dir with space"
+    spaced_dir.mkdir()
+    lib = spaced_dir / "libspace.so.1"
+    lib.write_bytes(b"fake-elf-bytes")
+
+    monkeypatch.setattr(
+        probe.subprocess,
+        "run",
+        lambda *a, **kw: subprocess.CompletedProcess(
+            a[0], 0, stdout=f"\tlibspace.so.1 => {lib} (0x00007f0000000000)\n", stderr=""
+        ),
+    )
+    out = probe._listing("/lib64/ld-linux-x86-64.so.2", str(tmp_path / "app.so"), ())
+    assert out["unresolved"] == []
+    resolved = out["resolved"]
+    assert isinstance(resolved, dict)
+    assert resolved["libspace.so.1"][0] == str(lib.resolve())
+
+    # Real loader invocation over a spaced --library-path directory.
+    monkeypatch.undo()
+    real_exe = Path(os.path.realpath(sys.executable))
+    loader = elf_interpreter(real_exe)
+    baseline = loader_listing(loader, real_exe)
+    soname = "libm.so.6" if "libm.so.6" in baseline else next(iter(baseline))
+    copied = spaced_dir / soname
+    shutil.copy2(Path(os.path.realpath(baseline[soname])), copied)
+
+    real_out = probe._listing(loader, str(real_exe), (str(spaced_dir),))
+    assert real_out["returncode"] == 0
+    assert real_out["unresolved"] == []
+    real_resolved = real_out["resolved"]
+    assert isinstance(real_resolved, dict)
+    assert real_resolved[soname][0] == str(copied.resolve())

@@ -908,7 +908,7 @@ def _make_selected_venv(
     root: Path,
     *,
     snakemake_version: str | None = "8.11.4",
-    include_system_site: str = "false",
+    include_system_site: str | None = "false",
     home: Path | None = None,
     python_target: Path | None = None,
     extra_dists: dict[str, tuple[str, dict[str, bytes]]] | None = None,
@@ -919,13 +919,14 @@ def _make_selected_venv(
     (root / "bin").mkdir(parents=True, exist_ok=True)
     site = root / "lib" / version_dir / "site-packages"
     site.mkdir(parents=True, exist_ok=True)
-    (root / "pyvenv.cfg").write_text(
-        f"home = {real_home}\n"
-        f"implementation = CPython\n"
-        f"version_info = {sys.version_info[0]}.{sys.version_info[1]}\n"
-        f"include-system-site-packages = {include_system_site}\n",
-        encoding="utf-8",
-    )
+    cfg_lines = [
+        f"home = {real_home}",
+        "implementation = CPython",
+        f"version_info = {sys.version_info[0]}.{sys.version_info[1]}",
+    ]
+    if include_system_site is not None:
+        cfg_lines.append(f"include-system-site-packages = {include_system_site}")
+    (root / "pyvenv.cfg").write_text("\n".join(cfg_lines) + "\n", encoding="utf-8")
     (root / "bin" / "python").symlink_to(real_exe if python_target is None else python_target)
     if snakemake_version is not None:
         _write_dist(
@@ -1013,6 +1014,7 @@ def test_selected_venv_admits_inert_comment_only_pth(tmp_path):
         "extra_import_in_virtualenv_pth",
         "other_import_pth",
         "system_site_packages",
+        "omitted_system_site_packages",
         "wrong_base_home",
         "wrong_python_target",
         "missing_pyvenv_cfg",
@@ -1027,6 +1029,8 @@ def test_selected_venv_refuses_unsupported_layouts_and_startup_files(tmp_path, c
     venv_dir = tmp_path / "wf-venv"
     if case == "system_site_packages":
         _make_selected_venv(venv_dir, include_system_site="true")
+    elif case == "omitted_system_site_packages":
+        _make_selected_venv(venv_dir, include_system_site=None)
     elif case == "wrong_base_home":
         other_bin = tmp_path / "other-base" / "bin"
         other_bin.mkdir(parents=True)
@@ -1234,3 +1238,61 @@ def test_selected_venv_refuses_out_of_root_dist_info_metadata_symlinks(tmp_path,
     target.symlink_to(outside_file)
     with pytest.raises(ClosureUnsupported, match="escapes|outside|symlink"):
         capture_closure(workflow_venv=venv)
+
+
+@pytest.mark.parametrize(
+    "case",
+    ["invalid_utf8_record", "invalid_utf8_metadata", "invalid_utf8_direct_url", "oversized_csv_record"],
+)
+def test_selected_venv_refuses_malformed_utf8_and_csv_metadata(tmp_path, case):
+    import csv
+
+    venv, site = _make_selected_venv(
+        tmp_path / "venv", extra_dists={"demo_pkg": ("1.0.0", {"demo_pkg/__init__.py": b"X = 1\n"})}
+    )
+    dist_info = site / "demo_pkg-1.0.0.dist-info"
+    if case == "invalid_utf8_record":
+        (dist_info / "RECORD").write_bytes(b"\xff\xfe\xfd")
+    elif case == "invalid_utf8_metadata":
+        (dist_info / "METADATA").write_bytes(b"\xff\xfe\xfd")
+    elif case == "invalid_utf8_direct_url":
+        (dist_info / "direct_url.json").write_bytes(b"\xff\xfe\xfd")
+    elif case == "oversized_csv_record":
+        (dist_info / "RECORD").write_bytes((b"a" * (csv.field_size_limit() + 1)) + b",,\n")
+
+    with pytest.raises(ClosureUnsupported):
+        capture_closure(workflow_venv=venv)
+
+
+def test_parse_listing_preserves_paths_containing_spaces():
+    text = (
+        "\tlinux-vdso.so.1 (0x00007f00)\n"
+        "\tlibm.so.6 => /tmp/dir with space/libm.so.6 (0x00007f01)\n"
+        "\tlibz.so.1 => /tmp/a  b/libz.so.1 (0x1)\n"
+    )
+    assert _parse_listing(text) == {
+        "libm.so.6": Path("/tmp/dir with space/libm.so.6"),
+        "libz.so.1": Path("/tmp/a  b/libz.so.1"),
+    }
+    with pytest.raises(ClosureUnsupported, match="unparseable loader line"):
+        _parse_listing("\tlibm.so.6 => /tmp/no-load-addr/libm.so.6\n")
+    with pytest.raises(ClosureUnsupported, match="unparseable loader line"):
+        _parse_listing("\tlibm.so.6 => relative/libm.so.6 (0x1)\n")
+
+
+def test_loader_listing_preserves_spaced_library_path_with_real_loader(tmp_path):
+    import shutil
+
+    real_exe = Path(os.path.realpath(sys.executable))
+    loader = elf_interpreter(real_exe)
+    baseline = loader_listing(loader, real_exe)
+    soname = "libm.so.6" if "libm.so.6" in baseline else next(iter(baseline))
+    source_lib = Path(os.path.realpath(baseline[soname]))
+
+    spaced_dir = tmp_path / "dir with space"
+    spaced_dir.mkdir()
+    copied = spaced_dir / soname
+    shutil.copy2(source_lib, copied)
+
+    listed = loader_listing(loader, real_exe, library_path=(str(spaced_dir),))
+    assert listed[soname] == copied

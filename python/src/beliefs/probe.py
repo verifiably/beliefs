@@ -16,12 +16,14 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import socket
 import struct
 import subprocess
 import sys
 
 _ELF_MAGIC = b"\x7fELF"
+_LOADER_RESOLVED_RE = re.compile(r"^(?P<path>/.+) \(0x[0-9a-fA-F]+\)$")
 _ENV_ROOT = "/science/env"
 _ENV_LIB = f"{_ENV_ROOT}/lib"
 _PROBE_PATH = "/science/probe.py"
@@ -248,16 +250,26 @@ def _listing(loader: str, path: str, library_path: tuple[str, ...]) -> dict[str,
     if len(non_empty) == 1 and non_empty[0].strip() == "statically linked":
         return {"returncode": completed.returncode, "resolved": resolved, "unresolved": unresolved}
     for line in non_empty:
-        parts = line.split()
-        if not parts or parts[0].startswith(("linux-vdso", "linux-gate")) or parts[0].startswith("/"):
+        stripped = line.strip()
+        if stripped.startswith(("linux-vdso", "linux-gate", "/")):
             continue
-        if len(parts) >= 3 and parts[1] == "=>" and parts[2] != "not":
-            raw_path = parts[2]
+        soname, sep, rhs = stripped.partition(" => ")
+        target = rhs.strip() if sep else ""
+        match = (
+            _LOADER_RESOLVED_RE.match(target)
+            if sep
+            and soname
+            and not any(ch.isspace() for ch in soname)
+            and not (target == "not found" or target.startswith("not found "))
+            else None
+        )
+        if match is not None:
+            raw_path = match.group("path")
             parent, tail = os.path.split(raw_path)
             resolved_path = os.path.join(os.path.realpath(parent), tail) if tail else os.path.realpath(raw_path)
-            resolved[parts[0]] = [resolved_path, _digest(raw_path)]
+            resolved[soname] = [resolved_path, _digest(raw_path)]
         else:
-            unresolved.append(line.strip())
+            unresolved.append(stripped)
     return {"returncode": completed.returncode, "resolved": resolved, "unresolved": unresolved}
 
 
