@@ -48,6 +48,8 @@ SANDBOX_SITE = "/science/env/site"
 SANDBOX_PATH = "/science/env/path"
 SANDBOX_LIB = "/science/env/lib"
 SANDBOX_VENV = "/science/env/venv"
+SNAKEMAKE_VERSION = "8.11.4"
+_SYSTEM_NATIVE_ROOTS = ("/lib", "/lib64", "/usr/lib", "/usr/lib64")
 _ELF_MAGIC = b"\x7fELF"
 _PT_INTERP = 3
 _PT_LOAD = 1
@@ -442,9 +444,72 @@ class _Closure:
             elif entry.is_dir(follow_symlinks=False) and entry.name not in pruned:
                 self._add_tree_level(entry.path, relative, excluded, pruned)
 
-    def add_records(self) -> None:
-        for dist in importlib.metadata.distributions():
+    def _check_symlink_chain_within(self, start: Path, root: Path) -> None:
+        located = start
+        seen: set[Path] = set()
+        while True:
+            mode = _lstat_mode(os.fspath(located))
+            if mode is None or not stat.S_ISLNK(mode):
+                return
+            if located in seen:
+                raise ClosureUnsupported(f"{start} is a symlink cycle")
+            seen.add(located)
+            target = os.readlink(located)
+            raw_target = _normalize_path_str(
+                target if os.path.isabs(target) else os.path.join(os.fspath(located.parent), target)
+            )
+            if not Path(raw_target).is_relative_to(root):
+                raise ClosureUnsupported(f"symlink {located} -> {target!r} escapes {root}")
+            located = Path(self._located_str(raw_target))
+            if not Path(_normalize_path_str(os.fspath(located))).is_relative_to(root):
+                raise ClosureUnsupported(f"symlink {start} resolves outside {root}")
+
+    def add_records(
+        self,
+        *,
+        search_paths: tuple[Path, ...] | None = None,
+        contained_root: Path | None = None,
+        require_snakemake_version: str | None = None,
+    ) -> None:
+        dists = (
+            importlib.metadata.distributions()
+            if search_paths is None
+            else importlib.metadata.distributions(path=[os.fspath(path) for path in search_paths])
+        )
+        seen_names: set[str] = set()
+        snakemake_version: str | None = None
+        for dist in dists:
+            if contained_root is not None:
+                dist_path = getattr(dist, "_path", None)
+                if dist_path is not None:
+                    real_dist = Path(os.path.realpath(os.fspath(dist_path)))
+                    if not real_dist.is_relative_to(contained_root):
+                        raise ClosureUnsupported(f"distribution metadata {dist_path} lies outside {contained_root}")
+                raw_base = Path(os.path.realpath(str(dist.locate_file(""))))
+                if not raw_base.is_relative_to(contained_root):
+                    raise ClosureUnsupported(f"distribution root {raw_base} lies outside {contained_root}")
+                direct_url_text = dist.read_text("direct_url.json")
+                if direct_url_text is not None:
+                    try:
+                        direct_url = json.loads(direct_url_text)
+                    except ValueError as error:
+                        raise ClosureUnsupported(f"distribution has unreadable direct_url.json: {error}") from error
+                    if isinstance(direct_url, dict):
+                        dir_info = direct_url.get("dir_info")
+                        if isinstance(dir_info, dict) and dir_info.get("editable") is True:
+                            raise ClosureUnsupported(
+                                f"selected venv distribution {dist.metadata['Name']!r} is an editable install"
+                            )
             name = dist.metadata["Name"]
+            if not name:
+                raise ClosureUnsupported("distribution metadata is missing Name")
+            if contained_root is not None:
+                canonical = _canonical_distribution_name(name)
+                if canonical in seen_names:
+                    raise ClosureUnsupported(f"selected venv contains duplicate distribution {canonical!r}")
+                seen_names.add(canonical)
+                if canonical == "snakemake":
+                    snakemake_version = dist.version
             record = dist.read_text("RECORD")
             if not record:
                 raise MalformedClosure(
@@ -467,18 +532,71 @@ class _Closure:
                     continue
                 # An entry no path can name (an embedded NUL) is absent, as
                 # `Path.is_file()` read it, not a raw ValueError from the walk.
-                located = "" if "\0" in entry else self._located_str(os.path.normpath(os.path.join(base, entry)))
+                if "\0" in entry:
+                    located = ""
+                else:
+                    if contained_root is not None and os.path.isabs(entry):
+                        raise ClosureUnsupported(f"distribution {name!r}: RECORD entry {entry!r} is absolute")
+                    raw_path = _normalize_path_str(os.path.join(base, entry))
+                    if contained_root is not None and not Path(raw_path).is_relative_to(contained_root):
+                        raise ClosureUnsupported(
+                            f"distribution {name!r}: RECORD entry {entry!r} escapes {contained_root}"
+                        )
+                    located = self._located_str(raw_path)
+                    if contained_root is not None and not Path(_normalize_path_str(located)).is_relative_to(
+                        contained_root
+                    ):
+                        raise ClosureUnsupported(
+                            f"distribution {name!r}: RECORD entry {entry!r} resolves outside {contained_root}"
+                        )
                 mode = _lstat_mode(located) if located else None
                 if mode is None or not (stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
                     raise MalformedClosure(
                         f"distribution {name!r}: RECORD lists {PurePosixPath(entry)} and no such file exists"
                     )
                 if stat.S_ISLNK(mode):
+                    if contained_root is not None:
+                        self._check_symlink_chain_within(Path(located), contained_root)
                     self.add(Path(located))
                     continue
                 sandbox = self._sandbox_of_str(located, located)
                 if sandbox not in self.rows:
                     self._record_regular_file(sandbox, Path(located))
+        if require_snakemake_version is not None:
+            if snakemake_version is None:
+                raise ClosureUnsupported("selected venv does not install snakemake")
+            if snakemake_version != require_snakemake_version:
+                raise ClosureUnsupported(
+                    f"selected venv installs snakemake {snakemake_version!r}, expected {require_snakemake_version!r}"
+                )
+
+    def add_selected_pth(self, purelib: Path) -> None:
+        """Selected-venv .pth policy: admit only inert blank/comment files and
+        uv's `_virtualenv.pth` carrying the single active statement
+        `import _virtualenv` beside a regular, in-root `_virtualenv.py`."""
+        for pth in sorted(purelib.glob("*.pth")):
+            mode = _lstat_mode(os.fspath(pth))
+            if mode is None or not stat.S_ISREG(mode):
+                raise ClosureUnsupported(f"selected venv {pth.name} is not a regular file")
+            try:
+                text = pth.read_text(encoding="utf-8")
+            except UnicodeError as error:
+                raise ClosureUnsupported(f"selected venv {pth.name} is not valid UTF-8") from error
+            active = [line for line in text.splitlines() if line.strip() and not line.startswith("#")]
+            if not active:
+                self.add(pth)
+                continue
+            if pth.name == "_virtualenv.pth" and active == ["import _virtualenv"]:
+                bootstrap = purelib / "_virtualenv.py"
+                bmode = _lstat_mode(os.fspath(bootstrap))
+                if bmode is None or not stat.S_ISREG(bmode) or Path(os.path.realpath(bootstrap)).parent != purelib:
+                    raise ClosureUnsupported(
+                        "selected venv _virtualenv.pth requires an adjacent regular in-root _virtualenv.py"
+                    )
+                self.add(pth)
+                self.add(bootstrap)
+                continue
+            raise ClosureUnsupported(f"selected venv {pth.name} contains unsupported .pth content")
 
     def add_pth(self, purelib: Path) -> None:
         for pth in sorted(purelib.glob("*.pth")):
@@ -535,7 +653,12 @@ class _Closure:
             return True
         return Path(os.path.realpath(spec.origin)) in set(self.plan.values())
 
-    def add_native(self, *, listing: Callable[[Path], Mapping[str, Path]]) -> None:
+    def add_native(
+        self,
+        *,
+        listing: Callable[[Path], Mapping[str, Path]],
+        allowed_roots: tuple[Path, ...] | None = None,
+    ) -> None:
         """The loader's own resolution for every loadable ELF under the
         environment root, closed to a fixpoint over the libraries it adds, and
         the expected map row for each — what the probe must reproduce. An ELF
@@ -549,6 +672,18 @@ class _Closure:
                 for soname, host in sorted(listing(elf).items()):
                     located = self._located(host)
                     canonical = Path(os.path.realpath(located))
+                    if allowed_roots is not None:
+                        located_norm = Path(_normalize_path_str(os.fspath(located)))
+                        if not _path_in_roots(located_norm, allowed_roots) or not _path_in_roots(
+                            canonical, allowed_roots
+                        ):
+                            raise ClosureUnsupported(
+                                f"native dependency {soname!r} ({host} -> {canonical}) resolves outside allowed runtime roots"
+                            )
+                        if not canonical.is_file():
+                            raise ClosureUnsupported(
+                                f"native dependency {soname!r} ({canonical}) is not a regular file"
+                            )
                     known = self._sonames.setdefault(soname, canonical)
                     if known != canonical:
                         raise ClosureUnsupported(f"SONAME {soname!r} resolves to both {known} and {canonical}")
@@ -784,36 +919,218 @@ def loader_listing(loader: str, path: Path, library_path: tuple[str, ...] = ()) 
     return _parse_listing(completed.stdout)
 
 
-def capture_closure() -> CapturedEnvironment:
+def _path_in_roots(path: Path, roots: tuple[Path, ...]) -> bool:
+    return any(path.is_relative_to(root) for root in roots)
+
+
+def _allowed_native_roots(prefix: Path, base: Path) -> tuple[Path, ...]:
+    roots: list[Path] = [prefix, base]
+    for candidate in _SYSTEM_NATIVE_ROOTS:
+        if os.path.exists(candidate):
+            real = Path(os.path.realpath(candidate))
+            if real not in roots:
+                roots.append(real)
+    return tuple(roots)
+
+
+def _parse_pyvenv_cfg(cfg_path: Path) -> dict[str, str]:
+    mode = _lstat_mode(os.fspath(cfg_path))
+    if mode is None or not stat.S_ISREG(mode):
+        raise ClosureUnsupported(f"selected venv is missing regular pyvenv.cfg at {cfg_path}")
+    try:
+        text = cfg_path.read_text(encoding="utf-8")
+    except UnicodeError as error:
+        raise ClosureUnsupported(f"selected venv pyvenv.cfg is not valid UTF-8: {error}") from error
+    parsed: dict[str, str] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        key, sep, value = line.partition("=")
+        if not sep:
+            raise ClosureUnsupported(f"selected venv pyvenv.cfg has malformed line {line!r}")
+        name = key.strip().lower()
+        if not name or name in parsed:
+            raise ClosureUnsupported(f"selected venv pyvenv.cfg has invalid or duplicate key {name!r}")
+        parsed[name] = value.strip()
+    return parsed
+
+
+def _require_real_dir_chain(root: Path, target: Path) -> Path:
+    """Verify `target` lies lexically beneath `root` and every component from
+    `root` down to `target` is a real directory (never a symlink)."""
+    if not target.is_relative_to(root):
+        raise ClosureUnsupported(f"{target} lies outside {root}")
+    current = root
+    for part in target.relative_to(root).parts:
+        current = current / part
+        mode = _lstat_mode(os.fspath(current))
+        if mode is None or not stat.S_ISDIR(mode):
+            raise ClosureUnsupported(f"selected venv directory component {current} is missing or not a real directory")
+    return Path(os.path.realpath(current))
+
+
+def _validate_selected_venv(workflow_venv: Path) -> tuple[Path, Path, Path, Path, Path]:
+    if not isinstance(workflow_venv, Path):
+        raise ClosureUnsupported("selected workflow venv must be a Path")
+    mode = _lstat_mode(os.fspath(workflow_venv))
+    if mode is None or not stat.S_ISDIR(mode):
+        raise ClosureUnsupported(f"selected workflow venv {workflow_venv} must be an existing non-symlink directory")
+    base = Path(os.path.realpath(sys.base_prefix))
+    trusted_exe = Path(os.path.realpath(sys.executable))
+    prefix = Path(os.path.realpath(workflow_venv))
+    if prefix == base:
+        raise ClosureUnsupported("selected workflow venv may not be the base Python installation")
+    cfg = _parse_pyvenv_cfg(prefix / "pyvenv.cfg")
+    if cfg.get("include-system-site-packages", "false").lower() != "false":
+        raise ClosureUnsupported("selected workflow venv exposes system site-packages")
+    if "implementation" in cfg and cfg["implementation"].lower() != sys.implementation.name.lower():
+        raise ClosureUnsupported(
+            f"selected workflow venv implementation {cfg['implementation']!r} does not match {sys.implementation.name!r}"
+        )
+    expected_minor = f"{sys.version_info[0]}.{sys.version_info[1]}"
+    for version_key in ("version_info", "version"):
+        if version_key in cfg:
+            declared = cfg[version_key]
+            if declared != expected_minor and not declared.startswith(f"{expected_minor}."):
+                raise ClosureUnsupported(
+                    f"selected workflow venv {version_key}={declared!r} does not match Python {expected_minor}"
+                )
+    home_raw = cfg.get("home")
+    if not home_raw or not os.path.isabs(home_raw) or not os.path.isdir(home_raw):
+        raise ClosureUnsupported("selected workflow venv pyvenv.cfg names no valid absolute home directory")
+    if Path(os.path.realpath(home_raw)) != trusted_exe.parent:
+        raise ClosureUnsupported(
+            f"selected workflow venv home {home_raw!r} does not match trusted base {trusted_exe.parent}"
+        )
+    for prefix_key in ("base-prefix", "base-exec-prefix"):
+        if prefix_key in cfg and Path(os.path.realpath(cfg[prefix_key])) != base:
+            raise ClosureUnsupported(
+                f"selected workflow venv {prefix_key}={cfg[prefix_key]!r} does not match trusted base {base}"
+            )
+    for exe_key in ("base-executable", "executable"):
+        if exe_key in cfg and Path(os.path.realpath(cfg[exe_key])) != trusted_exe:
+            raise ClosureUnsupported(
+                f"selected workflow venv {exe_key}={cfg[exe_key]!r} does not match trusted executable {trusted_exe}"
+            )
+    _require_real_dir_chain(prefix, prefix / "bin")
+    python_entry = prefix / "bin" / "python"
+    py_mode = _lstat_mode(os.fspath(python_entry))
+    if py_mode is None or not stat.S_ISLNK(py_mode):
+        raise ClosureUnsupported(
+            f"selected workflow venv interpreter {python_entry} must be a symlink to the base Python"
+        )
+    if Path(os.path.realpath(python_entry)) != trusted_exe:
+        raise ClosureUnsupported(
+            f"selected workflow venv interpreter {python_entry} does not resolve to trusted base {trusted_exe}"
+        )
+    scheme = "posix_venv" if "posix_venv" in sysconfig.get_scheme_names() else "venv"
+    raw_purelib = Path(
+        sysconfig.get_path("purelib", scheme=scheme, vars={"base": str(prefix), "platbase": str(prefix)})
+    )
+    raw_platlib = Path(
+        sysconfig.get_path("platlib", scheme=scheme, vars={"base": str(prefix), "platbase": str(prefix)})
+    )
+    purelib = _require_real_dir_chain(prefix, raw_purelib)
+    if raw_platlib.exists() and Path(os.path.realpath(raw_platlib)) != purelib:
+        raise ClosureUnsupported(f"selected workflow venv platlib {raw_platlib} differs from purelib {purelib}")
+    for startup in ("sitecustomize.py", "usercustomize.py"):
+        if _lstat_mode(os.fspath(purelib / startup)) is not None:
+            raise ClosureUnsupported(f"selected workflow venv contains unsupported startup file {startup}")
+    if any(purelib.glob("*.egg-link")):
+        raise ClosureUnsupported("selected workflow venv contains unsupported .egg-link files")
+    return base, prefix, purelib, python_entry, trusted_exe
+
+
+def capture_closure(*, workflow_venv: Path | None = None) -> CapturedEnvironment:
     """The closure walk; a host read that fails mid-walk is ClosureUnsupported,
     never a raw OSError reaching the run boundary."""
     try:
-        return _walk_closure()
+        if workflow_venv is None:
+            return _walk_closure()
+        return _walk_selected_closure(workflow_venv)
     except OSError as error:
         raise ClosureUnsupported(f"the runtime closure could not be read: {error}") from error
 
 
 def _walk_closure() -> CapturedEnvironment:
-    walker = _Closure()
     base = Path(os.path.realpath(sys.base_prefix))
     prefix = Path(os.path.realpath(sys.prefix))
     purelib = Path(os.path.realpath(sysconfig.get_path("purelib")))
+    return _walk_environment(
+        base=base,
+        prefix=prefix,
+        purelib=purelib,
+        interpreter_entry=Path(sys.executable),
+        selected=False,
+    )
+
+
+def _walk_selected_closure(workflow_venv: Path) -> CapturedEnvironment:
+    base, prefix, purelib, python_entry, trusted_exe = _validate_selected_venv(workflow_venv)
+    return _walk_environment(
+        base=base,
+        prefix=prefix,
+        purelib=purelib,
+        interpreter_entry=python_entry,
+        selected=True,
+        expected_interpreter=trusted_exe,
+    )
+
+
+def _walk_environment(
+    *,
+    base: Path,
+    prefix: Path,
+    purelib: Path,
+    interpreter_entry: Path,
+    selected: bool,
+    expected_interpreter: Path | None = None,
+) -> CapturedEnvironment:
+    walker = _Closure()
     walker.register(base, SANDBOX_PYTHON)
     if prefix != base:
         walker.register(prefix, SANDBOX_VENV)
     walker.register(purelib, SANDBOX_SITE)
-    interpreter = walker.add_chain(Path(sys.executable))
+    interpreter = walker.add_chain(interpreter_entry)
     interpreter_host = walker.plan[interpreter]
     if not interpreter_host.is_relative_to(base):
         raise ClosureUnsupported(f"the interpreter {interpreter_host} is outside its base prefix {base}")
+    if expected_interpreter is not None and interpreter_host != expected_interpreter:
+        raise ClosureUnsupported(
+            f"selected workflow venv interpreter {interpreter_host} does not equal trusted base {expected_interpreter}"
+        )
     for name in ("stdlib", "platstdlib"):
         walker.add_tree(Path(os.path.realpath(sysconfig.get_path(name))), excluded=_stdlib_excluded)
-    walker.add_records()
-    walker.add_pth(purelib)
+    if selected:
+        walker.add_records(
+            search_paths=(purelib,),
+            contained_root=prefix,
+            require_snakemake_version=SNAKEMAKE_VERSION,
+        )
+        walker.add_selected_pth(purelib)
+        allowed_native = _allowed_native_roots(prefix, base)
+    else:
+        walker.add_records()
+        walker.add_pth(purelib)
+        allowed_native = None
     loader = elf_interpreter(interpreter_host)
+    if allowed_native is not None:
+        loader_path = Path(loader)
+        loader_located = Path(_normalize_path_str(os.fspath(walker._located(loader_path))))
+        loader_real = Path(os.path.realpath(loader_path))
+        if (
+            not _path_in_roots(loader_located, allowed_native)
+            or not _path_in_roots(loader_real, allowed_native)
+            or not loader_real.is_file()
+        ):
+            raise ClosureUnsupported(f"the loader {loader} ({loader_real}) lies outside allowed runtime roots")
     library_path = _elf_library_path(interpreter_host)
     walker.native_arch = _elf_architecture(interpreter_host)
-    walker.add_native(listing=lambda elf: loader_listing(loader, elf, library_path=library_path))
+    walker.add_native(
+        listing=lambda elf: loader_listing(loader, elf, library_path=library_path),
+        allowed_roots=allowed_native,
+    )
     walker.rows[loader] = ("file", _file_digest(Path(loader)))
     walker.plan[loader] = Path(loader)
     walker.check_links()

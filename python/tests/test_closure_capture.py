@@ -875,3 +875,334 @@ def test_a_record_entry_with_a_nul_byte_is_a_malformed_closure_not_a_raw_value_e
     monkeypatch.setattr(importlib.metadata, "distributions", lambda: (dist,))
     with pytest.raises(MalformedClosure, match="no such file exists"):
         walker.add_records()
+
+
+# --- selected workflow venv capture ------------------------------------------
+def _write_dist(
+    site: Path,
+    *,
+    name: str,
+    version: str,
+    files: dict[str, bytes],
+    extra_record_entries: tuple[str, ...] = (),
+) -> Path:
+    dist_slug = name.replace("-", "_")
+    info = site / f"{dist_slug}-{version}.dist-info"
+    info.mkdir(parents=True, exist_ok=True)
+    record_entries: list[str] = []
+    for rel, content in files.items():
+        target = Path(os.path.normpath(os.path.join(site, rel)))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+        record_entries.append(rel)
+    metadata_rel = f"{info.name}/METADATA"
+    (info / "METADATA").write_text(f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n", encoding="utf-8")
+    record_entries.append(metadata_rel)
+    record_entries.extend(extra_record_entries)
+    record_entries.append(f"{info.name}/RECORD")
+    (info / "RECORD").write_text("".join(f"{entry},,\n" for entry in record_entries), encoding="utf-8")
+    return info
+
+
+def _make_selected_venv(
+    root: Path,
+    *,
+    snakemake_version: str | None = "8.11.4",
+    include_system_site: str = "false",
+    home: Path | None = None,
+    python_target: Path | None = None,
+    extra_dists: dict[str, tuple[str, dict[str, bytes]]] | None = None,
+) -> tuple[Path, Path]:
+    real_exe = Path(os.path.realpath(sys.executable))
+    real_home = real_exe.parent if home is None else home
+    version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
+    (root / "bin").mkdir(parents=True, exist_ok=True)
+    site = root / "lib" / version_dir / "site-packages"
+    site.mkdir(parents=True, exist_ok=True)
+    (root / "pyvenv.cfg").write_text(
+        f"home = {real_home}\n"
+        f"implementation = CPython\n"
+        f"version_info = {sys.version_info[0]}.{sys.version_info[1]}\n"
+        f"include-system-site-packages = {include_system_site}\n",
+        encoding="utf-8",
+    )
+    (root / "bin" / "python").symlink_to(real_exe if python_target is None else python_target)
+    if snakemake_version is not None:
+        _write_dist(
+            site,
+            name="snakemake",
+            version=snakemake_version,
+            files={
+                "snakemake/__init__.py": b"__version__ = '8.11.4'\n",
+                "../../../bin/snakemake": f"#!{root}/bin/python\nimport sys\n".encode(),
+            },
+        )
+    for dist_name, (dist_ver, dist_files) in (extra_dists or {}).items():
+        _write_dist(site, name=dist_name, version=dist_ver, files=dist_files)
+    return root, site
+
+
+def test_selected_venv_captures_only_selected_distributions_and_sensitive_to_console_script(tmp_path, captured):
+    venv, _site_dir = _make_selected_venv(
+        tmp_path / "wf-venv",
+        extra_dists={"workflow-only-pkg": ("1.2.3", {"workflow_only_pkg/__init__.py": b"ANSWER = 42\n"})},
+    )
+    selected = capture_closure(workflow_venv=venv)
+    rows = {path: (kind, content) for path, kind, content in selected.manifest.artifacts}
+
+    # Selected-only membership: workflow package + snakemake are present, client sentinel (beliefs) is absent.
+    assert f"{SANDBOX_SITE}/workflow_only_pkg/__init__.py" in rows
+    assert f"{SANDBOX_SITE}/snakemake/__init__.py" in rows
+    assert f"{SANDBOX_VENV}/bin/snakemake" in rows
+    assert not any("beliefs" in path for path in rows)
+    assert not any(path.startswith(f"{SANDBOX_PATH}/") for path in rows)
+    assert not any(path.startswith(f"{SANDBOX_PATH}/") for path, _, _ in selected.rendered)
+
+    # Default self-capture keeps its existing manifest (with beliefs present).
+    assert capture_closure().manifest == captured.manifest
+    assert any(path.endswith("/beliefs/adapter.py") for path, _, _ in captured.manifest.artifacts)
+
+    # Loader map and sandbox interpreter layout match the shared base contract.
+    assert selected.interpreter == captured.interpreter
+    assert selected.loader == captured.loader
+    assert selected.interpreter in {elf for elf, _, _ in selected.loader_map}
+    assert rows[f"{SANDBOX_VENV}/bin/python"][0] == "symlink"
+    assert _terminal(rows, f"{SANDBOX_VENV}/bin/python") == selected.interpreter
+
+    # Modifying a RECORD-listed console script changes the selected manifest identity.
+    before_id = selected.manifest.identity()
+    script = venv / "bin" / "snakemake"
+    script.write_bytes(script.read_bytes() + b"# mutated\n")
+    after = capture_closure(workflow_venv=venv)
+    assert after.manifest.identity() != before_id
+
+
+def test_selected_venv_admits_uv_virtualenv_bootstrap_pair_without_executing_it(tmp_path):
+    venv, site = _make_selected_venv(tmp_path / "wf-venv")
+    marker = tmp_path / "executed.marker"
+    (site / "_virtualenv.pth").write_text("# uv bootstrap\n\nimport _virtualenv\n", encoding="utf-8")
+    (site / "_virtualenv.py").write_text(
+        f"import pathlib\npathlib.Path({str(marker)!r}).write_text('RAN')\nraise SystemExit(99)\n",
+        encoding="utf-8",
+    )
+    selected = capture_closure(workflow_venv=venv)
+    rows = {path: (kind, content) for path, kind, content in selected.manifest.artifacts}
+    assert not marker.exists()
+    assert rows[f"{SANDBOX_SITE}/_virtualenv.pth"][0] == "file"
+    assert rows[f"{SANDBOX_SITE}/_virtualenv.py"][0] == "file"
+
+    before_id = selected.manifest.identity()
+    (site / "_virtualenv.py").write_text("# changed\n", encoding="utf-8")
+    assert capture_closure(workflow_venv=venv).manifest.identity() != before_id
+
+
+def test_selected_venv_admits_inert_comment_only_pth(tmp_path):
+    venv, site = _make_selected_venv(tmp_path / "wf-venv")
+    (site / "inert.pth").write_text("# comment only\n\n   \n", encoding="utf-8")
+    selected = capture_closure(workflow_venv=venv)
+    rows = {path: (kind, content) for path, kind, content in selected.manifest.artifacts}
+    assert rows[f"{SANDBOX_SITE}/inert.pth"][0] == "file"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "missing_bootstrap_module",
+        "symlink_bootstrap_module",
+        "editable_path_line",
+        "extra_import_in_virtualenv_pth",
+        "other_import_pth",
+        "system_site_packages",
+        "wrong_base_home",
+        "wrong_python_target",
+        "missing_pyvenv_cfg",
+        "missing_snakemake",
+        "wrong_snakemake_version",
+        "duplicate_snakemake",
+        "sitecustomize",
+        "symlinked_venv_root",
+    ],
+)
+def test_selected_venv_refuses_unsupported_layouts_and_startup_files(tmp_path, case):
+    venv_dir = tmp_path / "wf-venv"
+    if case == "system_site_packages":
+        _make_selected_venv(venv_dir, include_system_site="true")
+    elif case == "wrong_base_home":
+        other_bin = tmp_path / "other-base" / "bin"
+        other_bin.mkdir(parents=True)
+        _make_selected_venv(venv_dir, home=other_bin)
+    elif case == "wrong_python_target":
+        fake_py = tmp_path / "other-python"
+        fake_py.write_bytes(b"not-the-base")
+        _make_selected_venv(venv_dir, python_target=fake_py)
+    elif case == "missing_snakemake":
+        _make_selected_venv(venv_dir, snakemake_version=None)
+    elif case == "wrong_snakemake_version":
+        _make_selected_venv(venv_dir, snakemake_version="8.12.0")
+    else:
+        _, site = _make_selected_venv(venv_dir)
+        if case == "missing_bootstrap_module":
+            (site / "_virtualenv.pth").write_text("import _virtualenv\n", encoding="utf-8")
+        elif case == "symlink_bootstrap_module":
+            (site / "_virtualenv.pth").write_text("import _virtualenv\n", encoding="utf-8")
+            (site / "real_v.py").write_text("# target\n", encoding="utf-8")
+            (site / "_virtualenv.py").symlink_to("real_v.py")
+        elif case == "editable_path_line":
+            editable = tmp_path / "editable-src"
+            editable.mkdir()
+            (site / "_editable.pth").write_text(f"{editable}\n", encoding="utf-8")
+        elif case == "extra_import_in_virtualenv_pth":
+            (site / "_virtualenv.pth").write_text("import _virtualenv; import os\n", encoding="utf-8")
+            (site / "_virtualenv.py").write_text("# ok\n", encoding="utf-8")
+        elif case == "other_import_pth":
+            (site / "other.pth").write_text("import sys\n", encoding="utf-8")
+        elif case == "missing_pyvenv_cfg":
+            (venv_dir / "pyvenv.cfg").unlink()
+        elif case == "duplicate_snakemake":
+            _write_dist(
+                site,
+                name="Snakemake",
+                version="8.11.4",
+                files={"snakemake_dup.py": b"X = 1\n"},
+            )
+        elif case == "sitecustomize":
+            (site / "sitecustomize.py").write_text("raise SystemExit(1)\n", encoding="utf-8")
+        elif case == "symlinked_venv_root":
+            link = tmp_path / "venv-link"
+            link.symlink_to(venv_dir, target_is_directory=True)
+            venv_dir = link
+
+    with pytest.raises(ClosureUnsupported):
+        capture_closure(workflow_venv=venv_dir)
+
+
+def test_selected_venv_refuses_out_of_root_and_similarly_named_sibling_record_entries(tmp_path):
+    sibling = tmp_path / "wf-venv-sibling"
+    sibling.mkdir()
+    (sibling / "secret.py").write_text("SECRET = 1\n", encoding="utf-8")
+
+    venv_escape, site_escape = _make_selected_venv(tmp_path / "wf-venv")
+    _write_dist(
+        site_escape,
+        name="escape-pkg",
+        version="1.0",
+        files={},
+        extra_record_entries=("../../../../wf-venv-sibling/secret.py",),
+    )
+    with pytest.raises(ClosureUnsupported):
+        capture_closure(workflow_venv=venv_escape)
+
+    venv_link, site_link = _make_selected_venv(tmp_path / "wf-venv-link")
+    (site_link / "linked.py").symlink_to(sibling / "secret.py")
+    _write_dist(
+        site_link,
+        name="link-pkg",
+        version="1.0",
+        files={},
+        extra_record_entries=("linked.py",),
+    )
+    with pytest.raises(ClosureUnsupported):
+        capture_closure(workflow_venv=venv_link)
+
+
+def test_selected_venv_native_allowlist_admits_bundled_origin_and_refuses_out_of_root_and_sibling(
+    tmp_path, monkeypatch
+):
+    venv, site = _make_selected_venv(tmp_path / "wf-venv")
+    (site / "pkg.libs").mkdir()
+    bundled = site / "pkg.libs" / "libbundled.so.1"
+    bundled.write_bytes(LOADABLE_ELF)
+    _write_dist(
+        site,
+        name="native-pkg",
+        version="1.0",
+        files={
+            "native_pkg/ext.so": LOADABLE_ELF,
+            "pkg.libs/libbundled.so.1": LOADABLE_ELF,
+        },
+    )
+    real_listing = adapter_module.loader_listing
+
+    # 1. Bundled $ORIGIN library inside venv is admitted and mapped under SANDBOX_SITE.
+    def listing_bundled(loader: str, path: Path, library_path: tuple[str, ...] = ()) -> dict[str, Path]:
+        if path.name == "ext.so":
+            return {"libbundled.so.1": bundled}
+        if path.name == "libbundled.so.1":
+            return {}
+        return real_listing(loader, path, library_path=library_path)
+
+    monkeypatch.setattr(adapter_module, "loader_listing", listing_bundled)
+    selected = capture_closure(workflow_venv=venv)
+    assert (f"{SANDBOX_SITE}/native_pkg/ext.so", "libbundled.so.1", f"{SANDBOX_SITE}/pkg.libs/libbundled.so.1") in (
+        selected.loader_map
+    )
+
+    # 2. Out-of-root RUNPATH target is refused with ClosureUnsupported.
+    outside = tmp_path / "runpath-evil"
+    outside.mkdir()
+    evil_so = outside / "libevil.so.1"
+    evil_so.write_bytes(LOADABLE_ELF)
+
+    def listing_out_of_root(loader: str, path: Path, library_path: tuple[str, ...] = ()) -> dict[str, Path]:
+        if path.name == "ext.so":
+            return {"libevil.so.1": evil_so}
+        return real_listing(loader, path, library_path=library_path)
+
+    monkeypatch.setattr(adapter_module, "loader_listing", listing_out_of_root)
+    with pytest.raises(ClosureUnsupported, match="outside allowed"):
+        capture_closure(workflow_venv=venv)
+
+    # 3. Transitive dependency resolving into a similarly named sibling directory is refused.
+    sibling = tmp_path / "wf-venv-sibling"
+    sibling.mkdir()
+    sibling_so = sibling / "libsib.so.1"
+    sibling_so.write_bytes(LOADABLE_ELF)
+
+    def listing_sibling_transitive(loader: str, path: Path, library_path: tuple[str, ...] = ()) -> dict[str, Path]:
+        if path.name == "ext.so":
+            return {"libbundled.so.1": bundled}
+        if path.name == "libbundled.so.1":
+            return {"libsib.so.1": sibling_so}
+        return real_listing(loader, path, library_path=library_path)
+
+    monkeypatch.setattr(adapter_module, "loader_listing", listing_sibling_transitive)
+    with pytest.raises(ClosureUnsupported, match="outside allowed"):
+        capture_closure(workflow_venv=venv)
+
+    # 4. Symlink inside venv pointing to sibling native library is refused.
+    link_so = site / "pkg.libs" / "liblink.so.1"
+    link_so.symlink_to(sibling_so)
+
+    def listing_symlink_to_sibling(loader: str, path: Path, library_path: tuple[str, ...] = ()) -> dict[str, Path]:
+        if path.name == "ext.so":
+            return {"liblink.so.1": link_so}
+        return real_listing(loader, path, library_path=library_path)
+
+    monkeypatch.setattr(adapter_module, "loader_listing", listing_symlink_to_sibling)
+    with pytest.raises(ClosureUnsupported, match="outside allowed"):
+        capture_closure(workflow_venv=venv)
+
+    # 5. SONAME collision and unresolved dependency in selected venv are refused.
+    (site / "pkg.libs" / "libdup.so.1").write_bytes(LOADABLE_ELF)
+    (site / "other.libs").mkdir()
+    (site / "other.libs" / "libdup.so.1").write_bytes(LOADABLE_ELF)
+
+    def listing_collision(loader: str, path: Path, library_path: tuple[str, ...] = ()) -> dict[str, Path]:
+        if path.name == "ext.so":
+            return {"libbundled.so.1": bundled, "libdup.so.1": site / "pkg.libs" / "libdup.so.1"}
+        if path.name == "libbundled.so.1":
+            return {"libdup.so.1": site / "other.libs" / "libdup.so.1"}
+        return real_listing(loader, path, library_path=library_path)
+
+    monkeypatch.setattr(adapter_module, "loader_listing", listing_collision)
+    with pytest.raises(ClosureUnsupported, match="SONAME"):
+        capture_closure(workflow_venv=venv)
+
+    def listing_unresolved(loader: str, path: Path, library_path: tuple[str, ...] = ()) -> dict[str, Path]:
+        if path.name == "ext.so":
+            raise ClosureUnsupported("libmissing.so.1 does not resolve on this host")
+        return real_listing(loader, path, library_path=library_path)
+
+    monkeypatch.setattr(adapter_module, "loader_listing", listing_unresolved)
+    with pytest.raises(ClosureUnsupported, match="does not resolve"):
+        capture_closure(workflow_venv=venv)
