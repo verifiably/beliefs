@@ -2221,7 +2221,10 @@ def test_invalid_workflow_venv_with_confined_policy_refuses_closure_unsupported_
 
 
 @pytest.mark.parametrize("shape", ["assessment", "production"])
-def test_damaged_selected_venv_metadata_refuses_closure_unsupported_and_fulfills_intent(tmp_path, monkeypatch, shape):
+@pytest.mark.parametrize("damage", ["invalid_utf8_record", "unterminated_quote_record"])
+def test_damaged_selected_venv_metadata_refuses_closure_unsupported_and_fulfills_intent(
+    tmp_path, monkeypatch, shape, damage
+):
     import sys
 
     from beliefs.recipe import CONFINED_POLICY
@@ -2246,7 +2249,7 @@ def test_damaged_selected_venv_metadata_refuses_closure_unsupported_and_fulfills
             self.fulfilled.append((plan, fulfills))
             return super().execute_fulfilling(plan, fulfills)
 
-    # Build a structurally valid selected workflow venv with non-UTF-8 RECORD metadata.
+    # Build a structurally valid selected workflow venv with damaged RECORD metadata.
     real_exe = Path(os.path.realpath(sys.executable))
     version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
     venv = tmp_path / "damaged-venv"
@@ -2261,10 +2264,18 @@ def test_damaged_selected_venv_metadata_refuses_closure_unsupported_and_fulfills
         encoding="utf-8",
     )
     (venv / "bin" / "python").symlink_to(real_exe)
+    (site / "snakemake").mkdir()
+    (site / "snakemake" / "__init__.py").write_text("__version__ = '8.11.4'\n", encoding="utf-8")
     dist_info = site / "snakemake-8.11.4.dist-info"
     dist_info.mkdir()
     (dist_info / "METADATA").write_text("Metadata-Version: 2.1\nName: snakemake\nVersion: 8.11.4\n", encoding="utf-8")
-    (dist_info / "RECORD").write_bytes(b"\xff\xfe\xfd")
+    if damage == "invalid_utf8_record":
+        (dist_info / "RECORD").write_bytes(b"\xff\xfe\xfd")
+    else:
+        (dist_info / "RECORD").write_text(
+            'snakemake-8.11.4.dist-info/METADATA,"sha256=abc,10\nsnakemake/__init__.py,,\nsnakemake-8.11.4.dist-info/RECORD,,\n',
+            encoding="utf-8",
+        )
 
     port = RecordingPort()
     export_dir = tmp_path / "export"

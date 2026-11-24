@@ -6,6 +6,7 @@ import csv
 import errno
 import importlib.metadata
 import importlib.util
+import io
 import json
 import os
 import posixpath
@@ -551,7 +552,7 @@ class _Closure:
                 )
             base = str(dist.locate_file(""))
             try:
-                record_rows = list(csv.reader(record.splitlines()))
+                record_rows = list(csv.reader(io.StringIO(record, newline=""), strict=True))
             except csv.Error as error:
                 raise ClosureUnsupported(f"distribution {name!r} has malformed CSV RECORD: {error}") from error
             for row in record_rows:

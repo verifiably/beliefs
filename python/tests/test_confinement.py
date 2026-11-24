@@ -770,6 +770,7 @@ def test_probe_listing_preserves_paths_containing_spaces(tmp_path, monkeypatch):
     from beliefs import probe
     from beliefs.adapter import elf_interpreter, loader_listing
 
+    real_subprocess_run = subprocess.run
     spaced_dir = tmp_path / "dir with space"
     spaced_dir.mkdir()
     lib = spaced_dir / "libspace.so.1"
@@ -788,7 +789,7 @@ def test_probe_listing_preserves_paths_containing_spaces(tmp_path, monkeypatch):
     assert isinstance(resolved, dict)
     assert resolved["libspace.so.1"][0] == str(lib.resolve())
 
-    # Real loader invocation over a spaced --library-path directory.
+    # Real loader invocation over a spaced --library-path directory under an allowlisted env.
     monkeypatch.undo()
     real_exe = Path(os.path.realpath(sys.executable))
     loader = elf_interpreter(real_exe)
@@ -797,7 +798,20 @@ def test_probe_listing_preserves_paths_containing_spaces(tmp_path, monkeypatch):
     copied = spaced_dir / soname
     shutil.copy2(Path(os.path.realpath(baseline[soname])), copied)
 
+    fixture_home = tmp_path / "fixture-home"
+    fixture_home.mkdir()
+    isolated_env = {"HOME": str(fixture_home), "PATH": "/usr/bin:/bin"}
+    seen_envs: list[dict[str, str]] = []
+
+    def isolated_run(argv, **kwargs):
+        assert argv[0] == loader
+        run_env = dict(isolated_env)
+        seen_envs.append(run_env)
+        return real_subprocess_run(argv, **{**kwargs, "env": run_env})
+
+    monkeypatch.setattr(probe.subprocess, "run", isolated_run)
     real_out = probe._listing(loader, str(real_exe), (str(spaced_dir),))
+    assert seen_envs == [isolated_env]
     assert real_out["returncode"] == 0
     assert real_out["unresolved"] == []
     real_resolved = real_out["resolved"]

@@ -1242,7 +1242,13 @@ def test_selected_venv_refuses_out_of_root_dist_info_metadata_symlinks(tmp_path,
 
 @pytest.mark.parametrize(
     "case",
-    ["invalid_utf8_record", "invalid_utf8_metadata", "invalid_utf8_direct_url", "oversized_csv_record"],
+    [
+        "invalid_utf8_record",
+        "invalid_utf8_metadata",
+        "invalid_utf8_direct_url",
+        "oversized_csv_record",
+        "unterminated_quote_record",
+    ],
 )
 def test_selected_venv_refuses_malformed_utf8_and_csv_metadata(tmp_path, case):
     import csv
@@ -1259,9 +1265,32 @@ def test_selected_venv_refuses_malformed_utf8_and_csv_metadata(tmp_path, case):
         (dist_info / "direct_url.json").write_bytes(b"\xff\xfe\xfd")
     elif case == "oversized_csv_record":
         (dist_info / "RECORD").write_bytes((b"a" * (csv.field_size_limit() + 1)) + b",,\n")
+    elif case == "unterminated_quote_record":
+        (dist_info / "RECORD").write_text(
+            f'{dist_info.name}/METADATA,"sha256=abc,10\ndemo_pkg/__init__.py,,\n{dist_info.name}/RECORD,,\n',
+            encoding="utf-8",
+        )
 
     with pytest.raises(ClosureUnsupported):
         capture_closure(workflow_venv=venv)
+
+
+def test_selected_venv_preserves_valid_quoted_csv_record_entries(tmp_path):
+    venv, site = _make_selected_venv(
+        tmp_path / "venv",
+        extra_dists={"quoted_pkg": ("1.0.0", {"quoted_pkg/__init__.py": b"OK = True\n"})},
+    )
+    quoted_file = site / "quoted_pkg" / "a,b.py"
+    quoted_file.write_text("VAL = 1\n", encoding="utf-8")
+    dist_info = site / "quoted_pkg-1.0.0.dist-info"
+    (dist_info / "RECORD").write_text(
+        f'quoted_pkg/__init__.py,,\n"quoted_pkg/a,b.py",,\n{dist_info.name}/METADATA,,\n{dist_info.name}/RECORD,,\n',
+        encoding="utf-8",
+    )
+    selected = capture_closure(workflow_venv=venv)
+    rows = {path for path, _, _ in selected.manifest.artifacts}
+    assert f"{SANDBOX_SITE}/quoted_pkg/__init__.py" in rows
+    assert f"{SANDBOX_SITE}/quoted_pkg/a,b.py" in rows
 
 
 def test_parse_listing_preserves_paths_containing_spaces():
