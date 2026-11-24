@@ -486,10 +486,11 @@ RAW_WRITE_ALLOWLIST = {
     # declared outputs to a caller-supplied export directory and unlinks/rmdirs
     # attempt-created files and directories on refusal.
     "boundary.py": {"copy2", "copyfile", "write_text", "rmtree", "unlink", "rmdir"},
-    # The environment snapshot: manifested files copied, manifested and
-    # rendered symlinks created, rendered files written, the build published
-    # by rename, a losing build discarded — under a boundary-owned directory
-    # registered by nothing.
+    # The environment snapshot and staged boundary probe: manifested files
+    # copied, manifested and rendered symlinks created, rendered files written,
+    # the probe staged exclusively at mode 0600 via `stage_probe`'s `os.open`,
+    # the build published by rename, a losing build discarded — under a
+    # boundary-owned directory registered by nothing.
     "confinement.py": {"copy2", "write_text", "symlink_to", "rename", "rmtree"},
     # The held probe's one write check: a file touched and removed under the
     # output root, with inventoried operations so this table weighs it.

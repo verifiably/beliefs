@@ -298,9 +298,13 @@ def stage_probe(directory: Path) -> tuple[Path, str]:
         raise ConfinementNotEstablished(f"the boundary probe could not be staged at {path}: {error}") from error
     try:
         with os.fdopen(fd, "wb") as handle:
+            fd = -1
             handle.write(data)
     except OSError as error:
         raise ConfinementNotEstablished(f"the boundary probe could not be written at {path}: {error}") from error
+    finally:
+        if fd >= 0:
+            os.close(fd)
     try:
         check_probe_intact(path, digest)
     except ClosureMutated as error:

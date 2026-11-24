@@ -1214,3 +1214,23 @@ def test_parse_listing_accepts_sole_statically_linked_and_rejects_mixed():
     assert _parse_listing("\tstatically linked\n") == {}
     with pytest.raises(ClosureUnsupported, match="unparseable loader line"):
         _parse_listing("\tstatically linked\n\tgarbage line\n")
+
+
+@pytest.mark.parametrize("meta_name", ["METADATA", "RECORD", "direct_url.json"])
+def test_selected_venv_refuses_out_of_root_dist_info_metadata_symlinks(tmp_path, meta_name):
+    venv, site = _make_selected_venv(
+        tmp_path / "venv", extra_dists={"demo_pkg": ("1.0.0", {"demo_pkg/__init__.py": b"X = 1\n"})}
+    )
+    dist_info = site / "demo_pkg-1.0.0.dist-info"
+    outside = tmp_path / "outside-meta"
+    outside.mkdir()
+    outside_file = outside / meta_name
+    target = dist_info / meta_name
+    if target.exists():
+        outside_file.write_bytes(target.read_bytes())
+        target.unlink()
+    else:
+        outside_file.write_text('{"url": "https://example.invalid/demo.whl"}\n')
+    target.symlink_to(outside_file)
+    with pytest.raises(ClosureUnsupported, match="escapes|outside|symlink"):
+        capture_closure(workflow_venv=venv)

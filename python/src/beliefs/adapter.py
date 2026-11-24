@@ -481,10 +481,28 @@ class _Closure:
         for dist in dists:
             if contained_root is not None:
                 dist_path = getattr(dist, "_path", None)
-                if dist_path is not None:
-                    real_dist = Path(os.path.realpath(os.fspath(dist_path)))
-                    if not real_dist.is_relative_to(contained_root):
-                        raise ClosureUnsupported(f"distribution metadata {dist_path} lies outside {contained_root}")
+                if dist_path is None:
+                    raise ClosureUnsupported("selected venv distribution has no filesystem metadata path")
+                dist_dir = Path(os.fspath(dist_path))
+                if not Path(_normalize_path_str(os.fspath(dist_dir))).is_relative_to(contained_root):
+                    raise ClosureUnsupported(f"distribution metadata {dist_dir} lies outside {contained_root}")
+                self._check_symlink_chain_within(dist_dir, contained_root)
+                real_dist = Path(os.path.realpath(os.fspath(dist_dir)))
+                if not real_dist.is_relative_to(contained_root):
+                    raise ClosureUnsupported(f"distribution metadata {dist_dir} lies outside {contained_root}")
+                for meta_name in ("direct_url.json", "METADATA", "RECORD"):
+                    meta_path = dist_dir / meta_name
+                    meta_mode = _lstat_mode(os.fspath(meta_path))
+                    if meta_mode is None:
+                        continue
+                    if stat.S_ISLNK(meta_mode):
+                        self._check_symlink_chain_within(meta_path, contained_root)
+                    elif not stat.S_ISREG(meta_mode):
+                        raise ClosureUnsupported(f"distribution metadata file {meta_path} is not a regular file")
+                    if not Path(os.path.realpath(os.fspath(meta_path))).is_relative_to(contained_root):
+                        raise ClosureUnsupported(
+                            f"distribution metadata file {meta_path} resolves outside {contained_root}"
+                        )
                 raw_base = Path(os.path.realpath(str(dist.locate_file(""))))
                 if not raw_base.is_relative_to(contained_root):
                     raise ClosureUnsupported(f"distribution root {raw_base} lies outside {contained_root}")
