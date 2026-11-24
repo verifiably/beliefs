@@ -136,17 +136,37 @@ def test_every_launch_route_checks_staged_series(portable, tmp_path, monkeypatch
             return execute_assessment_run(**args)
         from hashlib import sha256
 
+        from beliefs.adapter import capture_bundle, capture_closure
+        from beliefs.recipe import Invocation, ResultManifest
         from beliefs.replay import replay
 
+        code_identity = capture_bundle(args["code_roots"], tmp_path / "expected-bundle")
+        captured = capture_closure()
+        held = {
+            i.dataset: "sha256:" + sha256(args["held_inputs"][i.dataset].read_bytes()).hexdigest()
+            for i in p.closure.recipe.inputs
+        }
+        projected = boundary._project(
+            spec=args["spec"],
+            inputs=(),
+            parameters={},
+            nondeterminism=None,
+            held=held,
+            code_identity=code_identity,
+            environment=captured.manifest,
+            definition=args["definition"],
+            invocation=Invocation(
+                entrypoint=args["entrypoint"],
+                targets=args["targets"],
+                bindings=("inputs", "parameters", "nondeterminism"),
+                declared_outputs=args["declared_outputs"],
+            ),
+            boundary_policy=p.closure.recipe.boundary_policy,
+        )
         original = replace(
             p.closure,
-            recipe=replace(
-                p.closure.recipe,
-                inputs=tuple(
-                    replace(i, content="sha256:" + sha256(args["held_inputs"][i.dataset].read_bytes()).hexdigest())
-                    for i in p.closure.recipe.inputs
-                ),
-            ),
+            recipe=projected,
+            result=ResultManifest(outputs=tuple((name, "sha256:" + "0" * 64) for name in args["declared_outputs"])),
         )
         return replay(original, **{key: value for key, value in args.items() if key != "boundary_policy"})
 

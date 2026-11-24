@@ -1379,7 +1379,7 @@ def test_confined_runs_under_a_run_session_stage_beneath_their_own_invocations_k
         for result, staged in ((first, one), (second, two)):
             assert Path(result.run.occurrence.receipt.execution.scratch_mapping).parent == staged
             sources = _bind_sources(result)
-            assert len(sources) == 10  # loader, environment, bundle, output and inputs, in each plan
+            assert len(sources) == 12  # loader, environment, bundle, output, inputs and probe, in each plan
             assert all(_beneath(source, staged, cache) for source in sources), sources
         assert not any(_beneath(source, one) for source in _bind_sources(second))
     finally:
