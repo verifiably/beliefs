@@ -14,6 +14,7 @@ import json
 import os
 import posixpath
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,7 @@ from hashlib import sha256
 from pathlib import Path
 from typing import cast, final
 
+from beliefs import probe as _probe_module
 from beliefs.adapter import (
     SANDBOX_ENV,
     SANDBOX_LIB,
@@ -49,6 +51,8 @@ __all__ = [
     "HOSTNAME",
     "INPUTS_ROOT",
     "OUTPUT_ROOT",
+    "PROBE_DIGEST_KEY",
+    "PROBE_PATH",
     "TRACE_DIR",
     "UNPLANNED",
     "InstanceFacts",
@@ -59,6 +63,7 @@ __all__ = [
     "canonical_mounts",
     "check_bundle_intact",
     "check_closure_intact",
+    "check_probe_intact",
     "fingerprint",
     "host_prerequisites",
     "judge_instance",
@@ -67,8 +72,10 @@ __all__ = [
     "materialize_snapshot",
     "mount_plan",
     "observe_instance",
+    "probe_bytes",
     "require_host",
     "sandbox_environment",
+    "stage_probe",
     "verify_snapshot",
 ]
 
@@ -76,11 +83,12 @@ HOSTNAME = "science"
 BUNDLE_ROOT = "/science/bundle"
 OUTPUT_ROOT = "/science/out"
 INPUTS_ROOT = "/science/out/inputs"
+PROBE_PATH = "/science/probe.py"
+PROBE_DIGEST_KEY = "boundary-probe-sha256"
 TRACE_DIR = ".trace"
 HOME_DIR = ".home"
 DEVICES = ("/dev/null", "/dev/urandom")
 UNPLANNED = "unplanned"
-PROBE_MODULE = "beliefs.probe"
 _BWRAP = "bwrap"
 _NETWORK_UNREACHABLE = ("EAFNOSUPPORT", "ENETUNREACH", "EADDRNOTAVAIL")
 
@@ -267,6 +275,62 @@ def check_bundle_intact(bundle: Path, code_identity: str) -> None:
         raise ClosureMutated("the captured bundle no longer folds to its code identity")
 
 
+def probe_bytes() -> bytes:
+    """Read the trusted stdlib-only probe source shipped with this Beliefs installation."""
+    source = _probe_module.__file__
+    if not source:
+        raise ConfinementNotEstablished("the boundary probe module has no backing file")
+    try:
+        return Path(source).read_bytes()
+    except OSError as error:
+        raise ConfinementNotEstablished(f"the boundary probe source could not be read: {error}") from error
+
+
+def stage_probe(directory: Path) -> tuple[Path, str]:
+    """Stage the trusted boundary probe exclusively at mode 0600 in a
+    kernel-owned directory and return its path and pinned sha256 digest."""
+    path = directory / "probe.py"
+    data = probe_bytes()
+    digest = "sha256:" + sha256(data).hexdigest()
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except OSError as error:
+        raise ConfinementNotEstablished(f"the boundary probe could not be staged at {path}: {error}") from error
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+    except OSError as error:
+        raise ConfinementNotEstablished(f"the boundary probe could not be written at {path}: {error}") from error
+    try:
+        check_probe_intact(path, digest)
+    except ClosureMutated as error:
+        raise ConfinementNotEstablished(f"the staged boundary probe failed verification: {error}") from error
+    return path, digest
+
+
+def check_probe_intact(probe: Path, probe_digest: str) -> None:
+    """Recheck that the staged probe is still a regular file (never a symlink)
+    and hashes to its pinned digest."""
+    try:
+        fd = os.open(probe, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    except OSError as error:
+        raise ClosureMutated(f"the staged boundary probe could not be opened: {error}") from error
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise ClosureMutated(f"the staged boundary probe {probe} is not a regular file")
+        with os.fdopen(fd, "rb") as handle:
+            fd = -1
+            actual = "sha256:" + sha256(handle.read()).hexdigest()
+    except OSError as error:
+        raise ClosureMutated(f"the staged boundary probe could not be read: {error}") from error
+    finally:
+        if fd >= 0:
+            os.close(fd)
+    if actual != probe_digest:
+        raise ClosureMutated("the staged boundary probe changed between the bind and exit")
+
+
 def check_closure_intact(
     *,
     bundle: Path,
@@ -275,10 +339,12 @@ def check_closure_intact(
     captured: CapturedEnvironment,
     inputs: Path,
     inputs_fingerprint: str,
+    probe: Path,
+    probe_digest: str,
 ) -> None:
-    """The post-exit observation: one pass each over the bundle, the snapshot
-    and the staged inputs, against what was recorded before the bind. Runs
-    before the trace, the seeds or any output is read."""
+    """The post-exit observation: one pass each over the bundle, the snapshot,
+    the staged inputs and the staged probe, against what was recorded before
+    the bind. Runs before the trace, the seeds or any output is read."""
     check_bundle_intact(bundle, code_identity)
     try:
         verify_snapshot(snapshot, captured)
@@ -286,6 +352,7 @@ def check_closure_intact(
         raise ClosureMutated(f"the snapshot no longer matches its manifest: {error}") from error
     if fingerprint(inputs) != inputs_fingerprint:
         raise ClosureMutated("the staged inputs changed between the bind and exit")
+    check_probe_intact(probe, probe_digest)
 
 
 # --- the mount plan -----------------------------------------------------------------
@@ -328,18 +395,19 @@ class MountPlan:
         return tuple((sandbox, host) for sandbox, host, _ in self.binds)
 
 
-def mount_plan(*, snapshot: Path, loader: str, bundle: Path, output_root: Path) -> MountPlan:
+def mount_plan(*, snapshot: Path, loader: str, bundle: Path, output_root: Path, probe: Path) -> MountPlan:
     return MountPlan(
         binds=(
             (loader, str(_within(snapshot, loader)), "ro"),
             (SANDBOX_ENV, str(_within(snapshot, SANDBOX_ENV)), "ro"),
+            (PROBE_PATH, str(probe), "ro"),
             (BUNDLE_ROOT, str(bundle), "ro"),
             (OUTPUT_ROOT, str(output_root), "rw"),
             (INPUTS_ROOT, str(output_root / "inputs"), "ro"),
             (DEVICES[0], DEVICES[0], "dev"),
             (DEVICES[1], DEVICES[1], "dev"),
         ),
-        roles=("loader", "env", "bundle", "output", "inputs", "device", "device"),
+        roles=("loader", "env", "probe", "bundle", "output", "inputs", "device", "device"),
         loader=loader,
     )
 
@@ -377,8 +445,9 @@ def bwrap_argv(
     argv.extend(
         [
             f"{SANDBOX_VENV}/bin/python",
-            "-m",
-            PROBE_MODULE,
+            "-I",
+            "-S",
+            PROBE_PATH,
             "--report-fd",
             str(report_fd),
             "--go-fd",
@@ -471,6 +540,7 @@ def judge_report(
     environment: tuple[tuple[str, str], ...],
     captured: CapturedEnvironment,
     inner_argv: tuple[str, ...],
+    probe_digest: str,
 ) -> tuple[str, ...]:
     """The probe's report against what was declared. Every failure is a refusal;
     the graded case is reached by selecting the minimal policy, not here. A
@@ -489,6 +559,9 @@ def judge_report(
         raise ConfinementNotEstablished(f"hostname {report['hostname']!r} is not {HOSTNAME!r}")
     if report["cwd"] != OUTPUT_ROOT:
         raise ConfinementNotEstablished(f"cwd {report['cwd']!r} is not {OUTPUT_ROOT!r}")
+    reported_probe = report.get("probe_digest")
+    if reported_probe != probe_digest:
+        raise ConfinementNotEstablished(f"probe digest {reported_probe!r} does not match staged probe {probe_digest!r}")
     filesystem = cast(Mapping[str, str], report["filesystem"])
     if dict(filesystem) != _expected_filesystem():
         raise ConfinementNotEstablished(
@@ -605,6 +678,7 @@ def launch_confined(
     environment: tuple[tuple[str, str], ...],
     inner_argv: tuple[str, ...],
     captured: CapturedEnvironment,
+    probe_digest: str,
 ) -> Launch:
     """Start bubblewrap with the held probe as its command; read the child pid;
     wait for the probe's report and READY; inspect that child's namespaces and
@@ -642,7 +716,13 @@ def launch_confined(
         report = _read_report(report_r)
         facts = observe_instance(child, plan)
         judge_instance(facts, plan)
-        capabilities = judge_report(report, environment=environment, captured=captured, inner_argv=inner_argv)
+        capabilities = judge_report(
+            report,
+            environment=environment,
+            captured=captured,
+            inner_argv=inner_argv,
+            probe_digest=probe_digest,
+        )
         os.write(go_w, b"GO\n")
     except _PROTOCOL_FAILURES as failure:
         _close(open_fds, *tuple(open_fds))  # closing GO tells the probe to exit

@@ -24,6 +24,7 @@ import sys
 _ELF_MAGIC = b"\x7fELF"
 _ENV_ROOT = "/science/env"
 _ENV_LIB = f"{_ENV_ROOT}/lib"
+_PROBE_PATH = "/science/probe.py"
 _PT_LOAD = 1
 _PT_DYNAMIC = 2
 _DT_NULL = 0
@@ -260,6 +261,7 @@ def report(loader: str) -> dict[str, object]:
         "environ": dict(os.environ),
         "hostname": os.uname().nodename,
         "cwd": os.getcwd(),
+        "probe_digest": _digest(_PROBE_PATH),
         "filesystem": {
             **{f"read:{path}": _read_probe(path) for path in _READ_PROBES},
             **{f"write:{path}": _write_probe(path) for path in _WRITE_PROBES},

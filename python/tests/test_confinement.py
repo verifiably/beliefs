@@ -15,6 +15,7 @@ from beliefs.confinement import (
     HOSTNAME,
     INPUTS_ROOT,
     OUTPUT_ROOT,
+    PROBE_PATH,
     UNPLANNED,
     InstanceFacts,
     MountPlan,
@@ -30,6 +31,7 @@ from beliefs.confinement import (
     materialize_snapshot,
     mount_plan,
     sandbox_environment,
+    stage_probe,
     verify_snapshot,
 )
 from beliefs.errors import ClosureMutated, ConfinementNotEstablished, SnapshotMismatch
@@ -182,7 +184,7 @@ def test_check_bundle_intact_refuses_an_edited_bundle(tmp_path):
         check_bundle_intact(bundle, code_identity)
 
 
-def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_changed_inputs(tmp_path):
+def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_changed_inputs_and_mutated_probe(tmp_path):
     captured = synthetic(tmp_path)
     snapshot = materialize_snapshot(captured, tmp_path / "environments")
     root = tmp_path / "code"
@@ -194,6 +196,11 @@ def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_chan
     inputs.mkdir()
     (inputs / "data.txt").write_text("x\n")
     before = fingerprint(inputs)
+    probe_dir = tmp_path / "probe-stage"
+    probe_dir.mkdir()
+    probe, probe_digest = stage_probe(probe_dir)
+    assert (probe.lstat().st_mode & 0o777) == 0o600
+    assert probe_digest == _digest(probe.read_bytes())
 
     def check() -> None:
         check_closure_intact(
@@ -203,6 +210,8 @@ def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_chan
             captured=captured,
             inputs=inputs,
             inputs_fingerprint=before,
+            probe=probe,
+            probe_digest=probe_digest,
         )
 
     check()
@@ -217,6 +226,27 @@ def test_check_closure_intact_refuses_an_edited_bundle_a_moved_snapshot_and_chan
     (inputs / "data.txt").write_text("y\n")
     with pytest.raises(ClosureMutated, match="inputs"):
         check()
+    (inputs / "data.txt").write_text("x\n")
+    original_probe = probe.read_bytes()
+    probe.write_bytes(original_probe + b"# tampered\n")
+    with pytest.raises(ClosureMutated, match="probe"):
+        check()
+    # Replacing the regular file with a symlink to identical bytes still refuses.
+    real_copy = tmp_path / "probe-copy.py"
+    real_copy.write_bytes(original_probe)
+    probe.unlink()
+    probe.symlink_to(real_copy)
+    with pytest.raises(ClosureMutated, match="probe"):
+        check()
+
+
+def test_stage_probe_creates_exclusively_at_0600_and_refuses_existing_target(tmp_path):
+    probe, digest = stage_probe(tmp_path)
+    assert probe == tmp_path / "probe.py"
+    assert (probe.lstat().st_mode & 0o777) == 0o600
+    assert digest == _digest(probe.read_bytes())
+    with pytest.raises(ConfinementNotEstablished, match="probe"):
+        stage_probe(tmp_path)
 
 
 def test_no_raw_oserror_leaves_the_snapshot_or_integrity_seams(tmp_path, monkeypatch):
@@ -273,9 +303,16 @@ def test_fingerprints_move_with_content_and_symlink_targets(tmp_path):
 
 
 # --- the mount plan and the canonical comparison -------------------------
+PROBE_DIGEST = _digest(b"# staged probe bytes\n")
+
+
 def _plan(tmp_path: Path) -> MountPlan:
     return mount_plan(
-        snapshot=tmp_path / "snap", loader=LOADER, bundle=tmp_path / "bundle", output_root=tmp_path / "out"
+        snapshot=tmp_path / "snap",
+        loader=LOADER,
+        bundle=tmp_path / "bundle",
+        output_root=tmp_path / "out",
+        probe=tmp_path / "probe.py",
     )
 
 
@@ -285,19 +322,23 @@ def test_the_mount_plan_rows_are_canonical_and_identity_bearing(tmp_path):
         ("/", "root", "ro"),
         (LOADER, "loader", "ro"),
         (SANDBOX_ENV, "env", "ro"),
+        (PROBE_PATH, "probe", "ro"),
         (BUNDLE_ROOT, "bundle", "ro"),
         (OUTPUT_ROOT, "output", "rw"),
         (INPUTS_ROOT, "inputs", "ro"),
         ("/dev/null", "device", "rw"),
         ("/dev/urandom", "device", "rw"),
     )
+    assert PROBE_PATH == "/science/probe.py"
     assert plan.identity() == mount_plan_identity(plan.rows)
     assert plan.expected == tuple(sorted(plan.rows))
     assert (
-        plan.role_of(BUNDLE_ROOT) == "bundle"
+        plan.role_of(PROBE_PATH) == "probe"
+        and plan.role_of(BUNDLE_ROOT) == "bundle"
         and plan.role_of("/dev/null") == "device"
         and plan.role_of("/etc") == UNPLANNED
     )
+    assert dict(plan.host_mapping())[PROBE_PATH] == str(tmp_path / "probe.py")
     assert dict(plan.host_mapping())[BUNDLE_ROOT] == str(tmp_path / "bundle")
     assert dict(plan.host_mapping())[SANDBOX_ENV] == str(tmp_path / "snap" / "science" / "env")
     assert dict(plan.host_mapping())[LOADER] == str(tmp_path / "snap" / LOADER.lstrip("/"))
@@ -346,13 +387,26 @@ def test_a_mount_table_unequal_to_the_plan_refuses(tmp_path):
     )
     with pytest.raises(ConfinementNotEstablished):
         judge_instance(writable_root, plan)
+    writable_probe = InstanceFacts(
+        distinct=NAMESPACES,
+        mounts=tuple(sorted((PROBE_PATH, "probe", "rw") if row[0] == PROBE_PATH else row for row in plan.expected)),
+    )
+    with pytest.raises(ConfinementNotEstablished):
+        judge_instance(writable_probe, plan)
+    missing_probe = InstanceFacts(
+        distinct=NAMESPACES,
+        mounts=tuple(row for row in plan.expected if row[0] != PROBE_PATH),
+    )
+    with pytest.raises(ConfinementNotEstablished, match="probe"):
+        judge_instance(missing_probe, plan)
 
 
-def good_report(captured: CapturedEnvironment, environment) -> dict:
+def good_report(captured: CapturedEnvironment, environment, *, probe_digest: str = PROBE_DIGEST) -> dict:
     return {
         "environ": dict(environment),
         "hostname": HOSTNAME,
         "cwd": OUTPUT_ROOT,
+        "probe_digest": probe_digest,
         "filesystem": {
             "read:/etc/passwd": "ENOENT",
             "read:/tmp": "ENOENT",
@@ -392,7 +446,13 @@ def test_a_good_report_yields_every_capability(tmp_path):
     captured = synthetic(tmp_path)
     environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
     assert (
-        judge_report(good_report(captured, environment), environment=environment, captured=captured, inner_argv=INNER)
+        judge_report(
+            good_report(captured, environment),
+            environment=environment,
+            captured=captured,
+            inner_argv=INNER,
+            probe_digest=PROBE_DIGEST,
+        )
         == CAPABILITIES
     )
 
@@ -403,6 +463,8 @@ def test_a_good_report_yields_every_capability(tmp_path):
         (lambda r: r["environ"].update({"HOSTTYPE": "x86_64"}), "environment"),
         (lambda r: r.update({"hostname": "laptop"}), "hostname"),
         (lambda r: r.update({"cwd": "/"}), "cwd"),
+        (lambda r: r.update({"probe_digest": _digest(b"wrong")}), "probe"),
+        (lambda r: r.pop("probe_digest"), "probe"),
         (lambda r: r["filesystem"].update({"read:/etc/passwd": "READ"}), "filesystem"),
         (lambda r: r["filesystem"].update({f"write:{BUNDLE_ROOT}": "OK"}), "filesystem"),
         (lambda r: r["network"].update({"ipv4": "ECONNREFUSED"}), "network"),
@@ -434,7 +496,7 @@ def test_each_report_deviation_refuses(tmp_path, mutate, match):
     report = good_report(captured, environment)
     mutate(report)
     with pytest.raises(ConfinementNotEstablished, match=match):
-        judge_report(report, environment=environment, captured=captured, inner_argv=INNER)
+        judge_report(report, environment=environment, captured=captured, inner_argv=INNER, probe_digest=PROBE_DIGEST)
 
 
 def test_an_engine_argv_whose_snakefile_is_outside_the_bundle_refuses(tmp_path):
@@ -442,7 +504,13 @@ def test_an_engine_argv_whose_snakefile_is_outside_the_bundle_refuses(tmp_path):
     environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
     outside = tuple("/science/out/Snakefile" if part.startswith(BUNDLE_ROOT) else part for part in INNER)
     with pytest.raises(ConfinementNotEstablished, match="bundle"):
-        judge_report(good_report(captured, environment), environment=environment, captured=captured, inner_argv=outside)
+        judge_report(
+            good_report(captured, environment),
+            environment=environment,
+            captured=captured,
+            inner_argv=outside,
+            probe_digest=PROBE_DIGEST,
+        )
 
 
 @pytest.mark.parametrize(
@@ -461,7 +529,7 @@ def test_a_malformed_report_shape_is_not_a_traceback_of_its_own(tmp_path, broken
     report = good_report(captured, environment)
     broken(report)
     with pytest.raises((ConfinementNotEstablished, KeyError, TypeError, AttributeError)):
-        judge_report(report, environment=environment, captured=captured, inner_argv=INNER)
+        judge_report(report, environment=environment, captured=captured, inner_argv=INNER, probe_digest=PROBE_DIGEST)
 
 
 def test_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path):
@@ -483,11 +551,14 @@ def test_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path
     environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
     report = good_report(captured, environment)
     report["loader"][leaf] = {"returncode": 0, "resolved": {}, "unresolved": []}
-    assert judge_report(report, environment=environment, captured=captured, inner_argv=INNER) == CAPABILITIES
+    assert (
+        judge_report(report, environment=environment, captured=captured, inner_argv=INNER, probe_digest=PROBE_DIGEST)
+        == CAPABILITIES
+    )
 
     omitted = {**report, "loader": {elf: entry for elf, entry in report["loader"].items() if elf != leaf}}
     with pytest.raises(ConfinementNotEstablished, match="loader"):
-        judge_report(omitted, environment=environment, captured=captured, inner_argv=INNER)
+        judge_report(omitted, environment=environment, captured=captured, inner_argv=INNER, probe_digest=PROBE_DIGEST)
 
     extra = {
         **report,
@@ -497,7 +568,7 @@ def test_a_zero_dependency_elf_is_an_attested_empty_map_not_an_omission(tmp_path
         },
     }
     with pytest.raises(ConfinementNotEstablished, match="loader"):
-        judge_report(extra, environment=environment, captured=captured, inner_argv=INNER)
+        judge_report(extra, environment=environment, captured=captured, inner_argv=INNER, probe_digest=PROBE_DIGEST)
 
 
 # --- the launch's failure boundary --------------------------------------------
@@ -524,7 +595,13 @@ def test_a_launch_protocol_failure_is_confinement_not_established_and_the_child_
     environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
     open_before = set(os.listdir("/proc/self/fd"))
     with pytest.raises(ConfinementNotEstablished, match="info descriptor"):
-        launch_confined(plan=_plan(tmp_path), environment=environment, inner_argv=INNER, captured=captured)
+        launch_confined(
+            plan=_plan(tmp_path),
+            environment=environment,
+            inner_argv=INNER,
+            captured=captured,
+            probe_digest=PROBE_DIGEST,
+        )
     assert set(os.listdir("/proc/self/fd")) <= open_before
     with pytest.raises(ProcessLookupError):
         os.kill(int(pid_file.read_text()), 0)
@@ -565,7 +642,13 @@ def test_a_truncated_inner_argv_refuses_with_the_child_reaped(tmp_path, monkeypa
     truncated = INNER[: INNER.index("--snakefile") + 1]
     open_before = set(os.listdir("/proc/self/fd"))
     with pytest.raises(ConfinementNotEstablished):
-        launch_confined(plan=_plan(tmp_path), environment=environment, inner_argv=truncated, captured=captured)
+        launch_confined(
+            plan=_plan(tmp_path),
+            environment=environment,
+            inner_argv=truncated,
+            captured=captured,
+            probe_digest=PROBE_DIGEST,
+        )
     assert set(os.listdir("/proc/self/fd")) <= open_before
     with pytest.raises(ProcessLookupError):
         os.kill(int(pid_file.read_text()), 0)
@@ -576,7 +659,13 @@ def test_bubblewrap_gone_after_intent_is_confinement_not_established_not_unavail
     captured = synthetic(tmp_path)
     environment = sandbox_environment(f"{OUTPUT_ROOT}/.trace/events.jsonl")
     with pytest.raises(ConfinementNotEstablished, match="PATH"):
-        launch_confined(plan=_plan(tmp_path), environment=environment, inner_argv=INNER, captured=captured)
+        launch_confined(
+            plan=_plan(tmp_path),
+            environment=environment,
+            inner_argv=INNER,
+            captured=captured,
+            probe_digest=PROBE_DIGEST,
+        )
 
 
 # --- the declared environment and the bwrap argv -----------------------------
@@ -606,12 +695,15 @@ def test_the_bwrap_argv_binds_then_remounts_the_root_read_only_and_gates_through
     remount = argv.index("--remount-ro")
     assert argv[remount + 1] == "/"
     assert max(index for index, part in enumerate(argv) if part in ("--ro-bind", "--bind", "--dev-bind")) < remount
+    assert ("--ro-bind", str(tmp_path / "probe.py"), PROBE_PATH) in [
+        argv[i : i + 3] for i in range(len(argv) - 2) if argv[i] == "--ro-bind"
+    ]
     assert argv[argv.index("--chdir") + 1] == OUTPUT_ROOT
     assert ("--setenv", "PYTHONSAFEPATH", "1") == argv[
         argv.index("PYTHONSAFEPATH") - 1 : argv.index("PYTHONSAFEPATH") + 2
     ]
     separator = argv.index("--")
-    assert argv[separator + 1 : separator + 4] == (f"{SANDBOX_VENV}/bin/python", "-m", "beliefs.probe")
+    assert argv[separator + 1 : separator + 5] == (f"{SANDBOX_VENV}/bin/python", "-I", "-S", PROBE_PATH)
     assert argv[-len(INNER) :] == INNER
     assert ("--report-fd", "8") == argv[argv.index("--report-fd") : argv.index("--report-fd") + 2]
     assert ("--go-fd", "9") == argv[argv.index("--go-fd") : argv.index("--go-fd") + 2]

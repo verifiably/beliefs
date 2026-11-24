@@ -358,7 +358,14 @@ map remains available for geometric scope checks. Claim-side dimensions refuse.
 A `run` facet names the spec the run executes, when it has one. A run's inputs are
 typed by role. `observes` names held data and is the only role that can make an
 assessment eligible. `reads` never makes one eligible, in any quantity. `transforms` and
-`produces` record dataset lineage.
+`produces` record dataset lineage. For a confined run, each launch attestation in
+the `run-closure` boundary receipt records the observed mounts (including
+`("/science/probe.py", "probe", "ro")` and its host mapping), covered by
+`mount_plan_identity`, and a receipt-only `rendered_environment` value row
+`("boundary-probe-sha256", "value", <sha256>)` for the verified staged probe bytes;
+the probe stays out of `EnvironmentManifest.artifacts`, so a probe-only revision
+reuses an unchanged environment snapshot while historical receipts continue to
+decode and validate against their own mount tables.
 
 A run starts only from held inputs, which it copies into the `inputs/` directory of
 the workflow's working directory. A file resource is staged at `inputs/<name>`. A

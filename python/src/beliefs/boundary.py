@@ -51,6 +51,7 @@ from beliefs.confinement import (
     HOME_DIR,
     HOSTNAME,
     OUTPUT_ROOT,
+    PROBE_DIGEST_KEY,
     TRACE_DIR,
     Launch,
     MountPlan,
@@ -62,6 +63,7 @@ from beliefs.confinement import (
     mount_plan,
     require_host,
     sandbox_environment,
+    stage_probe,
 )
 from beliefs.dataset import DatasetDeclaration, ResourceDeclaration, dataset_address
 from beliefs.dependencies import HeldRecords
@@ -878,6 +880,7 @@ def _confined_attestation(
     snapshot: Path,
     captured: CapturedEnvironment,
     environment: tuple[tuple[str, str], ...],
+    probe_digest: str,
 ) -> LaunchAttestation:
     return LaunchAttestation(
         scratch_mapping=str(scratch_mapping),
@@ -894,6 +897,7 @@ def _confined_attestation(
             *captured.rendered,
             *((f"env:{name}", "value", value) for name, value in environment),
             ("hostname", "value", HOSTNAME),
+            (PROBE_DIGEST_KEY, "value", probe_digest),
         ),
         mounts=plan.host_mapping(),
     )
@@ -1318,6 +1322,7 @@ def _execute_confined(
     environment = sandbox_environment(trace_file)
     environments = staging[0].cache_dir() if staging is not None else scratch_base / "environments"
     snapshot = materialize_snapshot(captured, environments)
+    probe_path, probe_digest = stage_probe(scratch)
     check_bundle_intact(bundle, code_identity)
     inputs_before = fingerprint(output_root / "inputs")
 
@@ -1351,6 +1356,7 @@ def _execute_confined(
             loader=captured.loader,
             bundle=bundle,
             output_root=planning_root,
+            probe=probe_path,
         )
         planning_inputs_before = fingerprint(planning_root / "inputs")
         if staging is not None:
@@ -1361,6 +1367,7 @@ def _execute_confined(
                 environment=environment,
                 inner_argv=planning_argv,
                 captured=captured,
+                probe_digest=probe_digest,
             )
             check_closure_intact(
                 bundle=bundle,
@@ -1369,6 +1376,8 @@ def _execute_confined(
                 captured=captured,
                 inputs=planning_root / "inputs",
                 inputs_fingerprint=planning_inputs_before,
+                probe=probe_path,
+                probe_digest=probe_digest,
             )
             if planning_result.returncode != 0:
                 raise PlanUnavailable(f"the confined planning launch exited {planning_result.returncode}")
@@ -1384,6 +1393,7 @@ def _execute_confined(
             snapshot=snapshot,
             captured=captured,
             environment=environment,
+            probe_digest=probe_digest,
         )
     finally:
         shutil.rmtree(planning_root, ignore_errors=True)
@@ -1405,6 +1415,7 @@ def _execute_confined(
         loader=captured.loader,
         bundle=bundle,
         output_root=output_root,
+        probe=probe_path,
     )
     if staging is not None:
         staging[0].check_binds(execution_plan, staging[1])
@@ -1415,6 +1426,7 @@ def _execute_confined(
             environment=environment,
             inner_argv=execution_argv,
             captured=captured,
+            probe_digest=probe_digest,
         )
         check_closure_intact(
             bundle=bundle,
@@ -1423,6 +1435,8 @@ def _execute_confined(
             captured=captured,
             inputs=output_root / "inputs",
             inputs_fingerprint=inputs_before,
+            probe=probe_path,
+            probe_digest=probe_digest,
         )
         if launched.returncode != 0:
             return _refused(
@@ -1439,6 +1453,7 @@ def _execute_confined(
         snapshot=snapshot,
         captured=captured,
         environment=environment,
+        probe_digest=probe_digest,
     )
     receipt = BoundaryReceipt(planning=planning_launch, execution=execution_launch)
     occurrence = Occurrence(

@@ -285,9 +285,15 @@ def test_a_bundled_file_edited_after_exit_yields_no_run(tmp_path, shared_scratch
     real_launch = boundary_module.launch_confined
     launches = 0
 
-    def launch_then_edit(*, plan, environment, inner_argv, captured):
+    def launch_then_edit(*, plan, environment, inner_argv, captured, probe_digest):
         nonlocal launches
-        result = real_launch(plan=plan, environment=environment, inner_argv=inner_argv, captured=captured)
+        result = real_launch(
+            plan=plan,
+            environment=environment,
+            inner_argv=inner_argv,
+            captured=captured,
+            probe_digest=probe_digest,
+        )
         launches += 1
         if launches == 2:
             bundle = Path(dict(plan.host_mapping())["/science/bundle"])
@@ -297,6 +303,74 @@ def test_a_bundled_file_edited_after_exit_yields_no_run(tmp_path, shared_scratch
     monkeypatch.setattr(boundary_module, "launch_confined", launch_then_edit)
     outcome = confined(tmp_path, shared_scratch)
     assert isinstance(outcome, RunRefused) and outcome.reason == "closure-mutated", outcome
+
+
+@pytest.mark.parametrize("phase", [1, 2])
+def test_a_staged_probe_mutated_after_launch_refuses_with_closure_mutated(tmp_path, shared_scratch, monkeypatch, phase):
+    real_launch = boundary_module.launch_confined
+    launches = 0
+
+    def launch_then_tamper(*, plan, environment, inner_argv, captured, probe_digest):
+        nonlocal launches
+        result = real_launch(
+            plan=plan,
+            environment=environment,
+            inner_argv=inner_argv,
+            captured=captured,
+            probe_digest=probe_digest,
+        )
+        launches += 1
+        if launches == phase:
+            probe = Path(dict(plan.host_mapping())["/science/probe.py"])
+            probe.write_bytes(probe.read_bytes() + b"\n# mutated after launch\n")
+        return result
+
+    monkeypatch.setattr(boundary_module, "launch_confined", launch_then_tamper)
+    outcome = confined(tmp_path, shared_scratch)
+    assert isinstance(outcome, RunRefused) and outcome.reason == "closure-mutated", outcome
+    assert launches == phase
+
+
+def test_both_confined_launches_attest_the_probe_and_a_probe_revision_reuses_the_snapshot(
+    tmp_path, shared_scratch, monkeypatch
+):
+    import beliefs.confinement as confinement_module
+
+    first = confined(tmp_path / "first", shared_scratch)
+    assert isinstance(first, RunMinted), first
+    first_receipt = first.run.occurrence.receipt
+    first_digests = []
+    for launch in (first_receipt.planning, first_receipt.execution):
+        assert launch.instance is not None
+        assert ("/science/probe.py", "probe", "ro") in launch.instance.mounts
+        assert launch.mounts is not None and "/science/probe.py" in dict(launch.mounts)
+        assert launch.rendered_environment is not None
+        probe_rows = [row for row in launch.rendered_environment if row[0] == "boundary-probe-sha256"]
+        assert len(probe_rows) == 1 and probe_rows[0][1] == "value" and probe_rows[0][2].startswith("sha256:")
+        first_digests.append(probe_rows[0][2])
+    assert first_digests[0] == first_digests[1]
+    from beliefs.recipe import EnvironmentManifest
+
+    assert isinstance(first.run.recipe.environment, EnvironmentManifest)
+    assert not any(path == "/science/probe.py" for path, _, _ in first.run.recipe.environment.artifacts)
+
+    snapshot_dir = shared_scratch / "environments" / first.run.recipe.environment.identity()
+    assert snapshot_dir.is_dir()
+    snapshot_inode = snapshot_dir.stat().st_ino
+
+    original_probe = confinement_module.probe_bytes()
+    revised_probe = original_probe + b"\n# harmless probe-only revision\n"
+    monkeypatch.setattr(confinement_module, "probe_bytes", lambda: revised_probe)
+
+    second = confined(tmp_path / "second", shared_scratch)
+    assert isinstance(second, RunMinted), second
+    assert second.run.recipe.environment.identity() == first.run.recipe.environment.identity()
+    assert second.run.recipe.identity() == first.run.recipe.identity()
+    assert snapshot_dir.stat().st_ino == snapshot_inode
+    for launch in (second.run.occurrence.receipt.planning, second.run.occurrence.receipt.execution):
+        assert launch.rendered_environment is not None
+        probe_rows = [row for row in launch.rendered_environment if row[0] == "boundary-probe-sha256"]
+        assert len(probe_rows) == 1 and probe_rows[0][2] != first_digests[0]
 
 
 def test_an_undeclared_file_read_fails_closed(tmp_path, shared_scratch):

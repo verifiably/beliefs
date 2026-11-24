@@ -132,3 +132,24 @@ def test_the_wire_refuses_what_the_values_refuse(mutate, match):
         _with_recomputed_mount_identity(launch)
     with pytest.raises(MalformedRecord, match=match):
         decode_projection(v1.encode(text))
+
+
+def test_a_probe_attested_confined_receipt_round_trips_alongside_historical_receipts():
+    from confinement_constants import CONFINED_MOUNTS, RENDERED_ENVIRONMENT, SANDBOX_MOUNTS
+    from confinement_fixtures import instance
+
+    probe_mounts = tuple(sorted((*CONFINED_MOUNTS, ("/science/probe.py", "probe", "ro"))))
+    probe_rendered = (*RENDERED_ENVIRONMENT, ("boundary-probe-sha256", "value", "sha256:" + "cc" * 32))
+    probe_host_mounts = (*SANDBOX_MOUNTS, ("/science/probe.py", "/host/scratch/run-1/probe.py"))
+    with_probe = confined_closure(
+        instance=instance(mounts=probe_mounts, mount_plan_identity=mount_plan_identity(probe_mounts)),
+        rendered_environment=probe_rendered,
+        mounts=probe_host_mounts,
+    )
+    historical = confined_closure()
+    assert with_probe.address() != historical.address()
+    for run in (historical, with_probe):
+        parsed = cast(Any, decode_projection(projection_text(run)))
+        assert v1.digest(run_domain_for(recipe_v2=True, confined=True), parsed) == run.address()
+        published = decode_run_record(_node_of(run))
+        assert published is not None and published.address == run.address()

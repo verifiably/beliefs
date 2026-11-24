@@ -27,16 +27,25 @@ def _staging(tmp_path: Path, session: str = SESSION_A) -> RunStaging:
 
 
 def _laid_out(staging: RunStaging, invocation: str = "i1") -> MountPlan:
-    """A mount plan over a real tree: the snapshot in the cache, the bundle and the
-    output root in one execution's scratch beneath the invocation's staging."""
+    """A mount plan over a real tree: the snapshot in the cache, the bundle, the
+    staged probe and the output root in one execution's scratch beneath the
+    invocation's staging."""
     scratch = staging.invocation_dir(invocation) / "run-1"
     snapshot = staging.cache_dir() / "env-1"
     for directory in (scratch / "bundle", scratch / "out" / "inputs", snapshot / SANDBOX_ENV.lstrip("/")):
         directory.mkdir(parents=True)
+    probe = scratch / "probe.py"
+    probe.write_bytes(b"# probe\n")
     loader = snapshot / LOADER.lstrip("/")
     loader.parent.mkdir(parents=True)
     loader.write_bytes(b"\x7fELF")
-    return mount_plan(snapshot=snapshot, loader=LOADER, bundle=scratch / "bundle", output_root=scratch / "out")
+    return mount_plan(
+        snapshot=snapshot,
+        loader=LOADER,
+        bundle=scratch / "bundle",
+        output_root=scratch / "out",
+        probe=probe,
+    )
 
 
 def _with_source(plan: MountPlan, role: str, source: str) -> MountPlan:
@@ -205,6 +214,24 @@ def test_a_source_outside_both_anchors_refuses(tmp_path):
         outside.mkdir(parents=True)
         with pytest.raises(ConfinementNotEstablished, match="beneath"):
             staging.check_binds(_with_source(plan, "bundle", str(outside)), "i1")
+        outside_probe = tmp_path / "outside" / "probe.py"
+        outside_probe.write_bytes(b"# outside\n")
+        with pytest.raises(ConfinementNotEstablished, match="beneath"):
+            staging.check_binds(_with_source(plan, "probe", str(outside_probe)), "i1")
+    finally:
+        staging.close()
+
+
+def test_a_symlinked_probe_source_refuses(tmp_path):
+    staging = _staging(tmp_path)
+    try:
+        plan = _laid_out(staging)
+        probe = staging.invocation_dir("i1") / "run-1" / "probe.py"
+        real_probe = probe.with_name("probe-real.py")
+        probe.rename(real_probe)
+        probe.symlink_to("probe-real.py")
+        with pytest.raises(ConfinementNotEstablished, match="symlink"):
+            staging.check_binds(plan, "i1")
     finally:
         staging.close()
 

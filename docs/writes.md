@@ -305,12 +305,20 @@ claims. An unreadable report refuses the run. Each event log and the combined se
 claim files have an 8 MiB ceiling. The seed directory admits at most 65,536 entries.
 
 **Confined jobs under a run session.** Every bind a confined run makes (the loader
-and environment from the materialized snapshot, the code bundle, the output root and
-the staged inputs) lies beneath its scratch, so under a run session the kernel
-chooses that scratch itself. `execute_assessment_run` and `execute_production_run`
-take `scratch_base` as an optional keyword. Through a run session's operation port,
-after the permit check and before any intent, they return `RunRefused` with no
-report, intent or registration when:
+and environment from the materialized snapshot, the staged boundary probe, the code
+bundle, the output root and the staged inputs) lies beneath its scratch, so under a
+run session the kernel chooses that scratch itself. Before either launch, the
+boundary stages its stdlib-only probe exclusively (`0600`) in the run's private
+scratch directory outside the writable output, bundle and snapshot, hashes those
+bytes, binds the regular file read-only at `/science/probe.py` (mount role `probe`),
+starts the verified snapshot interpreter with `-I -S /science/probe.py`, and
+requires the child report's probe digest and the independently observed read-only
+mount before sending `GO`. After both planning and execution exit, the boundary
+rechecks that the staged probe is still a regular file matching its pinned digest,
+refusing with `closure-mutated` otherwise. `execute_assessment_run` and
+`execute_production_run` take `scratch_base` as an optional keyword. Through a run
+session's operation port, after the permit check and before any intent, they return
+`RunRefused` with no report, intent or registration when:
 
 - the caller passed a `scratch_base` (`scratch-not-staging`);
 - the boundary policy is not the confined one (`policy-unconfined`): the minimal
