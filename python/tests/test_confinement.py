@@ -733,3 +733,30 @@ def test_probe_listing_accepts_sole_statically_linked_and_flags_mixed(monkeypatc
     )
     bad = probe._listing("/lib64/ld-linux-x86-64.so.2", "/science/env/lib/bad.so", ())
     assert bad["unresolved"] == ["statically linked", "bogus"]
+
+
+def test_probe_listing_normalizes_dotdot_runpath_paths(tmp_path, monkeypatch):
+    import subprocess
+
+    from beliefs import probe
+
+    pkg_dir = tmp_path / "site" / "PIL"
+    libs_dir = tmp_path / "site" / "pillow.libs"
+    pkg_dir.mkdir(parents=True)
+    libs_dir.mkdir(parents=True)
+    lib = libs_dir / "libavif.so.16"
+    lib.write_bytes(b"fake-elf")
+    unnormalized = f"{pkg_dir}/../pillow.libs/libavif.so.16"
+
+    monkeypatch.setattr(
+        probe.subprocess,
+        "run",
+        lambda *a, **kw: subprocess.CompletedProcess(
+            a[0], 0, stdout=f"\tlibavif.so.16 => {unnormalized} (0x00007f0000000000)\n", stderr=""
+        ),
+    )
+    out = probe._listing("/lib64/ld-linux-x86-64.so.2", str(pkg_dir / "_avif.so"), ())
+    assert out["unresolved"] == []
+    resolved = out["resolved"]
+    assert isinstance(resolved, dict)
+    assert resolved["libavif.so.16"][0] == str(lib.resolve())

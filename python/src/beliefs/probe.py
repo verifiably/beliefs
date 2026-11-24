@@ -252,7 +252,10 @@ def _listing(loader: str, path: str, library_path: tuple[str, ...]) -> dict[str,
         if not parts or parts[0].startswith(("linux-vdso", "linux-gate")) or parts[0].startswith("/"):
             continue
         if len(parts) >= 3 and parts[1] == "=>" and parts[2] != "not":
-            resolved[parts[0]] = [parts[2], _digest(parts[2])]
+            raw_path = parts[2]
+            parent, tail = os.path.split(raw_path)
+            resolved_path = os.path.join(os.path.realpath(parent), tail) if tail else os.path.realpath(raw_path)
+            resolved[parts[0]] = [resolved_path, _digest(raw_path)]
         else:
             unresolved.append(line.strip())
     return {"returncode": completed.returncode, "resolved": resolved, "unresolved": unresolved}
