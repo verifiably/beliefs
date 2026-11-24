@@ -1049,6 +1049,8 @@ def _execute_run(
     code_roots: tuple[Path, ...],
     held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     expected_inputs: Mapping[str, object] | None = None,
+    expected_recipe_identity: str | None = None,
+    workflow_venv: Path | None = None,
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
@@ -1070,7 +1072,7 @@ def _execute_run(
         scratch = create_scratch_root(scratch_base)
         bundle = scratch / "bundle"
         code_identity = capture_bundle(code_roots, bundle)
-        captured = capture_closure()
+        captured = capture_closure() if workflow_venv is None else capture_closure(workflow_venv=workflow_venv)
         environment = captured.manifest
         captured_entrypoint = validate_entrypoint(bundle, entrypoint)
         if captured_entrypoint.read_bytes() != definition.snakefile:
@@ -1094,6 +1096,7 @@ def _execute_run(
                 addresses=addresses,
                 held_inputs=held_inputs,
                 expected_inputs=expected,
+                expected_recipe_identity=expected_recipe_identity,
                 captured=captured,
                 scratch=scratch,
                 bundle=bundle,
@@ -1142,6 +1145,8 @@ def _execute_run(
             invocation=invocation,
             boundary_policy=boundary_policy,
         )
+        if expected_recipe_identity is not None and recipe.identity() != expected_recipe_identity:
+            return _refused("recipe-identity-mismatch", subject, actor, observer, started_at, intent)
 
         config = _render_config(recipe, definition)
         _check_definition_plan(definition, recipe.nondeterminism)
@@ -1252,6 +1257,7 @@ def _execute_confined(
     addresses: tuple[str, ...],
     held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     expected_inputs: Mapping[str, object] | None = None,
+    expected_recipe_identity: str | None = None,
     captured: CapturedEnvironment,
     scratch: Path,
     bundle: Path,
@@ -1315,6 +1321,8 @@ def _execute_confined(
         invocation=invocation,
         boundary_policy=CONFINED_POLICY,
     )
+    if expected_recipe_identity is not None and recipe.identity() != expected_recipe_identity:
+        return _refused("recipe-identity-mismatch", subject, actor, observer, started_at, intent)
     config = _render_config(recipe, definition.snapshot())
     _check_definition_plan(definition, recipe.nondeterminism)
     trace_file = f"{OUTPUT_ROOT}/{TRACE_DIR}/events.jsonl"
@@ -1479,6 +1487,7 @@ def execute_assessment_run(
     boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
     expected_inputs: Mapping[str, str | Mapping[str, str]] | None = None,
+    workflow_venv: Path | None = None,
     definition: WorkflowDefinition,
     code_roots: tuple[Path, ...],
     held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
@@ -1511,6 +1520,16 @@ def execute_assessment_run(
     elif refusal := _policy_refusal(boundary_policy):
         reason = getattr(refusal, "reason")  # noqa: B009
         refused = _refused_before_intent(port, reason, spec.identity, actor, observer, started_at, detail=str(refusal))
+    elif workflow_venv is not None and supported_policy(boundary_policy) != CONFINED_POLICY:
+        refused = _refused_before_intent(
+            port,
+            "policy-unconfined",
+            spec.identity,
+            actor,
+            observer,
+            started_at,
+            detail=f"a selected workflow_venv requires {CONFINED_POLICY.identity}, not {boundary_policy.identity!r}",
+        )
     if refused is not None:
         if refused.report is not None:
             port.execute(_report_plan(refused.report))
@@ -1531,6 +1550,8 @@ def execute_assessment_run(
             code_roots=code_roots,
             held_inputs=held_inputs,
             expected_inputs=expected_inputs,
+            expected_recipe_identity=expected_recipe_identity,
+            workflow_venv=workflow_venv,
             entrypoint=entrypoint,
             targets=targets,
             declared_outputs=declared_outputs,
@@ -1548,12 +1569,6 @@ def execute_assessment_run(
         )
     finally:
         _remove_staged_trees(staged_trees)
-    if (
-        type(result) is RunMinted
-        and expected_recipe_identity is not None
-        and result.run.recipe.identity() != expected_recipe_identity
-    ):
-        result = _refused("recipe-identity-mismatch", spec.identity, actor, observer, started_at, intent)
     if type(result) is RunMinted:
         _, _, plan = publication_plan(result.run)
         port.execute_fulfilling(plan, fulfills)
@@ -1588,6 +1603,7 @@ def execute_production_run(
     boundary_policy: BoundaryPolicy,
     expected_recipe_identity: str | None = None,
     expected_inputs: Mapping[str, str | Mapping[str, str]] | None = None,
+    workflow_venv: Path | None = None,
     parameters: Mapping[str, object],
     nondeterminism: NondeterminismContract,
     definition: WorkflowDefinition,
@@ -1635,6 +1651,16 @@ def execute_production_run(
     elif refusal := _policy_refusal(boundary_policy):
         reason = getattr(refusal, "reason")  # noqa: B009
         refused = _refused_before_intent(port, reason, "absent", actor, observer, started_at, detail=str(refusal))
+    elif workflow_venv is not None and supported_policy(boundary_policy) != CONFINED_POLICY:
+        refused = _refused_before_intent(
+            port,
+            "policy-unconfined",
+            "absent",
+            actor,
+            observer,
+            started_at,
+            detail=f"a selected workflow_venv requires {CONFINED_POLICY.identity}, not {boundary_policy.identity!r}",
+        )
     if refused is not None:
         if refused.report is not None:
             port.execute(_report_plan(refused.report))
@@ -1656,6 +1682,8 @@ def execute_production_run(
             code_roots=code_roots,
             held_inputs=held_inputs,
             expected_inputs=expected_inputs,
+            expected_recipe_identity=expected_recipe_identity,
+            workflow_venv=workflow_venv,
             entrypoint=entrypoint,
             targets=targets,
             declared_outputs=declared_outputs,
@@ -1668,12 +1696,6 @@ def execute_production_run(
             boundary_policy=supported_policy(boundary_policy),
             staged_trees=staged_trees,
         )
-        if (
-            type(result) is RunMinted
-            and expected_recipe_identity is not None
-            and result.run.recipe.identity() != expected_recipe_identity
-        ):
-            result = _refused("recipe-identity-mismatch", "absent", actor, observer, started_at, intent)
         if type(result) is RunMinted and output_dir is not None:
             scratch_root = Path(result.run.occurrence.receipt.execution.scratch_mapping)
             run_output_root = scratch_root / "out" if result.run.occurrence.receipt.confined else scratch_root

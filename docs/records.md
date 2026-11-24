@@ -365,7 +365,13 @@ the `run-closure` boundary receipt records the observed mounts (including
 `("boundary-probe-sha256", "value", <sha256>)` for the verified staged probe bytes;
 the probe stays out of `EnvironmentManifest.artifacts`, so a probe-only revision
 reuses an unchanged environment snapshot while historical receipts continue to
-decode and validate against their own mount tables.
+decode and validate against their own mount tables. When a confined run selects an
+explicit `workflow_venv`, its `EnvironmentManifest` records that selected venv's
+captured files (including its base CPython, installed distributions, console scripts,
+admitted `_virtualenv` bootstrap pair and allowlisted native libraries) under the
+same canonical sandbox paths, while verification scope remains derived from the
+fresh confined launch receipts (`replay.qualifies` and `derive_scope`), never from
+cache reuse or lockfile presence alone.
 
 A run starts only from held inputs, which it copies into the `inputs/` directory of
 the workflow's working directory. A file resource is staged at `inputs/<name>`. A

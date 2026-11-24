@@ -290,12 +290,32 @@ session's port, the staging refusals below, `execute_assessment_run` and
 (`no-frozen-spec`), malformed production inputs (`malformed-inputs`), an input that is
 an acquisition (`acquisition-not-a-run`) or is not held (`input-not-held`), a
 boundary policy they do not support (`boundary-policy-unsupported`; a run session
-refuses it earlier as `policy-unconfined`), and a confined policy on a host without
-the confinement substrate (`confinement-unavailable`). Through an ordinary operation
-port each such refusal publishes its act-report. A session's port, attended or run,
-commits only writes that fulfil an intent, so through it the refusal returns
-`RunRefused` with no report, intent or registration, as `permit-exceeded` does
-through every port, and nothing reaches the chain or the session ledger.
+refuses it earlier as `policy-unconfined`), a confined policy on a host without
+the confinement substrate (`confinement-unavailable`), and an explicit
+`workflow_venv` supplied with the known minimal policy (`policy-unconfined`).
+Through an ordinary operation port each such refusal publishes its act-report. A
+session's port, attended or run, commits only writes that fulfil an intent, so
+through it the refusal returns `RunRefused` with no report, intent or registration,
+as `permit-exceeded` does through every port, and nothing reaches the chain or the
+session ledger.
+
+**Selected workflow environments and early replay checks.** `execute_assessment_run`,
+`execute_production_run` and `replay` accept an optional keyword-only `workflow_venv`
+(`Path | None = None`) under the confined policy. When supplied, the boundary
+validates and captures the selected Linux CPython venv from files after kernel intent
+(sharing the trusted running CPython base, requiring `include-system-site-packages = false`,
+the pinned Snakemake version, only inert `.pth` files or uv's `_virtualenv.pth` +
+adjacent regular `_virtualenv.py` pair, and native libraries resolving beneath the
+selected venv, trusted base CPython or canonical `/lib`, `/lib64`, `/usr/lib`,
+`/usr/lib64` roots). An unsupported selected layout, engine, startup file or native
+dependency refuses post-intent with `closure-unsupported` and fulfills the intent
+with a refusal act-report. Immediately after recipe projection — before snapshot
+materialization, planning or execution — `replay` compares the projected recipe
+identity (including the freshly measured environment identity) against the original
+recipe identity, refusing drift with `recipe-identity-mismatch` and zero engine
+launches. Replayability of a selected-environment run requires retaining the
+prepared workflow venv and host-local verified snapshot (or restoring a candidate
+whose captured bytes yield the identical environment manifest).
 
 **Job reports.** Before each confined planning or execution launch, the host pins
 that launch's output directory. After exit it reads the event log and seed claims

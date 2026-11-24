@@ -556,3 +556,156 @@ def test_a_confined_tree_run_that_fails_closed_leaves_no_staged_tree(tmp_path, s
     (scratch,) = set(shared_scratch.iterdir()) - before - {shared_scratch / "environments"}
     assert (scratch / "out" / "inputs").is_dir()
     assert not (scratch / "out" / "inputs" / "data").exists()
+
+
+def _clone_selected_venv_without_beliefs(dest: Path) -> tuple[Path, Path]:
+    """Create a real isolated venv sharing the running CPython base, holding
+    Snakemake 8.11.4 and its runtime dependencies plus a workflow-only package
+    and uv's `_virtualenv` bootstrap pair — with no `beliefs` distribution."""
+    import csv
+    import importlib.metadata
+    import shutil
+    import sys
+    import sysconfig
+
+    real_exe = Path(os.path.realpath(sys.executable))
+    version_dir = f"python{sys.version_info[0]}.{sys.version_info[1]}"
+    (dest / "bin").mkdir(parents=True)
+    site = dest / "lib" / version_dir / "site-packages"
+    site.mkdir(parents=True)
+    (dest / "pyvenv.cfg").write_text(
+        f"home = {real_exe.parent}\n"
+        f"implementation = CPython\n"
+        f"version_info = {sys.version_info[0]}.{sys.version_info[1]}\n"
+        f"include-system-site-packages = false\n",
+        encoding="utf-8",
+    )
+    (dest / "bin" / "python").symlink_to(real_exe)
+
+    src_prefix = Path(os.path.realpath(sys.prefix))
+    src_site = Path(os.path.realpath(sysconfig.get_path("purelib")))
+    excluded_dists = {"verifiably-beliefs", "verifiably-atoms", "verifiably-nodes", "verifiably-refs"}
+    for dist in importlib.metadata.distributions(path=[str(src_site)]):
+        raw_name = dist.metadata["Name"] or ""
+        canonical = raw_name.lower().replace("_", "-").replace(".", "-")
+        if canonical in excluded_dists or canonical.startswith("pytest") or canonical == "pluggy":
+            continue
+        record = dist.read_text("RECORD")
+        if not record:
+            continue
+        base = Path(str(dist.locate_file("")))
+        for row in csv.reader(record.splitlines()):
+            if not row or not row[0]:
+                continue
+            entry = row[0]
+            if "__pycache__" in entry.split("/") or entry.endswith((".pyc", ".pth")):
+                continue
+            src = Path(os.path.normpath(os.path.join(base, entry)))
+            if not src.exists() and not src.is_symlink():
+                continue
+            real_src = Path(os.path.realpath(src))
+            if real_src.is_relative_to(src_site):
+                dst = site / real_src.relative_to(src_site)
+            elif real_src.is_relative_to(src_prefix):
+                dst = dest / real_src.relative_to(src_prefix)
+            else:
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            if dst.exists() or dst.is_symlink():
+                continue
+            if src.is_symlink():
+                dst.symlink_to(os.readlink(src))
+            elif src.is_file():
+                shutil.copy2(src, dst)
+
+    # Add a workflow-only distribution absent from the client venv.
+    (site / "workflow_only_pkg").mkdir()
+    (site / "workflow_only_pkg" / "__init__.py").write_text("TAG = 'WF_ONLY_V1'\n", encoding="utf-8")
+    info = site / "workflow_only_pkg-1.0.dist-info"
+    info.mkdir()
+    (info / "METADATA").write_text("Metadata-Version: 2.1\nName: workflow-only-pkg\nVersion: 1.0\n", encoding="utf-8")
+    (info / "RECORD").write_text(
+        "workflow_only_pkg/__init__.py,,\n"
+        "workflow_only_pkg-1.0.dist-info/METADATA,,\n"
+        "workflow_only_pkg-1.0.dist-info/RECORD,,\n",
+        encoding="utf-8",
+    )
+
+    # Add uv's _virtualenv bootstrap pair, omitted from RECORDs.
+    (site / "_virtualenv.pth").write_text("import _virtualenv\n", encoding="utf-8")
+    (site / "_virtualenv.py").write_text("BOOTSTRAP_MARKER = 'uv-bootstrap-active'\n", encoding="utf-8")
+    return dest, site
+
+
+def test_selected_venv_without_beliefs_runs_replays_and_refuses_drift_before_launch(
+    tmp_path, shared_scratch, monkeypatch
+):
+    from beliefs.recipe import EnvironmentManifest
+
+    selected_venv, site = _clone_selected_venv_without_beliefs(tmp_path / "selected-venv")
+    snakefile = """\
+import pathlib
+import _virtualenv
+import workflow_only_pkg
+
+try:
+    import beliefs  # noqa: F401
+except ModuleNotFoundError:
+    beliefs_absent = True
+else:
+    beliefs_absent = False
+
+rule transform:
+    input: "inputs/data.txt"
+    output: "outputs/result.txt"
+    run:
+        assert beliefs_absent, "beliefs must not be installed in the selected venv"
+        assert _virtualenv.BOOTSTRAP_MARKER == "uv-bootstrap-active"
+        text = pathlib.Path(input[0]).read_text()
+        pathlib.Path(output[0]).write_text(f"{workflow_only_pkg.TAG}:{text.upper()}")
+"""
+    original = run_production(
+        tmp_path / "original",
+        port=MEMORY_PORT,
+        boundary_policy=CONFINED_POLICY,
+        snakefile=snakefile,
+        scratch_base=shared_scratch,
+        workflow_venv=selected_venv,
+    )
+    assert isinstance(original, RunMinted), original
+    assert isinstance(original.run.recipe.environment, EnvironmentManifest)
+    env_paths = {path for path, _, _ in original.run.recipe.environment.artifacts}
+    assert "/science/env/site/workflow_only_pkg/__init__.py" in env_paths
+    assert "/science/env/site/_virtualenv.pth" in env_paths
+    assert "/science/env/site/_virtualenv.py" in env_paths
+    assert not any("beliefs" in path for path in env_paths)
+
+    replayed = replay_of(
+        original,
+        tmp_path / "replayed",
+        port=MEMORY_PORT,
+        snakefile=snakefile,
+        scratch_base=shared_scratch,
+        workflow_venv=selected_venv,
+    )
+    assert isinstance(replayed, RunMinted), replayed
+    assert replayed.run.recipe.identity() == original.run.recipe.identity()
+    assert replayed.run.result == original.run.result
+    assert derive_scope(original.run, replayed.run, certification=None) == "clean-environment"
+
+    # Mutate one captured library file in the selected venv -> early refusal before launch.
+    (site / "workflow_only_pkg" / "__init__.py").write_text("TAG = 'WF_ONLY_V2'\n", encoding="utf-8")
+    launches: list[object] = []
+    monkeypatch.setattr(boundary_module, "launch_confined", lambda **kw: launches.append(kw))
+    drifted = replay_of(
+        original,
+        tmp_path / "drifted",
+        port=MEMORY_PORT,
+        snakefile=snakefile,
+        scratch_base=shared_scratch,
+        workflow_venv=selected_venv,
+    )
+    assert isinstance(drifted, RunRefused)
+    assert drifted.reason == "recipe-identity-mismatch"
+    assert drifted.intent is not None and drifted.report is not None
+    assert launches == []

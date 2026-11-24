@@ -2081,3 +2081,140 @@ def test_a_staged_tree_is_removed_after_a_production_run(tmp_path):
     for name, digest in outcome.run.result.outputs:
         assert _boundary._digest(output_dir / name) == digest
     assert (output_dir / "outputs" / "result.txt").read_text() == "ALPHA\n|BETA\n"
+
+
+# --- workflow_venv selection & refusal precedence ----------------------------
+def _production_with(tmp_path: Path, port, **overrides):
+    code, held = stage(tmp_path)
+    data = held / "data.txt"
+    kwargs: dict[str, Any] = {
+        "inputs": (RecipeInput(role="transforms", dataset=DATA_ADDRESS, content=boundary._digest(data)),),
+        "port": port,
+        "boundary_policy": MINIMAL_POLICY,
+        "parameters": {},
+        "nondeterminism": Deterministic(),
+        "definition": definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+        "code_roots": (code,),
+        "held_inputs": {DATA_ADDRESS: data},
+        "entrypoint": "code/workflow/Snakefile",
+        "targets": ("outputs/result.txt",),
+        "declared_outputs": ("outputs/result.txt",),
+        "observer": "observer-1",
+        "started_at": "2026-08-12T00:00:00Z",
+        "host_realization": "host-a",
+        "scratch_base": tmp_path / "scratch",
+    }
+    kwargs.update(overrides)
+    return execute_production_run(**kwargs)
+
+
+@pytest.mark.parametrize("shape", ["assessment", "production"])
+@pytest.mark.parametrize("session_port", [False, True])
+def test_workflow_venv_with_minimal_policy_refuses_policy_unconfined_before_intent(
+    tmp_path, monkeypatch, shape, session_port
+):
+    from beliefs.session import routes as session_routes
+
+    class RecordingPort(MemoryPort):
+        authority = FULL
+        run_staging = None
+
+        def __init__(self) -> None:
+            self.appended: list[bytes] = []
+            self.executed: list[object] = []
+
+        def append_intent(self, payload: bytes) -> str:
+            self.appended.append(payload)
+            return super().append_intent(payload)
+
+        def execute(self, plan) -> None:
+            self.executed.append(plan)
+
+    port = RecordingPort()
+    monkeypatch.setattr(session_routes, "is_session_port", lambda candidate: session_port and candidate is port)
+    venv = tmp_path / "selected-venv"
+    venv.mkdir()
+    outcome = (
+        _assessment(tmp_path, port, boundary_policy=MINIMAL_POLICY, workflow_venv=venv)
+        if shape == "assessment"
+        else _production_with(tmp_path, port, boundary_policy=MINIMAL_POLICY, workflow_venv=venv)
+    )
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "policy-unconfined"
+    assert outcome.intent is None and outcome.registration is None
+    assert port.appended == []
+    if session_port:
+        assert outcome.report is None and port.executed == []
+    else:
+        assert outcome.report is not None and len(port.executed) == 1
+
+
+@pytest.mark.parametrize("shape", ["assessment", "production"])
+def test_workflow_venv_preserves_permit_and_unknown_policy_precedence(tmp_path, shape):
+    from beliefs.recipe import BoundaryPolicy
+
+    venv = tmp_path / "selected-venv"
+    venv.mkdir()
+    narrow = _NarrowPort(narrowed(kinds=("run", "act-report", "dataset"), families=("corpus-write",)))
+    permit_outcome = (
+        _assessment(tmp_path / "p", narrow, boundary_policy=MINIMAL_POLICY, workflow_venv=venv)
+        if shape == "assessment"
+        else _production_with(tmp_path / "p", narrow, boundary_policy=MINIMAL_POLICY, workflow_venv=venv)
+    )
+    assert isinstance(permit_outcome, RunRefused) and permit_outcome.reason == "permit-exceeded"
+
+    unknown_policy = BoundaryPolicy(identity="boundary-policy/unknown-v9", scope_rule="scope-derivation/v1")
+    port = MemoryPort()
+    unknown_outcome = (
+        _assessment(tmp_path / "u", port, boundary_policy=unknown_policy, workflow_venv=venv)
+        if shape == "assessment"
+        else _production_with(tmp_path / "u", port, boundary_policy=unknown_policy, workflow_venv=venv)
+    )
+    assert isinstance(unknown_outcome, RunRefused) and unknown_outcome.reason == "boundary-policy-unsupported"
+    assert unknown_outcome.intent is None
+
+
+@pytest.mark.parametrize("shape", ["assessment", "production"])
+def test_invalid_workflow_venv_with_confined_policy_refuses_closure_unsupported_after_intent(
+    tmp_path, monkeypatch, shape
+):
+    from beliefs.recipe import CONFINED_POLICY
+
+    monkeypatch.setattr(boundary, "require_host", lambda: None)
+    launches: list[object] = []
+    monkeypatch.setattr(boundary, "launch_confined", lambda **kw: launches.append(kw))
+
+    class RecordingPort(MemoryPort):
+        authority = FULL
+        run_staging = None
+
+        def __init__(self) -> None:
+            self.appended: list[bytes] = []
+            self.fulfilled: list[object] = []
+
+        def append_intent(self, payload: bytes) -> str:
+            self.appended.append(payload)
+            return super().append_intent(payload)
+
+        def execute_fulfilling(self, plan, fulfills: str) -> str:
+            self.fulfilled.append((plan, fulfills))
+            return super().execute_fulfilling(plan, fulfills)
+
+    port = RecordingPort()
+    bad_venv = tmp_path / "not-a-venv"
+    bad_venv.mkdir()
+    export_dir = tmp_path / "export"
+    export_dir.mkdir()
+    outcome = (
+        _assessment(tmp_path, port, boundary_policy=CONFINED_POLICY, workflow_venv=bad_venv)
+        if shape == "assessment"
+        else _production_with(
+            tmp_path, port, boundary_policy=CONFINED_POLICY, workflow_venv=bad_venv, output_dir=export_dir
+        )
+    )
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "closure-unsupported"
+    assert outcome.intent is not None and outcome.report is not None and outcome.registration is not None
+    assert len(port.appended) == 1 and len(port.fulfilled) == 1
+    assert launches == []
+    assert list(export_dir.iterdir()) == []

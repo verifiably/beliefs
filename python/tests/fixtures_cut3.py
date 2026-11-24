@@ -783,6 +783,7 @@ def run_production(
     scratch_base=None,
     output_dir=None,
     kernel_scratch=False,
+    workflow_venv=None,
 ):
     """`kernel_scratch` passes no scratch base, for a run session's port."""
     code, held = stage(tmp_path, snakefile=snakefile, data=data)
@@ -829,6 +830,7 @@ def run_production(
         scratch_base=None if kernel_scratch else scratch_base if scratch_base is not None else tmp_path / "scratch",
         cores=cores,
         output_dir=output_dir,
+        workflow_venv=workflow_venv,
     )
 
 
@@ -843,6 +845,7 @@ def replay_of(
     expected_inputs=None,
     scratch_base=None,
     cores=1,
+    workflow_venv=None,
 ):
     from beliefs.replay import replay
 
@@ -886,6 +889,7 @@ def replay_of(
         host_realization=host_realization,
         scratch_base=scratch_base if scratch_base is not None else tmp_path / "scratch",
         cores=cores,
+        workflow_venv=workflow_venv,
         **extra,
     )
 

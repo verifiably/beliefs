@@ -1301,3 +1301,123 @@ def test_replay_of_production_run_commits_replay_run_record_when_dataset_already
     view = ReadView.opened_at(root)
     assert corpus_check(view, BASE) == ()
     assert audit_corpus(view, evidence=NO_EVIDENCE, profile=BASE) == ()
+
+
+def test_replay_refuses_recipe_mismatch_before_any_engine_launch(tmp_path, monkeypatch):
+    import beliefs.boundary as boundary_module
+
+    # Assessment replay: non-environment recipe drift refuses with zero engine launches.
+    orig_assess = run_assessment(tmp_path / "orig-a")
+    assert isinstance(orig_assess, RunMinted)
+    launches: list[object] = []
+    monkeypatch.setattr(boundary_module, "run_engine", lambda *a, **kw: launches.append((a, kw)))
+    changed_assess = SNAKEFILE_DETERMINISTIC.replace("import pathlib, random", "import pathlib, random  # drift")
+    refused_assess = replay_of(orig_assess, tmp_path / "rep-a", snakefile=changed_assess)
+    assert isinstance(refused_assess, RunRefused)
+    assert refused_assess.reason == "recipe-identity-mismatch"
+    assert refused_assess.intent is not None and refused_assess.report is not None
+    assert launches == []
+
+    # Production replay: non-environment recipe drift refuses with zero engine launches and no exports.
+    monkeypatch.undo()
+    orig_prod = run_production(tmp_path / "orig-p")
+    assert isinstance(orig_prod, RunMinted)
+    monkeypatch.setattr(boundary_module, "run_engine", lambda *a, **kw: launches.append((a, kw)))
+    export_dir = tmp_path / "export-p"
+    export_dir.mkdir()
+    changed_prod = SNAKEFILE_PRODUCTION + "\n# drift\n"
+    refused_prod = replay_of(orig_prod, tmp_path / "rep-p", snakefile=changed_prod)
+    assert isinstance(refused_prod, RunRefused)
+    assert refused_prod.reason == "recipe-identity-mismatch"
+    assert refused_prod.intent is not None and refused_prod.report is not None
+    assert launches == []
+    assert list(export_dir.iterdir()) == []
+
+
+def test_confined_replay_refuses_environment_drift_with_decoded_reference_before_launch(tmp_path, monkeypatch):
+    import beliefs.boundary as boundary_module
+    from beliefs.recipe import CONFINED_POLICY, EnvironmentReference
+    from beliefs.replay import replay
+
+    monkeypatch.setattr(boundary_module, "require_host", lambda: None)
+    launches: list[object] = []
+    monkeypatch.setattr(boundary_module, "launch_confined", lambda **kw: launches.append(kw))
+    monkeypatch.setattr(boundary_module, "materialize_snapshot", lambda *a, **kw: launches.append(("mat", a)))
+
+    orig = run_production(tmp_path / "orig")
+    assert isinstance(orig, RunMinted)
+    # Build a decoded-style historical closure with CONFINED_POLICY and a distinct EnvironmentReference.
+    historical_recipe = dataclasses.replace(
+        orig.run.recipe,
+        boundary_policy=CONFINED_POLICY,
+        environment=EnvironmentReference("sha256:" + "ee" * 32),
+    )
+    historical = dataclasses.replace(orig.run, recipe=historical_recipe)
+
+    from fixtures_cut3 import MEMORY_PORT, definition, stage
+
+    code, held = stage(tmp_path / "rep", snakefile=SNAKEFILE_PRODUCTION)
+    outcome = replay(
+        historical,
+        port=MEMORY_PORT,
+        spec=None,
+        definition=definition(snakefile=SNAKEFILE_PRODUCTION, family_streams={}),
+        code_roots=(code,),
+        held_inputs={DATA_ADDRESS: held / "data.txt"},
+        entrypoint="code/workflow/Snakefile",
+        targets=("outputs/result.txt",),
+        declared_outputs=("outputs/result.txt",),
+        observer="observer-2",
+        started_at="2026-08-12T00:01:00Z",
+        host_realization="host-b",
+        scratch_base=tmp_path / "scratch",
+        workflow_venv=None,
+    )
+    assert isinstance(outcome, RunRefused)
+    assert outcome.reason == "recipe-identity-mismatch"
+    assert outcome.intent is not None and outcome.report is not None
+    assert launches == []
+
+
+def test_replay_forwards_workflow_venv_to_both_executors(monkeypatch, tmp_path):
+    from test_audit import assessment_closure
+
+    from beliefs import replay as replay_module
+
+    frozen = freeze(spec_draft(), held_rules=spec_rules(), **freeze_context())
+    a_closure = assessment_closure(frozen)
+    seen: list[dict] = []
+
+    def capture(**kwargs):
+        seen.append(kwargs)
+        return "ok"
+
+    monkeypatch.setattr(replay_module, "execute_assessment_run", capture)
+    monkeypatch.setattr(replay_module, "execute_production_run", capture)
+    venv = tmp_path / "wf-venv"
+    common = {
+        "port": object(),
+        "definition": a_closure.recipe.workflow_definition,
+        "code_roots": (),
+        "held_inputs": {},
+        "entrypoint": "e",
+        "targets": ("t",),
+        "declared_outputs": tuple(n for n, _ in a_closure.result.outputs),
+        "observer": "o",
+        "started_at": "2026-09-09T00:00:00Z",
+        "host_realization": "h",
+        "scratch_base": tmp_path,
+        "workflow_venv": venv,
+    }
+    replay_module.replay(a_closure, spec=frozen, **common)
+    p_closure = dataclasses.replace(
+        a_closure,
+        recipe=dataclasses.replace(
+            a_closure.recipe,
+            shape="dataset-production",
+            spec_identity=None,
+            inputs=(),
+        ),
+    )
+    replay_module.replay(p_closure, spec=None, **common)
+    assert [call["workflow_venv"] for call in seen] == [venv, venv]

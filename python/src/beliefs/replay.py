@@ -137,6 +137,7 @@ def replay(
     code_roots: tuple[Path, ...],
     held_inputs: Mapping[str, Path | Mapping[str, Path | HeldTree]],
     expected_inputs: Mapping[str, str | Mapping[str, str]] | None = None,
+    workflow_venv: Path | None = None,
     entrypoint: str,
     targets: tuple[str, ...],
     declared_outputs: tuple[str, ...],
@@ -164,6 +165,7 @@ def replay(
         "cores": cores,
         "port": port,
         "boundary_policy": closure.recipe.boundary_policy,
+        "workflow_venv": workflow_venv,
     }
     recipe = closure.recipe
     common["expected_recipe_identity"] = recipe.identity()
