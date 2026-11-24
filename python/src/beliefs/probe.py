@@ -244,7 +244,10 @@ def _listing(loader: str, path: str, library_path: tuple[str, ...]) -> dict[str,
     completed = subprocess.run(argv, capture_output=True, text=True, check=False)
     resolved: dict[str, list[str]] = {}
     unresolved: list[str] = []
-    for line in completed.stdout.splitlines():
+    non_empty = [line for line in completed.stdout.splitlines() if line.strip()]
+    if len(non_empty) == 1 and non_empty[0].strip() == "statically linked":
+        return {"returncode": completed.returncode, "resolved": resolved, "unresolved": unresolved}
+    for line in non_empty:
         parts = line.split()
         if not parts or parts[0].startswith(("linux-vdso", "linux-gate")) or parts[0].startswith("/"):
             continue

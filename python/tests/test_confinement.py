@@ -708,3 +708,28 @@ def test_the_bwrap_argv_binds_then_remounts_the_root_read_only_and_gates_through
     assert ("--report-fd", "8") == argv[argv.index("--report-fd") : argv.index("--report-fd") + 2]
     assert ("--go-fd", "9") == argv[argv.index("--go-fd") : argv.index("--go-fd") + 2]
     assert "--proc" not in argv and "--dev" not in argv
+
+
+def test_probe_listing_accepts_sole_statically_linked_and_flags_mixed(monkeypatch):
+    import subprocess
+
+    from beliefs import probe
+
+    monkeypatch.setattr(
+        probe.subprocess,
+        "run",
+        lambda *a, **kw: subprocess.CompletedProcess(a[0], 0, stdout="\tstatically linked\n", stderr=""),
+    )
+    assert probe._listing("/lib64/ld-linux-x86-64.so.2", "/science/env/lib/zero.so", ()) == {
+        "returncode": 0,
+        "resolved": {},
+        "unresolved": [],
+    }
+
+    monkeypatch.setattr(
+        probe.subprocess,
+        "run",
+        lambda *a, **kw: subprocess.CompletedProcess(a[0], 0, stdout="\tstatically linked\n\tbogus\n", stderr=""),
+    )
+    bad = probe._listing("/lib64/ld-linux-x86-64.so.2", "/science/env/lib/bad.so", ())
+    assert bad["unresolved"] == ["statically linked", "bogus"]

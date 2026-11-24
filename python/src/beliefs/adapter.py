@@ -887,8 +887,11 @@ def _elf_library_path(path: Path) -> tuple[str, ...]:
 
 
 def _parse_listing(text: str) -> dict[str, Path]:
+    non_empty = [line for line in text.splitlines() if line.strip()]
+    if len(non_empty) == 1 and non_empty[0].strip() == "statically linked":
+        return {}
     listing: dict[str, Path] = {}
-    for line in text.splitlines():
+    for line in non_empty:
         parts = line.split()
         if not parts or parts[0].startswith(("linux-vdso", "linux-gate")) or parts[0].startswith("/"):
             continue

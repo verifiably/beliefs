@@ -1206,3 +1206,11 @@ def test_selected_venv_native_allowlist_admits_bundled_origin_and_refuses_out_of
     monkeypatch.setattr(adapter_module, "loader_listing", listing_unresolved)
     with pytest.raises(ClosureUnsupported, match="does not resolve"):
         capture_closure(workflow_venv=venv)
+
+
+def test_parse_listing_accepts_sole_statically_linked_and_rejects_mixed():
+    from beliefs.adapter import _parse_listing
+
+    assert _parse_listing("\tstatically linked\n") == {}
+    with pytest.raises(ClosureUnsupported, match="unparseable loader line"):
+        _parse_listing("\tstatically linked\n\tgarbage line\n")
