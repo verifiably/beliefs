@@ -241,6 +241,18 @@ The `science` layer writes through a session:
 5. `close_invocation(id, outcome)` writes `invocation-close`, and `close()` writes
    `session-close` and releases the session's chain claims.
 
+**Stopping a governed job.** The scheduler calls `govern_job(invocation, phase)` on
+the claimed invocation before the confined run or assessment replay. The kernel
+binds the run intent and its event token to both successive bubblewrap children.
+`begin_close(cause, timeout)` closes ordinary writer admission under the session
+lock and returns a stop handle. Its `sweep()` signals the identified active child
+through its pinned pidfd. After the child exits and the kernel verifies the
+closure, only the matching terminal cancellation report can register, once.
+The scheduler drains the invocation and then calls `seal(timeout)` for the final
+tips. If an independently failed child passed the closure check before the cutoff
+but its registration was cut, the handle retains that observation for the host.
+A missing or ambiguous terminal result leaves the intent unfulfilled.
+
 **Sealing a run session.** `seal(timeout)` ends a run session's writing and returns
 `SealedTips(corpus, store)`, each a `ChainTip(chain_id, genesis, tip)`: `chain_id`
 is the corpus id or the store id, `genesis` and `tip` are entry digests, and

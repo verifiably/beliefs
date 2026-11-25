@@ -9,6 +9,14 @@ reference documents are [contracts.md](contracts.md), which covers the contracts
 that declare kinds, facets and vocabulary, and [writes.md](writes.md), which covers
 how a record reaches a corpus.
 
+A confirmed stop of a governed run fulfills its existing intent with a
+`run-attempt` act-report bearing the same event token and the `run-cancelled`
+refusal reason. The registration and ledger act use the ordinary formats.
+If an independent failure reached the writer before close, its ordinary report
+stands. If only the failure was observed, the closing handle exposes the
+invocation, phase, intent digest and process return code to the scheduler;
+the ledger still has an unfulfilled intent.
+
 ## Corpus
 
 A corpus is a directory of records with a `corpus.yaml` manifest. The manifest has

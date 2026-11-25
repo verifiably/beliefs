@@ -42,6 +42,7 @@ from beliefs.root import log_seam, moment_seam, open_world
 from beliefs.runrecord import OperationPort
 from beliefs.sealed import sealed
 from beliefs.session.claim import ChainClaim
+from beliefs.session.job_stop import GovernedJob, JobStop
 from beliefs.session.ledger import (
     TRANSITIONS,
     ActLine,
@@ -331,9 +332,12 @@ class WriterSession:
         # The depth of `_hold`s on the lock, changed only while it is held, so a
         # hold that sees zero is its holder's outermost.
         self._hold_depth = 0
+        self._terminal_writing = False
         # Set by `seal()` without the lock; read by `_hold`, `claim_invocation`
         # and `select_project` under it.
         self._sealed = False
+        self._job: GovernedJob | None = None
+        self._stop: JobStop | None = None
         self._index: dict[str, _Invocation] = {}
         self._current: str | None = None
         self._closed = False
@@ -446,6 +450,7 @@ class WriterSession:
             self._ledger.append({"line": "invocation-close", "invocation": invocation, "outcome": validated})
             self._index[invocation].outcome = validated
             self._current = None
+            self._job = None
             if self._staging is not None:
                 self._staging.release(invocation)
 
@@ -611,6 +616,40 @@ class WriterSession:
         self._record_committed(invocation, intent=commit.intent_digest, entry=commit.entry_digest, records=records)
 
     # --- the seal ------------------------------------------------------------------
+    def govern_job(self, invocation: str, phase: str) -> None:
+        """Bind the trusted scheduler's admitted job before it enters the run boundary."""
+        if not self.run or phase not in ("original", "replay"):
+            raise SessionProtocolError("expected a governed run job")
+        with self._hold(invocation):
+            expected = "run" if phase == "original" else "verify"
+            if self._index[invocation].command != expected:
+                raise SessionProtocolError("governed job phase differs from the claimed command")
+            if self._job is not None:
+                raise SessionProtocolError("another governed job is outstanding")
+            self._job = GovernedJob(self._lock, invocation, phase)
+
+    def begin_close(self, cause: str, timeout: float) -> JobStop:
+        """Cut new acts and capture the first stop cause under the writer lock."""
+        if not self.run or cause not in ("stop", "lease", "eof", "term"):
+            raise SessionProtocolError("invalid run close")
+        _require_seal_timeout(timeout)
+        if not self._lock.acquire(timeout=timeout):
+            raise SealTimeout("the current act did not drain before cutoff")
+        try:
+            self._require_live()
+            if self._hold_depth or self._terminal_writing:
+                raise SessionProtocolError("begin_close() inside an act")
+            if self._stop is None:
+                if self._sealed:
+                    raise SessionSealed("the session was already sealed")
+                self._sealed = True
+                if self._job is not None:
+                    self._job.cut = True
+                self._stop = JobStop(cause, self._job)
+            return self._stop
+        finally:
+            self._lock.release()
+
     def seal(self, timeout: float) -> SealedTips:
         """Seal a run session and return its written chains' tips.
 
@@ -639,9 +678,11 @@ class WriterSession:
         if not self._lock.acquire(timeout=timeout):
             raise SealTimeout(f"a hold begun before the seal did not drain within {timeout} s")
         try:
-            if self._hold_depth:  # under the lock, only the caller's own hold
+            if self._hold_depth or self._terminal_writing:  # under the lock, only the caller's own hold
                 raise SessionProtocolError("seal() called from inside an act's hold")
             self._require_live()
+            if self._job is not None:
+                self._job.final = True
             corpus = _sealed_tip(self.corpus_id, self.corpus_root)
             store = None
             if self.store_root is not None and self.store_id is not None:
@@ -662,7 +703,7 @@ class WriterSession:
         would then commit past a completed ledger. After a `SealTimeout`, close
         waits without limit for the hold the seal could not outwait."""
         with self._lock:
-            if self._hold_depth:  # under the lock, only the caller's own hold
+            if self._hold_depth or self._terminal_writing:  # under the lock, only the caller's own hold
                 raise SessionProtocolError("close() called from inside an act's hold")
             try:
                 if self._ledger.failed:

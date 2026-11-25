@@ -139,6 +139,7 @@ from beliefs.tree import TREE_ALGORITHM, object_path, parse_tree_file
 
 if TYPE_CHECKING:
     from beliefs.corpus import ReadView
+    from beliefs.session.job_stop import GovernedJob
     from beliefs.session.staging import RunStaging
 
 __all__ = [
@@ -1037,8 +1038,24 @@ def _check_staged_series(
     _check_series_inputs(checked, spec.input_roles, records, profile)
 
 
+def _bind_job(port, fulfills, intent, subject, actor, observer, started_at):
+    from beliefs.session.routes import _bind_run_job
+
+    def cancelled():
+        return _report_plan(_refused("run-cancelled", subject, actor, observer, started_at, intent).report)
+
+    return _bind_run_job(port, fulfills, cancelled)
+
+
+def _terminal_report_plan(job: GovernedJob | None, result: RunRefused) -> WritePlan:
+    if job is not None and job.confirmed and result.reason == "run-cancelled" and job.cancel_plan is not None:
+        return job.cancel_plan
+    return _report_plan(result.report)
+
+
 def _execute_run(
     *,
+    job: GovernedJob | None = None,
     intent: AssessmentRunIntent | OperationIntent,
     subject: str,
     spec: FrozenSpec | None,
@@ -1086,6 +1103,7 @@ def _execute_run(
         expected = expected_inputs if spec is not None else _bind_recipe_inputs(inputs, expected_inputs)
         if boundary_policy == CONFINED_POLICY:
             return _execute_confined(
+                job=job,
                 intent=intent,
                 subject=subject,
                 spec=spec,
@@ -1247,6 +1265,7 @@ def _execute_run(
 
 def _execute_confined(
     *,
+    job: GovernedJob | None = None,
     intent: AssessmentRunIntent | OperationIntent,
     subject: str,
     spec: FrozenSpec | None,
@@ -1371,6 +1390,7 @@ def _execute_confined(
             staging[0].check_binds(planning_plan, staging[1])
         with pinned_directory(planning_root) as reports_fd:
             planning_result = launch_confined(
+                job=job,
                 plan=planning_plan,
                 environment=environment,
                 inner_argv=planning_argv,
@@ -1387,6 +1407,8 @@ def _execute_confined(
                 probe=probe_path,
                 probe_digest=probe_digest,
             )
+            if job is not None and job.checked_exit(planning_result.returncode):
+                return _refused("run-cancelled", subject, actor, observer, started_at, intent)
             if planning_result.returncode != 0:
                 raise PlanUnavailable(f"the confined planning launch exited {planning_result.returncode}")
             planned_jobs = read_plan(Path(TRACE_DIR) / "events.jsonl", output_fd=reports_fd)
@@ -1430,6 +1452,7 @@ def _execute_confined(
     _check_staged_series(spec, profile, records, series_evidence, output_root, held_inputs, staged)
     with pinned_directory(output_root) as reports_fd:
         launched = launch_confined(
+            job=job,
             plan=execution_plan,
             environment=environment,
             inner_argv=execution_argv,
@@ -1446,6 +1469,8 @@ def _execute_confined(
             probe=probe_path,
             probe_digest=probe_digest,
         )
+        if job is not None and job.checked_exit(launched.returncode):
+            return _refused("run-cancelled", subject, actor, observer, started_at, intent)
         if launched.returncode != 0:
             return _refused(
                 "execution-failed", subject, actor, observer, started_at, intent, detail=launched.output[-2000:]
@@ -1539,9 +1564,11 @@ def execute_assessment_run(
     fulfills = port.append_intent(_intent_wire(intent))
     staged_trees: list[Path] = []
     try:
+        job = _bind_job(port, fulfills, intent, spec.identity, actor, observer, started_at)
         result = _execute_run(
             intent=intent,
             subject=spec.identity,
+            job=job,
             spec=spec,
             inputs=(),
             parameters={},
@@ -1573,7 +1600,7 @@ def execute_assessment_run(
         _, _, plan = publication_plan(result.run)
         port.execute_fulfilling(plan, fulfills)
     else:
-        port.execute_fulfilling(_report_plan(result.report), fulfills)
+        port.execute_fulfilling(_terminal_report_plan(job, result), fulfills)
     return result
 
 
@@ -1671,9 +1698,11 @@ def execute_production_run(
     created_dirs: list[Path] = []
     staged_trees: list[Path] = []
     try:
+        job = _bind_job(port, fulfills, intent, "absent", actor, observer, started_at)
         result = _execute_run(
             intent=intent,
             subject="absent",
+            job=job,
             spec=None,
             inputs=inputs,
             parameters=parameters,
@@ -1745,5 +1774,5 @@ def execute_production_run(
             _cleanup_exported(created_files, created_dirs)
             result = _refused(reason, "absent", actor, observer, started_at, intent)
     else:
-        port.execute_fulfilling(_report_plan(result.report), fulfills)
+        port.execute_fulfilling(_terminal_report_plan(job, result), fulfills)
     return result

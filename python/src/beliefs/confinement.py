@@ -19,10 +19,11 @@ import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
-from typing import cast, final
+from typing import TYPE_CHECKING, cast, final
 
 from beliefs import probe as _probe_module
 from beliefs.adapter import (
@@ -43,6 +44,10 @@ from beliefs.errors import (
 )
 from beliefs.recipe import CAPABILITIES, NAMESPACES, mount_plan_identity
 from beliefs.sealed import sealed
+
+if TYPE_CHECKING:
+    from beliefs.session.job_stop import GovernedJob
+
 
 __all__ = [
     "BUNDLE_ROOT",
@@ -678,6 +683,7 @@ _PROTOCOL_FAILURES = (ConfinementNotEstablished, OSError, ValueError, TypeError,
 
 def launch_confined(
     *,
+    job: GovernedJob | None = None,
     plan: MountPlan,
     environment: tuple[tuple[str, str], ...],
     inner_argv: tuple[str, ...],
@@ -701,8 +707,9 @@ def launch_confined(
     go_r, go_w = os.pipe()
     open_fds = {info_r, info_w, report_r, report_w, go_r, go_w}
     argv = bwrap_argv(plan, environment, inner_argv, bwrap=bwrap, info_fd=info_w, report_fd=report_w, go_fd=go_r)
-    try:
-        process = subprocess.Popen(
+
+    def spawn() -> subprocess.Popen[str]:
+        return subprocess.Popen(
             list(argv),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
@@ -711,9 +718,45 @@ def launch_confined(
             pass_fds=(info_w, report_w, go_r),
             env={},
         )
+
+    try:
+        with job.child(spawn) if job is not None else nullcontext(spawn()) as process:
+            return _drive_probe(
+                process,
+                open_fds,
+                info_w,
+                report_w,
+                go_r,
+                info_r,
+                report_r,
+                go_w,
+                plan,
+                environment,
+                captured,
+                inner_argv,
+                probe_digest,
+            )
     except OSError as failure:
+        raise ConfinementNotEstablished(f"bubblewrap launch failed: {failure}") from failure
+    finally:
         _close(open_fds, *tuple(open_fds))
-        raise ConfinementNotEstablished(f"bubblewrap could not be started: {failure}") from failure
+
+
+def _drive_probe(
+    process,
+    open_fds,
+    info_w,
+    report_w,
+    go_r,
+    info_r,
+    report_r,
+    go_w,
+    plan,
+    environment,
+    captured,
+    inner_argv,
+    probe_digest,
+) -> Launch:
     try:
         _close(open_fds, info_w, report_w, go_r)
         child = _read_info(info_r)

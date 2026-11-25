@@ -1465,3 +1465,37 @@ def test_a_failed_staging_pin_releases_the_claims(certified_work, monkeypatch):
             config, certified_work / "ops", write_root=root, profile=BASE, ceiling=RUN_CEILING, store_root=store
         )
     assert _claimable(root, "write root") and _claimable(store, "store root")
+
+
+@pytest.mark.parametrize("cut_launch", [1, 2], ids=["planning", "execution"])
+def test_governed_job_can_be_cut_in_either_confined_launch(certified_work, monkeypatch, cut_launch):
+    from beliefs import confinement
+
+    session = _durable_run_session(certified_work)
+    issued = 0
+    write = confinement.os.write
+
+    def write_and_cut(fd, data):
+        nonlocal issued
+        count = write(fd, data)
+        if data == b"GO\n":
+            issued += 1
+            if issued == cut_launch:
+                session.begin_close("stop", 5).sweep()
+        return count
+
+    try:
+        session.claim_invocation("A", "run", DIGEST)
+        session.govern_job("A", "original")
+        port = session.scoped(RUNS, "A").operation_port()
+        monkeypatch.setattr(confinement.os, "write", write_and_cut)
+        result = run_production(certified_work / "A", port=port, boundary_policy=CONFINED_POLICY, kernel_scratch=True)
+        assert issued == cut_launch
+        assert type(result) is RunRefused and result.reason == "run-cancelled"
+        assert session.begin_close("lease", 5).observation() is None
+        (act,) = session.invocation_acts("A")
+        assert len(_registered(session.corpus_root, act.intent)) == 1
+        session.close_invocation("A", {"done": [list(pair) for pair in act.record_ids]})
+        session.seal(5)
+    finally:
+        session.close()

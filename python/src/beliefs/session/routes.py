@@ -17,6 +17,7 @@ from beliefs.profile import ProfileSpec
 from beliefs.runrecord import GuardedCommit, OperationPort
 
 if TYPE_CHECKING:
+    from beliefs.session.job_stop import GovernedJob
     from beliefs.session.staging import RunStaging
     from beliefs.session.writer import WriterSession
 
@@ -71,11 +72,39 @@ class LedgeredPort:
     def execute(self, plan: WritePlan) -> None:
         raise SessionProtocolError("a session route commits only fulfilling writes")
 
+    @contextmanager
+    def _terminal_hold(self, plan: WritePlan, intent: str) -> Iterator[None]:
+        session = self._session
+        with session._lock:
+            job = session._job
+            if (
+                job is not None
+                and job.cut
+                and job.confirmed
+                and not job.final
+                and not job.consumed
+                and job.invocation == self._invocation
+                and job.intent == intent
+                and job.cancel_plan == plan
+            ):
+                session._require_current(self._invocation)
+                job.consumed = True
+                session._terminal_writing = True
+                try:
+                    yield
+                finally:
+                    session._terminal_writing = False
+            else:
+                with session._hold(self._invocation):
+                    yield
+
     def execute_fulfilling(self, plan: WritePlan, fulfills: str) -> str:
-        with self._session._hold(self._invocation):
+        with self._terminal_hold(plan, fulfills):
             records = plan_records(plan)
             entry = self._inner.execute_fulfilling(plan, fulfills)
             self._session._record_committed(self._invocation, intent=fulfills, entry=entry, records=records)
+            if self._session._job is not None and self._session._job.intent == fulfills:
+                self._session._job = None
             return entry
 
     def execute_fulfilling_guarded(
@@ -103,6 +132,8 @@ class LedgeredPort:
             commit = self._inner.execute_fulfilling_guarded(plan, fulfills, guard=guard, fallback=checked_fallback)
             committed = records if commit.reason is None else chosen[0]
             self._session._record_committed(self._invocation, intent=fulfills, entry=commit.entry, records=committed)
+            if self._session._job is not None and self._session._job.intent == fulfills:
+                self._session._job = None
             return commit
 
 
@@ -110,6 +141,19 @@ def is_session_port(port: object) -> TypeGuard[LedgeredPort]:
     """Whether `port` is exactly a session's `LedgeredPort`, attended or run: a port
     that commits only fulfilling writes."""
     return type(port) is LedgeredPort
+
+
+def _bind_run_job(port: OperationPort, intent: str, cancelled: Callable[[], WritePlan]) -> GovernedJob | None:
+    if not is_session_port(port):
+        return None
+    with port._session._hold(port._invocation):
+        job = port._session._job
+        if job is not None:
+            if job.invocation != port._invocation or job.intent is not None:
+                raise SessionProtocolError("the scheduler did not admit this run intent")
+            job.intent = intent
+            job.cancel_plan = cancelled()
+        return job
 
 
 def run_staging_of(port: object) -> tuple[RunStaging, str] | None:

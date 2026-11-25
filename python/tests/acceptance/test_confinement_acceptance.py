@@ -285,7 +285,7 @@ def test_a_bundled_file_edited_after_exit_yields_no_run(tmp_path, shared_scratch
     real_launch = boundary_module.launch_confined
     launches = 0
 
-    def launch_then_edit(*, plan, environment, inner_argv, captured, probe_digest):
+    def launch_then_edit(*, plan, environment, inner_argv, captured, probe_digest, job=None):
         nonlocal launches
         result = real_launch(
             plan=plan,
@@ -310,7 +310,7 @@ def test_a_staged_probe_mutated_after_launch_refuses_with_closure_mutated(tmp_pa
     real_launch = boundary_module.launch_confined
     launches = 0
 
-    def launch_then_tamper(*, plan, environment, inner_argv, captured, probe_digest):
+    def launch_then_tamper(*, plan, environment, inner_argv, captured, probe_digest, job=None):
         nonlocal launches
         result = real_launch(
             plan=plan,

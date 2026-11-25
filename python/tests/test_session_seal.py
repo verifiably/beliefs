@@ -586,3 +586,139 @@ def test_an_unsealed_sessions_next_act_lands(tmp_path):
     assert len(session.invocation_acts("A")) == 2
     session.close_invocation("A", {"done": []})
     session.close()
+
+
+@pytest.mark.parametrize("commit_before_seal", [False, True])
+def test_independent_process_failure_at_the_terminal_registration_boundary(certified_work, commit_before_seal):
+    import subprocess
+    import sys
+
+    from beliefs.boundary import _intent_wire, _refused, _report_plan
+    from beliefs.permit import RequiredCapabilities
+    from beliefs.report import OperationIntent
+
+    session = _run_session(certified_work)
+    try:
+        session.claim_invocation("job", "run", DIGEST)
+        requirement = RequiredCapabilities.for_kinds({"act-report", "run"}, {"act-report": "run", "run": "run"})
+        port = session.scoped(requirement, "job").operation_port()
+        intent = OperationIntent("run-attempt", "1" * 32, session.actor)
+        session.govern_job("job", "original")
+        entry = port.append_intent(_intent_wire(intent))
+        from beliefs.boundary import _bind_job
+
+        job = _bind_job(port, entry, intent, "absent", session.actor, session.actor, "2026-11-24T00:00:00Z")
+        assert job is not None
+        child = subprocess.run(
+            [sys.executable, "-I", "-S", "-c", "raise SystemExit(1)"],
+            env={"HOME": str(certified_work), "PATH": "/usr/bin"},
+            timeout=5,
+            check=False,
+        )
+        assert child.returncode == 1
+        assert not job.checked_exit(child.returncode)
+        result = _refused("execution-failed", "absent", session.actor, session.actor, "2026-11-24T00:00:00Z", intent)
+        plan = _report_plan(result.report)
+        if commit_before_seal:
+            port.execute_fulfilling(plan, entry)
+        stop = session.begin_close("stop", WAIT)
+        observed = stop.observation()
+        if commit_before_seal:
+            assert observed is None
+        else:
+            assert observed is not None
+            assert (observed.intent, observed.returncode) == (entry, 1)
+        tips = session.seal(WAIT)
+        if not commit_before_seal:
+            with pytest.raises(SessionSealed):
+                port.execute_fulfilling(plan, entry)
+        assert len(_registered(session.corpus_root, entry)) == int(commit_before_seal)
+        assert len(session.invocation_acts("job")) == int(commit_before_seal)
+        assert _detached_tip(session.corpus_id, session.corpus_root) == tips.corpus
+    finally:
+        session.close()
+
+
+def test_begin_close_freezes_new_acts_and_keeps_first_cause(tmp_path, monkeypatch):
+    _stub_views(monkeypatch)
+    session, _ = make_session(tmp_path, run=True)
+    try:
+        session.claim_invocation("A", "mint", DIGEST)
+        writer = session.scoped(PROPOSITIONS, "A")
+        writer.add(proposition("first"))
+        stop = session.begin_close("lease", WAIT)
+        assert session.begin_close("stop", WAIT) is stop
+        assert stop.cause == "lease"
+        assert stop.observation() is None
+        with pytest.raises(SessionSealed):
+            writer.add(proposition("second"))
+        assert len(session.invocation_acts("A")) == 1
+        assert session.seal(WAIT).corpus.tip == GENESIS_DIGEST
+    finally:
+        session.close()
+
+
+@pytest.mark.parametrize("phase", ["original", "replay"])
+def test_sweeping_an_identified_live_child_allows_one_kernel_terminal_report(certified_work, phase, monkeypatch):
+    import signal
+    import subprocess
+    import sys
+
+    from beliefs.boundary import _bind_job, _intent_wire, _refused, _report_plan, _terminal_report_plan
+    from beliefs.report import OperationIntent
+
+    session = _run_session(certified_work)
+    try:
+        session.claim_invocation("A", "run" if phase == "original" else "verify", DIGEST)
+        session.govern_job("A", phase)
+        required = RequiredCapabilities.for_kinds({"act-report", "run"}, {"act-report": "run", "run": "run"})
+        port = session.scoped(required, "A").operation_port()
+        intent = OperationIntent("run-attempt", "1" * 32, session.actor)
+        context = ("absent", session.actor, session.actor, "2026-11-24T00:00:00Z", intent)
+        digest = port.append_intent(_intent_wire(intent))
+        job = _bind_job(port, digest, intent, *context[:-1])
+
+        def spawn():
+            return subprocess.Popen(
+                [sys.executable, "-I", "-S", "-c", "import sys; sys.stdin.read()"],
+                env={"HOME": str(certified_work), "PATH": "/usr/bin"},
+                stdin=subprocess.PIPE,
+                text=True,
+            )
+
+        assert job is not None
+        with job.child(spawn) as child:
+            try:
+                stop = session.begin_close("lease", WAIT)
+                stop.sweep()
+                assert child.wait(timeout=5) == -signal.SIGKILL
+            finally:
+                child.kill()
+                child.communicate()
+        assert job.checked_exit(child.returncode)
+        assert stop.observation() is None
+        cancelled = _terminal_report_plan(job, _refused("run-cancelled", *context))
+        with pytest.raises(SessionSealed):
+            port.execute_fulfilling(_report_plan(_refused("execution-failed", *context).report), digest)
+        # A same-thread final seal must never observe tips partway through this registration.
+        from beliefs.session.routes import LedgeredPort
+
+        assert isinstance(port, LedgeredPort)
+        inner = port._inner
+        commit = type(inner).execute_fulfilling
+
+        def inspect_during_commit(self, plan, fulfills):
+            with pytest.raises(SessionProtocolError):
+                session.seal(WAIT)
+            return commit(self, plan, fulfills)
+
+        monkeypatch.setattr(type(inner), "execute_fulfilling", inspect_during_commit)
+        port.execute_fulfilling(cancelled, digest)
+        with pytest.raises(SessionSealed):
+            port.execute_fulfilling(cancelled, digest)
+        assert len(_registered(session.corpus_root, digest)) == 1
+        assert len(session.invocation_acts("A")) == 1
+        tips = session.seal(WAIT)
+        assert _detached_tip(session.corpus_id, session.corpus_root) == tips.corpus
+    finally:
+        session.close()
