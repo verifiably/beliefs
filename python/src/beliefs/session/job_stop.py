@@ -39,8 +39,9 @@ class FailureObservation:
 
 
 class GovernedJob:
-    def __init__(self, lock: threading.RLock, invocation: str, phase: str) -> None:
+    def __init__(self, lock: threading.RLock, invocation: str, phase: str, closing: Callable[[], bool]) -> None:
         self.lock = lock
+        self._closing = closing
         self.invocation = invocation
         self.phase = phase
         self.intent: str | None = None
@@ -56,7 +57,7 @@ class GovernedJob:
     @contextmanager
     def child(self, spawn: Callable[[], Popen[str]]) -> Iterator[Popen[str]]:
         with self.lock:
-            if self.cut or self.final:
+            if self._closing() or self.final:
                 raise SessionSealed("the governed job cannot launch after the cutoff")
             process = spawn()
             try:
@@ -101,7 +102,7 @@ class GovernedJob:
             if type(code) is int and self.intent is not None:
                 if self.cut and self._signalled and code == -signal.SIGKILL:
                     self.confirmed = True
-                elif not self.cut and code != 0:
+                elif not self._closing() and code != 0:
                     self.failure = FailureObservation(self.invocation, self.phase, self.intent, code)
             return self.confirmed
 

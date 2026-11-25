@@ -336,6 +336,8 @@ class WriterSession:
         # Set by `seal()` without the lock; read by `_hold`, `claim_invocation`
         # and `select_project` under it.
         self._sealed = False
+        self._cutoff_lock = threading.Lock()
+        self._closing_cause: str | None = None
         self._job: GovernedJob | None = None
         self._stop: JobStop | None = None
         self._index: dict[str, _Invocation] = {}
@@ -626,13 +628,22 @@ class WriterSession:
                 raise SessionProtocolError("governed job phase differs from the claimed command")
             if self._job is not None:
                 raise SessionProtocolError("another governed job is outstanding")
-            self._job = GovernedJob(self._lock, invocation, phase)
+            self._job = GovernedJob(self._lock, invocation, phase, lambda: self._sealed)
 
     def begin_close(self, cause: str, timeout: float) -> JobStop:
         """Cut new acts and capture the first stop cause under the writer lock."""
         if not self.run or cause not in ("stop", "lease", "eof", "term"):
             raise SessionProtocolError("invalid run close")
         _require_seal_timeout(timeout)
+        # A busy writer may reacquire its RLock before a waiting closer.
+        # Latch admissions before the bounded wait; an entered outer hold drains.
+        with self._cutoff_lock:
+            if self._closing_cause is None:
+                if self._sealed:
+                    raise SessionSealed("the session was already sealed")
+                self._closing_cause = cause
+                self._sealed = True
+            first_cause = self._closing_cause
         if not self._lock.acquire(timeout=timeout):
             raise SealTimeout("the current act did not drain before cutoff")
         try:
@@ -640,12 +651,9 @@ class WriterSession:
             if self._hold_depth or self._terminal_writing:
                 raise SessionProtocolError("begin_close() inside an act")
             if self._stop is None:
-                if self._sealed:
-                    raise SessionSealed("the session was already sealed")
-                self._sealed = True
                 if self._job is not None:
                     self._job.cut = True
-                self._stop = JobStop(cause, self._job)
+                self._stop = JobStop(first_cause, self._job)
             return self._stop
         finally:
             self._lock.release()

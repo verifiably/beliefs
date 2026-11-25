@@ -722,3 +722,31 @@ def test_sweeping_an_identified_live_child_allows_one_kernel_terminal_report(cer
         assert _detached_tip(session.corpus_id, session.corpus_root) == tips.corpus
     finally:
         session.close()
+
+
+def test_governed_cut_timeout_refuses_the_next_phase_on_the_same_worker(tmp_path, monkeypatch):
+    _stub_views(monkeypatch)
+    session, _ = make_session(tmp_path, run=True)
+    session.claim_invocation("A", "verify", DIGEST)
+    writer = session.scoped(PROPOSITIONS, "A")
+    inside, release = _block_record_act(session, monkeypatch)
+
+    def phases():
+        writer.add(proposition("entered"))
+        writer.add(proposition("continuation"))
+
+    worker = _Run("worker", phases)
+    worker.start()
+    try:
+        assert inside.wait(WAIT)
+        with pytest.raises(SealTimeout):
+            session.begin_close("lease", 0)
+    finally:
+        release.set()
+        worker.join(WAIT)
+    try:
+        assert isinstance(worker.raised, SessionSealed)
+        assert len(session.invocation_acts("A")) == 1
+        assert session.begin_close("stop", WAIT).cause == "lease"
+    finally:
+        session.close()

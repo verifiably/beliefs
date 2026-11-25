@@ -712,3 +712,5 @@ that was not read is not classified.
 
 **Gaps.** Reconciliation reports, but it writes nothing and recovers nothing. A
 contended or refused write is not retried automatically; the caller retries it.
+
+The governed close latches the first cause and closes admission before waiting for an entered writer hold. A timeout leaves admission closed. A nested phase of the entered hold may drain, but the next outer hold or confined launch cannot start.
